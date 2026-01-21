@@ -14,6 +14,7 @@ import {
   LogOut,
   Building2,
   Bell,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +31,7 @@ const navItems = [
   { path: '/clientes', label: 'Clientes', icon: Users },
   { path: '/contratos', label: 'Contratos', icon: FileText },
   { path: '/alertas', label: 'Alertas', icon: Bell },
+  { path: '/usuarios', label: 'Usuários', icon: UserCog, adminOnly: true },
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
   { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload },
   { path: '/integracoes', label: 'Integrações', icon: Plug },
@@ -77,52 +79,54 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 overflow-y-auto scrollbar-thin">
         <ul className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path || 
-              (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
-            const Icon = item.icon;
-            
-            const linkContent = (
-              <Link
-                to={item.path}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-                  'hover:bg-sidebar-accent',
-                  isActive && 'bg-sidebar-accent text-sidebar-primary',
-                  !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
-                )}
-              >
-                <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-sidebar-primary')} />
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="text-sm font-medium"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </Link>
-            );
-            
-            return (
-              <li key={item.path}>
-                {collapsed ? (
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      {linkContent}
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="font-medium">
+          {navItems
+            .filter(item => !item.adminOnly || user?.role === 'c-level')
+            .map((item) => {
+              const isActive = location.pathname === item.path || 
+                (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+              const Icon = item.icon;
+              
+              const linkContent = (
+                <Link
+                  to={item.path}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+                    'hover:bg-sidebar-accent',
+                    isActive && 'bg-sidebar-accent text-sidebar-primary',
+                    !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
+                  )}
+                >
+                  <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-sidebar-primary')} />
+                  {!collapsed && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-sm font-medium"
+                    >
                       {item.label}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  linkContent
-                )}
-              </li>
-            );
-          })}
+                    </motion.span>
+                  )}
+                </Link>
+              );
+              
+              return (
+                <li key={item.path}>
+                  {collapsed ? (
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        {linkContent}
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="font-medium">
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    linkContent
+                  )}
+                </li>
+              );
+            })}
         </ul>
       </nav>
       
