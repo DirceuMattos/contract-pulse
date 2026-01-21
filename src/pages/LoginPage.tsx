@@ -1,19 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Building2, Mail, Lock, ChevronDown, ArrowRight } from 'lucide-react';
+import { Building2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -22,9 +14,8 @@ export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
   
-  const [email, setEmail] = useState('admin@bnp.com.br');
-  const [password, setPassword] = useState('demo123');
-  const [role, setRole] = useState<UserRole>('c-level');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   
   // Redirect if already authenticated
@@ -38,10 +29,10 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password || !role) {
+    if (!email || !password) {
       toast({
         title: 'Campos obrigatórios',
-        description: 'Preencha todos os campos para continuar.',
+        description: 'Preencha e-mail e senha para continuar.',
         variant: 'destructive',
       });
       return;
@@ -50,7 +41,7 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      await login(email, password, role);
+      await login(email, password);
       toast({
         title: 'Bem-vindo!',
         description: 'Login realizado com sucesso.',
@@ -59,18 +50,12 @@ export default function LoginPage() {
     } catch (error) {
       toast({
         title: 'Erro ao entrar',
-        description: 'Não foi possível realizar o login.',
+        description: error instanceof Error ? error.message : 'Credenciais inválidas.',
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  };
-  
-  const roleDescriptions: Record<UserRole, string> = {
-    'c-level': 'Acesso total com visualização de valores financeiros',
-    'intermediario': 'Edição de dados sem visualização de valores',
-    'leitor': 'Apenas visualização sem valores',
   };
   
   return (
@@ -192,35 +177,6 @@ export default function LoginPage() {
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="role">Perfil de acesso</Label>
-              <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o perfil" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="c-level">
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">C-Level / Admin</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="intermediario">
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">Intermediário</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="leitor">
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">Leitor</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                {roleDescriptions[role]}
-              </p>
-            </div>
-            
             <Button 
               type="submit" 
               className="w-full gap-2" 
@@ -232,12 +188,13 @@ export default function LoginPage() {
             </Button>
           </form>
           
-          <div className="bg-muted/50 rounded-xl p-4 space-y-2">
-            <p className="text-sm font-medium text-foreground">Ambiente de demonstração</p>
-            <p className="text-xs text-muted-foreground">
-              Este é um ambiente simulado com dados fictícios. Use qualquer e-mail 
-              e senha para acessar. O perfil selecionado define as permissões.
-            </p>
+          <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-medium text-foreground">Usuários de demonstração</p>
+            <div className="space-y-1.5 text-xs text-muted-foreground font-mono">
+              <p><span className="text-foreground">admin@bnp.com.br</span> / admin123 <span className="text-primary">(C-Level)</span></p>
+              <p><span className="text-foreground">maria.santos@bnp.com.br</span> / demo123 <span className="text-blue-500">(Intermediário)</span></p>
+              <p><span className="text-foreground">joao.silva@bnp.com.br</span> / demo123 <span className="text-muted-foreground">(Leitor)</span></p>
+            </div>
           </div>
         </div>
       </motion.div>

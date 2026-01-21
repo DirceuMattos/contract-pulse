@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
+import { useSystemUsers } from '@/contexts/SystemUsersContext';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   canViewValues: boolean;
   canEdit: boolean;
@@ -16,6 +17,7 @@ const STORAGE_KEY = 'bnp_auth_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const { validateCredentials } = useSystemUsers();
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -28,18 +30,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string, role: UserRole): Promise<void> => {
-    // Simulated login - in production this would call an API
-    const mockUser: User = {
-      id: crypto.randomUUID(),
-      name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      email,
-      role,
+  const login = async (email: string, password: string): Promise<void> => {
+    const systemUser = validateCredentials(email, password);
+    
+    if (!systemUser) {
+      throw new Error('Credenciais inválidas ou usuário inativo');
+    }
+    
+    const authUser: User = {
+      id: systemUser.id,
+      name: systemUser.name,
+      email: systemUser.email,
+      role: systemUser.role as UserRole,
       avatar: undefined,
     };
     
-    setUser(mockUser);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
+    setUser(authUser);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
   };
 
   const logout = () => {
