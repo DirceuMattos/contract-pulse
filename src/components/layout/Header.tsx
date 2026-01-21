@@ -4,6 +4,7 @@ import { Search, Sun, Moon, Plus, Bell, X } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
+import { useAlerts } from '@/hooks/useAlerts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,7 +25,8 @@ interface HeaderProps {
 export function Header({ sidebarCollapsed }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
-  const { clients, contracts, alerts } = useData();
+  const { clients, contracts } = useData();
+  const { alerts, criticalCount } = useAlerts();
   const navigate = useNavigate();
   
   const [searchOpen, setSearchOpen] = useState(false);
@@ -48,7 +50,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
       .map(c => ({ type: 'contract' as const, id: c.id, title: c.nome, subtitle: c.codigo })),
   ] : [];
   
-  const criticalAlerts = alerts.filter(a => a.severity === 'critico').length;
+  
   
   return (
     <header className={cn(
@@ -137,9 +139,9 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="w-5 h-5" />
-                {criticalAlerts > 0 && (
+                {criticalCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-health-critical text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {criticalAlerts}
+                    {criticalCount}
                   </span>
                 )}
               </Button>
@@ -147,9 +149,9 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
             <DropdownMenuContent align="end" className="w-80">
               <DropdownMenuLabel className="flex items-center justify-between">
                 Alertas
-                {criticalAlerts > 0 && (
+                {criticalCount > 0 && (
                   <Badge variant="destructive" className="text-xs">
-                    {criticalAlerts} crítico{criticalAlerts > 1 ? 's' : ''}
+                    {criticalCount} crítico{criticalCount > 1 ? 's' : ''}
                   </Badge>
                 )}
               </DropdownMenuLabel>
