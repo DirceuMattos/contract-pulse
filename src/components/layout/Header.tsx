@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Sun, Moon, Plus, Bell, X } from 'lucide-react';
+import { Search, Sun, Moon, Plus, X } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
-import { useAlerts } from '@/hooks/useAlerts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -26,7 +18,6 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const { clients, contracts } = useData();
-  const { alerts, criticalCount } = useAlerts();
   const navigate = useNavigate();
   
   const [searchOpen, setSearchOpen] = useState(false);
@@ -135,52 +126,7 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
           </Button>
           
           {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                {criticalCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-health-critical text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {criticalCount}
-                  </span>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="flex items-center justify-between">
-                Alertas
-                {criticalCount > 0 && (
-                  <Badge variant="destructive" className="text-xs">
-                    {criticalCount} crítico{criticalCount > 1 ? 's' : ''}
-                  </Badge>
-                )}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {alerts.slice(0, 5).map((alert) => (
-                <DropdownMenuItem
-                  key={alert.id}
-                  onClick={() => navigate(`/contratos/${alert.contractId}`)}
-                  className="flex flex-col items-start gap-1 cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 w-full">
-                    <span className={cn(
-                      'w-2 h-2 rounded-full shrink-0',
-                      alert.severity === 'critico' ? 'bg-health-critical' : 'bg-health-attention'
-                    )} />
-                    <span className="font-medium text-sm truncate">{alert.title}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-1 ml-4">
-                    {alert.description}
-                  </p>
-                </DropdownMenuItem>
-              ))}
-              {alerts.length === 0 && (
-                <div className="py-4 text-center text-sm text-muted-foreground">
-                  Nenhum alerta ativo
-                </div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <NotificationCenter />
           
           {/* Theme Toggle */}
           <Button variant="ghost" size="icon" onClick={toggleTheme}>

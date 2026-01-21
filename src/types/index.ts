@@ -159,6 +159,27 @@ export interface Alert {
   createdAt: string;
 }
 
+// Notification Types (for in-app notification center)
+export interface Notification {
+  id: string;
+  alertId: string;
+  contractId: string;
+  type: AlertType;
+  severity: AlertSeverity;
+  title: string;
+  description: string;
+  read: boolean;
+  browserNotified: boolean;
+  createdAt: string;
+}
+
+export interface NotificationSettings {
+  browserNotificationsEnabled: boolean;
+  browserPermissionStatus: 'default' | 'granted' | 'denied';
+  notifyOnCritical: boolean;
+  notifyOnWarning: boolean;
+}
+
 // Snapshot Types
 export interface Snapshot {
   id: string;
