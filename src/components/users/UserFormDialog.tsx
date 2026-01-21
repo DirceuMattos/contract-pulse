@@ -6,6 +6,7 @@ import { User, Lock, Mail, Shield } from 'lucide-react';
 import { SystemUser, SystemUserFormData } from '@/types/systemUser';
 import { UserRole } from '@/types';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -60,6 +61,7 @@ const roleDescriptions: Record<UserRole, string> = {
 
 export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogProps) {
   const { addUser, updateUser, getUserByEmail } = useSystemUsers();
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const isEditing = !!editingUser;
 
@@ -131,7 +133,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         return;
       }
 
-      const newUser = addUser(data);
+      const newUser = addUser(data, currentUser?.id);
       
       if (newUser) {
         toast({

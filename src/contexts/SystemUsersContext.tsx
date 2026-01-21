@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SystemUser, SystemUserFormData } from '@/types/systemUser';
 import { mockSystemUsers } from '@/data/mockSystemUsers';
-import { useAuth } from './AuthContext';
 
 interface SystemUsersContextType {
   users: SystemUser[];
-  addUser: (data: SystemUserFormData) => SystemUser | null;
+  addUser: (data: SystemUserFormData, createdById?: string) => SystemUser | null;
   updateUser: (id: string, data: Partial<SystemUserFormData>) => boolean;
   deleteUser: (id: string) => boolean;
   getUser: (id: string) => SystemUser | undefined;
@@ -41,7 +40,6 @@ const defaultPasswords: Record<string, string> = {
 };
 
 export function SystemUsersProvider({ children }: { children: ReactNode }) {
-  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>(() => 
     loadFromStorage(STORAGE_KEY, mockSystemUsers)
   );
@@ -57,7 +55,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
     saveToStorage(PASSWORDS_KEY, passwords);
   }, [passwords]);
 
-  const addUser = (data: SystemUserFormData): SystemUser | null => {
+  const addUser = (data: SystemUserFormData, createdById?: string): SystemUser | null => {
     // Check if email already exists
     if (users.some(u => u.email.toLowerCase() === data.email.toLowerCase())) {
       return null;
@@ -72,7 +70,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
       active: data.active,
       createdAt: now,
       updatedAt: now,
-      createdBy: currentUser?.id,
+      createdBy: createdById,
     };
 
     setUsers(prev => [...prev, newUser]);
