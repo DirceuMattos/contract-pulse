@@ -96,3 +96,95 @@ export const clientFormSchema = z.object({
 });
 
 export type ClientFormData = z.infer<typeof clientFormSchema>;
+
+// Contract Form Schema
+export const contractFormSchema = z.object({
+  // Identificação
+  codigo: z.string()
+    .min(1, 'Código é obrigatório')
+    .max(50, 'Código deve ter no máximo 50 caracteres'),
+  nome: z.string()
+    .min(1, 'Nome é obrigatório')
+    .max(200, 'Nome deve ter no máximo 200 caracteres'),
+  clientId: z.string().min(1, 'Cliente é obrigatório'),
+  tipo: z.enum(['sistema', 'infraestrutura', 'hibrido'], {
+    required_error: 'Tipo é obrigatório',
+  }),
+  segmento: z.enum(['govtech', 'privado'], {
+    required_error: 'Segmento é obrigatório',
+  }),
+  status: z.enum(['implantacao', 'operacao', 'suspenso', 'encerrado'], {
+    required_error: 'Status é obrigatório',
+  }),
+  unidade: z.string().max(100).optional(),
+  centroCusto: z.string().max(50).optional(),
+  tags: z.array(z.string()).default([]),
+
+  // Vigência
+  dataInicio: z.string().min(1, 'Data de início é obrigatória'),
+  dataFim: z.string().min(1, 'Data de término é obrigatória'),
+  renovacaoAutomatica: z.boolean().default(false),
+  periodicidadeRenovacao: z.string().optional(),
+  statusRenovacao: z.enum(['negociacao', 'renovado', 'sem-tratativa'], {
+    required_error: 'Status de renovação é obrigatório',
+  }),
+
+  // Reajuste
+  indiceReajuste: z.string().min(1, 'Índice de reajuste é obrigatório'),
+  dataBaseReajuste: z.string().min(1, 'Data base de reajuste é obrigatória'),
+  percentualFixo: z.number().min(0).max(100).optional(),
+  alertaReajusteDias: z.number().min(1).max(365).default(60),
+
+  // Receita
+  modeloReceita: z.enum(['mrr', 'media-mensal'], {
+    required_error: 'Modelo de receita é obrigatório',
+  }),
+  valorMensalReferencia: z.number().min(0).optional(),
+  valorTotalContrato: z.number().min(0).optional(),
+  moeda: z.enum(['BRL', 'USD']).default('BRL'),
+  observacoesFinanceiras: z.string().max(2000).optional(),
+
+  // Escopo
+  objeto: z.string()
+    .min(1, 'Objeto do contrato é obrigatório')
+    .max(5000, 'Objeto deve ter no máximo 5000 caracteres'),
+  escopoOperacional: z.string().max(5000).optional(),
+  slas: z.string().max(2000).optional(),
+  riscosPendencias: z.string().max(2000).optional(),
+
+  // Responsáveis
+  responsavelInterno: z.string()
+    .min(1, 'Responsável interno é obrigatório')
+    .max(100, 'Nome deve ter no máximo 100 caracteres'),
+  responsavelCS: z.string().max(100).optional(),
+  responsavelComercial: z.string().max(100).optional(),
+}).refine((data) => {
+  // Validate that valorMensalReferencia is provided when modeloReceita is 'mrr'
+  if (data.modeloReceita === 'mrr' && (!data.valorMensalReferencia || data.valorMensalReferencia <= 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Valor mensal de referência é obrigatório para modelo MRR',
+  path: ['valorMensalReferencia'],
+}).refine((data) => {
+  // Validate that valorTotalContrato is provided when modeloReceita is 'media-mensal'
+  if (data.modeloReceita === 'media-mensal' && (!data.valorTotalContrato || data.valorTotalContrato <= 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Valor total do contrato é obrigatório para modelo média mensal',
+  path: ['valorTotalContrato'],
+}).refine((data) => {
+  // Validate that dataFim is after dataInicio
+  if (data.dataInicio && data.dataFim) {
+    return new Date(data.dataFim) > new Date(data.dataInicio);
+  }
+  return true;
+}, {
+  message: 'Data de término deve ser posterior à data de início',
+  path: ['dataFim'],
+});
+
+export type ContractFormData = z.infer<typeof contractFormSchema>;
