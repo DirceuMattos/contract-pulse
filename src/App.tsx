@@ -14,6 +14,7 @@ import ClientDetailPage from "@/pages/ClientDetailPage";
 import ClientFormPage from "@/pages/ClientFormPage";
 import ContractsPage from "@/pages/ContractsPage";
 import ContractDetailPage from "@/pages/ContractDetailPage";
+import ContractFormPage from "@/pages/ContractFormPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,7 +38,9 @@ const App = () => (
                   <Route path="/clientes/:id" element={<ClientDetailPage />} />
                   <Route path="/clientes/:id/editar" element={<ClientFormPage />} />
                   <Route path="/contratos" element={<ContractsPage />} />
+                  <Route path="/contratos/novo" element={<ContractFormPage />} />
                   <Route path="/contratos/:id" element={<ContractDetailPage />} />
+                  <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
                   <Route path="/configuracoes" element={<DashboardPage />} />
                   <Route path="/importar-exportar" element={<DashboardPage />} />
                   <Route path="/integracoes" element={<DashboardPage />} />
