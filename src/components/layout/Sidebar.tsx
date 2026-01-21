@@ -13,6 +13,7 @@ import {
   ChevronRight,
   LogOut,
   Building2,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/clientes', label: 'Clientes', icon: Users },
   { path: '/contratos', label: 'Contratos', icon: FileText },
+  { path: '/alertas', label: 'Alertas', icon: Bell },
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
   { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload },
   { path: '/integracoes', label: 'Integrações', icon: Plug },

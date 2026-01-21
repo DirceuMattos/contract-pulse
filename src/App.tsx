@@ -18,6 +18,7 @@ import ContractFormPage from "@/pages/ContractFormPage";
 import ContractResourcesPage from "@/pages/ContractResourcesPage";
 import ImportExportPage from "@/pages/ImportExportPage";
 import SettingsPage from "@/pages/SettingsPage";
+import AlertsPage from "@/pages/AlertsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
                   <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
                   <Route path="/contratos/:id/recursos" element={<ContractResourcesPage />} />
                   <Route path="/configuracoes" element={<SettingsPage />} />
+                  <Route path="/alertas" element={<AlertsPage />} />
                   <Route path="/importar-exportar" element={<ImportExportPage />} />
                   <Route path="/integracoes" element={<DashboardPage />} />
                   <Route path="/ajuda" element={<DashboardPage />} />
