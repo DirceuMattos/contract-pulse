@@ -2,25 +2,51 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { DataProvider } from "@/contexts/DataContext";
+import { MainLayout } from "@/components/layout/MainLayout";
+import LoginPage from "@/pages/LoginPage";
+import DashboardPage from "@/pages/DashboardPage";
+import ClientsPage from "@/pages/ClientsPage";
+import ClientDetailPage from "@/pages/ClientDetailPage";
+import ContractsPage from "@/pages/ContractsPage";
+import ContractDetailPage from "@/pages/ContractDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <DataProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route element={<MainLayout />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/clientes" element={<ClientsPage />} />
+                  <Route path="/clientes/:id" element={<ClientDetailPage />} />
+                  <Route path="/contratos" element={<ContractsPage />} />
+                  <Route path="/contratos/:id" element={<ContractDetailPage />} />
+                  <Route path="/configuracoes" element={<DashboardPage />} />
+                  <Route path="/importar-exportar" element={<DashboardPage />} />
+                  <Route path="/integracoes" element={<DashboardPage />} />
+                  <Route path="/ajuda" element={<DashboardPage />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </DataProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
