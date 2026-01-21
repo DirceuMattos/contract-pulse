@@ -11,6 +11,7 @@ import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
+import ClientFormPage from "@/pages/ClientFormPage";
 import ContractsPage from "@/pages/ContractsPage";
 import ContractDetailPage from "@/pages/ContractDetailPage";
 import NotFound from "./pages/NotFound";
@@ -32,7 +33,9 @@ const App = () => (
                 <Route element={<MainLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/clientes" element={<ClientsPage />} />
+                  <Route path="/clientes/novo" element={<ClientFormPage />} />
                   <Route path="/clientes/:id" element={<ClientDetailPage />} />
+                  <Route path="/clientes/:id/editar" element={<ClientFormPage />} />
                   <Route path="/contratos" element={<ContractsPage />} />
                   <Route path="/contratos/:id" element={<ContractDetailPage />} />
                   <Route path="/configuracoes" element={<DashboardPage />} />
