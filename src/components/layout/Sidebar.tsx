@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
@@ -15,15 +15,19 @@ import {
   Building2,
   Bell,
   UserCog,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 const navItems = [
@@ -38,10 +42,115 @@ const navItems = [
   { path: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ];
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const isMobile = useIsMobile();
+
+  // Mobile drawer overlay
+  if (isMobile) {
+    return (
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onMobileClose}
+              className="fixed inset-0 bg-black/50 z-40"
+            />
+            {/* Drawer */}
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="fixed left-0 top-0 h-screen w-[280px] bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
+            >
+              {/* Mobile Header */}
+              <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-sidebar-primary-foreground" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-sidebar-foreground text-sm">BNP</span>
+                    <span className="text-sidebar-primary font-semibold text-sm">Contratos</span>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={onMobileClose}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Navigation */}
+              <nav className="flex-1 py-4 px-2 overflow-y-auto scrollbar-thin">
+                <ul className="space-y-1">
+                  {navItems
+                    .filter(item => !item.adminOnly || user?.role === 'c-level')
+                    .map((item) => {
+                      const isActive = location.pathname === item.path || 
+                        (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+                      const Icon = item.icon;
+                      
+                      return (
+                        <li key={item.path}>
+                          <Link
+                            to={item.path}
+                            onClick={onMobileClose}
+                            className={cn(
+                              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+                              'hover:bg-sidebar-accent',
+                              isActive && 'bg-sidebar-accent text-sidebar-primary',
+                              !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
+                            )}
+                          >
+                            <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-sidebar-primary')} />
+                            <span className="text-sm font-medium">{item.label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </nav>
+
+              {/* User & Logout */}
+              <div className="border-t border-sidebar-border p-2 space-y-2">
+                {user && (
+                  <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary font-semibold text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</p>
+                      <p className="text-xs text-sidebar-foreground/60 capitalize">{user.role.replace('-', ' ')}</p>
+                    </div>
+                  </div>
+                )}
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    logout();
+                    onMobileClose?.();
+                  }}
+                  className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </Button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    );
+  }
   
+  // Desktop sidebar
   return (
     <motion.aside
       initial={false}
