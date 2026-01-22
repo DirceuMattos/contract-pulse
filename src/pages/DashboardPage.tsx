@@ -13,6 +13,7 @@ import {
   Briefcase,
   Server,
   Layers,
+  Plus,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -117,15 +118,15 @@ export default function DashboardPage() {
       className="space-y-6"
     >
       {/* Page Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
             Visão consolidada do portfólio de contratos
           </p>
         </div>
-        <Button onClick={() => navigate('/contratos/novo')} className="gap-2">
-          <FileText className="w-4 h-4" />
+        <Button onClick={() => navigate('/contratos/novo')} className="gap-2 w-full sm:w-auto">
+          <Plus className="w-4 h-4" />
           Novo Contrato
         </Button>
       </motion.div>
@@ -293,14 +294,14 @@ export default function DashboardPage() {
       </motion.div>
       
       {/* Charts Row */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Health Distribution */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Saúde dos Contratos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-48">
+            <div className="h-40 sm:h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -344,7 +345,7 @@ export default function DashboardPage() {
             <CardTitle className="text-base font-semibold">Por Segmento</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-48">
+            <div className="h-40 sm:h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={segmentChartData} layout="vertical">
                   <XAxis type="number" hide />
@@ -374,7 +375,7 @@ export default function DashboardPage() {
             <CardTitle className="text-base font-semibold">Por Tipo</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-48">
+            <div className="h-40 sm:h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={typeChartData} layout="vertical">
                   <XAxis type="number" hide />
@@ -400,7 +401,7 @@ export default function DashboardPage() {
       </motion.div>
       
       {/* Alerts and Contracts List */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Alerts Feed */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2">

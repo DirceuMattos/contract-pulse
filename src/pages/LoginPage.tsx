@@ -59,7 +59,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Branding */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -124,9 +124,9 @@ export default function LoginPage() {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background"
+        className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-background min-h-screen lg:min-h-0"
       >
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-md space-y-6 sm:space-y-8">
           <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Building2 className="w-6 h-6 text-primary-foreground" />
@@ -181,20 +181,20 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+          <div className="bg-muted/50 rounded-xl p-3 sm:p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Usuários de demonstração</p>
             <div className="space-y-1.5 text-xs text-muted-foreground font-mono">
               <p>
-                <span className="text-foreground">admin@bnp.com.br</span> / admin123{" "}
+                <span className="text-foreground break-all">admin@bnp.com.br</span> / admin123{" "}
                 <span className="text-primary">(C-Level)</span>
               </p>
               <p>
-                <span className="text-foreground">maria.santos@bnp.com.br</span> / demo123{" "}
-                <span className="text-blue-500">(Leitor)</span>
+                <span className="text-foreground break-all">joao.pereira@bnp.com.br</span> / teste123{" "}
+                <span className="text-blue-500">(Intermediário)</span>
               </p>
               <p>
-                <span className="text-foreground">joao.pereira@bnp.com.br</span> / teste123{" "}
-                <span className="text-muted-foreground">(Intermediário)</span>
+                <span className="text-foreground break-all">maria.santos@bnp.com.br</span> / demo123{" "}
+                <span className="text-muted-foreground">(Leitor)</span>
               </p>
             </div>
           </div>

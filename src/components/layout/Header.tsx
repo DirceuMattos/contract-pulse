@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Sun, Moon, Plus, X } from 'lucide-react';
+import { Search, Sun, Moon, Plus, X, Menu } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -9,16 +9,19 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
+  onMobileMenuToggle?: () => void;
 }
 
-export function Header({ sidebarCollapsed }: HeaderProps) {
+export function Header({ sidebarCollapsed, onMobileMenuToggle }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const { clients, contracts } = useData();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,9 +49,16 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
   return (
     <header className={cn(
       'fixed top-0 right-0 h-16 bg-background/95 backdrop-blur border-b border-border z-30 transition-all duration-200',
-      sidebarCollapsed ? 'left-[72px]' : 'left-[260px]'
+      isMobile ? 'left-0' : (sidebarCollapsed ? 'left-[72px]' : 'left-[260px]')
     )}>
-      <div className="h-full px-6 flex items-center justify-between gap-4">
+      <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Mobile Menu Button */}
+        {isMobile && (
+          <Button variant="ghost" size="icon" onClick={onMobileMenuToggle} className="shrink-0">
+            <Menu className="w-5 h-5" />
+          </Button>
+        )}
+        
         {/* Search */}
         <div className="flex-1 max-w-md relative">
           {searchOpen ? (
@@ -114,15 +124,15 @@ export function Header({ sidebarCollapsed }: HeaderProps) {
         </div>
         
         {/* Actions */}
-        <div className="flex items-center gap-2">
-          {/* New Contract Button */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* New Contract Button - Hidden on mobile since it's in Dashboard */}
           <Button
             size="sm"
             onClick={() => navigate('/contratos/novo')}
-            className="gap-2 bg-primary hover:bg-primary/90"
+            className="gap-2 bg-primary hover:bg-primary/90 hidden sm:flex"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Novo Contrato</span>
+            <span className="hidden md:inline">Novo Contrato</span>
           </Button>
           
           {/* Notifications */}
