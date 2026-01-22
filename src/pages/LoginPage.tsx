@@ -1,67 +1,67 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Building2, Mail, Lock, ArrowRight } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Building2, Mail, Lock, ArrowRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   // Redirect if already authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
-      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      const from = (location.state as any)?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, location]);
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast({
-        title: 'Campos obrigatórios',
-        description: 'Preencha e-mail e senha para continuar.',
-        variant: 'destructive',
+        title: "Campos obrigatórios",
+        description: "Preencha e-mail e senha para continuar.",
+        variant: "destructive",
       });
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       await login(email, password);
       toast({
-        title: 'Bem-vindo!',
-        description: 'Login realizado com sucesso.',
+        title: "Bem-vindo!",
+        description: "Login realizado com sucesso.",
       });
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (error) {
       toast({
-        title: 'Erro ao entrar',
-        description: error instanceof Error ? error.message : 'Credenciais inválidas.',
-        variant: 'destructive',
+        title: "Erro ao entrar",
+        description: error instanceof Error ? error.message : "Credenciais inválidas.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
-  
+
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5 }}
@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className="absolute bottom-40 right-10 w-96 h-96 rounded-full border border-white/20" />
           <div className="absolute top-1/2 left-1/3 w-48 h-48 rounded-full bg-white/5" />
         </div>
-        
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
@@ -86,25 +86,27 @@ export default function LoginPage() {
           </div>
           <p className="text-white/60 text-sm mt-2">Saúde e Break Even de Contratos</p>
         </div>
-        
+
         <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
-              Controle total da<br />
-              <span className="text-emerald-400">saúde financeira</span><br />
+              Controle total da
+              <br />
+              <span className="text-emerald-400">saúde financeira</span>
+              <br />
               dos seus contratos
             </h1>
             <p className="text-white/70 text-lg max-w-md">
-              Saiba a qualquer momento se cada contrato está saudável, em atenção ou crítico. 
-              Tome decisões baseadas em dados.
+              Saiba a qualquer momento se cada contrato está saudável, em atenção ou crítico. Tome decisões baseadas em
+              dados.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Contratos', value: '15+' },
-              { label: 'Clientes', value: '10+' },
-              { label: 'Recursos', value: '60+' },
+              { label: "Contratos", value: "15+" },
+              { label: "Clientes", value: "10+" },
+              { label: "Recursos", value: "60+" },
             ].map((stat) => (
               <div key={stat.label} className="bg-white/5 backdrop-blur rounded-xl p-4">
                 <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -113,14 +115,12 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
-        
-        <p className="relative z-10 text-white/40 text-sm">
-          © 2024 BNP. Todos os direitos reservados.
-        </p>
+
+        <p className="relative z-10 text-white/40 text-sm">© 2024 BNP. Todos os direitos reservados.</p>
       </motion.div>
-      
+
       {/* Right side - Login form */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -136,14 +136,12 @@ export default function LoginPage() {
               <span className="text-xl font-semibold text-accent">Contratos</span>
             </div>
           </div>
-          
+
           <div className="text-center lg:text-left">
             <h2 className="text-2xl font-bold text-foreground">Bem-vindo de volta</h2>
-            <p className="text-muted-foreground mt-2">
-              Entre com suas credenciais para acessar o sistema
-            </p>
+            <p className="text-muted-foreground mt-2">Entre com suas credenciais para acessar o sistema</p>
           </div>
-          
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
@@ -160,7 +158,7 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
               <div className="relative">
@@ -176,24 +174,28 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full gap-2" 
-              size="lg"
-              disabled={loading}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
+
+            <Button type="submit" className="w-full gap-2" size="lg" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar"}
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
-          
+
           <div className="bg-muted/50 rounded-xl p-4 space-y-3">
             <p className="text-sm font-medium text-foreground">Usuários de demonstração</p>
             <div className="space-y-1.5 text-xs text-muted-foreground font-mono">
-              <p><span className="text-foreground">admin@bnp.com.br</span> / admin123 <span className="text-primary">(C-Level)</span></p>
-              <p><span className="text-foreground">maria.santos@bnp.com.br</span> / demo123 <span className="text-blue-500">(Intermediário)</span></p>
-              <p><span className="text-foreground">joao.silva@bnp.com.br</span> / demo123 <span className="text-muted-foreground">(Leitor)</span></p>
+              <p>
+                <span className="text-foreground">admin@bnp.com.br</span> / admin123{" "}
+                <span className="text-primary">(C-Level)</span>
+              </p>
+              <p>
+                <span className="text-foreground">maria.santos@bnp.com.br</span> / demo123{" "}
+                <span className="text-blue-500">(Leitor)</span>
+              </p>
+              <p>
+                <span className="text-foreground">joao.pereira@bnp.com.br</span> / demo123{" "}
+                <span className="text-muted-foreground">(Intermediário)</span>
+              </p>
             </div>
           </div>
         </div>
