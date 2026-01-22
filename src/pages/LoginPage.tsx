@@ -193,7 +193,7 @@ export default function LoginPage() {
                 <span className="text-blue-500">(Leitor)</span>
               </p>
               <p>
-                <span className="text-foreground">joao.pereira@bnp.com.br</span> / demo123{" "}
+                <span className="text-foreground">joao.pereira@bnp.com.br</span> / teste123{" "}
                 <span className="text-muted-foreground">(Intermediário)</span>
               </p>
             </div>
