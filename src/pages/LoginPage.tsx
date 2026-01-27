@@ -77,7 +77,7 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <img src={logoBnp} alt="BNP Logo" className="w-48 h-48 object-contain" />
+            <img src={logoBnp} alt="BNP Logo" className="w-[480px] h-auto object-contain" />
             <div>
               <span className="text-2xl font-bold text-white">BNP</span>
               <span className="text-2xl font-semibold text-emerald-400">Contratos</span>
@@ -127,7 +127,7 @@ export default function LoginPage() {
       >
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
           <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
-            <img src={logoBnp} alt="BNP Logo" className="w-40 h-40 object-contain" />
+            <img src={logoBnp} alt="BNP Logo" className="w-[400px] h-auto object-contain" />
             <div>
               <span className="text-xl font-bold text-foreground">BNP</span>
               <span className="text-xl font-semibold text-accent">Contratos</span>
