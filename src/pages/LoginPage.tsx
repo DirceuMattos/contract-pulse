@@ -84,7 +84,7 @@ export default function LoginPage() {
               <span className="text-2xl font-semibold text-emerald-400">Contratos</span>
             </div>
           </div>
-          <p className="text-white/60 text-sm mt-2">Saúde e Break Even de Contratos</p>
+          <p className="text-white/60 text-sm mt-2">Margem Operacional de Contratos</p>
         </div>
 
         <div className="relative z-10 space-y-8">
@@ -92,7 +92,7 @@ export default function LoginPage() {
             <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
               Controle total da
               <br />
-              <span className="text-emerald-400">saúde financeira</span>
+              <span className="text-emerald-400">Resultados Financeiros</span>
               <br />
               dos seus contratos
             </h1>
