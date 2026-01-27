@@ -72,7 +72,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               {/* Mobile Header */}
               <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
-                  <img src={logoBnp} alt="BNP Logo" className="w-20 h-20 object-contain" />
+                  <img src={logoBnp} alt="BNP Logo" className="w-[200px] h-auto object-contain" />
                   <div>
                     <span className="font-bold text-sidebar-foreground text-sm">BNP</span>
                     <span className="text-sidebar-primary font-semibold text-sm">Contratos</span>
@@ -165,7 +165,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
             exit={{ opacity: 0 }}
             className="flex items-center gap-2"
           >
-            <img src={logoBnp} alt="BNP Logo" className="w-20 h-20 object-contain" />
+            <img src={logoBnp} alt="BNP Logo" className="w-[200px] h-auto object-contain" />
             <div>
               <span className="font-bold text-sidebar-foreground text-sm">BNP</span>
               <span className="text-sidebar-primary font-semibold text-sm">Contratos</span>
@@ -174,7 +174,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         )}
         {collapsed && (
           <div className="w-full flex justify-center">
-            <img src={logoBnp} alt="BNP Logo" className="w-12 h-12 object-contain" />
+            <img src={logoBnp} alt="BNP Logo" className="w-[120px] h-auto object-contain" />
           </div>
         )}
       </div>
