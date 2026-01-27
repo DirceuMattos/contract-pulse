@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Building2, Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight } from "lucide-react";
+import logoBnp from "@/assets/logo-bnp.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,9 +77,7 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
-              <Building2 className="w-7 h-7 text-white" />
-            </div>
+            <img src={logoBnp} alt="BNP Logo" className="w-12 h-12 object-contain" />
             <div>
               <span className="text-2xl font-bold text-white">BNP</span>
               <span className="text-2xl font-semibold text-emerald-400">Contratos</span>
@@ -128,9 +127,7 @@ export default function LoginPage() {
       >
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
           <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img src={logoBnp} alt="BNP Logo" className="w-10 h-10 object-contain" />
             <div>
               <span className="text-xl font-bold text-foreground">BNP</span>
               <span className="text-xl font-semibold text-accent">Contratos</span>
