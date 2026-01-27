@@ -77,7 +77,7 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <img src={logoBnp} alt="BNP Logo" className="w-12 h-auto object-contain" />
+            <img src={logoBnp} alt="BNP Logo" className="w-[120px] h-auto object-contain" />
             <div>
               <span className="text-2xl font-bold text-white">BNP</span>
               <span className="text-2xl font-semibold text-emerald-400">Contratos</span>
