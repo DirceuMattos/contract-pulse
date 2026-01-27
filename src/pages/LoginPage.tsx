@@ -116,7 +116,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="relative z-10 text-white/40 text-sm">© 2024 BNP. Todos os direitos reservados.</p>
+        <p className="relative z-10 text-white/40 text-sm">© 2026 BNP. Todos os direitos reservados.</p>
       </motion.div>
 
       {/* Right side - Login form */}
