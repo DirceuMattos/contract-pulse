@@ -1,53 +1,46 @@
 
 
-# Plano: Reduzir Logo da Barra Lateral
+# Plano Corrigido: Reduzir Logo da Tela de Login
 
-## Objetivo
-Reduzir o tamanho da logomarca BNP apenas no componente Sidebar, mantendo a logo da página de login inalterada.
+## Problema Identificado
+O plano anterior modificou o arquivo errado (`Sidebar.tsx`). A logo que você deseja reduzir está na **página de login** (`LoginPage.tsx`), especificamente no painel azul à esquerda.
 
 ---
 
-## Alterações
+## Alterações Necessárias
 
-### Arquivo: `src/components/layout/Sidebar.tsx`
+### Arquivo: `src/pages/LoginPage.tsx`
 
-#### 1. Logo no Drawer Mobile (Linha 75)
+#### 1. Logo Desktop - Painel Esquerdo (Linha 80)
 ```
-Atual:  w-[200px] → 200px
-Novo:   w-8       → 32px
-```
-
-#### 2. Logo no Sidebar Desktop Expandido (Linha 168)
-```
-Atual:  w-[200px] → 200px
-Novo:   w-8       → 32px
+Atual:  w-[480px] → 480px
+Novo:   w-12      → 48px (redução de ~10x)
 ```
 
-#### 3. Logo no Sidebar Colapsado (Linha 177)
+#### 2. Logo Mobile - Topo do Formulário (Linha 130)
 ```
-Atual:  w-[120px] → 120px
-Novo:   w-6       → 24px
+Atual:  w-[400px] → 400px  
+Novo:   w-10      → 40px (redução de ~10x)
 ```
 
 ---
 
-## Resumo
+## Resumo das Alterações
 
 | Contexto | Tamanho Atual | Novo Tamanho |
 |----------|---------------|--------------|
-| Sidebar Mobile (Drawer) | 200px | 32px |
-| Sidebar Desktop Expandido | 200px | 32px |
-| Sidebar Desktop Colapsado | 120px | 24px |
+| Login Desktop (painel azul) | 480px | 48px |
+| Login Mobile (topo) | 400px | 40px |
 
 ---
 
 ## Arquivos Não Alterados
-- `src/pages/LoginPage.tsx` - Mantém logo em 480px (desktop) e 400px (mobile)
+- `src/components/layout/Sidebar.tsx` - Mantém as alterações já realizadas (w-8 e w-6)
 
 ---
 
 ## Resultado Esperado
-- Logo compacta na barra lateral, proporcional ao layout do menu
-- Logo grande mantida na tela de login
-- Melhor equilíbrio visual entre logo e itens de navegação
+- Logo proporcional no painel de login, harmonizando com o texto "BNP Contratos"
+- Layout visual mais equilibrado na tela de entrada
+- Sidebar do dashboard permanece com logo compacta conforme já alterado
 
