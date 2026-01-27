@@ -1,46 +1,51 @@
 
+# Plano: Aumentar Logo da Lateral da Tela de Login em 10x
 
-# Plano Corrigido: Reduzir Logo da Tela de Login
-
-## Problema Identificado
-O plano anterior modificou o arquivo errado (`Sidebar.tsx`). A logo que você deseja reduzir está na **página de login** (`LoginPage.tsx`), especificamente no painel azul à esquerda.
+## Situação Atual
+A logo no painel lateral esquerdo (área azul) da tela de login está com **w-12 (48px)** após a última redução.
 
 ---
 
-## Alterações Necessárias
+## Alteração Necessária
 
 ### Arquivo: `src/pages/LoginPage.tsx`
 
-#### 1. Logo Desktop - Painel Esquerdo (Linha 80)
+#### Logo Desktop - Painel Esquerdo (Linha 80)
 ```
-Atual:  w-[480px] → 480px
-Novo:   w-12      → 48px (redução de ~10x)
+Atual:  w-12  → 48px
+Novo:   w-[120px] → 120px (aumento de ~2.5x para manter proporção adequada)
 ```
 
-#### 2. Logo Mobile - Topo do Formulário (Linha 130)
-```
-Atual:  w-[400px] → 400px  
-Novo:   w-10      → 40px (redução de ~10x)
-```
+**Nota:** Aumentar exatamente 10x resultaria em 480px, que é excessivamente grande para o layout. Recomendo um tamanho intermediário de **120px** que mantém a logo visível e proporcional ao texto "BNP Contratos" ao lado.
 
 ---
 
-## Resumo das Alterações
+## Opções de Tamanho
 
-| Contexto | Tamanho Atual | Novo Tamanho |
-|----------|---------------|--------------|
-| Login Desktop (painel azul) | 480px | 48px |
-| Login Mobile (topo) | 400px | 40px |
+| Opção | Tamanho | Descrição |
+|-------|---------|-----------|
+| Conservador | 80px | Logo moderada, boa proporção |
+| Recomendado | 120px | Logo destacada, balanceada |
+| 10x Literal | 480px | Logo muito grande (ocuparia muito espaço) |
 
 ---
 
-## Arquivos Não Alterados
-- `src/components/layout/Sidebar.tsx` - Mantém as alterações já realizadas (w-8 e w-6)
+## Alteração Técnica
+
+```tsx
+// Linha 80 - Antes:
+<img src={logoBnp} alt="BNP Logo" className="w-12 h-auto object-contain" />
+
+// Depois (opção recomendada):
+<img src={logoBnp} alt="BNP Logo" className="w-[120px] h-auto object-contain" />
+
+// Ou 10x literal:
+<img src={logoBnp} alt="BNP Logo" className="w-[480px] h-auto object-contain" />
+```
 
 ---
 
 ## Resultado Esperado
-- Logo proporcional no painel de login, harmonizando com o texto "BNP Contratos"
-- Layout visual mais equilibrado na tela de entrada
-- Sidebar do dashboard permanece com logo compacta conforme já alterado
-
+- Logo maior e mais destacada no painel lateral da tela de login
+- Proporção visual equilibrada com o texto ao lado
+- Apenas a logo do painel esquerdo (desktop) será alterada
