@@ -61,6 +61,15 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+const cardColors = [
+  'border-l-blue-500',
+  'border-l-emerald-500',
+  'border-l-violet-500',
+  'border-l-amber-500',
+  'border-l-pink-500',
+  'border-l-cyan-500',
+];
+
 export default function ClientsPage() {
   const navigate = useNavigate();
   const { clients, contracts, deleteClient } = useData();
@@ -154,12 +163,15 @@ export default function ClientsPage() {
       {/* Clients Grid */}
       {filteredClients.length > 0 ? (
         <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredClients.map((client) => {
+          {filteredClients.map((client, index) => {
             const contractCount = getContractCount(client.id);
             
             return (
               <motion.div key={client.id} variants={itemVariants}>
-                <Card className="card-elevated hover:shadow-md transition-shadow">
+                <Card className={cn(
+                  "card-elevated hover:shadow-md transition-shadow border-l-4",
+                  cardColors[index % cardColors.length]
+                )}>
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
