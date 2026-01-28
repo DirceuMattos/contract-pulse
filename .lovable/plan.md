@@ -1,51 +1,93 @@
 
-# Plano: Aumentar Logo da Lateral da Tela de Login em 10x
+# Plano: Cards de Clientes com Cores Diferentes
 
-## Situação Atual
-A logo no painel lateral esquerdo (área azul) da tela de login está com **w-12 (48px)** após a última redução.
-
----
-
-## Alteração Necessária
-
-### Arquivo: `src/pages/LoginPage.tsx`
-
-#### Logo Desktop - Painel Esquerdo (Linha 80)
-```
-Atual:  w-12  → 48px
-Novo:   w-[120px] → 120px (aumento de ~2.5x para manter proporção adequada)
-```
-
-**Nota:** Aumentar exatamente 10x resultaria em 480px, que é excessivamente grande para o layout. Recomendo um tamanho intermediário de **120px** que mantém a logo visível e proporcional ao texto "BNP Contratos" ao lado.
+## Objetivo
+Adicionar uma paleta de cores rotativas aos cards de clientes na página `/clientes`, criando distinção visual entre cada card para melhor identificação e organização.
 
 ---
 
-## Opções de Tamanho
+## Abordagem
 
-| Opção | Tamanho | Descrição |
-|-------|---------|-----------|
-| Conservador | 80px | Logo moderada, boa proporção |
-| Recomendado | 120px | Logo destacada, balanceada |
-| 10x Literal | 480px | Logo muito grande (ocuparia muito espaço) |
+Criar um array de cores que será aplicado ciclicamente a cada card com base no índice. As cores serão aplicadas como uma borda lateral colorida (estilo "accent bar") no lado esquerdo do card.
 
 ---
 
-## Alteração Técnica
+## Paleta de Cores Proposta
 
+| Cor | Código | Uso |
+|-----|--------|-----|
+| Azul | `#3B82F6` | Card 1, 7, 13... |
+| Verde | `#10B981` | Card 2, 8, 14... |
+| Roxo | `#8B5CF6` | Card 3, 9, 15... |
+| Laranja | `#F59E0B` | Card 4, 10, 16... |
+| Rosa | `#EC4899` | Card 5, 11, 17... |
+| Ciano | `#06B6D4` | Card 6, 12, 18... |
+
+---
+
+## Alterações Técnicas
+
+### Arquivo: `src/pages/ClientsPage.tsx`
+
+#### 1. Adicionar array de cores (após linha 62)
 ```tsx
-// Linha 80 - Antes:
-<img src={logoBnp} alt="BNP Logo" className="w-12 h-auto object-contain" />
+const cardColors = [
+  'border-l-blue-500',
+  'border-l-emerald-500',
+  'border-l-violet-500',
+  'border-l-amber-500',
+  'border-l-pink-500',
+  'border-l-cyan-500',
+];
+```
 
-// Depois (opção recomendada):
-<img src={logoBnp} alt="BNP Logo" className="w-[120px] h-auto object-contain" />
+#### 2. Modificar o Card (linha 162)
+```tsx
+// Antes:
+<Card className="card-elevated hover:shadow-md transition-shadow">
 
-// Ou 10x literal:
-<img src={logoBnp} alt="BNP Logo" className="w-[480px] h-auto object-contain" />
+// Depois:
+<Card className={cn(
+  "card-elevated hover:shadow-md transition-shadow border-l-4",
+  cardColors[index % cardColors.length]
+)}>
+```
+
+#### 3. Atualizar o map para incluir index (linha 157)
+```tsx
+// Antes:
+{filteredClients.map((client) => {
+
+// Depois:
+{filteredClients.map((client, index) => {
 ```
 
 ---
 
-## Resultado Esperado
-- Logo maior e mais destacada no painel lateral da tela de login
-- Proporção visual equilibrada com o texto ao lado
-- Apenas a logo do painel esquerdo (desktop) será alterada
+## Resultado Visual
+
+```text
++----+----------------------------+
+|    |  Nome do Cliente           |
+| C  |  CNPJ: XX.XXX.XXX/0001-XX  |
+| O  |  -------------------------  |
+| R  |  📍 Cidade, UF             |
+|    |  📧 email@cliente.com      |
+|    |  📞 (XX) XXXXX-XXXX        |
++----+----------------------------+
+```
+
+Cada card terá uma borda colorida de 4px à esquerda, rotacionando entre 6 cores diferentes.
+
+---
+
+## Arquivos Alterados
+- `src/pages/ClientsPage.tsx` - Adicionar lógica de cores rotativas
+
+---
+
+## Benefícios
+- Distinção visual clara entre clientes
+- Facilita identificação rápida durante scroll
+- Mantém design profissional com cores harmônicas
+- Cores compatíveis com modo claro e escuro (Tailwind)
