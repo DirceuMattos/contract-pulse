@@ -80,7 +80,6 @@ export default function LoginPage() {
             <img src={logoBnp} alt="BNP Logo" className="w-[300px] h-auto object-contain" />
             <div>
               <span className="text-2xl font-bold text-white">BNP</span>
-            </div>
               <span className="text-2xl font-semibold text-emerald-400">ContractPulse</span>
             </div>
           </div>
