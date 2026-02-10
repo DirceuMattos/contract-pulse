@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Contract, Resource, Settings, Alert, Snapshot } from '@/types';
-import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings } from '@/data/mockData';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem } from '@/types';
+import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems } from '@/data/mockData';
 
 interface DataContextType {
   clients: Client[];
@@ -9,6 +9,7 @@ interface DataContextType {
   settings: Settings;
   alerts: Alert[];
   snapshots: Snapshot[];
+  overheadItems: OverheadItem[];
   
   // Client actions
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Client;
@@ -36,6 +37,12 @@ interface DataContextType {
   addSnapshot: (snapshot: Omit<Snapshot, 'id' | 'createdAt'>) => Snapshot;
   getSnapshotsByContract: (contractId: string) => Snapshot[];
   
+  // Overhead actions
+  addOverheadItem: (item: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => OverheadItem;
+  updateOverheadItem: (id: string, data: Partial<OverheadItem>) => void;
+  deleteOverheadItem: (id: string) => void;
+  getOverheadByContract: (contractId: string) => OverheadItem[];
+
   // Utils
   resetToDemo: () => void;
 }
@@ -49,6 +56,7 @@ const STORAGE_KEYS = {
   settings: 'bnp_settings',
   alerts: 'bnp_alerts',
   snapshots: 'bnp_snapshots',
+  overhead: 'bnp_overhead',
 };
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -71,6 +79,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage(STORAGE_KEYS.settings, defaultSettings));
   const [alerts, setAlerts] = useState<Alert[]>(() => loadFromStorage(STORAGE_KEYS.alerts, mockAlerts));
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() => loadFromStorage(STORAGE_KEYS.snapshots, mockSnapshots));
+  const [overheadItems, setOverheadItems] = useState<OverheadItem[]>(() => loadFromStorage(STORAGE_KEYS.overhead, mockOverheadItems));
   
   // Persist to localStorage
   useEffect(() => { saveToStorage(STORAGE_KEYS.clients, clients); }, [clients]);
@@ -79,6 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveToStorage(STORAGE_KEYS.settings, settings); }, [settings]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.alerts, alerts); }, [alerts]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.snapshots, snapshots); }, [snapshots]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.overhead, overheadItems); }, [overheadItems]);
   
   // Client actions
   const addClient = (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client => {
@@ -131,8 +141,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteContract = (id: string) => {
     setContracts(prev => prev.filter(c => c.id !== id));
-    // Also delete related resources
+    // Also delete related resources and overhead
     setResources(prev => prev.filter(r => r.contractId !== id));
+    setOverheadItems(prev => prev.filter(o => o.contractId !== id));
     setSnapshots(prev => prev.filter(s => s.contractId !== id));
     setAlerts(prev => prev.filter(a => a.contractId !== id));
   };
@@ -207,7 +218,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSettings(defaultSettings);
     setAlerts(mockAlerts);
     setSnapshots(mockSnapshots);
+    setOverheadItems(mockOverheadItems);
   };
+
+  // Overhead actions
+  const addOverheadItem = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>): OverheadItem => {
+    const now = new Date().toISOString();
+    const item: OverheadItem = {
+      ...data,
+      id: `ovh-${crypto.randomUUID().slice(0, 8)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setOverheadItems(prev => [...prev, item]);
+    return item;
+  };
+
+  const updateOverheadItem = (id: string, data: Partial<OverheadItem>) => {
+    setOverheadItems(prev => prev.map(o =>
+      o.id === id ? { ...o, ...data, updatedAt: new Date().toISOString() } : o
+    ));
+  };
+
+  const deleteOverheadItem = (id: string) => {
+    setOverheadItems(prev => prev.filter(o => o.id !== id));
+  };
+
+  const getOverheadByContract = (contractId: string) => overheadItems.filter(o => o.contractId === contractId);
   
   return (
     <DataContext.Provider value={{
@@ -217,6 +254,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       settings,
       alerts,
       snapshots,
+      overheadItems,
       addClient,
       updateClient,
       deleteClient,
@@ -233,6 +271,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateSettings,
       addSnapshot,
       getSnapshotsByContract,
+      addOverheadItem,
+      updateOverheadItem,
+      deleteOverheadItem,
+      getOverheadByContract,
       resetToDemo,
     }}>
       {children}

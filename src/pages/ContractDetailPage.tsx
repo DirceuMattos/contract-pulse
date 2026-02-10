@@ -19,6 +19,9 @@ import {
   Target,
   Shield,
   CheckCircle2,
+  Info,
+  ChevronDown,
+  Layers,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,17 +31,29 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   formatDate,
   formatCurrency,
   formatPercentage,
   calculateContractHealth,
   calculateResourceCost,
+  calculateOverheadCost,
   getDaysUntil,
   getDaysSince,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { HealthStatus, Resource } from '@/types';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const healthLabels: Record<HealthStatus, string> = {
   saudavel: 'Saudável',
@@ -68,7 +83,7 @@ const renewalLabels = {
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts } = useData();
+  const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
   const { canEdit, canViewValues } = useAuth();
   
   const contract = id ? getContract(id) : undefined;
@@ -88,7 +103,9 @@ export default function ContractDetailPage() {
     );
   }
   
-  const health = calculateContractHealth(contract, contractResources, settings);
+  const health = calculateContractHealth(contract, contractResources, settings, overheadItems);
+  const contractOverheadItems = id ? getOverheadByContract(id) : [];
+  const overheadCost = calculateOverheadCost(contract.id, contractResources, contractOverheadItems, settings);
   const daysUntilEnd = getDaysUntil(contract.dataFim);
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
@@ -372,7 +389,7 @@ export default function ContractDetailPage() {
                       <LineChart data={trendData}>
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-                        <Tooltip 
+                        <RechartsTooltip 
                           formatter={(value: number) => [`${value.toFixed(1)}%`, 'Margem']}
                           contentStyle={{ 
                             borderRadius: '8px', 
@@ -411,7 +428,7 @@ export default function ContractDetailPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Progress 
-                          value={(cost / health.custoMensal) * 100} 
+                          value={health.custoMensal > 0 ? (cost / health.custoMensal) * 100 : 0} 
                           className="flex-1 h-2"
                         />
                         {canViewValues && (
@@ -422,6 +439,37 @@ export default function ContractDetailPage() {
                       </div>
                     </div>
                   ))}
+                  {overheadCost.total > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium flex items-center gap-1">
+                          Overhead
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                Custos indiretos calculados sobre a base de execução (RH + outros custos diretos).
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </span>
+                        <span className="text-sm text-muted-foreground">{contractOverheadItems.length} item{contractOverheadItems.length !== 1 ? 'ns' : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Progress 
+                          value={health.custoMensal > 0 ? (overheadCost.total / health.custoMensal) * 100 : 0} 
+                          className="flex-1 h-2"
+                        />
+                        {canViewValues && (
+                          <span className="text-sm font-medium w-24 text-right">
+                            {formatCurrency(overheadCost.total)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

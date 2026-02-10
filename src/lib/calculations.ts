@@ -1,4 +1,4 @@
-import { Contract, Resource, Settings, HealthStatus, ContractHealth, DashboardKPIs, Alert } from '@/types';
+import { Contract, Resource, Settings, HealthStatus, ContractHealth, DashboardKPIs, Alert, OverheadItem } from '@/types';
 
 export function calculateResourceCost(
   resource: Resource,
@@ -7,6 +7,11 @@ export function calculateResourceCost(
   const { tipo, custoBase, percentualDedicacao, encargosOverride, impostosOverride } = resource;
   
   let custoTotal = custoBase;
+
+  // Consultoria with totalPeriodo: divide by duration
+  if (resource.categoria === 'consultoria' && resource.tipoValor === 'totalPeriodo' && resource.duracaoMeses && resource.duracaoMeses > 0) {
+    custoTotal = custoBase / resource.duracaoMeses;
+  }
   
   if (tipo === 'clt') {
     const encargos = encargosOverride ?? settings.percentualEncargosCLT;
@@ -15,7 +20,7 @@ export function calculateResourceCost(
     const impostos = impostosOverride ?? settings.percentualImpostosPJ;
     custoTotal = custoBase * (1 + impostos / 100);
   }
-  // Para 'outro', custoBase já é o custo final
+  // Para 'outro', custoBase já é o custo final (or divided by duration for consultoria)
   
   // Aplicar percentual de dedicação
   return custoTotal * (percentualDedicacao / 100);
@@ -60,13 +65,41 @@ export function getHealthStatus(
   return 'critico';
 }
 
+export function calculateOverheadCost(
+  contractId: string,
+  resources: Resource[],
+  overheadItems: OverheadItem[],
+  settings: Settings
+): { total: number; breakdown: { item: OverheadItem; cost: number }[] } {
+  const contractResources = resources.filter(r => r.contractId === contractId);
+  const baseCost = contractResources.reduce((total, resource) => {
+    return total + calculateResourceCost(resource, settings);
+  }, 0);
+
+  const contractOverhead = overheadItems.filter(o => o.contractId === contractId);
+  const breakdown = contractOverhead.map(item => {
+    const cost = item.modo === 'percentual'
+      ? (item.percentual || 0) / 100 * baseCost
+      : (item.valorFixoMensal || 0);
+    return { item, cost };
+  });
+
+  return {
+    total: breakdown.reduce((sum, b) => sum + b.cost, 0),
+    breakdown,
+  };
+}
+
 export function calculateContractHealth(
   contract: Contract,
   resources: Resource[],
-  settings: Settings
+  settings: Settings,
+  overheadItems: OverheadItem[] = []
 ): ContractHealth {
   const receitaMensal = getContractRevenue(contract);
-  const custoMensal = calculateContractCost(contract.id, resources, settings);
+  const custoRecursos = calculateContractCost(contract.id, resources, settings);
+  const overheadCost = calculateOverheadCost(contract.id, resources, overheadItems, settings);
+  const custoMensal = custoRecursos + overheadCost.total;
   const margemMensal = receitaMensal - custoMensal;
   const margemPercentual = receitaMensal > 0 ? (margemMensal / receitaMensal) * 100 : 0;
   const status = getHealthStatus(margemPercentual, settings);
@@ -85,12 +118,13 @@ export function calculateDashboardKPIs(
   contracts: Contract[],
   resources: Resource[],
   settings: Settings,
-  includeValues: boolean = false
+  includeValues: boolean = false,
+  overheadItems: OverheadItem[] = []
 ): DashboardKPIs {
   const activeContracts = contracts.filter(c => c.status === 'operacao' || c.status === 'implantacao');
   
   const healthData = activeContracts.map(contract => 
-    calculateContractHealth(contract, resources, settings)
+    calculateContractHealth(contract, resources, settings, overheadItems)
   );
   
   const kpis: DashboardKPIs = {

@@ -91,7 +91,7 @@ const statusLabels = {
 
 export default function ContractsPage() {
   const navigate = useNavigate();
-  const { contracts, clients, resources, settings, deleteContract } = useData();
+  const { contracts, clients, resources, settings, deleteContract, overheadItems } = useData();
   const { canEdit, canViewValues } = useAuth();
   const { toast } = useToast();
   
@@ -110,7 +110,7 @@ export default function ContractsPage() {
   
   // Calculate health for each contract
   const contractsWithHealth = contracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings);
+    const health = calculateContractHealth(contract, resources, settings, overheadItems);
     const client = clients.find(c => c.id === contract.clientId);
     return { contract, health, client };
   });
