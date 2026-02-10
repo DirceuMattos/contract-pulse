@@ -40,6 +40,10 @@ const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'desatualizacao': <RefreshCw className="w-4 h-4" />,
   'tendencia-deterioracao': <TrendingDown className="w-4 h-4" />,
   'concentracao-custo': <Users className="w-4 h-4" />,
+  'financeiro-deficit': <TrendingDown className="w-4 h-4" />,
+  'financeiro-margem-baixa': <TrendingDown className="w-4 h-4" />,
+  'vigencia-vencido': <Clock className="w-4 h-4" />,
+  'governanca-contatos': <Users className="w-4 h-4" />,
 };
 
 interface NotificationItemProps {

@@ -35,6 +35,10 @@ const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'desatualizacao': <RefreshCw className="w-5 h-5" />,
   'tendencia-deterioracao': <TrendingDown className="w-5 h-5" />,
   'concentracao-custo': <Users className="w-5 h-5" />,
+  'financeiro-deficit': <TrendingDown className="w-5 h-5" />,
+  'financeiro-margem-baixa': <AlertCircle className="w-5 h-5" />,
+  'vigencia-vencido': <Clock className="w-5 h-5" />,
+  'governanca-contatos': <Users className="w-5 h-5" />,
 };
 
 const alertTypeLabels: Record<AlertType, string> = {
@@ -43,16 +47,22 @@ const alertTypeLabels: Record<AlertType, string> = {
   'desatualizacao': 'Recursos Desatualizados',
   'tendencia-deterioracao': 'Tendência de Deterioração',
   'concentracao-custo': 'Concentração de Custo',
+  'financeiro-deficit': 'Déficit Financeiro',
+  'financeiro-margem-baixa': 'Margem Baixa',
+  'vigencia-vencido': 'Contrato Vencido',
+  'governanca-contatos': 'Contatos Incompletos',
 };
 
 const severityColors: Record<AlertSeverity, string> = {
   critico: 'bg-health-critical/10 border-health-critical text-health-critical',
   atencao: 'bg-health-attention/10 border-health-attention text-health-attention',
+  info: 'bg-blue-500/10 border-blue-500 text-blue-500',
 };
 
 const severityLabels: Record<AlertSeverity, string> = {
   critico: 'Crítico',
   atencao: 'Atenção',
+  info: 'Informativo',
 };
 
 export default function AlertsPage() {

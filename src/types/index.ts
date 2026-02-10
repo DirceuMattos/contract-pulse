@@ -164,9 +164,15 @@ export type AlertType =
   | 'concentracao-custo'
   | 'reajuste-proximo'
   | 'vigencia-fim'
-  | 'desatualizacao';
+  | 'desatualizacao'
+  | 'financeiro-deficit'
+  | 'financeiro-margem-baixa'
+  | 'vigencia-vencido'
+  | 'governanca-contatos';
 
-export type AlertSeverity = 'atencao' | 'critico';
+export type AlertSeverity = 'atencao' | 'critico' | 'info';
+
+export type AlertCategory = 'financeiro' | 'prazo' | 'reajuste' | 'governanca';
 
 export interface Alert {
   id: string;
@@ -177,6 +183,7 @@ export interface Alert {
   description: string;
   recommendation: string;
   createdAt: string;
+  alertCategory?: AlertCategory;
 }
 
 // Notification Types (for in-app notification center)
