@@ -1,147 +1,140 @@
 
-# Plano: Recursos V2 -- Overhead + Consultoria + Hints
+# Plano: Dashboard V2 -- Filtros por Cliente/Contrato + Lista de Alertas
 
 ## Resumo
-Adicionar custos indiretos (overhead) por contrato e categoria "Consultoria" em Outros Recursos, atualizando calculos de break even e incluindo tooltips explicativos na interface.
+Aprimorar o Dashboard com filtros por cliente e contrato (combobox com busca), substituir a lista inferior de contratos por uma tabela "Contratos com alertas" usando o motor de alertas existente (useAlerts + alertGenerator), e adicionar persistencia de filtros em localStorage.
 
 ---
 
-## 1. Novos Tipos e Interfaces
+## 1. Expandir o Motor de Alertas
 
 ### Arquivo: `src/types/index.ts`
 
-- Adicionar `'consultoria'` ao tipo `OtherCostCategory`
-- Adicionar campos opcionais ao `Resource`:
-  - `tipoValor?: 'mensal' | 'totalPeriodo'` (para consultoria)
-  - `duracaoMeses?: number` (para consultoria com valor total)
-- Criar nova interface `OverheadItem`:
+Atualizar tipos de alerta para incluir novas categorias:
+- Adicionar ao `AlertType`: `'financeiro-deficit'`, `'financeiro-margem-baixa'`, `'vigencia-vencido'`, `'governanca-contatos'`, `'governanca-dados'`
+- Adicionar ao `AlertSeverity`: `'info'`
+- Adicionar novo campo opcional `alertCategory` ao `Alert`: `'financeiro' | 'prazo' | 'reajuste' | 'governanca'`
 
+### Arquivo: `src/lib/alertGenerator.ts`
+
+Adicionar novas regras ao `generateAlerts`:
+- **Deficit financeiro**: `resultadoMensal < 0` -> severidade `critico`, categoria `financeiro`
+- **Margem baixa**: `resultadoMensal >= 0` e `margemPercentual < 5` -> severidade `atencao`, categoria `financeiro`
+- **Contrato vencido**: `dataFim < hoje` e status ativo -> severidade `critico`, categoria `prazo`
+- **Governanca - contatos incompletos**: contrato sem `responsavelCS` e sem `responsavelComercial` -> severidade `info`, categoria `governanca`
+
+A funcao precisa receber `overheadItems` para calcular health corretamente.
+
+### Arquivo: `src/hooks/useAlerts.ts`
+
+Passar `overheadItems` do DataContext para `generateAlerts`. Adicionar contagem de `info`.
+
+---
+
+## 2. Filtros no Dashboard
+
+### Arquivo: `src/pages/DashboardPage.tsx`
+
+Adicionar na barra superior (abaixo do header, acima dos KPIs):
+
+**Estado dos filtros:**
 ```typescript
-export type OverheadMode = 'percentual' | 'fixo';
-export type OverheadCategory = 'infraestrutura' | 'administrativo' | 'governanca';
-
-export interface OverheadItem {
-  id: string;
-  contractId: string;
-  categoria: OverheadCategory;
-  nome: string;
-  modo: OverheadMode;
-  percentual?: number;     // usado se modo = 'percentual'
-  valorFixoMensal?: number; // usado se modo = 'fixo'
-  createdAt: string;
-  updatedAt: string;
-}
+const [selectedClientId, setSelectedClientId] = useState<string>('all');
+const [selectedContractId, setSelectedContractId] = useState<string>('all');
 ```
 
----
+**Filtro por cliente:**
+- Combobox (usando cmdk/command, ja instalado) com busca
+- Opcoes: "Todos os clientes" + lista de clientes unicos dos contratos ativos
+- Formato: "Razao Social -- CNPJ"
 
-## 2. DataContext -- Overhead CRUD
+**Filtro por contrato:**
+- Combobox com busca
+- Opcoes filtradas pelo cliente selecionado
+- Formato: "Codigo -- Nome (vigencia)"
 
-### Arquivo: `src/contexts/DataContext.tsx`
+**Comportamento:**
+- Ao selecionar cliente, reseta contrato para "Todos"
+- Ao selecionar contrato, foca dashboard inteiro nele
+- Filtros aplicados a KPIs, graficos e tabela
 
-- Adicionar estado `overheadItems: OverheadItem[]` com persistencia localStorage (chave `bnp_overhead`)
-- Expor funcoes: `addOverheadItem`, `updateOverheadItem`, `deleteOverheadItem`, `getOverheadByContract`
-- Carregar dados mock no `resetToDemo`
-
----
-
-## 3. Calculos Atualizados
-
-### Arquivo: `src/lib/calculations.ts`
-
-- Nova funcao `calculateResourceCostForConsultoria`: se `tipoValor === 'totalPeriodo'`, o custo mensal = `custoBase / duracaoMeses`
-- Atualizar `calculateResourceCost` para tratar consultoria (quando `categoria === 'consultoria'` e `tipoValor === 'totalPeriodo'`)
-- Nova funcao `calculateOverheadCost(contractId, resources, overheadItems, settings)`:
-  - `baseOverhead = custoRH + custoOutrosDiretos` (custos existentes de recursos)
-  - Para cada item: se percentual, `item.percentual / 100 * baseOverhead`; se fixo, `item.valorFixoMensal`
-  - Retorna total e breakdown por item
-- Atualizar `calculateContractHealth` para aceitar `overheadItems` e somar overhead ao custo total
-- Atualizar `calculateContractCost` para incluir overhead
-- Atualizar `calculateDashboardKPIs` para passar overhead
+**Persistencia localStorage:**
+- Chave `bnp_dashboard_filters`
+- Salvar/carregar: `selectedClientId`, `selectedContractId`
 
 ---
 
-## 4. Formulario de Overhead
+## 3. Tabela "Contratos com Alertas"
 
-### Novo arquivo: `src/components/forms/OverheadForm.tsx`
+### Arquivo: `src/pages/DashboardPage.tsx`
 
-- Formulario com campos:
-  - Categoria (select: Infraestrutura do Escritorio / Administrativo / Governanca-Contabil-Financeiro)
-  - Modo (radio toggle: Percentual / Valor Fixo)
-  - Campo de percentual (habilitado se modo = percentual) com tooltip explicativo
-  - Campo de valor fixo mensal (habilitado se modo = fixo) com tooltip explicativo
-- Tooltip mostrando base de calculo atual (valor dinamico)
+Substituir a secao inferior (Cards Alertas + Contratos List) por:
 
----
+**Nova secao:**
+- Titulo: "Contratos com alertas"
+- Subtitulo: "Lista automatica de contratos que exigem atencao: deficit, margem baixa, vencimento ou reajuste proximos."
+- Contador no topo: "X alertas criticos, Y em atencao, Z informativos"
 
-## 5. Consultoria no ResourceForm
+**Tabela com colunas:**
+1. Severidade (icone + badge colorido)
+2. Tipo de alerta (chips: Financeiro / Prazo / Reajuste / Governanca)
+3. Cliente
+4. Contrato (codigo)
+5. Saude financeira (badge)
+6. Resultado mensal (R$) -- se canViewValues
+7. Data fim
+8. Proximo reajuste
+9. Acoes: "Ver contrato" (botao)
 
-### Arquivo: `src/components/forms/ResourceForm.tsx`
+**Ordenacao default:**
+1. Severidade (critico primeiro)
+2. Resultado mensal mais negativo
+3. Menor tempo ate vencimento/reajuste
 
-- Adicionar `'consultoria'` nas opcoes de categoria (quando tipo = 'outro')
-- Quando categoria = 'consultoria', exibir:
-  - Toggle `tipoValor`: "Valor Mensal" vs "Valor Total do Periodo"
-  - Se "Total do Periodo": campo `duracaoMeses` (obrigatorio) + campo `dataInicio`
-  - Preview de custo mensal calculado: `custoBase / duracaoMeses`
-  - Hint explicando a diferenca entre mensal e total do periodo
-- Atualizar schema zod para validar: se `tipoValor === 'totalPeriodo'`, `duracaoMeses` obrigatorio
+**Drill-down:**
+- Clique na linha navega para `/contratos/{id}` (detalhe do contrato)
 
----
-
-## 6. Secao de Overhead na Pagina de Recursos
-
-### Arquivo: `src/pages/ContractResourcesPage.tsx`
-
-- Adicionar secao "Custos Indiretos (Overhead)" abaixo dos recursos alocados
-- Listar overhead items do contrato com opcoes de editar/remover
-- Botao "Adicionar Overhead" abre dialog com OverheadForm
-- Card resumo "Overhead Mensal Total" nos summary cards
-- Tooltips nos valores explicando a base de calculo
+**Empty state:**
+- Titulo: "Nenhum alerta neste periodo"
+- Texto: "Nao ha contratos com deficit, margem baixa ou eventos proximos de vencimento/reajuste com os filtros atuais."
+- Acao: "Ver todos os contratos" -> navega para `/contratos`
 
 ---
 
-## 7. Breakdown no Detalhe do Contrato
+## 4. Logica de Filtragem
 
-### Arquivo: `src/pages/ContractDetailPage.tsx`
-
-- Na aba "Resumo", adicionar card "Overhead Mensal" ao lado do breakdown existente
-- Criar breakdown expandivel (Collapsible):
-  - RH (CLT + PJ)
-  - Outros Diretos (cloud, licencas, consultoria)
-  - Overhead (com subitens)
-  - Total
-- Tooltip explicando como overhead e calculado
+A filtragem aplica-se a todo o dashboard:
+1. Filtrar contratos ativos por cliente (se selecionado)
+2. Filtrar por contrato (se selecionado)
+3. Calcular KPIs apenas com contratos filtrados
+4. Graficos refletem contratos filtrados
+5. Tabela inferior mostra apenas contratos filtrados que tenham alertas
 
 ---
 
-## 8. Tooltips/Hints (UX)
-
-Usar componente `Tooltip` ja existente + icone `Info` do Lucide em:
-
-- Campo de percentual overhead: "Percentual aplicado sobre o custo base de execucao (RH + outros custos diretos)."
-- Campo de valor fixo: "Valor mensal fixo atribuido ao contrato para cobrir custos indiretos."
-- Base de calculo: mostrar valor atual, ex.: "Base atual: R$ X (RH + Outros diretos)."
-- Consultoria mensal vs total: "Valor mensal: custo recorrente por mes. Valor total do periodo: o sistema divide pelo numero de meses para calcular o custo mensal."
-
----
-
-## 9. Dados Mock
+## 5. Dados Mock
 
 ### Arquivo: `src/data/mockData.ts`
 
-- Adicionar array `mockOverheadItems` com:
-  - 6 contratos com overhead percentual (8-12%)
-  - Variar entre categorias (infraestrutura, administrativo, governanca)
-- Adicionar 3 recursos de consultoria (tipo 'outro', categoria 'consultoria') em contratos existentes
-- Ajustar valores para que pelo menos 2 contratos que eram "saudavel" passem a "atencao" ou "critico" com o overhead (ex: ctr-003 Portal do Cidadao e ctr-008 LogExpress que ja tem margens apertadas)
+Atualizar datas de contratos para garantir testabilidade com data atual (2026-02-10):
+- Ajustar `dataFim` de pelo menos 4 contratos para vencer em ate 60 dias (marco-abril 2026)
+- Garantir pelo menos 3 contratos com margem baixa (0-5%)
+- Garantir pelo menos 3 deficitarios
+- Pelo menos 2 com reajuste proximo
+
+Contratos candidatos a ajuste:
+- `ctr-003` (dataFim 2025-05-31 -- ja vencido, gera alerta critico de prazo)
+- `ctr-007` (dataFim 2025-07-31 -- ja vencido)
+- `ctr-010` (dataFim 2025-08-31 -- ja vencido)
+- `ctr-011` (dataFim 2025-06-30 -- ja vencido)
+- Ajustar alguns `dataFim` para 2026-03 e 2026-04 para alertas de "vencimento proximo"
+- Ajustar `dataBaseReajuste` de 2-3 contratos para mar-abr 2026
 
 ---
 
-## 10. Propagacao -- Dashboard e Tabelas
+## 6. Skeleton Loading
 
-- `DashboardPage.tsx`: passar `overheadItems` para funcoes de calculo (via DataContext)
-- `ContractsPage.tsx`: health badges ja usam `calculateContractHealth` -- basta que a funcao receba overhead
-- Garantir que todas as chamadas a `calculateContractHealth` e `calculateContractCost` incluam overhead
+Ao mudar filtros (cliente/contrato), aplicar breve skeleton (usando componente Skeleton existente) nos KPIs, graficos e tabela -- via transicao CSS (simples, sem delay artificial, apenas re-render visual).
 
 ---
 
@@ -149,28 +142,18 @@ Usar componente `Tooltip` ja existente + icone `Info` do Lucide em:
 
 | Arquivo | Acao |
 |---------|------|
-| `src/types/index.ts` | Novos tipos OverheadItem, OverheadMode, OverheadCategory; campo consultoria |
-| `src/contexts/DataContext.tsx` | CRUD overhead + estado + persistencia |
-| `src/lib/calculations.ts` | Funcoes de overhead + atualizacao de health/KPIs |
-| `src/components/forms/OverheadForm.tsx` | Novo formulario |
-| `src/components/forms/ResourceForm.tsx` | Campos consultoria + tooltips |
-| `src/pages/ContractResourcesPage.tsx` | Secao overhead + tooltips |
-| `src/pages/ContractDetailPage.tsx` | Breakdown expandivel + card overhead |
-| `src/pages/DashboardPage.tsx` | Passar overhead para calculos |
-| `src/pages/ContractsPage.tsx` | Passar overhead para calculos |
-| `src/data/mockData.ts` | Mock overhead + consultoria |
+| `src/types/index.ts` | Novos AlertTypes, severity 'info', campo alertCategory |
+| `src/lib/alertGenerator.ts` | Novas regras financeiro/deficit/margem/governanca + receber overheadItems |
+| `src/hooks/useAlerts.ts` | Passar overheadItems, contagem info |
+| `src/pages/DashboardPage.tsx` | Filtros combobox + tabela alertas + empty state + persistencia |
+| `src/data/mockData.ts` | Ajustar datas para testabilidade |
 
 ---
 
 ## Ordem de Implementacao
 
-1. Tipos (`types/index.ts`)
-2. Mock data (`mockData.ts`)
-3. DataContext (overhead CRUD)
-4. Calculos (`calculations.ts`)
-5. OverheadForm (novo componente)
-6. ResourceForm (campos consultoria)
-7. ContractResourcesPage (secao overhead)
-8. ContractDetailPage (breakdown)
-9. Dashboard + Contracts pages (propagacao)
-10. Tooltips finais e revisao
+1. Tipos (`types/index.ts`) -- novos alert types e severity
+2. Motor de alertas (`alertGenerator.ts`) -- novas regras
+3. Hook (`useAlerts.ts`) -- overhead + info count
+4. Mock data (`mockData.ts`) -- ajustar datas
+5. Dashboard (`DashboardPage.tsx`) -- filtros + tabela + empty state + persistencia
