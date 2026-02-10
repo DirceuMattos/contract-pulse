@@ -92,7 +92,7 @@ export interface Contract {
 
 // Resource Types
 export type ResourceType = 'clt' | 'pj' | 'outro';
-export type OtherCostCategory = 'cloud' | 'licenca' | 'equipamento' | 'terceiros' | 'outros';
+export type OtherCostCategory = 'cloud' | 'licenca' | 'equipamento' | 'terceiros' | 'outros' | 'consultoria';
 export type Seniority = 'junior' | 'pleno' | 'senior' | 'especialista';
 
 export interface Resource {
@@ -121,6 +121,26 @@ export interface Resource {
   recorrencia?: 'mensal' | 'anual' | 'unico';
   rateioMeses?: number;
   
+  // Consultoria specific
+  tipoValor?: 'mensal' | 'totalPeriodo';
+  duracaoMeses?: number;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Overhead Types
+export type OverheadMode = 'percentual' | 'fixo';
+export type OverheadCategory = 'infraestrutura' | 'administrativo' | 'governanca';
+
+export interface OverheadItem {
+  id: string;
+  contractId: string;
+  categoria: OverheadCategory;
+  nome: string;
+  modo: OverheadMode;
+  percentual?: number;
+  valorFixoMensal?: number;
   createdAt: string;
   updatedAt: string;
 }

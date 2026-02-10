@@ -1,4 +1,4 @@
-import { Client, Contract, Resource, Settings, Alert, Snapshot } from '@/types';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem } from '@/types';
 
 export const defaultSettings: Settings = {
   percentualEncargosCLT: 68, // 68% de encargos sobre salário
@@ -668,6 +668,11 @@ export const mockResources: Resource[] = [
   { id: 'res-064', contractId: 'ctr-015', tipo: 'clt', nome: 'Fernanda Reis', cargo: 'Dev Backend', senioridade: 'senior', custoBase: 17000, percentualDedicacao: 100, dataInicio: '2024-04-01', createdAt: '2024-04-01T14:00:00Z', updatedAt: '2024-07-01T11:00:00Z' },
   { id: 'res-065', contractId: 'ctr-015', tipo: 'clt', nome: 'João Victor', cargo: 'Dev IoT', senioridade: 'pleno', custoBase: 13000, percentualDedicacao: 100, dataInicio: '2024-04-01', createdAt: '2024-04-01T14:00:00Z', updatedAt: '2024-07-01T11:00:00Z' },
   { id: 'res-066', contractId: 'ctr-015', tipo: 'outro', nome: 'Azure IoT Hub', categoria: 'cloud', custoBase: 18000, percentualDedicacao: 100, dataInicio: '2024-04-01', createdAt: '2024-04-01T14:00:00Z', updatedAt: '2024-07-01T11:00:00Z' },
+
+  // Consultoria resources
+  { id: 'res-067', contractId: 'ctr-001', tipo: 'outro', nome: 'Consultoria Tributária Especializada', categoria: 'consultoria', custoBase: 180000, percentualDedicacao: 100, dataInicio: '2024-01-01', tipoValor: 'totalPeriodo', duracaoMeses: 12, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+  { id: 'res-068', contractId: 'ctr-004', tipo: 'outro', nome: 'Consultoria Jurídica Digital', categoria: 'consultoria', custoBase: 15000, percentualDedicacao: 100, dataInicio: '2024-03-01', tipoValor: 'mensal', createdAt: '2024-03-01T10:00:00Z', updatedAt: '2024-03-01T10:00:00Z' },
+  { id: 'res-069', contractId: 'ctr-006', tipo: 'outro', nome: 'Consultoria em Saúde Pública', categoria: 'consultoria', custoBase: 240000, percentualDedicacao: 100, dataInicio: '2024-02-01', tipoValor: 'totalPeriodo', duracaoMeses: 12, createdAt: '2024-02-01T10:00:00Z', updatedAt: '2024-02-01T10:00:00Z' },
 ];
 
 export const mockAlerts: Alert[] = [
@@ -738,4 +743,30 @@ export const mockSnapshots: Snapshot[] = [
   { id: 'snap-001', contractId: 'ctr-007', receitaMensal: 75000, custoMensal: 68000, margemMensal: 7000, margemPercentual: 9.33, healthStatus: 'atencao', createdAt: '2024-01-20T10:00:00Z' },
   { id: 'snap-002', contractId: 'ctr-007', receitaMensal: 75000, custoMensal: 72000, margemMensal: 3000, margemPercentual: 4.0, healthStatus: 'atencao', createdAt: '2024-03-15T10:00:00Z' },
   { id: 'snap-003', contractId: 'ctr-007', receitaMensal: 75000, custoMensal: 78000, margemMensal: -3000, margemPercentual: -4.0, healthStatus: 'critico', createdAt: '2024-05-10T10:00:00Z' },
+];
+
+export const mockOverheadItems: OverheadItem[] = [
+  // ctr-001 SEFAZ - healthy, overhead won't break it
+  { id: 'ovh-001', contractId: 'ctr-001', categoria: 'infraestrutura', nome: 'Overhead de infraestrutura do escritório', modo: 'percentual', percentual: 8, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+  { id: 'ovh-002', contractId: 'ctr-001', categoria: 'administrativo', nome: 'Overhead administrativo', modo: 'percentual', percentual: 5, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+
+  // ctr-003 Portal do Cidadão - tight margins, overhead should push to atenção/crítico
+  { id: 'ovh-003', contractId: 'ctr-003', categoria: 'infraestrutura', nome: 'Overhead de infraestrutura do escritório', modo: 'percentual', percentual: 10, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+  { id: 'ovh-004', contractId: 'ctr-003', categoria: 'governanca', nome: 'Overhead de governança/contábil/financeiro', modo: 'percentual', percentual: 5, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+
+  // ctr-004 TJRJ - large contract
+  { id: 'ovh-005', contractId: 'ctr-004', categoria: 'administrativo', nome: 'Overhead administrativo', modo: 'percentual', percentual: 8, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+
+  // ctr-005 BNI Investimentos
+  { id: 'ovh-006', contractId: 'ctr-005', categoria: 'infraestrutura', nome: 'Overhead de infraestrutura do escritório', modo: 'percentual', percentual: 6, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+
+  // ctr-006 MS Vigilância
+  { id: 'ovh-007', contractId: 'ctr-006', categoria: 'governanca', nome: 'Overhead de governança/contábil/financeiro', modo: 'percentual', percentual: 7, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+
+  // ctr-008 LogExpress - tight margins, overhead pushes to critical
+  { id: 'ovh-008', contractId: 'ctr-008', categoria: 'infraestrutura', nome: 'Overhead de infraestrutura do escritório', modo: 'percentual', percentual: 12, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+  { id: 'ovh-009', contractId: 'ctr-008', categoria: 'administrativo', nome: 'Overhead administrativo', modo: 'fixo', valorFixoMensal: 3000, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+
+  // ctr-009 DETRAN-MG
+  { id: 'ovh-010', contractId: 'ctr-009', categoria: 'administrativo', nome: 'Overhead administrativo', modo: 'percentual', percentual: 9, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
 ];

@@ -32,7 +32,7 @@ const healthLabels: Record<HealthStatus, string> = {
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getClient, getContractsByClient, resources, settings } = useData();
+  const { getClient, getContractsByClient, resources, settings, overheadItems } = useData();
   const { canEdit, canViewValues } = useAuth();
   
   const client = id ? getClient(id) : undefined;
@@ -51,7 +51,7 @@ export default function ClientDetailPage() {
   
   // Calculate health for contracts
   const contractsWithHealth = clientContracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings);
+    const health = calculateContractHealth(contract, resources, settings, overheadItems);
     return { contract, health };
   });
   

@@ -14,6 +14,8 @@ import {
   TrendingDown,
   Users,
   AlertTriangle,
+  Info,
+  Layers,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,16 +40,24 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ResourceForm } from '@/components/forms/ResourceForm';
+import { OverheadForm } from '@/components/forms/OverheadForm';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   formatCurrency,
   formatPercentage,
   formatDate,
   calculateResourceCost,
   calculateContractHealth,
+  calculateOverheadCost,
   getContractRevenue,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
-import { Resource, HealthStatus } from '@/types';
+import { Resource, HealthStatus, OverheadItem } from '@/types';
 
 const healthLabels: Record<HealthStatus, string> = {
   saudavel: 'Saudável',
@@ -72,6 +82,7 @@ const categoriaLabels: Record<string, string> = {
   licenca: 'Licença',
   equipamento: 'Equipamento',
   terceiros: 'Terceiros',
+  consultoria: 'Consultoria',
   outros: 'Outros',
 };
 
@@ -93,13 +104,21 @@ export default function ContractResourcesPage() {
     addResource, 
     updateResource, 
     deleteResource,
-    settings 
+    settings,
+    overheadItems,
+    getOverheadByContract,
+    addOverheadItem,
+    updateOverheadItem,
+    deleteOverheadItem,
   } = useData();
   const { canEdit, canViewValues } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [overheadFormOpen, setOverheadFormOpen] = useState(false);
+  const [editingOverhead, setEditingOverhead] = useState<OverheadItem | null>(null);
+  const [deleteOverheadId, setDeleteOverheadId] = useState<string | null>(null);
 
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
@@ -116,8 +135,10 @@ export default function ContractResourcesPage() {
     );
   }
 
-  const health = calculateContractHealth(contract, resources, settings);
+  const health = calculateContractHealth(contract, resources, settings, overheadItems);
   const receitaMensal = getContractRevenue(contract);
+  const contractOverhead = id ? getOverheadByContract(id) : [];
+  const overheadCost = calculateOverheadCost(contract.id, resources, contractOverhead, settings);
 
   // Group resources by type
   const resourcesByType = resources.reduce((acc, resource) => {
@@ -164,8 +185,31 @@ export default function ContractResourcesPage() {
       });
     }
   };
+  const handleAddOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    addOverheadItem(data);
+    setOverheadFormOpen(false);
+    toast({ title: 'Overhead adicionado', description: 'O custo indireto foi adicionado ao contrato.' });
+  };
+
+  const handleEditOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (editingOverhead) {
+      updateOverheadItem(editingOverhead.id, data);
+      setEditingOverhead(null);
+      toast({ title: 'Overhead atualizado', description: 'As alterações foram salvas.' });
+    }
+  };
+
+  const handleDeleteOverhead = () => {
+    if (deleteOverheadId) {
+      deleteOverheadItem(deleteOverheadId);
+      setDeleteOverheadId(null);
+      toast({ title: 'Overhead removido', description: 'O custo indireto foi removido.' });
+    }
+  };
+
 
   return (
+    <TooltipProvider>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -432,6 +476,104 @@ export default function ContractResourcesPage() {
         )}
       </div>
 
+      {/* Overhead Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Layers className="w-5 h-5 text-muted-foreground" />
+            Custos Indiretos (Overhead)
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Custos indiretos como infraestrutura do escritório, despesas administrativas e governança. Calculados sobre a base de execução (RH + outros custos diretos).
+              </TooltipContent>
+            </Tooltip>
+          </h2>
+          {canEdit && (
+            <Button variant="outline" onClick={() => setOverheadFormOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Adicionar Overhead
+            </Button>
+          )}
+        </div>
+
+        {/* Overhead Summary */}
+        {canViewValues && contractOverhead.length > 0 && (
+          <Card className="bg-muted/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  Overhead Mensal Total
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      Base de cálculo: {formatCurrency(health.custoMensal - overheadCost.total)} (RH + Outros diretos)
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+                <span className="text-xl font-bold text-primary">{formatCurrency(overheadCost.total)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {contractOverhead.length > 0 ? (
+          <div className="space-y-3">
+            {overheadCost.breakdown.map(({ item, cost }) => (
+              <Card key={item.id} className="card-elevated">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Layers className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{item.nome}</h3>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">
+                          {item.categoria === 'infraestrutura' ? 'Infraestrutura' : item.categoria === 'administrativo' ? 'Administrativo' : 'Governança'}
+                        </Badge>
+                        <span>
+                          {item.modo === 'percentual' ? `${item.percentual}% da base` : 'Valor fixo'}
+                        </span>
+                      </div>
+                    </div>
+                    {canViewValues && (
+                      <div className="text-right shrink-0">
+                        <p className="text-lg font-bold">{formatCurrency(cost)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.modo === 'percentual' ? `${item.percentual}%` : 'fixo/mês'}
+                        </p>
+                      </div>
+                    )}
+                    {canEdit && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" onClick={() => setEditingOverhead(item)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteOverheadId(item.id)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="card-elevated">
+            <CardContent className="py-8 text-center">
+              <Layers className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Nenhum custo indireto cadastrado para este contrato.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {/* Add/Edit Resource Dialog */}
       <Dialog open={formOpen || !!editingResource} onOpenChange={(open) => {
         if (!open) {
@@ -458,7 +600,33 @@ export default function ContractResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Add/Edit Overhead Dialog */}
+      <Dialog open={overheadFormOpen || !!editingOverhead} onOpenChange={(open) => {
+        if (!open) {
+          setOverheadFormOpen(false);
+          setEditingOverhead(null);
+        }
+      }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingOverhead ? 'Editar Overhead' : 'Adicionar Overhead'}
+            </DialogTitle>
+          </DialogHeader>
+          <OverheadForm
+            item={editingOverhead || undefined}
+            contractId={contract.id}
+            baseCalculo={health.custoMensal - overheadCost.total}
+            onSubmit={editingOverhead ? handleEditOverhead : handleAddOverhead}
+            onCancel={() => {
+              setOverheadFormOpen(false);
+              setEditingOverhead(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Resource Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -475,6 +643,25 @@ export default function ContractResourcesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Overhead Confirmation */}
+      <AlertDialog open={!!deleteOverheadId} onOpenChange={() => setDeleteOverheadId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover overhead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O custo indireto será removido do contrato.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteOverhead} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
+    </TooltipProvider>
   );
 }

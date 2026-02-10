@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Building, Box, Calculator } from 'lucide-react';
+import { User, Building, Box, Calculator, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,8 +27,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Resource, ResourceType, OtherCostCategory, Seniority, Settings } from '@/types';
 import { formatCurrency, calculateResourceCost } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-const resourceFormSchema = z.object({
+const resourceFormSchemaBase = z.object({
   tipo: z.enum(['clt', 'pj', 'outro']),
   nome: z.string().min(2, 'Nome é obrigatório'),
   cargo: z.string().optional(),
@@ -40,12 +47,24 @@ const resourceFormSchema = z.object({
   observacoes: z.string().optional(),
   encargosOverride: z.number().min(0).max(200).optional(),
   impostosOverride: z.number().min(0).max(100).optional(),
-  categoria: z.enum(['cloud', 'licenca', 'equipamento', 'terceiros', 'outros']).optional(),
+  categoria: z.enum(['cloud', 'licenca', 'equipamento', 'terceiros', 'outros', 'consultoria']).optional(),
   recorrencia: z.enum(['mensal', 'anual', 'unico']).optional(),
   rateioMeses: z.number().min(1).optional(),
+  tipoValor: z.enum(['mensal', 'totalPeriodo']).optional(),
+  duracaoMeses: z.number().min(1).optional(),
 });
 
-type ResourceFormData = z.infer<typeof resourceFormSchema>;
+const resourceFormSchema = resourceFormSchemaBase.refine((data) => {
+  if (data.categoria === 'consultoria' && data.tipoValor === 'totalPeriodo') {
+    return data.duracaoMeses && data.duracaoMeses > 0;
+  }
+  return true;
+}, {
+  message: 'Duração em meses é obrigatória para valor total do período',
+  path: ['duracaoMeses'],
+});
+
+type ResourceFormData = z.infer<typeof resourceFormSchemaBase>;
 
 interface ResourceFormProps {
   resource?: Resource;
@@ -67,6 +86,7 @@ const categoriaOptions = [
   { value: 'licenca', label: 'Licenças de Software' },
   { value: 'equipamento', label: 'Equipamentos' },
   { value: 'terceiros', label: 'Serviços Terceiros' },
+  { value: 'consultoria', label: 'Consultoria' },
   { value: 'outros', label: 'Outros' },
 ];
 
@@ -94,6 +114,8 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
       categoria: resource?.categoria,
       recorrencia: resource?.recorrencia || 'mensal',
       rateioMeses: resource?.rateioMeses || 12,
+      tipoValor: resource?.tipoValor || 'mensal',
+      duracaoMeses: resource?.duracaoMeses || 12,
     },
   });
 
@@ -102,6 +124,9 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
   const percentualDedicacao = form.watch('percentualDedicacao') || 100;
   const encargosOverride = form.watch('encargosOverride');
   const impostosOverride = form.watch('impostosOverride');
+  const categoriaAtual = form.watch('categoria');
+  const tipoValorAtual = form.watch('tipoValor');
+  const duracaoMesesAtual = form.watch('duracaoMeses') || 1;
 
   // Calculate preview cost
   const previewResource: Resource = {
@@ -114,6 +139,9 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
     dataInicio: '',
     encargosOverride,
     impostosOverride,
+    categoria: categoriaAtual as any,
+    tipoValor: tipoValorAtual as any,
+    duracaoMeses: duracaoMesesAtual,
     createdAt: '',
     updatedAt: '',
   };
@@ -137,10 +165,13 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
       categoria: data.categoria,
       recorrencia: data.recorrencia,
       rateioMeses: data.rateioMeses,
+      tipoValor: data.categoria === 'consultoria' ? data.tipoValor : undefined,
+      duracaoMeses: data.categoria === 'consultoria' && data.tipoValor === 'totalPeriodo' ? data.duracaoMeses : undefined,
     });
   };
 
   return (
+    <TooltipProvider>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         {/* Tipo de Recurso */}
@@ -535,5 +566,6 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
         </div>
       </form>
     </Form>
+    </TooltipProvider>
   );
 }

@@ -71,9 +71,9 @@ const healthLabels: Record<HealthStatus, string> = {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { canViewValues } = useAuth();
-  const { contracts, clients, resources, settings, alerts } = useData();
+  const { contracts, clients, resources, settings, alerts, overheadItems } = useData();
   
-  const kpis = calculateDashboardKPIs(contracts, resources, settings, canViewValues);
+  const kpis = calculateDashboardKPIs(contracts, resources, settings, canViewValues, overheadItems);
   
   // Prepare data for charts
   const healthChartData = [
@@ -97,7 +97,7 @@ export default function DashboardPage() {
   const contractHealthList = contracts
     .filter(c => c.status === 'operacao' || c.status === 'implantacao')
     .map(contract => {
-      const health = calculateContractHealth(contract, resources, settings);
+      const health = calculateContractHealth(contract, resources, settings, overheadItems);
       const client = clients.find(c => c.id === contract.clientId);
       return { contract, health, client };
     })
