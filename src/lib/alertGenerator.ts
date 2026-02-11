@@ -1,4 +1,4 @@
-import { Contract, Resource, Settings, Alert, AlertSeverity, Snapshot, OverheadItem } from '@/types';
+import { Contract, Resource, Settings, Alert, AlertSeverity, Snapshot, OverheadItem, HistoryEvent } from '@/types';
 import { getDaysUntil, getDaysSince, calculateContractHealth } from './calculations';
 
 interface AlertGeneratorContext {
@@ -7,13 +7,14 @@ interface AlertGeneratorContext {
   settings: Settings;
   snapshots: Snapshot[];
   overheadItems?: OverheadItem[];
+  historyEvents?: HistoryEvent[];
 }
 
 /**
  * Gera alertas automáticos baseados nos contratos e configurações
  */
 export function generateAlerts(context: AlertGeneratorContext): Alert[] {
-  const { contracts, resources, settings, snapshots, overheadItems = [] } = context;
+  const { contracts, resources, settings, snapshots, overheadItems = [], historyEvents = [] } = context;
   const alerts: Alert[] = [];
   
   // Filtra apenas contratos ativos (operação ou implantação)
@@ -56,6 +57,11 @@ export function generateAlerts(context: AlertGeneratorContext): Alert[] {
     // Alerta de Governança - contatos incompletos
     const governancaAlert = checkGovernancaContatos(contract);
     if (governancaAlert) alerts.push(governancaAlert);
+
+    // Alertas de histórico (governança)
+    const contractHistory = historyEvents.filter(e => e.contractId === contract.id);
+    const historyAlerts = checkHistoryAlerts(contract, contractHistory);
+    alerts.push(...historyAlerts);
   }
   
   // Ordena por severidade (crítico primeiro, depois atenção, depois info) e data
@@ -340,6 +346,54 @@ function checkConcentracaoCusto(
     recommendation: 'Avalie o risco de dependência e considere distribuir responsabilidades ou documentar conhecimento crítico.',
     createdAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Verifica alertas de governança baseados no histórico de eventos
+ */
+function checkHistoryAlerts(contract: Contract, events: HistoryEvent[]): Alert[] {
+  const alerts: Alert[] = [];
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+  // Ocorrência crítica recente
+  const hasCriticalRecent = events.some(e =>
+    e.severity === 'critico' && new Date(e.eventDate) >= ninetyDaysAgo
+  );
+  if (hasCriticalRecent) {
+    alerts.push({
+      id: `alert-hist-critico-${contract.id}`,
+      contractId: contract.id,
+      type: 'governanca-contatos',
+      severity: 'atencao',
+      alertCategory: 'governanca',
+      title: 'Ocorrência crítica recente',
+      description: `O contrato "${contract.nome}" possui evento crítico registrado nos últimos 90 dias.`,
+      recommendation: 'Revise o histórico e acompanhe as ações corretivas.',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  // Risco contratual recente
+  const hasRiskEvent = events.some(e =>
+    (e.eventType === 'notificacao-recebida' || e.eventType === 'multa-penalidade') &&
+    new Date(e.eventDate) >= ninetyDaysAgo
+  );
+  if (hasRiskEvent) {
+    alerts.push({
+      id: `alert-hist-risco-${contract.id}`,
+      contractId: contract.id,
+      type: 'governanca-contatos',
+      severity: 'atencao',
+      alertCategory: 'governanca',
+      title: 'Risco contratual recente',
+      description: `O contrato "${contract.nome}" recebeu notificação ou penalidade nos últimos 90 dias.`,
+      recommendation: 'Analise o histórico e defina plano de mitigação de riscos.',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return alerts;
 }
 
 /**

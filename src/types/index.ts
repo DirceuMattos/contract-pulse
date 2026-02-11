@@ -236,6 +236,47 @@ export interface DashboardKPIs {
   margemTotal?: number;
 }
 
+// History Event Types
+export type HistoryEventType =
+  | 'assinatura'
+  | 'inicio-vigencia'
+  | 'aditivo'
+  | 'reajuste-aplicado'
+  | 'notificacao-recebida'
+  | 'notificacao-enviada'
+  | 'multa-penalidade'
+  | 'marco-operacional'
+  | 'reuniao-ata'
+  | 'ocorrencia'
+  | 'renegociacao'
+  | 'renovacao'
+  | 'encerramento'
+  | 'outro';
+
+export type HistoryImpactArea =
+  | 'financeiro'
+  | 'prazo'
+  | 'reajuste'
+  | 'juridico'
+  | 'operacional'
+  | 'governanca';
+
+export interface HistoryEvent {
+  id: string;
+  contractId: string;
+  eventDate: string;
+  eventType: HistoryEventType;
+  title: string;
+  description: string;
+  impactArea: HistoryImpactArea;
+  severity: AlertSeverity;
+  relatedValue?: number;
+  relatedClause?: string;
+  createdAt: string;
+  createdByUserId?: string;
+  updatedAt?: string;
+}
+
 // Computed Types
 export interface ContractHealth {
   contractId: string;
