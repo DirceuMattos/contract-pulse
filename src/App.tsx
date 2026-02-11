@@ -33,13 +33,13 @@ const App = () => (
     <ThemeProvider>
       <SystemUsersProvider>
         <AuthProvider>
-          <AccessLogProvider>
           <DataProvider>
             <NotificationProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
+                  <AccessLogProvider>
                   <Routes>
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -64,11 +64,11 @@ const App = () => (
                     </Route>
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </AccessLogProvider>
                 </BrowserRouter>
               </TooltipProvider>
             </NotificationProvider>
           </DataProvider>
-          </AccessLogProvider>
         </AuthProvider>
       </SystemUsersProvider>
     </ThemeProvider>
