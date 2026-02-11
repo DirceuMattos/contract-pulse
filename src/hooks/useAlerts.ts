@@ -7,7 +7,7 @@ import { Alert } from '@/types';
  * Hook que gera alertas automáticos baseados nos dados e configurações
  */
 export function useAlerts() {
-  const { contracts, resources, settings, snapshots, overheadItems } = useData();
+  const { contracts, resources, settings, snapshots, overheadItems, historyEvents } = useData();
   
   const alerts = useMemo(() => {
     return generateAlerts({
@@ -16,8 +16,9 @@ export function useAlerts() {
       settings,
       snapshots,
       overheadItems,
+      historyEvents,
     });
-  }, [contracts, resources, settings, snapshots, overheadItems]);
+  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents]);
   
   const counts = useMemo(() => countAlertsBySeverity(alerts), [alerts]);
   

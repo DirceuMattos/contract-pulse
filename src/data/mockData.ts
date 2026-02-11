@@ -1,4 +1,4 @@
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem } from '@/types';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent } from '@/types';
 
 export const defaultSettings: Settings = {
   percentualEncargosCLT: 68, // 68% de encargos sobre salário
@@ -769,4 +769,38 @@ export const mockOverheadItems: OverheadItem[] = [
 
   // ctr-009 DETRAN-MG
   { id: 'ovh-010', contractId: 'ctr-009', categoria: 'administrativo', nome: 'Overhead administrativo', modo: 'percentual', percentual: 9, createdAt: '2024-01-01T10:00:00Z', updatedAt: '2024-01-01T10:00:00Z' },
+];
+
+export const mockHistoryEvents: HistoryEvent[] = [
+  // ctr-001: Assinatura, Início vigência, Reajuste aplicado, Marco operacional (go-live)
+  { id: 'hev-001', contractId: 'ctr-001', eventDate: '2023-02-15', eventType: 'assinatura', title: 'Assinatura do contrato SEFAZ-SP', description: 'Contrato assinado com a Secretaria de Fazenda do Estado de São Paulo para o Sistema de Gestão Tributária.', impactArea: 'juridico', severity: 'info', createdAt: '2023-02-15T10:00:00Z' },
+  { id: 'hev-002', contractId: 'ctr-001', eventDate: '2023-03-01', eventType: 'inicio-vigencia', title: 'Início da vigência', description: 'Início oficial da operação do contrato de gestão tributária.', impactArea: 'prazo', severity: 'info', createdAt: '2023-03-01T08:00:00Z' },
+  { id: 'hev-003', contractId: 'ctr-001', eventDate: '2024-03-15', eventType: 'reajuste-aplicado', title: 'Reajuste IPCA de 4,62%', description: 'Reajuste anual aplicado conforme IPCA acumulado. Valor mensal atualizado de R$ 272.000 para R$ 285.000.', impactArea: 'reajuste', severity: 'info', relatedValue: 285000, relatedClause: 'Cláusula 8.1', createdAt: '2024-03-15T10:00:00Z' },
+  { id: 'hev-004', contractId: 'ctr-001', eventDate: '2023-09-20', eventType: 'marco-operacional', title: 'Go-live do módulo SPED integrado', description: 'Módulo de integração com o SPED entrou em produção com sucesso. Todas as obrigações acessórias automatizadas.', impactArea: 'operacional', severity: 'info', createdAt: '2023-09-20T14:00:00Z' },
+
+  // ctr-003: Aditivo (escopo), Notificação recebida, Marco operacional
+  { id: 'hev-005', contractId: 'ctr-003', eventDate: '2024-01-10', eventType: 'aditivo', title: 'Aditivo de escopo — módulo agendamento online', description: 'Adição do módulo de agendamento online para serviços municipais. Prazo de entrega: 90 dias. Sem alteração de valor mensal.', impactArea: 'operacional', severity: 'atencao', relatedClause: 'Cláusula 3.2 — Escopo', createdAt: '2024-01-10T09:00:00Z' },
+  { id: 'hev-006', contractId: 'ctr-003', eventDate: '2025-11-20', eventType: 'notificacao-recebida', title: 'Notificação de insatisfação com SLA', description: 'PBH notificou formalmente sobre descumprimento de SLA de disponibilidade no mês de outubro (97,8% vs 99,5% contratado).', impactArea: 'governanca', severity: 'critico', relatedClause: 'Cláusula 12 — SLA', createdAt: '2025-11-20T11:00:00Z' },
+  { id: 'hev-007', contractId: 'ctr-003', eventDate: '2024-04-15', eventType: 'marco-operacional', title: 'Lançamento do Portal v2.0', description: 'Nova versão do Portal do Cidadão lançada com redesign completo e módulo de autoatendimento.', impactArea: 'operacional', severity: 'info', createdAt: '2024-04-15T16:00:00Z' },
+
+  // ctr-004: Assinatura, Aditivo (valor), Reunião/Ata, Multa/Penalidade (crítico recente)
+  { id: 'hev-008', contractId: 'ctr-004', eventDate: '2022-11-01', eventType: 'assinatura', title: 'Assinatura do contrato TJRJ', description: 'Contrato assinado para o Sistema Processual Digital do Tribunal de Justiça do RJ.', impactArea: 'juridico', severity: 'info', createdAt: '2022-11-01T14:00:00Z' },
+  { id: 'hev-009', contractId: 'ctr-004', eventDate: '2023-08-01', eventType: 'aditivo', title: 'Aditivo de valor — módulo IA', description: 'Inclusão do módulo de IA para triagem processual. Valor mensal aumentado em R$ 45.000 para cobrir equipe de ML.', impactArea: 'financeiro', severity: 'atencao', relatedValue: 45000, relatedClause: 'Termo Aditivo nº 2', createdAt: '2023-08-01T10:00:00Z' },
+  { id: 'hev-010', contractId: 'ctr-004', eventDate: '2024-06-15', eventType: 'reuniao-ata', title: 'Reunião de governança trimestral', description: 'Reunião trimestral com comitê gestor do TJRJ. Discutidos prazos do módulo de peticionamento e roadmap 2025.', impactArea: 'governanca', severity: 'info', createdAt: '2024-06-15T15:00:00Z' },
+  { id: 'hev-011', contractId: 'ctr-004', eventDate: '2025-12-10', eventType: 'multa-penalidade', title: 'Multa por atraso na entrega do módulo de peticionamento', description: 'Aplicação de multa contratual de 2% sobre o valor mensal por atraso de 15 dias na entrega do módulo de peticionamento eletrônico.', impactArea: 'financeiro', severity: 'critico', relatedValue: 7600, relatedClause: 'Cláusula 15.3 — Penalidades', createdAt: '2025-12-10T09:00:00Z' },
+
+  // ctr-005: Início vigência, Reajuste aplicado, Renovação
+  { id: 'hev-012', contractId: 'ctr-005', eventDate: '2023-04-01', eventType: 'inicio-vigencia', title: 'Início da vigência BNI', description: 'Início da operação da Plataforma de Investimentos do BNI.', impactArea: 'prazo', severity: 'info', createdAt: '2023-04-01T10:00:00Z' },
+  { id: 'hev-013', contractId: 'ctr-005', eventDate: '2024-04-10', eventType: 'reajuste-aplicado', title: 'Reajuste IPCA de 3,93%', description: 'Reajuste anual conforme IPCA. Valor mensal atualizado para R$ 210.000.', impactArea: 'reajuste', severity: 'info', relatedValue: 210000, createdAt: '2024-04-10T10:00:00Z' },
+  { id: 'hev-014', contractId: 'ctr-005', eventDate: '2025-03-01', eventType: 'renovacao', title: 'Renovação por mais 12 meses', description: 'Contrato renovado automaticamente conforme cláusula de renovação anual. Nova vigência até março/2027.', impactArea: 'prazo', severity: 'info', createdAt: '2025-03-01T10:00:00Z' },
+
+  // ctr-006: Assinatura, Ocorrência crítica (incidente recente), Marco operacional
+  { id: 'hev-015', contractId: 'ctr-006', eventDate: '2022-08-20', eventType: 'assinatura', title: 'Assinatura do contrato MS Vigilância', description: 'Contrato assinado com o Ministério da Saúde para o Sistema Nacional de Vigilância em Saúde.', impactArea: 'juridico', severity: 'info', createdAt: '2022-08-20T11:00:00Z' },
+  { id: 'hev-016', contractId: 'ctr-006', eventDate: '2025-12-05', eventType: 'ocorrencia', title: 'Incidente crítico — indisponibilidade de 6 horas', description: 'Sistema ficou indisponível por 6 horas devido a falha no cluster principal de banco de dados. Impacto nacional em 12 estados. Postmortem realizado e plano de ação definido.', impactArea: 'operacional', severity: 'critico', createdAt: '2025-12-05T20:00:00Z' },
+  { id: 'hev-017', contractId: 'ctr-006', eventDate: '2024-03-01', eventType: 'marco-operacional', title: 'Integração com 100% dos estados concluída', description: 'Todos os 27 estados brasileiros integrados ao sistema de vigilância. Meta do contrato atingida.', impactArea: 'operacional', severity: 'info', createdAt: '2024-03-01T09:00:00Z' },
+
+  // ctr-008: Notificação enviada, Renegociação, Marco operacional
+  { id: 'hev-018', contractId: 'ctr-008', eventDate: '2024-08-01', eventType: 'notificacao-enviada', title: 'Notificação de reajuste enviada', description: 'Notificação formal enviada à LogExpress sobre reajuste contratual previsto para outubro/2024.', impactArea: 'reajuste', severity: 'info', createdAt: '2024-08-01T10:00:00Z' },
+  { id: 'hev-019', contractId: 'ctr-008', eventDate: '2024-11-15', eventType: 'renegociacao', title: 'Renegociação de escopo IoT', description: 'Renegociação do escopo de sensores IoT. Redução de 200 para 150 pontos de monitoramento, com ajuste proporcional no valor.', impactArea: 'financeiro', severity: 'atencao', relatedValue: -5000, createdAt: '2024-11-15T14:00:00Z' },
+  { id: 'hev-020', contractId: 'ctr-008', eventDate: '2024-06-01', eventType: 'marco-operacional', title: 'Go-live do módulo de analytics', description: 'Módulo de analytics em tempo real para frota entrou em produção. Dashboard gerencial disponível para a LogExpress.', impactArea: 'operacional', severity: 'info', createdAt: '2024-06-01T16:00:00Z' },
 ];
