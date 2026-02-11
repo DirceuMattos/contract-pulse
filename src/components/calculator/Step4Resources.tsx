@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Card } from '@/components/ui/card';
 import { Plus, Trash2, RotateCcw, Lightbulb } from 'lucide-react';
 import { generateSuggestedResources, getAppliedRules } from '@/lib/simulationEngine';
+import { useData } from '@/contexts/DataContext';
 import type { ContractSimulation, SimulationHRItem, SimulationOtherCost, SimulationOverhead } from '@/types';
 
 interface Props {
@@ -21,25 +22,18 @@ function formatCurrency(v: number) {
 
 export function Step4Resources({ data, onChange }: Props) {
   const [showSuggestion] = useState(true);
+  const { settings } = useData();
+  const chargesCLT = settings.percentualEncargosCLT;
+  const chargesPJ = settings.percentualImpostosPJ;
+
   const hr = data.usingSuggested ? data.suggestedHR : data.customHR;
   const oc = data.usingSuggested ? data.suggestedOtherCosts : data.customOtherCosts;
   const oh = data.usingSuggested ? data.suggestedOverhead : data.customOverhead;
 
   const rules = getAppliedRules(data.questionnaire, data.complexityLevel);
 
-  const applyCustom = () => {
-    if (data.usingSuggested) {
-      onChange({
-        usingSuggested: false,
-        customHR: JSON.parse(JSON.stringify(data.suggestedHR)),
-        customOtherCosts: JSON.parse(JSON.stringify(data.suggestedOtherCosts)),
-        customOverhead: { ...data.suggestedOverhead },
-      });
-    }
-  };
-
   const resetToSuggested = () => {
-    const suggested = generateSuggestedResources(data.questionnaire, data.complexityLevel);
+    const suggested = generateSuggestedResources(data.questionnaire, data.complexityLevel, chargesCLT, chargesPJ);
     onChange({
       usingSuggested: true,
       suggestedHR: suggested.hr,
@@ -48,56 +42,58 @@ export function Step4Resources({ data, onChange }: Props) {
     });
   };
 
+  const getSourceHR = (): SimulationHRItem[] =>
+    JSON.parse(JSON.stringify(data.usingSuggested ? data.suggestedHR : data.customHR));
+
+  const getSourceOC = (): SimulationOtherCost[] =>
+    JSON.parse(JSON.stringify(data.usingSuggested ? data.suggestedOtherCosts : data.customOtherCosts));
+
+  const getSourceOH = (): SimulationOverhead =>
+    data.usingSuggested ? { ...data.suggestedOverhead } : { ...data.customOverhead };
+
   const updateHR = (id: string, field: keyof SimulationHRItem, value: unknown) => {
-    applyCustom();
-    const list = (data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedHR)) : [...data.customHR]) as SimulationHRItem[];
+    const list = getSourceHR();
     const idx = list.findIndex(i => i.id === id);
     if (idx >= 0) {
       list[idx] = { ...list[idx], [field]: value };
       if (field === 'hiringType') {
-        list[idx].chargesPercent = value === 'pj' ? 10 : 68;
+        list[idx].chargesPercent = value === 'pj' ? chargesPJ : chargesCLT;
       }
     }
     onChange({ customHR: list, usingSuggested: false });
   };
 
   const addHR = () => {
-    applyCustom();
-    const list = data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedHR)) : [...data.customHR];
-    list.push({ id: `hr-${Date.now()}`, role: 'Novo recurso', hiringType: 'clt', quantity: 1, grossMonthly: 10000, chargesPercent: 68 });
+    const list = getSourceHR();
+    list.push({ id: `hr-${Date.now()}`, role: 'Novo recurso', hiringType: 'clt', quantity: 1, grossMonthly: 10000, chargesPercent: chargesCLT });
     onChange({ customHR: list, usingSuggested: false });
   };
 
   const removeHR = (id: string) => {
-    applyCustom();
-    const list = (data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedHR)) : data.customHR).filter((i: SimulationHRItem) => i.id !== id);
+    const list = getSourceHR().filter(i => i.id !== id);
     onChange({ customHR: list, usingSuggested: false });
   };
 
   const updateOC = (id: string, field: keyof SimulationOtherCost, value: unknown) => {
-    applyCustom();
-    const list = (data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedOtherCosts)) : [...data.customOtherCosts]) as SimulationOtherCost[];
+    const list = getSourceOC();
     const idx = list.findIndex(i => i.id === id);
     if (idx >= 0) list[idx] = { ...list[idx], [field]: value };
     onChange({ customOtherCosts: list, usingSuggested: false });
   };
 
   const addOC = () => {
-    applyCustom();
-    const list = data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedOtherCosts)) : [...data.customOtherCosts];
+    const list = getSourceOC();
     list.push({ id: `oc-${Date.now()}`, category: 'Outros', description: 'Novo custo', valueMonthly: 0 });
     onChange({ customOtherCosts: list, usingSuggested: false });
   };
 
   const removeOC = (id: string) => {
-    applyCustom();
-    const list = (data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedOtherCosts)) : data.customOtherCosts).filter((i: SimulationOtherCost) => i.id !== id);
+    const list = getSourceOC().filter(i => i.id !== id);
     onChange({ customOtherCosts: list, usingSuggested: false });
   };
 
   const updateOverhead = (field: keyof SimulationOverhead, value: number) => {
-    applyCustom();
-    const current = data.usingSuggested ? { ...data.suggestedOverhead } : { ...data.customOverhead };
+    const current = getSourceOH();
     current[field] = value;
     onChange({ customOverhead: current, usingSuggested: false });
   };
