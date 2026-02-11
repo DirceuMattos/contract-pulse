@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { DataProvider } from "@/contexts/DataContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { SystemUsersProvider } from "@/contexts/SystemUsersContext";
+import { SimulationProvider } from "@/contexts/SimulationContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -24,6 +25,8 @@ import SettingsPage from "@/pages/SettingsPage";
 import AlertsPage from "@/pages/AlertsPage";
 import UsersPage from "@/pages/UsersPage";
 import AccessLogsPage from "@/pages/AccessLogsPage";
+import CalculatorPage from "@/pages/CalculatorPage";
+import CalculatorWizardPage from "@/pages/CalculatorWizardPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,38 +38,43 @@ const App = () => (
         <AuthProvider>
           <DataProvider>
             <NotificationProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <AccessLogProvider>
-                  <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route element={<MainLayout />}>
-                      <Route path="/dashboard" element={<DashboardPage />} />
-                      <Route path="/clientes" element={<ClientsPage />} />
-                      <Route path="/clientes/novo" element={<ClientFormPage />} />
-                      <Route path="/clientes/:id" element={<ClientDetailPage />} />
-                      <Route path="/clientes/:id/editar" element={<ClientFormPage />} />
-                      <Route path="/contratos" element={<ContractsPage />} />
-                      <Route path="/contratos/novo" element={<ContractFormPage />} />
-                      <Route path="/contratos/:id" element={<ContractDetailPage />} />
-                      <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
-                      <Route path="/contratos/:id/recursos" element={<ContractResourcesPage />} />
-                      <Route path="/usuarios" element={<UsersPage />} />
-                      <Route path="/usuarios/logs" element={<AccessLogsPage />} />
-                      <Route path="/configuracoes" element={<SettingsPage />} />
-                      <Route path="/alertas" element={<AlertsPage />} />
-                      <Route path="/importar-exportar" element={<ImportExportPage />} />
-                      <Route path="/integracoes" element={<DashboardPage />} />
-                      <Route path="/ajuda" element={<DashboardPage />} />
-                    </Route>
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                  </AccessLogProvider>
-                </BrowserRouter>
-              </TooltipProvider>
+              <SimulationProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <AccessLogProvider>
+                    <Routes>
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route element={<MainLayout />}>
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/clientes" element={<ClientsPage />} />
+                        <Route path="/clientes/novo" element={<ClientFormPage />} />
+                        <Route path="/clientes/:id" element={<ClientDetailPage />} />
+                        <Route path="/clientes/:id/editar" element={<ClientFormPage />} />
+                        <Route path="/contratos" element={<ContractsPage />} />
+                        <Route path="/contratos/novo" element={<ContractFormPage />} />
+                        <Route path="/contratos/:id" element={<ContractDetailPage />} />
+                        <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
+                        <Route path="/contratos/:id/recursos" element={<ContractResourcesPage />} />
+                        <Route path="/usuarios" element={<UsersPage />} />
+                        <Route path="/usuarios/logs" element={<AccessLogsPage />} />
+                        <Route path="/configuracoes" element={<SettingsPage />} />
+                        <Route path="/alertas" element={<AlertsPage />} />
+                        <Route path="/importar-exportar" element={<ImportExportPage />} />
+                        <Route path="/calculadora" element={<CalculatorPage />} />
+                        <Route path="/calculadora/nova" element={<CalculatorWizardPage />} />
+                        <Route path="/calculadora/:id" element={<CalculatorWizardPage />} />
+                        <Route path="/integracoes" element={<DashboardPage />} />
+                        <Route path="/ajuda" element={<DashboardPage />} />
+                      </Route>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                    </AccessLogProvider>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </SimulationProvider>
             </NotificationProvider>
           </DataProvider>
         </AuthProvider>

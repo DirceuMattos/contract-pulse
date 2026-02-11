@@ -332,3 +332,87 @@ export interface ContractHealth {
   margemPercentual: number;
   status: HealthStatus;
 }
+
+// Simulation Types
+export type SimulationContractType = 'gov' | 'private';
+export type SimulationComplexity = 'baixa' | 'media' | 'alta';
+export type SimulationPricingModel = 'mensal' | 'total';
+export type SimulationStatus = 'draft' | 'archived';
+
+export type DemandType = 'sustentacao' | 'evolucao' | 'novo-sistema' | 'implantacao';
+export type CriticalityLevel = 'baixa' | 'media' | 'alta';
+export type IntegrationCount = 'nenhuma' | '1-2' | '3-5' | 'mais-5';
+export type ModuleCount = '1-2' | '3-5' | '6-10' | 'mais-10';
+export type UserVolume = 'menos-200' | '200-2k' | '2k-20k' | 'mais-20k';
+export type SLALevel = 'comercial' | '12x5' | '24x7';
+export type DeliveryPace = 'flexivel' | 'moderado' | 'agressivo';
+
+export interface SimulationQuestionnaire {
+  demandType: DemandType;
+  criticality: CriticalityLevel;
+  integrations: IntegrationCount;
+  modules: ModuleCount;
+  userVolume: UserVolume;
+  slaLevel: SLALevel;
+  deliveryPace: DeliveryPace;
+  fieldDependency: boolean;
+}
+
+export interface SimulationHRItem {
+  id: string;
+  role: string;
+  hiringType: 'clt' | 'pj';
+  quantity: number;
+  grossMonthly: number;
+  chargesPercent: number;
+}
+
+export interface SimulationOtherCost {
+  id: string;
+  category: string;
+  description: string;
+  valueMonthly: number;
+}
+
+export interface SimulationOverhead {
+  infraPercent: number;
+  adminPercent: number;
+  governancePercent: number;
+}
+
+export interface SimulationScenario {
+  label: string;
+  receitaMensal: number;
+  custoMensal: number;
+  overheadMensal: number;
+  resultadoMensal: number;
+  margemPercent: number;
+  healthStatus: HealthStatus;
+}
+
+export interface ContractSimulation {
+  id: string;
+  name: string;
+  clientName: string;
+  contractType: SimulationContractType;
+  govSphere?: GovSphere;
+  expectedStartDate?: string;
+  termMonths: number;
+  pricingModel: SimulationPricingModel;
+  proposedMonthlyValue?: number;
+  proposedTotalValue?: number;
+  description: string;
+  complexityLevel: SimulationComplexity;
+  questionnaire: SimulationQuestionnaire;
+  suggestedHR: SimulationHRItem[];
+  suggestedOtherCosts: SimulationOtherCost[];
+  suggestedOverhead: SimulationOverhead;
+  customHR: SimulationHRItem[];
+  customOtherCosts: SimulationOtherCost[];
+  customOverhead: SimulationOverhead;
+  usingSuggested: boolean;
+  status: SimulationStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
+}

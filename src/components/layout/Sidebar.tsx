@@ -14,6 +14,7 @@ import {
   LogOut,
   Bell,
   UserCog,
+  Calculator,
   X,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
@@ -35,6 +36,7 @@ const navItems = [
   { path: '/clientes', label: 'Clientes', icon: Users },
   { path: '/contratos', label: 'Contratos', icon: FileText },
   { path: '/alertas', label: 'Alertas', icon: Bell },
+  { path: '/calculadora', label: 'Calculadora', icon: Calculator },
   { path: '/usuarios', label: 'Usuários', icon: UserCog, adminOnly: true },
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
   { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload },
