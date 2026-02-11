@@ -199,12 +199,14 @@ function computeCosts(simulation: ContractSimulation) {
 
   let custoRH = 0;
   for (const item of resources.hr) {
-    custoRH += item.quantity * item.grossMonthly * (1 + item.chargesPercent / 100);
+    const qty = item.quantity || 0;
+    if (qty <= 0) continue;
+    custoRH += qty * (item.grossMonthly || 0) * (1 + (item.chargesPercent || 0) / 100);
   }
 
-  let custoOutros = 0;
+  let custoOutros = simulation.consultancyCost || 0;
   for (const item of resources.oc) {
-    custoOutros += item.valueMonthly;
+    custoOutros += item.valueMonthly || 0;
   }
 
   const custoDireto = custoRH + custoOutros;
