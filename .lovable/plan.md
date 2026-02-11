@@ -1,140 +1,179 @@
 
-# Plano: Dashboard V2 -- Filtros por Cliente/Contrato + Lista de Alertas
+
+# Plano: Contratos V2 -- Historico + Aba Timeline + Eventos Editaveis
 
 ## Resumo
-Aprimorar o Dashboard com filtros por cliente e contrato (combobox com busca), substituir a lista inferior de contratos por uma tabela "Contratos com alertas" usando o motor de alertas existente (useAlerts + alertGenerator), e adicionar persistencia de filtros em localStorage.
+Adicionar uma aba "Historico" no detalhe do contrato com timeline vertical de eventos editaveis (aditivos, reajustes, notificacoes, multas, marcos). Inclui CRUD manual, filtros por tipo, busca textual e integracao leve com alertas de governanca.
 
 ---
 
-## 1. Expandir o Motor de Alertas
+## 1. Novo Tipo HistoryEvent
 
 ### Arquivo: `src/types/index.ts`
 
-Atualizar tipos de alerta para incluir novas categorias:
-- Adicionar ao `AlertType`: `'financeiro-deficit'`, `'financeiro-margem-baixa'`, `'vigencia-vencido'`, `'governanca-contatos'`, `'governanca-dados'`
-- Adicionar ao `AlertSeverity`: `'info'`
-- Adicionar novo campo opcional `alertCategory` ao `Alert`: `'financeiro' | 'prazo' | 'reajuste' | 'governanca'`
+Adicionar:
+
+```typescript
+export type HistoryEventType =
+  | 'assinatura'
+  | 'inicio-vigencia'
+  | 'aditivo'
+  | 'reajuste-aplicado'
+  | 'notificacao-recebida'
+  | 'notificacao-enviada'
+  | 'multa-penalidade'
+  | 'marco-operacional'
+  | 'reuniao-ata'
+  | 'ocorrencia'
+  | 'renegociacao'
+  | 'renovacao'
+  | 'encerramento'
+  | 'outro';
+
+export type HistoryImpactArea =
+  | 'financeiro'
+  | 'prazo'
+  | 'reajuste'
+  | 'juridico'
+  | 'operacional'
+  | 'governanca';
+
+export interface HistoryEvent {
+  id: string;
+  contractId: string;
+  eventDate: string;
+  eventType: HistoryEventType;
+  title: string;
+  description: string;
+  impactArea: HistoryImpactArea;
+  severity: AlertSeverity; // 'info' | 'atencao' | 'critico'
+  relatedValue?: number;
+  relatedClause?: string;
+  createdAt: string;
+  createdByUserId?: string;
+  updatedAt?: string;
+}
+```
+
+---
+
+## 2. DataContext -- HistoryEvent CRUD
+
+### Arquivo: `src/contexts/DataContext.tsx`
+
+- Adicionar estado `historyEvents: HistoryEvent[]` com persistencia localStorage (chave `bnp_history_events`)
+- Expor funcoes: `addHistoryEvent`, `updateHistoryEvent`, `deleteHistoryEvent`, `getHistoryEventsByContract`
+- Incluir no `resetToDemo`
+- Deletar eventos ao deletar contrato (cascade)
+
+---
+
+## 3. Formulario de Evento
+
+### Novo arquivo: `src/components/forms/HistoryEventForm.tsx`
+
+Dialog/modal com campos:
+- Data do evento (date picker, obrigatorio)
+- Tipo do evento (select com 14 opcoes, obrigatorio)
+- Titulo (input, obrigatorio, max 120 chars)
+- Descricao (textarea, obrigatoria)
+- Area de impacto (select: Financeiro/Prazo/Reajuste/Juridico/Operacional/Governanca, obrigatorio)
+- Severidade (select: Info/Atencao/Critico, default Info)
+- Valor relacionado (input numerico, opcional, com formatacao moeda)
+- Clausula relacionada (input texto, opcional)
+
+Validacoes:
+- Titulo, descricao, tipo, data e impacto obrigatorios
+- Toast ao salvar/editar
+- Confirmacao ao excluir (AlertDialog)
+
+---
+
+## 4. Aba "Historico" no Detalhe do Contrato
+
+### Arquivo: `src/pages/ContractDetailPage.tsx`
+
+Adicionar nova aba "Historico" apos "Vigencia":
+
+```
+<TabsTrigger value="historico">Historico</TabsTrigger>
+```
+
+### Novo arquivo: `src/components/contracts/ContractHistoryTab.tsx`
+
+Layout:
+- **Topo**: Titulo "Historico do contrato" + subtexto explicativo
+- **Acoes**: Botao "Adicionar evento" (visivel apenas se `canEdit`) + Botao "Exportar historico (Em breve)" desabilitado
+- **Filtros**: Chips de tipo (Aditivo, Reajuste, Notificacao, Multa, Marco, Ocorrencia) + campo de busca textual
+- **Toggle de ordenacao**: Mais recente primeiro (default) / Mais antigo primeiro
+
+**Timeline vertical** (estilo feed):
+- Linha vertical conectando eventos
+- Cada item mostra:
+  - Icone de severidade (colorido) na timeline
+  - Data do evento (formatada pt-BR)
+  - Badge do tipo
+  - Titulo
+  - Descricao (expansivel via Collapsible se longa)
+  - Chip de area de impacto
+  - Valor relacionado (se existir e `canViewValues`)
+  - Clausula (se existir)
+  - Botoes Editar/Excluir (se `canEdit`)
+
+**Empty state**:
+- Icone de timeline
+- "Nenhum evento registrado"
+- "Registre acontecimentos relevantes do contrato: aditivos, reajustes, notificacoes, marcos."
+- Botao "Adicionar primeiro evento" (se `canEdit`)
+
+**Secao "Eventos sugeridos (Em breve)"**:
+- Card discreto no final da aba, desabilitado
+- Tooltip: "Na etapa com backend, o sistema podera sugerir eventos a partir de reajustes, vencimentos, documentos e integracoes."
+
+---
+
+## 5. Integracao com Alertas (leve)
 
 ### Arquivo: `src/lib/alertGenerator.ts`
 
-Adicionar novas regras ao `generateAlerts`:
-- **Deficit financeiro**: `resultadoMensal < 0` -> severidade `critico`, categoria `financeiro`
-- **Margem baixa**: `resultadoMensal >= 0` e `margemPercentual < 5` -> severidade `atencao`, categoria `financeiro`
-- **Contrato vencido**: `dataFim < hoje` e status ativo -> severidade `critico`, categoria `prazo`
-- **Governanca - contatos incompletos**: contrato sem `responsavelCS` e sem `responsavelComercial` -> severidade `info`, categoria `governanca`
+Adicionar duas regras opcionais que recebem `historyEvents`:
 
-A funcao precisa receber `overheadItems` para calcular health corretamente.
+1. **Ocorrencia critica recente**: se existe `HistoryEvent` com `severity === 'critico'` nos ultimos 90 dias -> alerta de governanca "Ocorrencia critica recente"
+2. **Risco contratual recente**: se existe evento do tipo `'notificacao-recebida'` ou `'multa-penalidade'` nos ultimos 90 dias -> alerta "Risco contratual recente"
 
-### Arquivo: `src/hooks/useAlerts.ts`
+Esses alertas aparecerao na tabela "Contratos com alertas" do Dashboard.
 
-Passar `overheadItems` do DataContext para `generateAlerts`. Adicionar contagem de `info`.
+Atualizar `useAlerts.ts` para passar `historyEvents` ao generator.
 
 ---
 
-## 2. Filtros no Dashboard
-
-### Arquivo: `src/pages/DashboardPage.tsx`
-
-Adicionar na barra superior (abaixo do header, acima dos KPIs):
-
-**Estado dos filtros:**
-```typescript
-const [selectedClientId, setSelectedClientId] = useState<string>('all');
-const [selectedContractId, setSelectedContractId] = useState<string>('all');
-```
-
-**Filtro por cliente:**
-- Combobox (usando cmdk/command, ja instalado) com busca
-- Opcoes: "Todos os clientes" + lista de clientes unicos dos contratos ativos
-- Formato: "Razao Social -- CNPJ"
-
-**Filtro por contrato:**
-- Combobox com busca
-- Opcoes filtradas pelo cliente selecionado
-- Formato: "Codigo -- Nome (vigencia)"
-
-**Comportamento:**
-- Ao selecionar cliente, reseta contrato para "Todos"
-- Ao selecionar contrato, foca dashboard inteiro nele
-- Filtros aplicados a KPIs, graficos e tabela
-
-**Persistencia localStorage:**
-- Chave `bnp_dashboard_filters`
-- Salvar/carregar: `selectedClientId`, `selectedContractId`
-
----
-
-## 3. Tabela "Contratos com Alertas"
-
-### Arquivo: `src/pages/DashboardPage.tsx`
-
-Substituir a secao inferior (Cards Alertas + Contratos List) por:
-
-**Nova secao:**
-- Titulo: "Contratos com alertas"
-- Subtitulo: "Lista automatica de contratos que exigem atencao: deficit, margem baixa, vencimento ou reajuste proximos."
-- Contador no topo: "X alertas criticos, Y em atencao, Z informativos"
-
-**Tabela com colunas:**
-1. Severidade (icone + badge colorido)
-2. Tipo de alerta (chips: Financeiro / Prazo / Reajuste / Governanca)
-3. Cliente
-4. Contrato (codigo)
-5. Saude financeira (badge)
-6. Resultado mensal (R$) -- se canViewValues
-7. Data fim
-8. Proximo reajuste
-9. Acoes: "Ver contrato" (botao)
-
-**Ordenacao default:**
-1. Severidade (critico primeiro)
-2. Resultado mensal mais negativo
-3. Menor tempo ate vencimento/reajuste
-
-**Drill-down:**
-- Clique na linha navega para `/contratos/{id}` (detalhe do contrato)
-
-**Empty state:**
-- Titulo: "Nenhum alerta neste periodo"
-- Texto: "Nao ha contratos com deficit, margem baixa ou eventos proximos de vencimento/reajuste com os filtros atuais."
-- Acao: "Ver todos os contratos" -> navega para `/contratos`
-
----
-
-## 4. Logica de Filtragem
-
-A filtragem aplica-se a todo o dashboard:
-1. Filtrar contratos ativos por cliente (se selecionado)
-2. Filtrar por contrato (se selecionado)
-3. Calcular KPIs apenas com contratos filtrados
-4. Graficos refletem contratos filtrados
-5. Tabela inferior mostra apenas contratos filtrados que tenham alertas
-
----
-
-## 5. Dados Mock
+## 6. Dados Mock
 
 ### Arquivo: `src/data/mockData.ts`
 
-Atualizar datas de contratos para garantir testabilidade com data atual (2026-02-10):
-- Ajustar `dataFim` de pelo menos 4 contratos para vencer em ate 60 dias (marco-abril 2026)
-- Garantir pelo menos 3 contratos com margem baixa (0-5%)
-- Garantir pelo menos 3 deficitarios
-- Pelo menos 2 com reajuste proximo
+Adicionar array `mockHistoryEvents` com eventos para 6+ contratos:
 
-Contratos candidatos a ajuste:
-- `ctr-003` (dataFim 2025-05-31 -- ja vencido, gera alerta critico de prazo)
-- `ctr-007` (dataFim 2025-07-31 -- ja vencido)
-- `ctr-010` (dataFim 2025-08-31 -- ja vencido)
-- `ctr-011` (dataFim 2025-06-30 -- ja vencido)
-- Ajustar alguns `dataFim` para 2026-03 e 2026-04 para alertas de "vencimento proximo"
-- Ajustar `dataBaseReajuste` de 2-3 contratos para mar-abr 2026
+- `ctr-001`: Assinatura, Inicio vigencia, Reajuste aplicado, Marco operacional (go-live)
+- `ctr-003`: Aditivo (escopo), Notificacao recebida, Marco operacional
+- `ctr-004`: Assinatura, Aditivo (valor), Reuniao/Ata, Multa/Penalidade (critico recente)
+- `ctr-005`: Inicio vigencia, Reajuste aplicado, Renovacao
+- `ctr-006`: Assinatura, Ocorrencia critica (incidente recente), Marco operacional
+- `ctr-008`: Notificacao enviada, Renegociacao, Marco operacional
+
+Garantir:
+- 2 contratos com aditivo
+- 2 com reajuste aplicado
+- 2 com notificacao
+- 1 com multa/penalidade
+- 2 com marco operacional
+- 2 com evento Critico recente (para testar alertas de governanca)
 
 ---
 
-## 6. Skeleton Loading
+## 7. Propagacao
 
-Ao mudar filtros (cliente/contrato), aplicar breve skeleton (usando componente Skeleton existente) nos KPIs, graficos e tabela -- via transicao CSS (simples, sem delay artificial, apenas re-render visual).
+- `DashboardPage.tsx`: passar `historyEvents` para calculo de alertas (via DataContext)
+- `AlertsPage.tsx` / `NotificationCenter.tsx`: suportar novos tipos de alerta de governanca do historico
 
 ---
 
@@ -142,18 +181,26 @@ Ao mudar filtros (cliente/contrato), aplicar breve skeleton (usando componente S
 
 | Arquivo | Acao |
 |---------|------|
-| `src/types/index.ts` | Novos AlertTypes, severity 'info', campo alertCategory |
-| `src/lib/alertGenerator.ts` | Novas regras financeiro/deficit/margem/governanca + receber overheadItems |
-| `src/hooks/useAlerts.ts` | Passar overheadItems, contagem info |
-| `src/pages/DashboardPage.tsx` | Filtros combobox + tabela alertas + empty state + persistencia |
-| `src/data/mockData.ts` | Ajustar datas para testabilidade |
+| `src/types/index.ts` | Novos tipos HistoryEvent, HistoryEventType, HistoryImpactArea |
+| `src/contexts/DataContext.tsx` | CRUD historyEvents + estado + persistencia + cascade |
+| `src/components/forms/HistoryEventForm.tsx` | Novo formulario de evento |
+| `src/components/contracts/ContractHistoryTab.tsx` | Nova aba timeline |
+| `src/pages/ContractDetailPage.tsx` | Adicionar aba "Historico" |
+| `src/lib/alertGenerator.ts` | 2 regras de governanca baseadas em historico |
+| `src/hooks/useAlerts.ts` | Passar historyEvents |
+| `src/data/mockData.ts` | Mock de eventos historicos |
+| `src/pages/DashboardPage.tsx` | Passar historyEvents para alertas |
 
 ---
 
 ## Ordem de Implementacao
 
-1. Tipos (`types/index.ts`) -- novos alert types e severity
-2. Motor de alertas (`alertGenerator.ts`) -- novas regras
-3. Hook (`useAlerts.ts`) -- overhead + info count
-4. Mock data (`mockData.ts`) -- ajustar datas
-5. Dashboard (`DashboardPage.tsx`) -- filtros + tabela + empty state + persistencia
+1. Tipos (`types/index.ts`)
+2. Mock data (`mockData.ts`)
+3. DataContext (CRUD historyEvents)
+4. HistoryEventForm (componente de formulario)
+5. ContractHistoryTab (componente da timeline)
+6. ContractDetailPage (nova aba)
+7. alertGenerator + useAlerts (regras de governanca)
+8. Propagacao (Dashboard, AlertsPage)
+
