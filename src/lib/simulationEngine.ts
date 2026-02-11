@@ -123,7 +123,11 @@ function genOtherId() { return `sim-oc-${nextId++}`; }
 export function generateSuggestedResources(
   questionnaire: SimulationQuestionnaire,
   complexity: SimulationComplexity,
+  chargesCLT?: number,
+  chargesPJ?: number,
 ): { hr: SimulationHRItem[]; otherCosts: SimulationOtherCost[]; overhead: SimulationOverhead } {
+  const effectiveCLT = chargesCLT ?? DEFAULT_CHARGES_CLT;
+  const _effectivePJ = chargesPJ ?? DEFAULT_CHARGES_PJ;
   const key = getProfileKey(questionnaire.demandType, complexity);
   const profile = PROFILES[key] || PROFILES['sustentacao-media']!;
 
@@ -179,7 +183,7 @@ export function generateSuggestedResources(
         hiringType: 'clt',
         quantity,
         grossMonthly: DEFAULT_SALARIES[role] || 10000,
-        chargesPercent: DEFAULT_CHARGES_CLT,
+        chargesPercent: effectiveCLT,
       });
     }
   }

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSimulations } from '@/contexts/SimulationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { generateSuggestedResources } from '@/lib/simulationEngine';
 import { Button } from '@/components/ui/button';
 import { SimulationStepper } from '@/components/calculator/SimulationStepper';
@@ -24,9 +25,9 @@ const DEFAULT_QUESTIONNAIRE: ContractSimulation['questionnaire'] = {
   fieldDependency: false,
 };
 
-function createBlank(userId?: string): ContractSimulation {
+function createBlank(userId?: string, chargesCLT?: number, chargesPJ?: number): ContractSimulation {
   const now = new Date().toISOString();
-  const suggested = generateSuggestedResources(DEFAULT_QUESTIONNAIRE, 'media');
+  const suggested = generateSuggestedResources(DEFAULT_QUESTIONNAIRE, 'media', chargesCLT, chargesPJ);
   return {
     id: `sim-${Date.now()}`,
     name: '',
@@ -54,6 +55,7 @@ export default function CalculatorWizardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { settings } = useData();
   const { getSimulation, addSimulation, updateSimulation } = useSimulations();
 
   const [step, setStep] = useState(0);
@@ -63,7 +65,7 @@ export default function CalculatorWizardPage() {
       const existing = getSimulation(id);
       if (existing) return existing;
     }
-    return createBlank(user?.id);
+    return createBlank(user?.id, settings.percentualEncargosCLT, settings.percentualImpostosPJ);
   });
   const [saved, setSaved] = useState(!!id);
 
@@ -73,7 +75,7 @@ export default function CalculatorWizardPage() {
       if (updates.questionnaire || updates.complexityLevel) {
         const q = updates.questionnaire || next.questionnaire;
         const c = updates.complexityLevel || next.complexityLevel;
-        const suggested = generateSuggestedResources(q, c);
+        const suggested = generateSuggestedResources(q, c, settings.percentualEncargosCLT, settings.percentualImpostosPJ);
         next.suggestedHR = suggested.hr;
         next.suggestedOtherCosts = suggested.otherCosts;
         next.suggestedOverhead = suggested.overhead;
@@ -85,7 +87,7 @@ export default function CalculatorWizardPage() {
       }
       return next;
     });
-  }, []);
+  }, [settings.percentualEncargosCLT, settings.percentualImpostosPJ]);
 
   const goTo = (s: number) => {
     setStep(s);
