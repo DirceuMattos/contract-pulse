@@ -398,7 +398,7 @@ export interface ContractSimulation {
   govSphere?: GovSphere;
   expectedStartDate?: string;
   termMonths: number;
-  pricingModel: SimulationPricingModel;
+  pricingModel?: SimulationPricingModel;
   proposedMonthlyValue?: number;
   proposedTotalValue?: number;
   description: string;

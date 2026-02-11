@@ -9,7 +9,6 @@ interface SimulationStepperProps {
 
 const steps = [
   { label: 'Identificação' },
-  { label: 'Precificação' },
   { label: 'Complexidade' },
   { label: 'Recursos' },
   { label: 'Resultado' },

@@ -127,13 +127,11 @@ export function generateSuggestedResources(
   const key = getProfileKey(questionnaire.demandType, complexity);
   const profile = PROFILES[key] || PROFILES['sustentacao-media']!;
 
-  // Clone base profile into mutable map
   const hrMap = new Map<string, number>();
   for (const p of profile) hrMap.set(p.role, p.quantity);
 
   const otherCosts: SimulationOtherCost[] = [];
 
-  // ── Adjustment rules ──
   if (questionnaire.integrations === '3-5') {
     hrMap.set('Desenvolvedor', (hrMap.get('Desenvolvedor') || 0) + 0.5);
     hrMap.set('QA', (hrMap.get('QA') || 0) + 0.5);
@@ -170,7 +168,6 @@ export function generateSuggestedResources(
     otherCosts.push({ id: genOtherId(), category: 'Infraestrutura', description: 'Infra escalável para alto volume', valueMonthly: 3000 });
   }
 
-  // Add base cloud cost
   otherCosts.push({ id: genOtherId(), category: 'Cloud', description: 'Servidores e serviços cloud', valueMonthly: 2500 });
 
   const hr: SimulationHRItem[] = [];
@@ -194,19 +191,8 @@ export function generateSuggestedResources(
   };
 }
 
-// ── Calculate results ──
-export function calculateSimulationResults(simulation: ContractSimulation): {
-  receitaMensal: number;
-  custoMensal: number;
-  overheadMensal: number;
-  resultadoMensal: number;
-  margemPercent: number;
-  healthStatus: HealthStatus;
-} {
-  const receitaMensal = simulation.pricingModel === 'mensal'
-    ? (simulation.proposedMonthlyValue || 0)
-    : (simulation.proposedTotalValue || 0) / Math.max(simulation.termMonths, 1);
-
+// ── Compute direct costs from resources ──
+function computeCosts(simulation: ContractSimulation) {
   const resources = simulation.usingSuggested
     ? { hr: simulation.suggestedHR, oc: simulation.suggestedOtherCosts, oh: simulation.suggestedOverhead }
     : { hr: simulation.customHR, oc: simulation.customOtherCosts, oh: simulation.customOverhead };
@@ -225,6 +211,64 @@ export function calculateSimulationResults(simulation: ContractSimulation): {
   const overheadPercent = (resources.oh.infraPercent + resources.oh.adminPercent + resources.oh.governancePercent) / 100;
   const overheadMensal = custoDireto * overheadPercent;
   const custoMensal = custoDireto + overheadMensal;
+
+  return { custoRH, custoOutros, custoDireto, overheadMensal, custoMensal };
+}
+
+// ── Suggest pricing ──
+export function suggestPricing(simulation: ContractSimulation): {
+  suggestedMonthlyValue: number;
+  suggestedTotalValue: number;
+  suggestedTermMonths: number;
+  targetMarginPercent: number;
+  breakEvenMonthly: number;
+} {
+  const { custoMensal } = computeCosts(simulation);
+
+  // Target margin based on complexity
+  const marginMap: Record<SimulationComplexity, number> = {
+    baixa: 25,
+    media: 20,
+    alta: 15,
+  };
+  const targetMarginPercent = marginMap[simulation.complexityLevel];
+  const breakEvenMonthly = custoMensal;
+  const suggestedMonthlyValue = custoMensal / (1 - targetMarginPercent / 100);
+
+  // Suggested term based on demand type
+  const termMap: Record<DemandType, number> = {
+    sustentacao: 12,
+    evolucao: 18,
+    'novo-sistema': 24,
+    implantacao: 36,
+  };
+  let suggestedTermMonths = termMap[simulation.questionnaire.demandType] || 12;
+  if (simulation.contractType === 'gov') suggestedTermMonths += 12;
+
+  const suggestedTotalValue = suggestedMonthlyValue * suggestedTermMonths;
+
+  return {
+    suggestedMonthlyValue,
+    suggestedTotalValue,
+    suggestedTermMonths,
+    targetMarginPercent,
+    breakEvenMonthly,
+  };
+}
+
+// ── Calculate results (now uses suggested pricing as revenue) ──
+export function calculateSimulationResults(simulation: ContractSimulation): {
+  receitaMensal: number;
+  custoMensal: number;
+  overheadMensal: number;
+  resultadoMensal: number;
+  margemPercent: number;
+  healthStatus: HealthStatus;
+} {
+  const pricing = suggestPricing(simulation);
+  const receitaMensal = pricing.suggestedMonthlyValue;
+
+  const { custoMensal, overheadMensal } = computeCosts(simulation);
 
   const resultadoMensal = receitaMensal - custoMensal;
   const margemPercent = receitaMensal > 0 ? (resultadoMensal / receitaMensal) * 100 : 0;
