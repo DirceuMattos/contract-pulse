@@ -1,56 +1,44 @@
 
+# Correcao: Recursos com calculo reativo e encargos das configuracoes
 
-# Ajustes na Calculadora de Contratos
+## Problema 1: Tela estatica -- custo total nao atualiza ao editar campos
 
-## 1. Encargos automaticos ao mudar tipo de contratacao (CLT/PJ)
+A causa raiz e uma condicao de corrida (race condition) na funcao `updateHR`. Quando o recurso esta usando a sugestao (`usingSuggested: true`), a funcao chama `applyCustom()` que dispara um `onChange`, e logo depois chama outro `onChange` com a lista editada. Porem, a segunda chamada monta a lista a partir de `data.customHR`, que ainda nao recebeu os valores do primeiro `onChange`. O resultado e que as edicoes se perdem.
 
-Quando o usuario altera o tipo de contratacao de um recurso humano de CLT para PJ (ou vice-versa), o percentual de encargos deve ser atualizado automaticamente:
-- **CLT**: 68%
-- **PJ**: 10%
+### Correcao em `src/components/calculator/Step4Resources.tsx`
 
-### Arquivo: `src/components/calculator/Step4Resources.tsx`
-- Na funcao `updateHR`, ao detectar que o campo alterado e `hiringType`, atualizar tambem o campo `chargesPercent` com o valor correspondente (68 para CLT, 10 para PJ).
-
----
-
-## 2. Quantidade zero = custo total zero
-
-O calculo atual (`quantity * grossMonthly * (1 + chargesPercent/100)`) ja deveria retornar zero quando `quantity = 0`. O possivel bug esta em inputs que ficam vazios gerando `NaN` em vez de `0`, propagando valores incorretos.
-
-### Arquivo: `src/components/calculator/Step4Resources.tsx`
-- Garantir que o `parseFloat` dos campos numericos (quantity, grossMonthly, chargesPercent) nunca gere `NaN` -- usar fallback para 0.
-- Proteger a exibicao do custo total na coluna: se `quantity === 0`, exibir `R$ 0,00` explicitamente.
-
-### Arquivo: `src/lib/simulationEngine.ts`
-- Na funcao `computeCosts`, adicionar guard: se `item.quantity <= 0`, contribuicao = 0. (Seguranca extra.)
+- Eliminar a funcao `applyCustom()` como chamada separada
+- Em cada funcao de edicao (`updateHR`, `updateOC`, `updateOverhead`), montar a lista a partir de `data.suggestedHR` ou `data.customHR` conforme `data.usingSuggested`, e despachar um unico `onChange` com todos os campos necessarios (`customHR`, `usingSuggested: false`) em uma so chamada
+- Garantir que a copia profunda (JSON.parse/stringify) aconteca antes da edicao, e que o resultado final va em uma unica chamada `onChange`
 
 ---
 
-## 3. Campo de custo de consultoria no Passo 1
+## Problema 2: Percentuais de encargos devem vir das Configuracoes
 
-A area comercial pode trazer um custo de consultoria ja conhecido antes mesmo da contratacao. Esse valor deve ser capturado no Passo 1 (Identificacao) e aparecer automaticamente em Outros Custos no Passo 3 (Recursos).
+Atualmente os valores 68% (CLT) e 10% (PJ) estao fixos no codigo. Eles devem ser lidos do contexto de configuracoes globais (`DataContext`), campos `percentualEncargosCLT` e `percentualImpostosPJ`.
 
-### Arquivo: `src/types/index.ts`
-- Adicionar campo opcional `consultancyCost?: number` ao tipo `ContractSimulation`.
+### Correcao em `src/components/calculator/Step4Resources.tsx`
 
-### Arquivo: `src/components/calculator/Step1Identification.tsx`
-- Adicionar campo numerico "Custo de consultoria previsto (mensal)" com placeholder e tooltip explicando que este valor sera incluido automaticamente na composicao de custos.
+- Importar `useData` de `@/contexts/DataContext`
+- Ler `settings.percentualEncargosCLT` e `settings.percentualImpostosPJ`
+- Na funcao `updateHR`, quando `field === 'hiringType'`, usar os valores das configuracoes em vez de 68/10
+- Na funcao `addHR`, o `chargesPercent` do novo item deve ser `settings.percentualEncargosCLT` (padrao CLT)
 
-### Arquivo: `src/components/calculator/Step4Resources.tsx`
-- Na secao "Outros Custos", exibir uma linha read-only no topo da tabela com categoria "Consultoria Comercial" e o valor de `data.consultancyCost`, caso seja maior que zero.
-- Essa linha nao pode ser editada nem removida pelo usuario nesta tela (vem do Passo 1).
+### Correcao em `src/lib/simulationEngine.ts`
 
-### Arquivo: `src/lib/simulationEngine.ts`
-- Na funcao `computeCosts`, somar `simulation.consultancyCost || 0` ao `custoOutros`.
+- Na funcao `generateSuggestedResources`, os valores de encargos tambem estao fixos. Aceitar um parametro opcional `chargesCLT` e `chargesPJ` para que o wizard passe os valores das configuracoes. Caso nao sejam passados, usar os defaults atuais (68/10) para manter compatibilidade.
+
+### Correcao em `src/pages/CalculatorWizardPage.tsx`
+
+- Importar `useData` e ler `settings`
+- Passar os percentuais das configuracoes ao chamar `generateSuggestedResources`
 
 ---
 
-## Resumo dos arquivos alterados
+## Resumo das alteracoes
 
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/types/index.ts` | Adicionar `consultancyCost?: number` em `ContractSimulation` |
-| `src/components/calculator/Step1Identification.tsx` | Novo campo "Custo de consultoria" |
-| `src/components/calculator/Step4Resources.tsx` | Auto-update encargos ao mudar tipo; protecao qty=0; linha consultoria read-only |
-| `src/lib/simulationEngine.ts` | Guard qty<=0 em `computeCosts`; somar `consultancyCost` |
-
+| Arquivo | O que muda |
+|---------|------------|
+| `src/components/calculator/Step4Resources.tsx` | Eliminar race condition unificando `onChange`; ler encargos de `useData().settings` |
+| `src/lib/simulationEngine.ts` | `generateSuggestedResources` aceita percentuais opcionais |
+| `src/pages/CalculatorWizardPage.tsx` | Passar percentuais das configuracoes ao gerar sugestoes |
