@@ -277,6 +277,33 @@ export interface HistoryEvent {
   updatedAt?: string;
 }
 
+// Document Attachment Types
+export type DocumentDescriptionType = 
+  | 'contrato' | 'aditivo' | 'reajuste' | 'notificacao' 
+  | 'multa-penalidade' | 'ata-reuniao' | 'proposta-comercial' | 'outro';
+
+export interface DocumentAttachment {
+  id: string;
+  contractId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  fileTypeMime: string;
+  fileExtension: string;
+  descriptionType: string;
+  descriptionText?: string;
+  notes?: string;
+  uploadedAt: string;
+  uploadedByUserId?: string;
+  storageKey: string;
+}
+
+export interface AttachmentDescriptionConfig {
+  id: string;
+  label: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 // Computed Types
 export interface ContractHealth {
   contractId: string;

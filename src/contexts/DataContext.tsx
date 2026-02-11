@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent } from '@/types';
-import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents } from '@/data/mockData';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig } from '@/types';
+import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents, defaultAttachmentConfigs, mockAttachments } from '@/data/mockData';
+import { deleteBlob, clearAllBlobs } from '@/lib/indexedDBStorage';
+
 
 interface DataContextType {
   clients: Client[];
@@ -11,6 +13,8 @@ interface DataContextType {
   snapshots: Snapshot[];
   overheadItems: OverheadItem[];
   historyEvents: HistoryEvent[];
+  attachments: DocumentAttachment[];
+  attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
   
   // Client actions
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Client;
@@ -50,6 +54,16 @@ interface DataContextType {
   deleteHistoryEvent: (id: string) => void;
   getHistoryEventsByContract: (contractId: string) => HistoryEvent[];
 
+  // Attachment actions
+  addAttachment: (attachment: Omit<DocumentAttachment, 'id'>) => DocumentAttachment;
+  deleteAttachment: (id: string) => void;
+  getAttachmentsByContract: (contractId: string) => DocumentAttachment[];
+  
+  // Attachment config actions
+  addDescriptionConfig: (config: Omit<AttachmentDescriptionConfig, 'id'>) => AttachmentDescriptionConfig;
+  updateDescriptionConfig: (id: string, data: Partial<AttachmentDescriptionConfig>) => void;
+  getActiveDescriptionConfigs: () => AttachmentDescriptionConfig[];
+
   // Utils
   resetToDemo: () => void;
 }
@@ -65,6 +79,8 @@ const STORAGE_KEYS = {
   snapshots: 'bnp_snapshots',
   overhead: 'bnp_overhead',
   historyEvents: 'bnp_history_events',
+  attachments: 'bnp_attachments',
+  attachmentConfigs: 'bnp_attachment_configs',
 };
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -89,6 +105,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() => loadFromStorage(STORAGE_KEYS.snapshots, mockSnapshots));
   const [overheadItems, setOverheadItems] = useState<OverheadItem[]>(() => loadFromStorage(STORAGE_KEYS.overhead, mockOverheadItems));
   const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>(() => loadFromStorage(STORAGE_KEYS.historyEvents, mockHistoryEvents));
+  const [attachments, setAttachments] = useState<DocumentAttachment[]>(() => loadFromStorage(STORAGE_KEYS.attachments, mockAttachments));
+  const [attachmentConfigs, setAttachmentConfigs] = useState<AttachmentDescriptionConfig[]>(() => loadFromStorage(STORAGE_KEYS.attachmentConfigs, defaultAttachmentConfigs));
   
   // Persist to localStorage
   useEffect(() => { saveToStorage(STORAGE_KEYS.clients, clients); }, [clients]);
@@ -99,6 +117,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveToStorage(STORAGE_KEYS.snapshots, snapshots); }, [snapshots]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.overhead, overheadItems); }, [overheadItems]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.historyEvents, historyEvents); }, [historyEvents]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.attachments, attachments); }, [attachments]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.attachmentConfigs, attachmentConfigs); }, [attachmentConfigs]);
   
   // Client actions
   const addClient = (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client => {
@@ -150,6 +170,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
   const deleteContract = (id: string) => {
+    // Cascade delete attachments blobs
+    const contractAttachments = attachments.filter(a => a.contractId === id);
+    contractAttachments.forEach(a => {
+      if (!a.storageKey.startsWith('mock-')) {
+        deleteBlob(a.storageKey);
+      }
+    });
+    setAttachments(prev => prev.filter(a => a.contractId !== id));
     setContracts(prev => prev.filter(c => c.id !== id));
     setResources(prev => prev.filter(r => r.contractId !== id));
     setOverheadItems(prev => prev.filter(o => o.contractId !== id));
@@ -267,6 +295,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getHistoryEventsByContract = (contractId: string) => historyEvents.filter(e => e.contractId === contractId);
   
+  // Attachment actions
+  const addAttachment = (data: Omit<DocumentAttachment, 'id'>): DocumentAttachment => {
+    const attachment: DocumentAttachment = {
+      ...data,
+      id: `att-${crypto.randomUUID().slice(0, 8)}`,
+    };
+    setAttachments(prev => [...prev, attachment]);
+    return attachment;
+  };
+
+  const deleteAttachmentItem = (id: string) => {
+    const att = attachments.find(a => a.id === id);
+    if (att && !att.storageKey.startsWith('mock-')) {
+      deleteBlob(att.storageKey);
+    }
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
+  const getAttachmentsByContract = (contractId: string) => attachments.filter(a => a.contractId === contractId);
+
+  // Attachment config actions
+  const addDescriptionConfig = (data: Omit<AttachmentDescriptionConfig, 'id'>): AttachmentDescriptionConfig => {
+    const config: AttachmentDescriptionConfig = {
+      ...data,
+      id: `adc-${crypto.randomUUID().slice(0, 8)}`,
+    };
+    setAttachmentConfigs(prev => [...prev, config]);
+    return config;
+  };
+
+  const updateDescriptionConfig = (id: string, data: Partial<AttachmentDescriptionConfig>) => {
+    setAttachmentConfigs(prev => prev.map(c =>
+      c.id === id ? { ...c, ...data } : c
+    ));
+  };
+
+  const getActiveDescriptionConfigs = () => attachmentConfigs.filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+
   // Reset to demo data
   const resetToDemo = () => {
     setClients(mockClients);
@@ -277,6 +343,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSnapshots(mockSnapshots);
     setOverheadItems(mockOverheadItems);
     setHistoryEvents(mockHistoryEvents);
+    setAttachments(mockAttachments);
+    setAttachmentConfigs(defaultAttachmentConfigs);
+    clearAllBlobs();
   };
   
   return (
@@ -313,6 +382,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateHistoryEvent,
       deleteHistoryEvent,
       getHistoryEventsByContract,
+      attachments,
+      attachmentDescriptionConfigs: attachmentConfigs,
+      addAttachment,
+      deleteAttachment: deleteAttachmentItem,
+      getAttachmentsByContract,
+      addDescriptionConfig,
+      updateDescriptionConfig,
+      getActiveDescriptionConfigs,
       resetToDemo,
     }}>
       {children}
