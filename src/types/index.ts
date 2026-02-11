@@ -309,6 +309,20 @@ export interface AttachmentDescriptionConfig {
   sortOrder: number;
 }
 
+// Access Log Types
+export interface AccessLogSession {
+  id: string;
+  userId: string;
+  userNameSnapshot: string;
+  ipAddress: string;
+  userAgent: string;
+  startedAt: string;
+  endedAt: string | null;
+  modulesAccessed: string[];
+  routesAccessed: string[];
+  lastActivityAt: string | null;
+}
+
 // Computed Types
 export interface ContractHealth {
   contractId: string;

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AccessLogProvider } from "@/contexts/AccessLogContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { DataProvider } from "@/contexts/DataContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -22,6 +23,7 @@ import ImportExportPage from "@/pages/ImportExportPage";
 import SettingsPage from "@/pages/SettingsPage";
 import AlertsPage from "@/pages/AlertsPage";
 import UsersPage from "@/pages/UsersPage";
+import AccessLogsPage from "@/pages/AccessLogsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,7 @@ const App = () => (
     <ThemeProvider>
       <SystemUsersProvider>
         <AuthProvider>
+          <AccessLogProvider>
           <DataProvider>
             <NotificationProvider>
               <TooltipProvider>
@@ -52,6 +55,7 @@ const App = () => (
                       <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
                       <Route path="/contratos/:id/recursos" element={<ContractResourcesPage />} />
                       <Route path="/usuarios" element={<UsersPage />} />
+                      <Route path="/usuarios/logs" element={<AccessLogsPage />} />
                       <Route path="/configuracoes" element={<SettingsPage />} />
                       <Route path="/alertas" element={<AlertsPage />} />
                       <Route path="/importar-exportar" element={<ImportExportPage />} />
@@ -64,6 +68,7 @@ const App = () => (
               </TooltipProvider>
             </NotificationProvider>
           </DataProvider>
+          </AccessLogProvider>
         </AuthProvider>
       </SystemUsersProvider>
     </ThemeProvider>

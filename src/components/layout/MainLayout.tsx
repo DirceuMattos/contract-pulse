@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAccessLogs } from '@/contexts/AccessLogContext';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export function MainLayout() {
   const { isAuthenticated } = useAuth();
+  const { trackNavigation } = useAccessLogs();
   const location = useLocation();
   const isMobile = useIsMobile();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -20,10 +22,11 @@ export function MainLayout() {
     localStorage.setItem('bnp_sidebar_collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  // Close mobile menu on route change
+  // Close mobile menu on route change + track navigation
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [location.pathname]);
+    trackNavigation(location.pathname);
+  }, [location.pathname, trackNavigation]);
   
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;

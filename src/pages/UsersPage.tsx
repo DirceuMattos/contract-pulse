@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Eye,
   MoreHorizontal,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
@@ -72,6 +74,7 @@ export default function UsersPage() {
   const { user: currentUser, canEdit } = useAuth();
   const { users, deleteUser, toggleUserStatus } = useSystemUsers();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -322,6 +325,11 @@ export default function UsersPage() {
                                 Ativar
                               </>
                             )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate(`/usuarios/logs?userId=${user.id}`)}>
+                            <Activity className="w-4 h-4 mr-2" />
+                            Logs de acessos
                           </DropdownMenuItem>
                           {user.id !== 'usr-001' && (
                             <>
