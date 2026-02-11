@@ -1,8 +1,8 @@
 
-# Plano: Bloco 6 -- Logs de Acesso + Auditoria de Modulos (Front-end Only)
+# Plano: Bloco 7 -- Calculadora de Contratos (Simulacao de Negociacao)
 
 ## Resumo
-Adicionar sistema de logs de acesso ao modulo de Usuarios, com captura automatica de sessoes (login/logout), rastreamento de modulos/rotas acessados e tela de visualizacao com filtros. Tudo persistido em localStorage com limite de 500 registros.
+Novo modulo independente com wizard de 5 passos para simular contratos em negociacao. Motor de sugestao deterministico (sem IA) gera baseline de recursos com base em presets e questionario. Exibe resultado com cenarios (conservador/base/otimista) e grafico comparativo. Persistencia em localStorage.
 
 ---
 
@@ -11,193 +11,242 @@ Adicionar sistema de logs de acesso ao modulo de Usuarios, com captura automatic
 ### Arquivo: `src/types/index.ts`
 
 ```typescript
-export interface AccessLogSession {
+// Simulation Types
+export type SimulationContractType = 'gov' | 'private';
+export type SimulationComplexity = 'baixa' | 'media' | 'alta';
+export type SimulationPricingModel = 'mensal' | 'total';
+export type SimulationStatus = 'draft' | 'archived';
+
+export type DemandType = 'sustentacao' | 'evolucao' | 'novo-sistema' | 'implantacao';
+export type CriticalityLevel = 'baixa' | 'media' | 'alta';
+export type IntegrationCount = 'nenhuma' | '1-2' | '3-5' | 'mais-5';
+export type ModuleCount = '1-2' | '3-5' | '6-10' | 'mais-10';
+export type UserVolume = 'menos-200' | '200-2k' | '2k-20k' | 'mais-20k';
+export type SLALevel = 'comercial' | '12x5' | '24x7';
+export type DeliveryPace = 'flexivel' | 'moderado' | 'agressivo';
+
+export interface SimulationQuestionnaire {
+  demandType: DemandType;
+  criticality: CriticalityLevel;
+  integrations: IntegrationCount;
+  modules: ModuleCount;
+  userVolume: UserVolume;
+  slaLevel: SLALevel;
+  deliveryPace: DeliveryPace;
+  fieldDependency: boolean;
+}
+
+export interface SimulationHRItem {
   id: string;
-  userId: string;
-  userNameSnapshot: string;
-  ipAddress: string;
-  userAgent: string;
-  startedAt: string;
-  endedAt: string | null;
-  modulesAccessed: string[];
-  routesAccessed: string[];
-  lastActivityAt: string | null;
+  role: string;
+  hiringType: 'clt' | 'pj';
+  quantity: number;
+  grossMonthly: number;
+  chargesPercent: number;
+}
+
+export interface SimulationOtherCost {
+  id: string;
+  category: string;
+  description: string;
+  valueMonthly: number;
+}
+
+export interface SimulationOverhead {
+  infraPercent: number;
+  adminPercent: number;
+  governancePercent: number;
+}
+
+export interface SimulationScenario {
+  label: string;
+  receitaMensal: number;
+  custoMensal: number;
+  overheadMensal: number;
+  resultadoMensal: number;
+  margemPercent: number;
+  healthStatus: HealthStatus;
+}
+
+export interface ContractSimulation {
+  id: string;
+  name: string;
+  clientName: string;
+  contractType: SimulationContractType;
+  govSphere?: GovSphere;
+  expectedStartDate?: string;
+  termMonths: number;
+  pricingModel: SimulationPricingModel;
+  proposedMonthlyValue?: number;
+  proposedTotalValue?: number;
+  description: string;
+  complexityLevel: SimulationComplexity;
+  questionnaire: SimulationQuestionnaire;
+  suggestedHR: SimulationHRItem[];
+  suggestedOtherCosts: SimulationOtherCost[];
+  suggestedOverhead: SimulationOverhead;
+  customHR: SimulationHRItem[];
+  customOtherCosts: SimulationOtherCost[];
+  customOverhead: SimulationOverhead;
+  usingSuggested: boolean;
+  status: SimulationStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
 }
 ```
 
 ---
 
-## 2. Contexto de Logs de Acesso
+## 2. Motor de Sugestao Deterministico
 
-### Novo arquivo: `src/contexts/AccessLogContext.tsx`
+### Novo arquivo: `src/lib/simulationEngine.ts`
 
-Responsabilidades:
-- Estado `accessLogs: AccessLogSession[]` persistido em localStorage (`bnp_access_logs`)
-- `currentSessionId: string | null` em estado
-- Limite de 500 logs (FIFO ao exceder)
-- Funcoes expostas:
-  - `startSession(user)`: encerra sessao ativa anterior, cria nova com IP fake e userAgent do navigator
-  - `endSession()`: seta `endedAt` na sessao atual
-  - `trackNavigation(pathname)`: adiciona modulo/rota a sessao ativa, atualiza `lastActivityAt`
-  - `getLogsByUser(userId)`: filtra logs por usuario
-  - `clearAllLogs()`: limpa todos os logs com confirmacao
-  - `getAllLogs()`: retorna todos
+Funcoes:
+- `generateSuggestedResources(questionnaire, complexity, termMonths)`: retorna `{ hr, otherCosts, overhead }`
+- `calculateSimulationResults(simulation)`: retorna `{ receitaMensal, custoMensal, overheadMensal, resultadoMensal, margemPercent, healthStatus }`
+- `generateScenarios(simulation)`: retorna array de 3 cenarios (conservador +10% custo, base, otimista -10% custo)
 
-Posicao no provider tree: dentro de `AuthProvider` (precisa de user), mas separado. Sera filho de `AuthProvider` no `App.tsx`.
+### Presets base (hardcoded, editaveis na UI):
 
-### Mapeamento de rotas para modulos:
-```
-/dashboard -> "Dashboard"
-/clientes -> "Clientes"
-/clientes/:id -> "Cliente:Detalhe"
-/contratos -> "Contratos"
-/contratos/:id -> "Contrato:Detalhe"
-/contratos/:id/recursos -> "Contrato:Recursos"
-/contratos/:id/editar -> "Contrato:Edicao"
-/alertas -> "Alertas"
-/usuarios -> "Usuarios"
-/configuracoes -> "Configuracoes"
-/importar-exportar -> "Importar/Exportar"
-/integracoes -> "Integracoes"
-/ajuda -> "Ajuda"
-/usuarios/logs -> "Logs de Acesso"
-```
+| Perfil | PO | TechLead | Dev | QA | Suporte | UX | DevOps |
+|--------|-----|----------|-----|-----|---------|-----|--------|
+| Sustentacao BAIXA | 0.2 | - | 1 | 0.5 | - | - | - |
+| Sustentacao MEDIA | 0.5 | - | 2 | 1 | 0.5 | - | - |
+| Evolucao MEDIA | 0.5 | 0.5 | 3 | 1 | - | 0.5 | - |
+| Novo sistema ALTA | 1 | 1 | 4 | 2 | - | 0.5 | 0.5 |
+| Implantacao ALTA | 1 | 0.5 | 3 | 1.5 | 1 | 0.5 | 0.5 |
 
----
+Salarios medios default (R$/mes): PO 12k, TechLead 18k, Dev 14k, QA 10k, Suporte 6k, UX 12k, DevOps 15k
 
-## 3. Integracao com AuthContext
+### Regras de ajuste por questionario:
+- Integracoes 3-5: +0.5 Dev, +0.5 QA
+- Integracoes >5: +1 Dev, +1 QA
+- Criticidade alta: +0.5 QA, +custo "Observabilidade" R$2k
+- SLA 24x7: +2 Suporte, +custo "Plantao" R$5k
+- SLA 12x5: +1 Suporte
+- Prazo agressivo: +1 Dev
+- Modulos >10: +1 Dev, +0.5 PO
+- Modulos 6-10: +0.5 Dev
+- Dependencia presencial: +custo "Viagens" R$4k
+- Volume >20k: +custo "Infra escalavel" R$3k
 
-### Arquivo: `src/contexts/AuthContext.tsx`
-
-No `login()`: apos autenticar, chamar `startSession(authUser)` (via callback ou evento)
-No `logout()`: chamar `endSession()` antes de limpar user
-
-Abordagem: AccessLogContext observa mudancas no `user` do AuthContext via useEffect. Quando user muda de null para objeto, inicia sessao. Quando muda para null, encerra.
+Overhead default: infra 6%, admin 4%, governanca 3%
 
 ---
 
-## 4. Rastreamento de Navegacao
+## 3. Contexto de Simulacoes
 
-### Arquivo: `src/components/layout/MainLayout.tsx`
+### Novo arquivo: `src/contexts/SimulationContext.tsx`
 
-Adicionar useEffect observando `location.pathname`:
-- Chamar `trackNavigation(location.pathname)` do AccessLogContext
-- O contexto resolve o mapeamento rota->modulo internamente
-
-### Tratamento de `beforeunload`:
-No AccessLogContext, registrar listener `beforeunload` para tentar encerrar sessao ativa (best-effort).
+- Estado `simulations: ContractSimulation[]` persistido em localStorage (`bnp_simulations`)
+- Funcoes: `addSimulation`, `updateSimulation`, `deleteSimulation`, `duplicateSimulation`, `getSimulation`, `getAllSimulations`
+- Seed com mock data no primeiro load
+- Provider adicionado no `App.tsx`
 
 ---
 
-## 5. Tela de Logs de Acesso
+## 4. Dados Mock
 
-### Novo arquivo: `src/pages/AccessLogsPage.tsx`
+### Novo arquivo: `src/data/mockSimulations.ts`
 
-Rota: `/usuarios/logs` (somente c-level)
-
-Layout:
-- **Topo**: Titulo "Logs de Acessos" + subtexto
-- **Filtros**:
-  - Usuario (select com busca, alimentado por systemUsers)
-  - Periodo (date range com dois date pickers)
-  - Status: Ativa / Encerrada / Todas (chips)
-  - Busca textual (IP, userAgent, modulo)
-- **Acoes**:
-  - "Exportar CSV (Em breve)" desabilitado
-  - "Limpar logs" com AlertDialog de confirmacao
-- **Tabela**:
-  - Usuario (nome snapshot)
-  - IP
-  - Inicio (formatado pt-BR)
-  - Fim (formatado ou "Ativa")
-  - Duracao (calculada: diferenca entre end e start, ou "Em andamento")
-  - Modulos acessados (chips compactos, max 3 visiveis + "+N" tooltip)
-  - Botao "Detalhes"
-- **Drawer de Detalhes** (ao clicar):
-  - Todas as infos da sessao
-  - Lista completa de modulos
-  - Lista de rotas acessadas
-  - userAgent
-- **Empty state**: icone + "Nenhum log encontrado"
-- **Guard**: se `user.role !== 'c-level'`, mostrar tela de acesso restrito
+8 simulacoes seed:
+- 3 GOV (municipal/estadual) e 3 PRIVATE
+- 2 mistas
+- Pelo menos 2 deficitarias, 2 atencao, 2-4 saudaveis
+- Modelos mensal e total variados
+- Questionarios preenchidos com respostas variadas
 
 ---
 
-## 6. Ponto de Entrada: Menu de Acoes do Usuario
+## 5. Paginas e Componentes
 
-### Arquivo: `src/pages/UsersPage.tsx`
+### 5.1 Lista de Simulacoes
+**Novo arquivo: `src/pages/CalculatorPage.tsx`**
+Rota: `/calculadora`
 
-No DropdownMenu de cada usuario (kebab), apos "Desativar":
-- Adicionar item "Logs de acessos" com icone `FileText` ou `Activity`
-- Ao clicar: navegar para `/usuarios/logs?userId={user.id}`
+- Titulo "Calculadora de Contratos" + subtexto "Simule contratos em negociacao"
+- Botao "Nova simulacao"
+- Cards ou tabela com simulacoes salvas:
+  - Nome, cliente, tipo, prazo, margem projetada, status saude, data
+  - Acoes: Abrir, Duplicar, Arquivar, Excluir
+- Empty state com CTA
+- Filtros: busca + tipo (GOV/PRIVATE) + status (draft/archived)
+
+### 5.2 Wizard de Nova Simulacao
+**Novo arquivo: `src/pages/CalculatorWizardPage.tsx`**
+Rota: `/calculadora/nova` e `/calculadora/:id`
+
+Stepper com 5 passos, navegacao livre entre passos ja visitados:
+
+**Passo 1 - Identificacao**: nome, cliente, tipo, esfera (condicional), prazo, data inicio, descricao
+**Passo 2 - Precificacao**: modelo (mensal/total), valor, exibicao read-only da receita mensal/total projetada
+**Passo 3 - Complexidade e Questionario**: nivel de complexidade + 8 campos do questionario
+**Passo 4 - Estrutura de Recursos**: tabelas editaveis (RH + Outros custos + Overhead), accordion "Como foi calculado", botoes "Aplicar sugestao" / "Resetar"
+**Passo 5 - Resultado e Cenarios**: cards KPI, indicador saude, tabela comparativa 3 cenarios, grafico de barras (recharts), acoes finais
+
+### 5.3 Componentes auxiliares (dentro de `src/components/calculator/`)
+
+| Componente | Responsabilidade |
+|------------|-----------------|
+| `SimulationStepper.tsx` | Stepper visual com 5 passos |
+| `Step1Identification.tsx` | Formulario passo 1 |
+| `Step2Pricing.tsx` | Formulario passo 2 |
+| `Step3Questionnaire.tsx` | Formulario passo 3 |
+| `Step4Resources.tsx` | Tabelas editaveis + sugestao |
+| `Step5Results.tsx` | Cards + cenarios + grafico |
 
 ---
 
-## 7. Ponto de Entrada: Sidebar
+## 6. Sidebar e Rotas
 
 ### Arquivo: `src/components/layout/Sidebar.tsx`
-
-Nao adicionar item separado na sidebar (logs fica subordinado a Usuarios). A rota `/usuarios/logs` sera acessivel via navegacao programatica.
-
----
-
-## 8. Rota no App.tsx
-
-### Arquivo: `src/App.tsx`
-
-Adicionar rota:
+Adicionar item apos "Alertas":
 ```typescript
-import AccessLogsPage from "@/pages/AccessLogsPage";
-// ...
-<Route path="/usuarios/logs" element={<AccessLogsPage />} />
+{ path: '/calculadora', label: 'Calculadora', icon: Calculator }
 ```
-
----
-
-## 9. Dados Mock (Seed)
-
-### Novo arquivo ou secao em `src/data/mockAccessLogs.ts`
-
-Criar 25-35 sessoes mock distribuidas entre os 4 usuarios seed:
-- IPs variados (192.168.x.y, 10.0.x.y)
-- Sessoes com 2-8 modulos acessados
-- 2 sessoes com `endedAt = null` (ativas)
-- Datas distribuidas nos ultimos 30 dias
-- userAgent simulado (ex: "Mozilla/5.0 Chrome/120")
-
----
-
-## 10. Provider Tree
 
 ### Arquivo: `src/App.tsx`
-
-Adicionar `AccessLogProvider` apos `AuthProvider`:
+Adicionar rotas + SimulationProvider:
 ```
-SystemUsersProvider > AuthProvider > AccessLogProvider > DataProvider > ...
+/calculadora -> CalculatorPage
+/calculadora/nova -> CalculatorWizardPage
+/calculadora/:id -> CalculatorWizardPage
 ```
 
 ---
 
-## Arquivos Alterados/Criados
+## 7. Permissoes
+
+Calculadora acessivel para `c-level` e `leitor`. Verificacao no componente com tela de acesso restrito para `intermediario`.
+
+---
+
+## Arquivos Criados/Alterados
 
 | Arquivo | Acao |
 |---------|------|
-| `src/types/index.ts` | Tipo AccessLogSession |
-| `src/contexts/AccessLogContext.tsx` | Novo -- contexto de logs com CRUD + tracking |
-| `src/data/mockAccessLogs.ts` | Novo -- seed de sessoes mock |
-| `src/pages/AccessLogsPage.tsx` | Novo -- tela de logs com filtros e detalhes |
-| `src/pages/UsersPage.tsx` | Item "Logs de acessos" no kebab menu |
-| `src/components/layout/MainLayout.tsx` | trackNavigation no useEffect de rota |
-| `src/App.tsx` | Rota /usuarios/logs + AccessLogProvider |
-
----
+| `src/types/index.ts` | Tipos de simulacao |
+| `src/lib/simulationEngine.ts` | Novo -- motor deterministico + presets |
+| `src/contexts/SimulationContext.tsx` | Novo -- CRUD + persistencia |
+| `src/data/mockSimulations.ts` | Novo -- 8 simulacoes seed |
+| `src/pages/CalculatorPage.tsx` | Novo -- lista de simulacoes |
+| `src/pages/CalculatorWizardPage.tsx` | Novo -- wizard 5 passos |
+| `src/components/calculator/SimulationStepper.tsx` | Novo |
+| `src/components/calculator/Step1Identification.tsx` | Novo |
+| `src/components/calculator/Step2Pricing.tsx` | Novo |
+| `src/components/calculator/Step3Questionnaire.tsx` | Novo |
+| `src/components/calculator/Step4Resources.tsx` | Novo |
+| `src/components/calculator/Step5Results.tsx` | Novo |
+| `src/components/layout/Sidebar.tsx` | Item "Calculadora" |
+| `src/App.tsx` | Rotas + SimulationProvider |
 
 ## Ordem de Implementacao
 
 1. Tipos (`types/index.ts`)
-2. Mock data (`mockAccessLogs.ts`)
-3. AccessLogContext (contexto + persistencia + tracking)
-4. App.tsx (provider + rota)
-5. MainLayout (tracking de navegacao)
-6. AccessLogsPage (tela completa)
-7. UsersPage (item no kebab)
+2. Motor de sugestao (`simulationEngine.ts`)
+3. Mock data (`mockSimulations.ts`)
+4. Contexto (`SimulationContext.tsx`)
+5. Componentes do wizard (Step1-5 + Stepper)
+6. Paginas (CalculatorPage + CalculatorWizardPage)
+7. Sidebar + App.tsx (rotas e provider)
