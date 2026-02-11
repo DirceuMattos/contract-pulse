@@ -38,6 +38,7 @@ export interface Client {
 export type ContractType = 'sistema' | 'infraestrutura' | 'hibrido';
 export type ContractSegment = 'govtech' | 'privado';
 export type ContractStatus = 'implantacao' | 'operacao' | 'suspenso' | 'encerrado';
+export type GovSphere = 'municipal' | 'estadual' | 'federal';
 export type RenewalStatus = 'negociacao' | 'renovado' | 'sem-tratativa';
 export type RevenueModel = 'mrr' | 'media-mensal';
 export type HealthStatus = 'saudavel' | 'atencao' | 'critico';
@@ -53,6 +54,7 @@ export interface Contract {
   unidade?: string;
   centroCusto?: string;
   tags: string[];
+  govSphere?: GovSphere;
   
   // Vigência
   dataInicio: string;
@@ -60,6 +62,8 @@ export interface Contract {
   renovacaoAutomatica: boolean;
   periodicidadeRenovacao?: string;
   statusRenovacao: RenewalStatus;
+  renewalTermMonths?: number;
+  renewalBaseDate?: string;
   
   // Reajuste
   indiceReajuste: string;
@@ -168,7 +172,8 @@ export type AlertType =
   | 'financeiro-deficit'
   | 'financeiro-margem-baixa'
   | 'vigencia-vencido'
-  | 'governanca-contatos';
+  | 'governanca-contatos'
+  | 'renovacao-proxima';
 
 export type AlertSeverity = 'atencao' | 'critico' | 'info';
 

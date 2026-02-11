@@ -48,6 +48,7 @@ import {
   calculateContractHealth,
   calculateResourceCost,
   calculateOverheadCost,
+  calculateRenewalExpectedDate,
   getDaysUntil,
   getDaysSince,
 } from '@/lib/calculations';
@@ -609,6 +610,14 @@ export default function ContractDetailPage() {
                     <p className="font-medium">{formatDate(contract.dataFim)}</p>
                   </div>
                 </div>
+                {contract.segmento === 'govtech' && contract.govSphere && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Esfera</p>
+                    <Badge variant="secondary">
+                      {contract.govSphere === 'municipal' ? 'Municipal' : contract.govSphere === 'estadual' ? 'Estadual' : 'Federal'}
+                    </Badge>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-muted-foreground">Renovação Automática</p>
                   <p className="font-medium">{contract.renovacaoAutomatica ? 'Sim' : 'Não'}</p>
@@ -616,6 +625,33 @@ export default function ContractDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Status de Renovação</p>
                   <Badge variant="secondary">{renewalLabels[contract.statusRenovacao]}</Badge>
+                </div>
+                {contract.renewalTermMonths && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Prazo de renovação</p>
+                    <p className="font-medium">{contract.renewalTermMonths} meses</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground">Data prevista de renovação</p>
+                  {(() => {
+                    const expectedDate = calculateRenewalExpectedDate(contract);
+                    if (expectedDate) {
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="font-medium cursor-help">{formatDate(expectedDate)}</p>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Base: {contract.renewalBaseDate ? formatDate(contract.renewalBaseDate) : formatDate(contract.dataFim)} + {contract.renewalTermMonths} meses</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    }
+                    return <p className="text-sm text-muted-foreground italic">Preencha o prazo de renovação para calcular.</p>;
+                  })()}
                 </div>
               </CardContent>
             </Card>

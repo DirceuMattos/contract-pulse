@@ -1,5 +1,5 @@
 import { Contract, Resource, Settings, Alert, AlertSeverity, Snapshot, OverheadItem, HistoryEvent } from '@/types';
-import { getDaysUntil, getDaysSince, calculateContractHealth } from './calculations';
+import { getDaysUntil, getDaysSince, calculateContractHealth, calculateRenewalExpectedDate } from './calculations';
 
 interface AlertGeneratorContext {
   contracts: Contract[];
@@ -62,6 +62,10 @@ export function generateAlerts(context: AlertGeneratorContext): Alert[] {
     const contractHistory = historyEvents.filter(e => e.contractId === contract.id);
     const historyAlerts = checkHistoryAlerts(contract, contractHistory);
     alerts.push(...historyAlerts);
+
+    // Alerta de Renovação Próxima
+    const renewalAlert = checkRenovacaoProxima(contract);
+    if (renewalAlert) alerts.push(renewalAlert);
   }
   
   // Ordena por severidade (crítico primeiro, depois atenção, depois info) e data
@@ -414,6 +418,31 @@ function formatCurrencySimple(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+/**
+ * Verifica se a renovação do contrato está próxima
+ */
+function checkRenovacaoProxima(contract: Contract): Alert | null {
+  const expectedDate = calculateRenewalExpectedDate(contract);
+  if (!expectedDate) return null;
+  
+  const diasAteRenovacao = getDaysUntil(expectedDate);
+  if (diasAteRenovacao <= 0 || diasAteRenovacao > 60) return null;
+  
+  const severity: AlertSeverity = diasAteRenovacao <= 30 ? 'critico' : 'atencao';
+  
+  return {
+    id: `alert-renovacao-${contract.id}`,
+    contractId: contract.id,
+    type: 'renovacao-proxima',
+    severity,
+    alertCategory: 'prazo',
+    title: `Renovação prevista em ${diasAteRenovacao} dias`,
+    description: `O contrato "${contract.nome}" tem renovação prevista para ${formatDateBR(expectedDate)}.`,
+    recommendation: 'Inicie o processo de renovação e prepare a documentação necessária.',
+    createdAt: new Date().toISOString(),
+  };
 }
 
 /**
