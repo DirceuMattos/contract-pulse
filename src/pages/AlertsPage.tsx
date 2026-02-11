@@ -39,6 +39,7 @@ const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'financeiro-margem-baixa': <AlertCircle className="w-5 h-5" />,
   'vigencia-vencido': <Clock className="w-5 h-5" />,
   'governanca-contatos': <Users className="w-5 h-5" />,
+  'renovacao-proxima': <Calendar className="w-5 h-5" />,
 };
 
 const alertTypeLabels: Record<AlertType, string> = {
@@ -51,6 +52,7 @@ const alertTypeLabels: Record<AlertType, string> = {
   'financeiro-margem-baixa': 'Margem Baixa',
   'vigencia-vencido': 'Contrato Vencido',
   'governanca-contatos': 'Contatos Incompletos',
+  'renovacao-proxima': 'Renovação Próxima',
 };
 
 const severityColors: Record<AlertSeverity, string> = {

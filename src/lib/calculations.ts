@@ -190,6 +190,15 @@ export function getDaysUntil(dateString: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+export function calculateRenewalExpectedDate(contract: Contract): string | null {
+  if (!contract.renewalTermMonths) return null;
+  const base = contract.renewalBaseDate || contract.dataFim;
+  if (!base) return null;
+  const baseDate = new Date(base);
+  baseDate.setMonth(baseDate.getMonth() + contract.renewalTermMonths);
+  return baseDate.toISOString().split('T')[0];
+}
+
 export function getDaysSince(dateString: string): number {
   const target = new Date(dateString);
   const today = new Date();

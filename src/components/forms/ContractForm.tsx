@@ -70,11 +70,14 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       unidade: contract?.unidade || '',
       centroCusto: contract?.centroCusto || '',
       tags: contract?.tags || [],
+      govSphere: contract?.govSphere || undefined,
       dataInicio: contract?.dataInicio || '',
       dataFim: contract?.dataFim || '',
       renovacaoAutomatica: contract?.renovacaoAutomatica || false,
       periodicidadeRenovacao: contract?.periodicidadeRenovacao || '',
       statusRenovacao: contract?.statusRenovacao || 'sem-tratativa',
+      renewalTermMonths: contract?.renewalTermMonths,
+      renewalBaseDate: contract?.renewalBaseDate || '',
       indiceReajuste: contract?.indiceReajuste || 'IPCA',
       dataBaseReajuste: contract?.dataBaseReajuste || '',
       percentualFixo: contract?.percentualFixo,
@@ -97,6 +100,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const watchModeloReceita = form.watch('modeloReceita');
   const watchClientId = form.watch('clientId');
   const watchTags = form.watch('tags');
+  const watchSegmento = form.watch('segmento');
 
   // Auto-fill segmento based on selected client
   useEffect(() => {
@@ -481,6 +485,108 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                           <SelectItem value="sem-tratativa">Sem Tratativa</SelectItem>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Esfera (condicional a govtech) */}
+                {watchSegmento === 'govtech' && (
+                  <FormField
+                    control={form.control}
+                    name="govSphere"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Esfera</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a esfera" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="municipal">Municipal</SelectItem>
+                            <SelectItem value="estadual">Estadual</SelectItem>
+                            <SelectItem value="federal">Federal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Aplicável apenas para contratos GovTech/Governo.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Prazo de renovação (meses) */}
+                <FormField
+                  control={form.control}
+                  name="renewalTermMonths"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prazo de renovação (meses)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={120}
+                          step={1}
+                          placeholder="Ex: 12"
+                          value={field.value ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            field.onChange(val === '' ? undefined : parseInt(val, 10));
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Usado para calcular a data prevista de renovação. Ex.: 12.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Data base para renovação */}
+                <FormField
+                  control={form.control}
+                  name="renewalBaseDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data base para renovação</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(new Date(field.value), "dd/MM/yyyy", { locale: ptBR })
+                              ) : (
+                                <span>Selecione a data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>
+                        Se não preenchido, usaremos a data final do contrato para calcular a renovação.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -119,6 +119,7 @@ export const contractFormSchema = z.object({
   unidade: z.string().max(100).optional(),
   centroCusto: z.string().max(50).optional(),
   tags: z.array(z.string()).default([]),
+  govSphere: z.enum(['municipal', 'estadual', 'federal']).optional(),
 
   // Vigência
   dataInicio: z.string().min(1, 'Data de início é obrigatória'),
@@ -128,6 +129,8 @@ export const contractFormSchema = z.object({
   statusRenovacao: z.enum(['negociacao', 'renovado', 'sem-tratativa'], {
     required_error: 'Status de renovação é obrigatório',
   }),
+  renewalTermMonths: z.number().int().min(1).max(120).optional(),
+  renewalBaseDate: z.string().optional(),
 
   // Reajuste
   indiceReajuste: z.string().min(1, 'Índice de reajuste é obrigatório'),
