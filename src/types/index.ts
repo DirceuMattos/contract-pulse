@@ -402,6 +402,7 @@ export interface ContractSimulation {
   proposedMonthlyValue?: number;
   proposedTotalValue?: number;
   description: string;
+  consultancyCost?: number;
   complexityLevel: SimulationComplexity;
   questionnaire: SimulationQuestionnaire;
   suggestedHR: SimulationHRItem[];

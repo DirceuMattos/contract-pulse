@@ -52,7 +52,12 @@ export function Step4Resources({ data, onChange }: Props) {
     applyCustom();
     const list = (data.usingSuggested ? JSON.parse(JSON.stringify(data.suggestedHR)) : [...data.customHR]) as SimulationHRItem[];
     const idx = list.findIndex(i => i.id === id);
-    if (idx >= 0) list[idx] = { ...list[idx], [field]: value };
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], [field]: value };
+      if (field === 'hiringType') {
+        list[idx].chargesPercent = value === 'pj' ? 10 : 68;
+      }
+    }
     onChange({ customHR: list, usingSuggested: false });
   };
 
@@ -174,7 +179,7 @@ export function Step4Resources({ data, onChange }: Props) {
                     <Input className="h-8 text-sm" type="number" min={0} max={200} value={item.chargesPercent} onChange={e => updateHR(item.id, 'chargesPercent', parseFloat(e.target.value) || 0)} />
                   </TableCell>
                   <TableCell className="text-sm font-medium text-foreground">
-                    {formatCurrency(item.quantity * item.grossMonthly * (1 + item.chargesPercent / 100))}
+                    {formatCurrency((item.quantity || 0) * (item.grossMonthly || 0) * (1 + (item.chargesPercent || 0) / 100))}
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeHR(item.id)}>
@@ -205,6 +210,14 @@ export function Step4Resources({ data, onChange }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {(data.consultancyCost ?? 0) > 0 && (
+                <TableRow className="bg-muted/50">
+                  <TableCell className="text-sm text-muted-foreground">Consultoria Comercial</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">Custo informado no Passo 1</TableCell>
+                  <TableCell className="text-sm font-medium text-muted-foreground">{formatCurrency(data.consultancyCost!)}</TableCell>
+                  <TableCell />
+                </TableRow>
+              )}
               {oc.map(item => (
                 <TableRow key={item.id}>
                   <TableCell><Input className="h-8 text-sm" value={item.category} onChange={e => updateOC(item.id, 'category', e.target.value)} /></TableCell>

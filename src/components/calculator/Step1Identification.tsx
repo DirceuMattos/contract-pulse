@@ -67,6 +67,12 @@ export function Step1Identification({ data, onChange }: Props) {
           <Label>Descrição do escopo *</Label>
           <Textarea rows={3} value={data.description} onChange={e => onChange({ description: e.target.value })} placeholder="Descreva brevemente o escopo do projeto..." />
         </div>
+
+        <div className="space-y-2">
+          <Label>Custo de consultoria previsto (mensal)</Label>
+          <Input type="number" min={0} step={500} value={data.consultancyCost || ''} onChange={e => onChange({ consultancyCost: parseFloat(e.target.value) || 0 })} placeholder="R$ 0,00 — incluso automaticamente em Outros Custos" />
+          <p className="text-xs text-muted-foreground">Se informado, será adicionado automaticamente à composição de custos.</p>
+        </div>
       </div>
     </div>
   );
