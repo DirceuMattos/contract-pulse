@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useSimulations } from '@/contexts/SimulationContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { calculateSimulationResults } from '@/lib/simulationEngine';
+import { calculateSimulationResults, suggestPricing } from '@/lib/simulationEngine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -112,7 +112,7 @@ export default function CalculatorPage() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{sim.contractType === 'gov' ? 'GOV' : 'Privado'}</span></div>
                   <div><span className="text-muted-foreground">Prazo:</span> <span className="font-medium">{sim.termMonths} meses</span></div>
-                  <div><span className="text-muted-foreground">Receita:</span> <span className="font-medium">{formatCurrency(results.receitaMensal)}/mês</span></div>
+                  <div><span className="text-muted-foreground">Valor sug.:</span> <span className="font-medium">{formatCurrency(suggestPricing(sim).suggestedMonthlyValue)}/mês</span></div>
                   <div><span className="text-muted-foreground">Margem:</span> <span className={cn('font-medium', results.margemPercent >= 15 ? 'text-[hsl(var(--health-healthy))]' : results.margemPercent >= 0 ? 'text-[hsl(var(--health-attention))]' : 'text-[hsl(var(--health-critical))]')}>{results.margemPercent.toFixed(1)}%</span></div>
                 </div>
                 <div className="flex items-center gap-1 pt-1 border-t border-border">

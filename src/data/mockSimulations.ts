@@ -1,14 +1,12 @@
 import type { ContractSimulation } from '@/types';
 import { generateSuggestedResources } from '@/lib/simulationEngine';
 
-function buildSim(partial: Partial<ContractSimulation> & Pick<ContractSimulation, 'id' | 'name' | 'clientName' | 'contractType' | 'termMonths' | 'pricingModel' | 'description' | 'complexityLevel' | 'questionnaire'>): ContractSimulation {
+function buildSim(partial: Partial<ContractSimulation> & Pick<ContractSimulation, 'id' | 'name' | 'clientName' | 'contractType' | 'termMonths' | 'description' | 'complexityLevel' | 'questionnaire'>): ContractSimulation {
   const suggested = generateSuggestedResources(partial.questionnaire, partial.complexityLevel);
   const now = new Date().toISOString();
   return {
     govSphere: undefined,
     expectedStartDate: undefined,
-    proposedMonthlyValue: undefined,
-    proposedTotalValue: undefined,
     suggestedHR: suggested.hr,
     suggestedOtherCosts: suggested.otherCosts,
     suggestedOverhead: suggested.overhead,
@@ -43,8 +41,6 @@ export const mockSimulations: ContractSimulation[] = [
     contractType: 'gov',
     govSphere: 'municipal',
     termMonths: 24,
-    pricingModel: 'mensal',
-    proposedMonthlyValue: 180000,
     description: 'Sistema de gestão de iluminação pública com IoT e monitoramento em tempo real.',
     complexityLevel: 'alta',
     questionnaire: q({ demandType: 'novo-sistema', criticality: 'alta', integrations: '3-5', modules: '6-10', userVolume: '2k-20k', slaLevel: '24x7', deliveryPace: 'moderado' }),
@@ -56,8 +52,6 @@ export const mockSimulations: ContractSimulation[] = [
     clientName: 'TechCorp S.A.',
     contractType: 'private',
     termMonths: 12,
-    pricingModel: 'mensal',
-    proposedMonthlyValue: 45000,
     description: 'Sustentação e manutenção corretiva do ERP legado.',
     complexityLevel: 'baixa',
     questionnaire: q({ demandType: 'sustentacao', criticality: 'baixa', integrations: 'nenhuma', modules: '1-2', userVolume: 'menos-200', slaLevel: 'comercial' }),
@@ -70,8 +64,6 @@ export const mockSimulations: ContractSimulation[] = [
     contractType: 'gov',
     govSphere: 'estadual',
     termMonths: 36,
-    pricingModel: 'total',
-    proposedTotalValue: 3600000,
     description: 'Portal de serviços ao cidadão com autenticação gov.br e integrações.',
     complexityLevel: 'alta',
     questionnaire: q({ demandType: 'implantacao', criticality: 'alta', integrations: 'mais-5', modules: 'mais-10', userVolume: 'mais-20k', slaLevel: '24x7', deliveryPace: 'agressivo', fieldDependency: true }),
@@ -83,8 +75,6 @@ export const mockSimulations: ContractSimulation[] = [
     clientName: 'FinBank Digital',
     contractType: 'private',
     termMonths: 18,
-    pricingModel: 'mensal',
-    proposedMonthlyValue: 120000,
     description: 'Aplicativo mobile para banco digital com funcionalidades de PIX e investimentos.',
     complexityLevel: 'media',
     questionnaire: q({ demandType: 'evolucao', criticality: 'alta', integrations: '3-5', modules: '6-10', userVolume: '2k-20k', slaLevel: '12x5', deliveryPace: 'moderado' }),
@@ -97,8 +87,6 @@ export const mockSimulations: ContractSimulation[] = [
     contractType: 'gov',
     govSphere: 'municipal',
     termMonths: 12,
-    pricingModel: 'mensal',
-    proposedMonthlyValue: 30000,
     description: 'Sistema de gestão escolar com controle de matrículas e frequência.',
     complexityLevel: 'baixa',
     questionnaire: q({ demandType: 'sustentacao', criticality: 'baixa', integrations: '1-2', modules: '3-5', userVolume: '200-2k', slaLevel: 'comercial', deliveryPace: 'flexivel' }),
@@ -110,8 +98,6 @@ export const mockSimulations: ContractSimulation[] = [
     clientName: 'LogiTech Transportes',
     contractType: 'private',
     termMonths: 24,
-    pricingModel: 'total',
-    proposedTotalValue: 1200000,
     description: 'Plataforma de gestão logística com rastreamento e otimização de rotas.',
     complexityLevel: 'media',
     questionnaire: q({ demandType: 'novo-sistema', criticality: 'media', integrations: '3-5', modules: '6-10', userVolume: '200-2k', slaLevel: '12x5', deliveryPace: 'agressivo' }),
@@ -124,8 +110,6 @@ export const mockSimulations: ContractSimulation[] = [
     contractType: 'gov',
     govSphere: 'federal',
     termMonths: 48,
-    pricingModel: 'total',
-    proposedTotalValue: 8000000,
     description: 'Modernização do sistema de licitações eletrônicas com blockchain.',
     complexityLevel: 'alta',
     questionnaire: q({ demandType: 'implantacao', criticality: 'alta', integrations: 'mais-5', modules: 'mais-10', userVolume: 'mais-20k', slaLevel: '24x7', deliveryPace: 'moderado', fieldDependency: true }),
@@ -137,8 +121,6 @@ export const mockSimulations: ContractSimulation[] = [
     clientName: 'StartupXYZ',
     contractType: 'private',
     termMonths: 6,
-    pricingModel: 'total',
-    proposedTotalValue: 180000,
     description: 'MVP de plataforma SaaS para gestão de assinaturas.',
     complexityLevel: 'media',
     questionnaire: q({ demandType: 'novo-sistema', criticality: 'media', integrations: '1-2', modules: '3-5', userVolume: 'menos-200', slaLevel: 'comercial', deliveryPace: 'agressivo' }),

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSimulations } from '@/contexts/SimulationContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +6,6 @@ import { generateSuggestedResources } from '@/lib/simulationEngine';
 import { Button } from '@/components/ui/button';
 import { SimulationStepper } from '@/components/calculator/SimulationStepper';
 import { Step1Identification } from '@/components/calculator/Step1Identification';
-import { Step2Pricing } from '@/components/calculator/Step2Pricing';
 import { Step3Questionnaire } from '@/components/calculator/Step3Questionnaire';
 import { Step4Resources } from '@/components/calculator/Step4Resources';
 import { Step5Results } from '@/components/calculator/Step5Results';
@@ -34,7 +33,6 @@ function createBlank(userId?: string): ContractSimulation {
     clientName: '',
     contractType: 'private',
     termMonths: 12,
-    pricingModel: 'mensal',
     description: '',
     complexityLevel: 'media',
     questionnaire: { ...DEFAULT_QUESTIONNAIRE },
@@ -69,11 +67,9 @@ export default function CalculatorWizardPage() {
   });
   const [saved, setSaved] = useState(!!id);
 
-
   const onChange = useCallback((updates: Partial<ContractSimulation>) => {
     setData(prev => {
       const next = { ...prev, ...updates, updatedAt: new Date().toISOString() };
-      // Regenerate suggestions when questionnaire/complexity changes on step 3
       if (updates.questionnaire || updates.complexityLevel) {
         const q = updates.questionnaire || next.questionnaire;
         const c = updates.complexityLevel || next.complexityLevel;
@@ -111,7 +107,7 @@ export default function CalculatorWizardPage() {
   }, [data, saved, addSimulation, updateSimulation]);
 
   const next = () => {
-    if (step < 4) goTo(step + 1);
+    if (step < 3) goTo(step + 1);
   };
   const prev = () => {
     if (step > 0) goTo(step - 1);
@@ -143,10 +139,9 @@ export default function CalculatorWizardPage() {
 
       <div className="min-h-[400px]">
         {step === 0 && <Step1Identification data={data} onChange={onChange} />}
-        {step === 1 && <Step2Pricing data={data} onChange={onChange} />}
-        {step === 2 && <Step3Questionnaire data={data} onChange={onChange} />}
-        {step === 3 && <Step4Resources data={data} onChange={onChange} />}
-        {step === 4 && <Step5Results data={data} />}
+        {step === 1 && <Step3Questionnaire data={data} onChange={onChange} />}
+        {step === 2 && <Step4Resources data={data} onChange={onChange} />}
+        {step === 3 && <Step5Results data={data} />}
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-border">
@@ -157,7 +152,7 @@ export default function CalculatorWizardPage() {
           <Button variant="outline" onClick={save}>
             <Save className="w-4 h-4 mr-2" /> Salvar
           </Button>
-          {step < 4 ? (
+          {step < 3 ? (
             <Button onClick={next}>
               Próximo <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
