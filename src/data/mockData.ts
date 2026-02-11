@@ -1,4 +1,4 @@
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent } from '@/types';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, AttachmentDescriptionConfig, DocumentAttachment } from '@/types';
 
 export const defaultSettings: Settings = {
   percentualEncargosCLT: 68, // 68% de encargos sobre salário
@@ -803,4 +803,30 @@ export const mockHistoryEvents: HistoryEvent[] = [
   { id: 'hev-018', contractId: 'ctr-008', eventDate: '2024-08-01', eventType: 'notificacao-enviada', title: 'Notificação de reajuste enviada', description: 'Notificação formal enviada à LogExpress sobre reajuste contratual previsto para outubro/2024.', impactArea: 'reajuste', severity: 'info', createdAt: '2024-08-01T10:00:00Z' },
   { id: 'hev-019', contractId: 'ctr-008', eventDate: '2024-11-15', eventType: 'renegociacao', title: 'Renegociação de escopo IoT', description: 'Renegociação do escopo de sensores IoT. Redução de 200 para 150 pontos de monitoramento, com ajuste proporcional no valor.', impactArea: 'financeiro', severity: 'atencao', relatedValue: -5000, createdAt: '2024-11-15T14:00:00Z' },
   { id: 'hev-020', contractId: 'ctr-008', eventDate: '2024-06-01', eventType: 'marco-operacional', title: 'Go-live do módulo de analytics', description: 'Módulo de analytics em tempo real para frota entrou em produção. Dashboard gerencial disponível para a LogExpress.', impactArea: 'operacional', severity: 'info', createdAt: '2024-06-01T16:00:00Z' },
+];
+
+// ========== ATTACHMENT CONFIGS ==========
+
+export const defaultAttachmentConfigs: AttachmentDescriptionConfig[] = [
+  { id: 'adc-01', label: 'Contrato', isActive: true, sortOrder: 1 },
+  { id: 'adc-02', label: 'Aditivo', isActive: true, sortOrder: 2 },
+  { id: 'adc-03', label: 'Reajuste', isActive: true, sortOrder: 3 },
+  { id: 'adc-04', label: 'Notificação', isActive: true, sortOrder: 4 },
+  { id: 'adc-05', label: 'Multa/Penalidade', isActive: true, sortOrder: 5 },
+  { id: 'adc-06', label: 'Ata/Reunião', isActive: true, sortOrder: 6 },
+  { id: 'adc-07', label: 'Proposta/Comercial', isActive: true, sortOrder: 7 },
+  { id: 'adc-08', label: 'Outros', isActive: true, sortOrder: 8 },
+];
+
+export const mockAttachments: DocumentAttachment[] = [
+  { id: 'att-001', contractId: 'ctr-001', fileName: 'Contrato_SEFAZ_SP_2023.pdf', fileSizeBytes: 2456789, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Contrato', uploadedAt: '2023-02-15T10:30:00Z', uploadedByUserId: 'user-001', storageKey: 'mock-att-001' },
+  { id: 'att-002', contractId: 'ctr-001', fileName: 'Planilha_Custos_2024.xlsx', fileSizeBytes: 845632, fileTypeMime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileExtension: 'xlsx', descriptionType: 'Outros', descriptionText: 'Planilha de custos', uploadedAt: '2024-03-10T14:00:00Z', uploadedByUserId: 'user-001', storageKey: 'mock-att-002' },
+  { id: 'att-003', contractId: 'ctr-003', fileName: 'Aditivo_Escopo_Agendamento.pdf', fileSizeBytes: 1234567, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Aditivo', uploadedAt: '2024-01-10T09:30:00Z', uploadedByUserId: 'user-002', storageKey: 'mock-att-003' },
+  { id: 'att-004', contractId: 'ctr-003', fileName: 'Notificacao_SLA_Outubro.pdf', fileSizeBytes: 567890, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Notificação', uploadedAt: '2025-11-21T08:00:00Z', uploadedByUserId: 'user-002', storageKey: 'mock-att-004' },
+  { id: 'att-005', contractId: 'ctr-004', fileName: 'Contrato_TJRJ_2022.pdf', fileSizeBytes: 3456789, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Contrato', uploadedAt: '2022-11-01T15:00:00Z', uploadedByUserId: 'user-001', storageKey: 'mock-att-005' },
+  { id: 'att-006', contractId: 'ctr-004', fileName: 'Termo_Aditivo_2_IA.docx', fileSizeBytes: 987654, fileTypeMime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', fileExtension: 'docx', descriptionType: 'Aditivo', uploadedAt: '2023-08-01T11:00:00Z', uploadedByUserId: 'user-001', storageKey: 'mock-att-006' },
+  { id: 'att-007', contractId: 'ctr-004', fileName: 'Ata_Governanca_Q2_2024.pdf', fileSizeBytes: 432100, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Ata/Reunião', uploadedAt: '2024-06-16T09:00:00Z', uploadedByUserId: 'user-003', storageKey: 'mock-att-007' },
+  { id: 'att-008', contractId: 'ctr-005', fileName: 'Renovacao_BNI_2025.pdf', fileSizeBytes: 1567890, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Contrato', uploadedAt: '2025-03-01T10:30:00Z', uploadedByUserId: 'user-001', storageKey: 'mock-att-008' },
+  { id: 'att-009', contractId: 'ctr-006', fileName: 'Postmortem_Incidente_Dez2025.pdf', fileSizeBytes: 2345678, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Outros', descriptionText: 'Relatório postmortem', uploadedAt: '2025-12-08T10:00:00Z', uploadedByUserId: 'user-002', storageKey: 'mock-att-009' },
+  { id: 'att-010', contractId: 'ctr-006', fileName: 'Proposta_Renovacao_MS.pptx', fileSizeBytes: 4567890, fileTypeMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', fileExtension: 'pptx', descriptionType: 'Proposta/Comercial', uploadedAt: '2025-06-15T14:00:00Z', uploadedByUserId: 'user-003', storageKey: 'mock-att-010' },
 ];

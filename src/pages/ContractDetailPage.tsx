@@ -54,6 +54,7 @@ import {
 import { cn } from '@/lib/utils';
 import { HealthStatus, Resource } from '@/types';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
+import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const healthLabels: Record<HealthStatus, string> = {
@@ -375,6 +376,7 @@ export default function ContractDetailPage() {
           <TabsTrigger value="escopo">Escopo</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
         
         <TabsContent value="resumo" className="space-y-6">
@@ -644,6 +646,10 @@ export default function ContractDetailPage() {
 
         <TabsContent value="historico">
           <ContractHistoryTab contractId={contract.id} />
+        </TabsContent>
+
+        <TabsContent value="documentos">
+          <ContractDocumentsTab contractId={contract.id} contractCode={contract.codigo} />
         </TabsContent>
       </Tabs>
     </motion.div>
