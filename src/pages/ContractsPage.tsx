@@ -56,6 +56,9 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatDate, formatCurrency, formatPercentage, calculateContractHealth } from '@/lib/calculations';
 import { HealthStatus } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { toast } from 'sonner';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -93,7 +96,6 @@ export default function ContractsPage() {
   const navigate = useNavigate();
   const { contracts, clients, resources, settings, deleteContract, overheadItems } = useData();
   const { canEdit, canViewValues } = useAuth();
-  const { toast } = useToast();
   
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -153,10 +155,7 @@ export default function ContractsPage() {
   const handleDelete = () => {
     if (deleteId) {
       deleteContract(deleteId);
-      toast({
-        title: 'Contrato excluído',
-        description: 'O contrato foi removido com sucesso.',
-      });
+      toast.success('Contrato excluído com sucesso');
       setDeleteId(null);
     }
   };
@@ -178,20 +177,16 @@ export default function ContractsPage() {
       className="space-y-6"
     >
       {/* Page Header */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Contratos</h1>
-          <p className="text-muted-foreground">
-            Gerencie seus contratos e acompanhe a saúde financeira
-          </p>
-        </div>
-        {canEdit && (
+      <PageHeader
+        title="Contratos"
+        description="Gerencie seus contratos e acompanhe a saúde financeira"
+        actions={canEdit ? (
           <Button onClick={() => navigate('/contratos/novo')} className="gap-2">
             <Plus className="w-4 h-4" />
             Novo Contrato
           </Button>
-        )}
-      </motion.div>
+        ) : undefined}
+      />
       
       {/* Filters */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
@@ -515,22 +510,13 @@ export default function ContractsPage() {
       )}
       
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir contrato?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O contrato e todos os seus recursos serão removidos permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteId}
+        onOpenChange={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Excluir contrato?"
+        description="Esta ação não pode ser desfeita. O contrato e todos os seus recursos serão removidos permanentemente."
+      />
     </motion.div>
   );
 }

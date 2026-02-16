@@ -49,8 +49,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
 import { UserFormDialog } from '@/components/users/UserFormDialog';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { toast } from 'sonner';
 
 const roleLabels: Record<UserRole, string> = {
   'c-level': 'C-Level / Admin',
@@ -73,7 +75,6 @@ const roleColors: Record<UserRole, string> = {
 export default function UsersPage() {
   const { user: currentUser, canEdit } = useAuth();
   const { users, deleteUser, toggleUserStatus } = useSystemUsers();
-  const { toast } = useToast();
   const navigate = useNavigate();
   
   const [search, setSearch] = useState('');
@@ -111,11 +112,7 @@ export default function UsersPage() {
 
   const handleDelete = (user: SystemUser) => {
     if (user.id === 'usr-001') {
-      toast({
-        title: 'Ação não permitida',
-        description: 'O usuário administrador principal não pode ser excluído.',
-        variant: 'destructive',
-      });
+      toast.error('O usuário administrador principal não pode ser excluído.');
       return;
     }
     setUserToDelete(user);
@@ -126,16 +123,9 @@ export default function UsersPage() {
     if (userToDelete) {
       const success = deleteUser(userToDelete.id);
       if (success) {
-        toast({
-          title: 'Usuário excluído',
-          description: `${userToDelete.name} foi removido do sistema.`,
-        });
+        toast.success(`${userToDelete.name} foi removido do sistema.`);
       } else {
-        toast({
-          title: 'Erro ao excluir',
-          description: 'Não foi possível excluir o usuário.',
-          variant: 'destructive',
-        });
+        toast.error('Não foi possível excluir o usuário.');
       }
     }
     setDeleteDialogOpen(false);
@@ -144,20 +134,13 @@ export default function UsersPage() {
 
   const handleToggleStatus = (user: SystemUser) => {
     if (user.id === 'usr-001') {
-      toast({
-        title: 'Ação não permitida',
-        description: 'O usuário administrador principal não pode ser desativado.',
-        variant: 'destructive',
-      });
+      toast.error('O usuário administrador principal não pode ser desativado.');
       return;
     }
     
     const success = toggleUserStatus(user.id);
     if (success) {
-      toast({
-        title: user.active ? 'Usuário desativado' : 'Usuário ativado',
-        description: `${user.name} foi ${user.active ? 'desativado' : 'ativado'}.`,
-      });
+      toast.success(`${user.name} foi ${user.active ? 'desativado' : 'ativado'}.`);
     }
   };
 
@@ -169,18 +152,17 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Usuários do Sistema</h1>
-          <p className="text-muted-foreground">
-            Gerencie os usuários e suas permissões de acesso
-          </p>
-        </div>
-        <Button onClick={() => setFormOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Novo Usuário
-        </Button>
-      </div>
+      <PageHeader
+        title="Usuários do Sistema"
+        description="Gerencie os usuários e suas permissões de acesso"
+        animated={false}
+        actions={
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Novo Usuário
+          </Button>
+        }
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -362,26 +344,13 @@ export default function UsersPage() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{userToDelete?.name}</strong>? 
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        title="Excluir usuário?"
+        description={`Tem certeza que deseja excluir ${userToDelete?.name}? Esta ação não pode ser desfeita.`}
+      />
     </div>
   );
 }

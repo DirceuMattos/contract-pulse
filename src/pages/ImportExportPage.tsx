@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { 
   parseFile, 
   transformImportedData, 
@@ -217,12 +218,11 @@ export default function ImportExportPage() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Importar / Exportar</h1>
-        <p className="text-muted-foreground">
-          Importe dados de arquivos CSV ou Excel, ou exporte seus dados para backup.
-        </p>
-      </div>
+      <PageHeader
+        title="Importar / Exportar"
+        description="Importe dados de arquivos CSV ou Excel, ou exporte seus dados para backup."
+        animated={false}
+      />
       
       <Tabs defaultValue="export" className="space-y-4">
         <TabsList>

@@ -13,6 +13,7 @@ import { Plus, Search, Calculator, Copy, Trash2, Archive, ShieldAlert } from 'lu
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import type { HealthStatus } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -54,15 +55,16 @@ export default function CalculatorPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Calculadora de Contratos</h1>
-          <p className="text-sm text-muted-foreground">Simule contratos em negociação e projete resultados financeiros.</p>
-        </div>
-        <Link to="/calculadora/nova">
-          <Button><Plus className="w-4 h-4 mr-2" /> Nova simulação</Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Calculadora de Contratos"
+        description="Simule contratos em negociação e projete resultados financeiros."
+        animated={false}
+        actions={
+          <Link to="/calculadora/nova">
+            <Button><Plus className="w-4 h-4 mr-2" /> Nova simulação</Button>
+          </Link>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
