@@ -112,7 +112,7 @@ export default function CalculatorPage() {
                   </div>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge className={hc.badgeClass}>{hc.label}</Badge>
+                      <Badge variant="outline" className={cn('border-0', hc.badgeClass)}>{hc.label}</Badge>
                     </TooltipTrigger>
                     <TooltipContent>{hc.tooltip}</TooltipContent>
                   </Tooltip>
