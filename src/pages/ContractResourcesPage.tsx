@@ -113,7 +113,7 @@ export default function ContractResourcesPage() {
     updateOverheadItem,
     deleteOverheadItem,
   } = useData();
-  const { canEdit, canViewValues } = useAuth();
+  const { canEdit, canViewValues, canViewHRCosts } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
@@ -316,6 +316,8 @@ export default function ContractResourcesPage() {
             const count = resourcesByType[tipo]?.length || 0;
             const custo = custosPorTipo[tipo];
             const percentual = health.custoMensal > 0 ? (custo / health.custoMensal) * 100 : 0;
+            const isHR = tipo === 'clt' || tipo === 'pj';
+            const canShowCost = !isHR || canViewHRCosts;
 
             return (
               <Card key={tipo}>
@@ -334,8 +336,19 @@ export default function ContractResourcesPage() {
                       <p className="text-xs text-muted-foreground">{count} recurso{count !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                  <p className="text-xl font-bold">{formatCurrency(custo)}</p>
-                  <p className="text-xs text-muted-foreground">{percentual.toFixed(1)}% do custo total</p>
+                  {canShowCost ? (
+                    <>
+                      <p className="text-xl font-bold">{formatCurrency(custo)}</p>
+                      <p className="text-xs text-muted-foreground">{percentual.toFixed(1)}% do custo total</p>
+                    </>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-xl font-bold text-muted-foreground">---</p>
+                      </TooltipTrigger>
+                      <TooltipContent>Valores de RH restritos ao perfil C-Level</TooltipContent>
+                    </Tooltip>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -407,16 +420,30 @@ export default function ContractResourcesPage() {
 
                           {/* Cost */}
                           <div className="text-right shrink-0">
-                            {canViewValues ? (
-                              <>
-                                <p className="text-lg font-bold">{formatCurrency(custo)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Base: {formatCurrency(resource.custoBase)}
-                                </p>
-                              </>
-                            ) : (
-                              <Badge variant="secondary">{resource.percentualDedicacao}%</Badge>
-                            )}
+                            {(() => {
+                              const isHR = resource.tipo === 'clt' || resource.tipo === 'pj';
+                              if (!canViewValues) {
+                                return <Badge variant="secondary">{resource.percentualDedicacao}%</Badge>;
+                              }
+                              if (isHR && !canViewHRCosts) {
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-lg font-bold text-muted-foreground text-right">---</p>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Valores de RH restritos ao perfil C-Level</TooltipContent>
+                                  </Tooltip>
+                                );
+                              }
+                              return (
+                                <>
+                                  <p className="text-lg font-bold">{formatCurrency(custo)}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Base: {formatCurrency(resource.custoBase)}
+                                  </p>
+                                </>
+                              );
+                            })()}
                           </div>
 
                           {/* Actions */}

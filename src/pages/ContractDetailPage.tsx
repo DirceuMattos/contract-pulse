@@ -87,7 +87,7 @@ export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
-  const { canEdit, canViewValues } = useAuth();
+  const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
@@ -425,25 +425,42 @@ export default function ContractDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {costsByType.map(({ type, label, cost, count }) => (
-                    <div key={type}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium">{label}</span>
-                        <span className="text-sm text-muted-foreground">{count} recurso{count !== 1 ? 's' : ''}</span>
+                  {costsByType.map(({ type, label, cost, count }) => {
+                    const isHR = type === 'clt' || type === 'pj';
+                    const canShowCost = !isHR || canViewHRCosts;
+                    return (
+                      <div key={type}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{label}</span>
+                          <span className="text-sm text-muted-foreground">{count} recurso{count !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {canShowCost ? (
+                            <Progress 
+                              value={health.custoMensal > 0 ? (cost / health.custoMensal) * 100 : 0} 
+                              className="flex-1 h-2"
+                            />
+                          ) : (
+                            <Progress value={0} className="flex-1 h-2" />
+                          )}
+                          {canViewValues && (
+                            canShowCost ? (
+                              <span className="text-sm font-medium w-24 text-right">
+                                {formatCurrency(cost)}
+                              </span>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-sm font-medium w-24 text-right text-muted-foreground">---</span>
+                                </TooltipTrigger>
+                                <TooltipContent>Valores de RH restritos ao perfil C-Level</TooltipContent>
+                              </Tooltip>
+                            )
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Progress 
-                          value={health.custoMensal > 0 ? (cost / health.custoMensal) * 100 : 0} 
-                          className="flex-1 h-2"
-                        />
-                        {canViewValues && (
-                          <span className="text-sm font-medium w-24 text-right">
-                            {formatCurrency(cost)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {overheadCost.total > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -534,7 +551,16 @@ export default function ContractDetailPage() {
                             {resource.tipo.toUpperCase()}
                           </Badge>
                           {canViewValues && (
-                            <p className="text-sm font-medium">{formatCurrency(cost)}/mês</p>
+                            (resource.tipo === 'clt' || resource.tipo === 'pj') && !canViewHRCosts ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="text-sm font-medium text-muted-foreground">---</p>
+                                </TooltipTrigger>
+                                <TooltipContent>Valores de RH restritos ao perfil C-Level</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <p className="text-sm font-medium">{formatCurrency(cost)}/mês</p>
+                            )
                           )}
                         </div>
                       </div>
