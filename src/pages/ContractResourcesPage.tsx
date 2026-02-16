@@ -38,8 +38,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
 import { ResourceForm } from '@/components/forms/ResourceForm';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { toast } from 'sonner';
 import { OverheadForm } from '@/components/forms/OverheadForm';
 import {
   Tooltip,
@@ -96,7 +98,7 @@ const senioridadeLabels: Record<string, string> = {
 export default function ContractResourcesPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
   const { 
     getContract, 
     getClient, 
@@ -158,20 +160,14 @@ export default function ContractResourcesPage() {
   const handleAddResource = (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => {
     addResource(data);
     setFormOpen(false);
-    toast({
-      title: 'Recurso adicionado',
-      description: 'O recurso foi adicionado ao contrato.',
-    });
+    toast.success('Recurso adicionado ao contrato');
   };
 
   const handleEditResource = (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingResource) {
       updateResource(editingResource.id, data);
       setEditingResource(null);
-      toast({
-        title: 'Recurso atualizado',
-        description: 'As alterações foram salvas.',
-      });
+      toast.success('Alterações salvas');
     }
   };
 
@@ -179,23 +175,20 @@ export default function ContractResourcesPage() {
     if (deleteId) {
       deleteResource(deleteId);
       setDeleteId(null);
-      toast({
-        title: 'Recurso removido',
-        description: 'O recurso foi removido do contrato.',
-      });
+      toast.success('Recurso removido do contrato');
     }
   };
   const handleAddOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     addOverheadItem(data);
     setOverheadFormOpen(false);
-    toast({ title: 'Overhead adicionado', description: 'O custo indireto foi adicionado ao contrato.' });
+    toast.success('Overhead adicionado ao contrato');
   };
 
   const handleEditOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingOverhead) {
       updateOverheadItem(editingOverhead.id, data);
       setEditingOverhead(null);
-      toast({ title: 'Overhead atualizado', description: 'As alterações foram salvas.' });
+      toast.success('Alterações salvas');
     }
   };
 
@@ -203,7 +196,7 @@ export default function ContractResourcesPage() {
     if (deleteOverheadId) {
       deleteOverheadItem(deleteOverheadId);
       setDeleteOverheadId(null);
-      toast({ title: 'Overhead removido', description: 'O custo indireto foi removido.' });
+      toast.success('Overhead removido do contrato');
     }
   };
 
@@ -216,25 +209,22 @@ export default function ContractResourcesPage() {
       className="space-y-6"
     >
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/contratos/${id}`)} className="mt-1">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Recursos do Contrato</h1>
-            <p className="text-muted-foreground">
-              {contract.nome} • {client?.nomeFantasia || client?.razaoSocial}
-            </p>
-          </div>
-        </div>
-        {canEdit && (
+      <PageHeader
+        title="Recursos do Contrato"
+        description={`${contract.nome} • ${client?.nomeFantasia || client?.razaoSocial}`}
+        animated={false}
+        breadcrumbs={[
+          { label: 'Contratos', href: '/contratos' },
+          { label: contract.codigo, href: `/contratos/${id}` },
+          { label: 'Recursos' },
+        ]}
+        actions={canEdit ? (
           <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" />
             Adicionar Recurso
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -627,40 +617,24 @@ export default function ContractResourcesPage() {
       </Dialog>
 
       {/* Delete Resource Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover recurso?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O recurso será removido do contrato.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteResource} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteId}
+        onOpenChange={() => setDeleteId(null)}
+        onConfirm={handleDeleteResource}
+        title="Remover recurso?"
+        description="Esta ação não pode ser desfeita. O recurso será removido do contrato."
+        confirmLabel="Remover"
+      />
 
       {/* Delete Overhead Confirmation */}
-      <AlertDialog open={!!deleteOverheadId} onOpenChange={() => setDeleteOverheadId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover overhead?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O custo indireto será removido do contrato.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteOverhead} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteOverheadId}
+        onOpenChange={() => setDeleteOverheadId(null)}
+        onConfirm={handleDeleteOverhead}
+        title="Remover overhead?"
+        description="Esta ação não pode ser desfeita. O custo indireto será removido do contrato."
+        confirmLabel="Remover"
+      />
     </motion.div>
     </TooltipProvider>
   );

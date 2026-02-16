@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,6 +11,8 @@ import { Separator } from '@/components/ui/separator';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 
 const settingsSchema = z.object({
   percentualEncargosCLT: z.number().min(0).max(200),
@@ -39,30 +42,37 @@ export default function SettingsPage() {
     toast.success('Configurações salvas com sucesso!');
   };
 
+  const [resetOpen, setResetOpen] = useState(false);
+
   const handleReset = () => {
-    if (confirm('Isso restaurará todos os dados de demonstração. Deseja continuar?')) {
-      resetToDemo();
-      form.reset(settings);
-      toast.success('Dados restaurados para demonstração.');
-    }
+    resetToDemo();
+    form.reset(settings);
+    toast.success('Dados restaurados para demonstração.');
+    setResetOpen(false);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-          <p className="text-muted-foreground">
-            Parâmetros globais do sistema para cálculos e alertas.
-          </p>
-        </div>
-        {canEdit && (
-          <Button variant="outline" onClick={handleReset}>
+      <PageHeader
+        title="Configurações"
+        description="Parâmetros globais do sistema para cálculos e alertas."
+        animated={false}
+        actions={canEdit ? (
+          <Button variant="outline" onClick={() => setResetOpen(true)}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Restaurar Demo
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
+
+      <ConfirmDeleteDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        onConfirm={handleReset}
+        title="Restaurar dados de demonstração?"
+        description="Isso restaurará todos os dados de demonstração, incluindo contratos, clientes, recursos e configurações. Esta ação não pode ser desfeita."
+        confirmLabel="Restaurar"
+      />
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

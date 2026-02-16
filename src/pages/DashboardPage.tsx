@@ -55,6 +55,7 @@ import {
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { HealthStatus, AlertCategory } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 import {
   PieChart,
   Pie,
@@ -271,18 +272,16 @@ export default function DashboardPage() {
       className="space-y-6"
     >
       {/* Page Header */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Visão consolidada do portfólio de contratos
-          </p>
-        </div>
-        <Button onClick={() => navigate('/contratos/novo')} className="gap-2 w-full sm:w-auto">
-          <Plus className="w-4 h-4" />
-          Novo Contrato
-        </Button>
-      </motion.div>
+      <PageHeader
+        title="Dashboard"
+        description="Visão consolidada do portfólio de contratos"
+        actions={
+          <Button onClick={() => navigate('/contratos/novo')} className="gap-2 w-full sm:w-auto">
+            <Plus className="w-4 h-4" />
+            Novo Contrato
+          </Button>
+        }
+      />
 
       {/* Filters Row */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3">

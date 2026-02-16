@@ -30,7 +30,9 @@ import {
 } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { toast } from 'sonner';
 
 function formatDuration(startedAt: string, endedAt: string | null): string {
   if (!endedAt) return 'Em andamento';
@@ -46,7 +48,7 @@ export default function AccessLogsPage() {
   const { user } = useAuth();
   const { accessLogs, clearAllLogs } = useAccessLogs();
   const { users: systemUsers } = useSystemUsers();
-  const { toast } = useToast();
+  const [clearLogsOpen, setClearLogsOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -90,7 +92,8 @@ export default function AccessLogsPage() {
 
   const handleClearLogs = () => {
     clearAllLogs();
-    toast({ title: 'Logs limpos', description: 'Todos os logs de acesso foram removidos.' });
+    toast.success('Todos os logs de acesso foram removidos.');
+    setClearLogsOpen(false);
   };
 
   const preFilterUserName = preFilterUserId
@@ -112,51 +115,37 @@ export default function AccessLogsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          {preFilterUserId && (
-            <Button variant="ghost" size="icon" onClick={() => navigate('/usuarios')} className="shrink-0">
-              <ChevronLeft className="w-5 h-5" />
+      <PageHeader
+        title={preFilterUserName ? `Logs de Acesso — ${preFilterUserName}` : 'Logs de Acesso'}
+        description="Histórico de sessões e módulos acessados pelos usuários"
+        animated={false}
+        breadcrumbs={[
+          { label: 'Admin', href: '/usuarios' },
+          { label: 'Usuários', href: '/usuarios' },
+          { label: 'Logs' },
+        ]}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" disabled className="gap-2">
+              <Download className="w-4 h-4" />
+              Exportar CSV (Em breve)
             </Button>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {preFilterUserName ? `Logs de Acesso — ${preFilterUserName}` : 'Logs de Acesso'}
-            </h1>
-            <p className="text-muted-foreground">
-              Histórico de sessões e módulos acessados pelos usuários
-            </p>
+            <Button variant="destructive" className="gap-2" onClick={() => setClearLogsOpen(true)}>
+              <Trash2 className="w-4 h-4" />
+              Limpar logs
+            </Button>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" disabled className="gap-2">
-            <Download className="w-4 h-4" />
-            Exportar CSV (Em breve)
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="gap-2">
-                <Trash2 className="w-4 h-4" />
-                Limpar logs
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Limpar todos os logs?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação removerá permanentemente todos os logs de acesso. Não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearLogs} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Limpar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
+        }
+      />
+
+      <ConfirmDeleteDialog
+        open={clearLogsOpen}
+        onOpenChange={setClearLogsOpen}
+        onConfirm={handleClearLogs}
+        title="Limpar todos os logs?"
+        description="Esta ação removerá permanentemente todos os logs de acesso. Não pode ser desfeita."
+        confirmLabel="Limpar"
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">

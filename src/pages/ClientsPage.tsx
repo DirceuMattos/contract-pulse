@@ -44,9 +44,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatCNPJ, formatPhone } from '@/lib/calculations';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { toast } from 'sonner';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -74,7 +76,6 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { clients, contracts, deleteClient } = useData();
   const { canEdit } = useAuth();
-  const { toast } = useToast();
   
   const [search, setSearch] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
@@ -99,10 +100,7 @@ export default function ClientsPage() {
   const handleDelete = () => {
     if (deleteId) {
       deleteClient(deleteId);
-      toast({
-        title: 'Cliente excluído',
-        description: 'O cliente foi removido com sucesso.',
-      });
+      toast.success('Cliente excluído com sucesso');
       setDeleteId(null);
     }
   };
@@ -115,20 +113,16 @@ export default function ClientsPage() {
       className="space-y-6"
     >
       {/* Page Header */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="text-muted-foreground">
-            Gerencie sua base de clientes
-          </p>
-        </div>
-        {canEdit && (
+      <PageHeader
+        title="Clientes"
+        description="Gerencie sua base de clientes"
+        actions={canEdit ? (
           <Button onClick={() => navigate('/clientes/novo')} className="gap-2">
             <Plus className="w-4 h-4" />
             Novo Cliente
           </Button>
-        )}
-      </motion.div>
+        ) : undefined}
+      />
       
       {/* Filters */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
@@ -289,22 +283,13 @@ export default function ClientsPage() {
       )}
       
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O cliente e todos os seus contratos serão removidos permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteId}
+        onOpenChange={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Excluir cliente?"
+        description="Esta ação não pode ser desfeita. O cliente e todos os seus contratos serão removidos permanentemente."
+      />
     </motion.div>
   );
 }

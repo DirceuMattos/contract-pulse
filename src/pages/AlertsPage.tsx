@@ -28,6 +28,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertType, AlertSeverity } from '@/types';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'reajuste-proximo': <Calendar className="w-5 h-5" />,
@@ -161,24 +162,17 @@ export default function AlertsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Alertas</h1>
-          <p className="text-muted-foreground">
-            Notificações automáticas baseadas nos contratos e configurações
-          </p>
-        </div>
-        
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => navigate('/configuracoes')}
-          className="gap-2"
-        >
-          <Settings className="w-4 h-4" />
-          Configurar Alertas
-        </Button>
-      </div>
+      <PageHeader
+        title="Alertas"
+        description="Notificações automáticas baseadas nos contratos e configurações"
+        animated={false}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => navigate('/configuracoes')} className="gap-2">
+            <Settings className="w-4 h-4" />
+            Configurar Alertas
+          </Button>
+        }
+      />
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
