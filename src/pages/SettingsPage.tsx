@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -384,6 +385,41 @@ export default function SettingsPage() {
           )}
         </form>
       </Form>
+
+      {/* Data Source Selector (Etapa 2 prep) */}
+      {canEdit && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-primary" />
+              <CardTitle>Fonte de Dados</CardTitle>
+            </div>
+            <CardDescription>
+              Selecione a origem dos dados do sistema. A integração com API será disponibilizada na Etapa 2.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-w-xs">
+              <Select
+                value="local"
+                onValueChange={(value) => {
+                  if (value === 'api') {
+                    toast.error('Modo API ainda não disponível nesta etapa.');
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Local (padrão)</SelectItem>
+                  <SelectItem value="api">API (Em breve)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

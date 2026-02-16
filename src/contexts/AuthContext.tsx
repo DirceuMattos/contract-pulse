@@ -9,6 +9,7 @@ interface AuthContextType {
   logout: () => void;
   canViewValues: boolean;
   canEdit: boolean;
+  canViewHRCosts: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canViewValues = user?.role === 'c-level';
   const canEdit = user?.role === 'c-level' || user?.role === 'intermediario';
+  const canViewHRCosts = user?.role === 'c-level';
 
   return (
     <AuthContext.Provider value={{
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       canViewValues,
       canEdit,
+      canViewHRCosts,
     }}>
       {children}
     </AuthContext.Provider>

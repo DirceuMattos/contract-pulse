@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useSimulations } from '@/contexts/SimulationContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { calculateSimulationResults, suggestPricing } from '@/lib/simulationEngine';
+import { calculateSimulationResults } from '@/lib/simulationEngine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -11,20 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Plus, Search, Calculator, Copy, Trash2, Archive, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import type { HealthStatus } from '@/types';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { healthConfig } from '@/lib/uiConstants';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
 
-function healthLabel(s: HealthStatus) {
-  return s === 'saudavel' ? 'Saudável' : s === 'atencao' ? 'Atenção' : 'Deficitário';
-}
-
-function healthBg(s: HealthStatus) {
-  return s === 'saudavel' ? 'health-badge-healthy' : s === 'atencao' ? 'health-badge-attention' : 'health-badge-critical';
+function healthBorderClass(s: HealthStatus) {
+  return s === 'saudavel' ? 'border-l-health-healthy' : s === 'atencao' ? 'border-l-health-attention' : 'border-l-health-critical';
 }
 
 export default function CalculatorPage() {
@@ -54,6 +52,7 @@ export default function CalculatorPage() {
   }
 
   return (
+    <TooltipProvider>
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Calculadora de Contratos"
@@ -102,29 +101,36 @@ export default function CalculatorPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(sim => {
             const results = calculateSimulationResults(sim);
+            const hc = healthConfig[results.healthStatus];
+            const margemColor = results.margemPercent >= 15 ? 'text-health-healthy' : results.margemPercent >= 0 ? 'text-health-attention' : 'text-health-critical';
             return (
-              <Card key={sim.id} className="p-4 space-y-3 hover:shadow-md transition-shadow">
+              <Card key={sim.id} className={cn('p-4 space-y-3 hover:shadow-md transition-shadow border-l-4', healthBorderClass(results.healthStatus))}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <Link to={`/calculadora/${sim.id}`} className="text-sm font-semibold text-foreground hover:text-primary truncate block">{sim.name}</Link>
                     <p className="text-xs text-muted-foreground truncate">{sim.clientName}</p>
                   </div>
-                  <Badge className={healthBg(results.healthStatus)}>{healthLabel(results.healthStatus)}</Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge className={hc.badgeClass}>{hc.label}</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>{hc.tooltip}</TooltipContent>
+                  </Tooltip>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{sim.contractType === 'gov' ? 'GOV' : 'Privado'}</span></div>
                   <div><span className="text-muted-foreground">Prazo:</span> <span className="font-medium">{sim.termMonths} meses</span></div>
-                  <div><span className="text-muted-foreground">Valor sug.:</span> <span className="font-medium">{formatCurrency(suggestPricing(sim).suggestedMonthlyValue)}/mês</span></div>
-                  <div><span className="text-muted-foreground">Margem:</span> <span className={cn('font-medium', results.margemPercent >= 15 ? 'text-[hsl(var(--health-healthy))]' : results.margemPercent >= 0 ? 'text-[hsl(var(--health-attention))]' : 'text-[hsl(var(--health-critical))]')}>{results.margemPercent.toFixed(1)}%</span></div>
+                  <div><span className="text-muted-foreground">Margem R$:</span> <span className={cn('font-medium', margemColor)}>{results.resultadoMensal >= 0 ? '+' : ''}{formatCurrency(results.resultadoMensal)}/mês</span></div>
+                  <div><span className="text-muted-foreground">Margem:</span> <span className={cn('font-medium', margemColor)}>{results.margemPercent.toFixed(1)}%</span></div>
                 </div>
                 <div className="flex items-center gap-1 pt-1 border-t border-border">
                   <Link to={`/calculadora/${sim.id}`} className="flex-1">
                     <Button variant="ghost" size="sm" className="w-full text-xs">Abrir</Button>
                   </Link>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { duplicateSimulation(sim.id); toast({ title: 'Simulação duplicada' }); }}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { duplicateSimulation(sim.id); toast.success('Simulação duplicada'); }}>
                     <Copy className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { updateSimulation({ ...sim, status: sim.status === 'archived' ? 'draft' : 'archived' }); toast({ title: sim.status === 'archived' ? 'Restaurada' : 'Arquivada' }); }}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { updateSimulation({ ...sim, status: sim.status === 'archived' ? 'draft' : 'archived' }); toast.success(sim.status === 'archived' ? 'Restaurada' : 'Arquivada'); }}>
                     <Archive className="w-3.5 h-3.5" />
                   </Button>
                   <AlertDialog>
@@ -138,7 +144,7 @@ export default function CalculatorPage() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { deleteSimulation(sim.id); toast({ title: 'Simulação excluída' }); }}>Excluir</AlertDialogAction>
+                        <AlertDialogAction onClick={() => { deleteSimulation(sim.id); toast.success('Simulação excluída'); }}>Excluir</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -149,5 +155,6 @@ export default function CalculatorPage() {
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
