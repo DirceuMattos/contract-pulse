@@ -54,15 +54,11 @@ import {
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { HealthStatus, Resource } from '@/types';
+import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-const healthLabels: Record<HealthStatus, string> = {
-  saudavel: 'Saudável',
-  atencao: 'Atenção',
-  critico: 'Crítico',
-};
 
 const typeLabels = {
   sistema: 'Sistema',
@@ -218,26 +214,31 @@ export default function ContractDetailPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm text-muted-foreground">Status de Saúde</span>
-              <Badge className={cn(
-                health.status === 'saudavel' && 'health-badge-healthy',
-                health.status === 'atencao' && 'health-badge-attention',
-                health.status === 'critico' && 'health-badge-critical',
-              )}>
-                {healthLabels[health.status]}
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className={cn('border-0', healthConfig[health.status].badgeClass)}>
+                    {healthConfig[health.status].label}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>{healthConfig[health.status].tooltip}</TooltipContent>
+              </Tooltip>
             </div>
             {canViewValues ? (
               <div className="space-y-3">
                 <div>
                   <p className="text-xs text-muted-foreground">Margem Mensal</p>
-                  <p className={cn(
-                    'text-2xl font-bold',
+                  <div className={cn(
+                    'flex items-baseline gap-2 flex-wrap',
                     health.margemPercentual >= 15 && 'text-health-healthy',
                     health.margemPercentual >= 0 && health.margemPercentual < 15 && 'text-health-attention',
                     health.margemPercentual < 0 && 'text-health-critical',
                   )}>
-                    {formatPercentage(health.margemPercentual)}
-                  </p>
+                    <span className="text-2xl font-bold">{formatPercentage(health.margemPercentual)}</span>
+                    <span className="text-muted-foreground text-sm">|</span>
+                    <span className="text-sm font-semibold">
+                      {health.margemMensal >= 0 ? '+' : ''}{formatCurrency(health.margemMensal)}/mês
+                    </span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
