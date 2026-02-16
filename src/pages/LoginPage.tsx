@@ -83,13 +83,13 @@ export default function LoginPage() {
               <span className="text-2xl font-semibold text-emerald-400">ContractPulse</span>
             </div>
           </div>
-          <p className="text-white/60 text-sm mt-2">Margem Operacional de Contratos</p>
+          <p className="text-white/60 text-sm mt-2"></p>
         </div>
 
         <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
-              Controle total da
+              Margem Operacional de Contratos
               <br />
               <span className="text-emerald-400">Resultados Financeiros</span>
               <br />
