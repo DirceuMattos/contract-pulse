@@ -3,7 +3,7 @@ import { UserRole } from './index';
 export const MODULE_KEYS = [
   'DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL',
   'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS',
-  'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
+  'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
   'SETTINGS', 'IMPORT_EXPORT',
 ] as const;
 
@@ -28,6 +28,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'HISTORY', label: 'Histórico', description: 'Timeline de eventos do contrato', routes: [], isSubmodule: true, parentModule: 'CONTRACTS', roleRestrictions: [] },
   { key: 'DOCUMENTS', label: 'Documentos', description: 'Anexos e documentos do contrato', routes: [], isSubmodule: true, parentModule: 'CONTRACTS', roleRestrictions: [] },
   { key: 'ALERTS', label: 'Alertas', description: 'Central de alertas e notificações', routes: ['/alertas'], roleRestrictions: [] },
+  { key: 'SQUADS', label: 'Squads', description: 'Distribuição de equipes por contrato', routes: ['/squads'], roleRestrictions: [] },
   { key: 'CALCULATOR', label: 'Calculadora', description: 'Simulador de contratos', routes: ['/calculadora', '/calculadora/nova', '/calculadora/:id'], roleRestrictions: [] },
   { key: 'USERS_ADMIN', label: 'Usuários', description: 'Administração de usuários do sistema', routes: ['/usuarios'], roleRestrictions: ['c-level'] },
   { key: 'ACCESS_LOGS', label: 'Logs de Acesso', description: 'Registro de acessos ao sistema', routes: ['/usuarios/logs'], roleRestrictions: ['c-level'] },
@@ -71,6 +72,7 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   // Specific routes first (more specific patterns before general)
   if (pathname === '/dashboard') return 'DASHBOARD';
   if (pathname === '/alertas') return 'ALERTS';
+  if (pathname.startsWith('/squads')) return 'SQUADS';
   if (pathname === '/usuarios/logs') return 'ACCESS_LOGS';
   if (pathname === '/usuarios') return 'USERS_ADMIN';
   if (pathname.startsWith('/configuracoes')) return 'SETTINGS';

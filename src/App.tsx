@@ -25,6 +25,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import JobTitlesPage from "@/pages/JobTitlesPage";
 import TeamsPage from "@/pages/TeamsPage";
 import AlertsPage from "@/pages/AlertsPage";
+import SquadsPage from "@/pages/SquadsPage";
 import UsersPage from "@/pages/UsersPage";
 import AccessLogsPage from "@/pages/AccessLogsPage";
 import CalculatorPage from "@/pages/CalculatorPage";
@@ -66,6 +67,7 @@ const App = () => (
                         <Route path="/configuracoes/cargos" element={<JobTitlesPage />} />
                         <Route path="/configuracoes/equipes" element={<TeamsPage />} />
                         <Route path="/alertas" element={<AlertsPage />} />
+                        <Route path="/squads" element={<SquadsPage />} />
                         <Route path="/importar-exportar" element={<ImportExportPage />} />
                         <Route path="/calculadora" element={<CalculatorPage />} />
                         <Route path="/calculadora/nova" element={<CalculatorWizardPage />} />

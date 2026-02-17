@@ -7,6 +7,7 @@ import {
   Calculator,
   Users,
   AlertTriangle,
+  LayoutGrid,
   Settings,
   Upload,
   Plus,
@@ -82,6 +83,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <CommandItem onSelect={() => runCommand(() => navigate('/alertas'))}>
               <AlertTriangle className="mr-2 h-4 w-4" />
               Alertas
+            </CommandItem>
+          )}
+          {canAccessModule('SQUADS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/squads'))}>
+              <LayoutGrid className="mr-2 h-4 w-4" />
+              Squads
             </CommandItem>
           )}
           {canAccessModule('USERS_ADMIN') && (
