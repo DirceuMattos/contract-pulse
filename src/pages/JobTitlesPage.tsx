@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Briefcase, Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -17,13 +18,20 @@ import { EmptyState } from '@/components/ui/empty-state';
 
 export default function JobTitlesPage() {
   const navigate = useNavigate();
-  const { jobTitles, addJobTitle, updateJobTitle, deleteJobTitle } = useData();
+  const { jobTitles, addJobTitle, updateJobTitle, deleteJobTitle, teams, getActiveTeams } = useData();
   const { canEdit } = useAuth();
+  const activeTeams = getActiveTeams();
 
   const [jobTitleDialogOpen, setJobTitleDialogOpen] = useState(false);
-  const [editingJobTitle, setEditingJobTitle] = useState<{ id: string; label: string } | null>(null);
+  const [editingJobTitle, setEditingJobTitle] = useState<{ id: string; label: string; teamId?: string } | null>(null);
   const [jobTitleLabel, setJobTitleLabel] = useState('');
+  const [jobTitleTeamId, setJobTitleTeamId] = useState<string>('');
   const [deleteJobTitleId, setDeleteJobTitleId] = useState<string | null>(null);
+
+  const getTeamName = (teamId?: string) => {
+    if (!teamId) return null;
+    return teams.find(t => t.id === teamId);
+  };
 
   return (
     <div className="space-y-6">
@@ -45,6 +53,7 @@ export default function JobTitlesPage() {
               <Button onClick={() => {
                 setEditingJobTitle(null);
                 setJobTitleLabel('');
+                setJobTitleTeamId('');
                 setJobTitleDialogOpen(true);
               }}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -64,6 +73,7 @@ export default function JobTitlesPage() {
           onAction={canEdit ? () => {
             setEditingJobTitle(null);
             setJobTitleLabel('');
+            setJobTitleTeamId('');
             setJobTitleDialogOpen(true);
           } : undefined}
           actionIcon={Plus}
@@ -81,32 +91,43 @@ export default function JobTitlesPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {jobTitles.map(jt => (
-                <div key={jt.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                  <div className="flex items-center gap-3">
-                    <span className={jt.isActive ? 'text-foreground' : 'text-muted-foreground line-through'}>{jt.label}</span>
-                    {!jt.isActive && <Badge variant="secondary" className="text-xs">Inativo</Badge>}
-                  </div>
-                  {canEdit && (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={jt.isActive}
-                        onCheckedChange={(checked) => updateJobTitle(jt.id, { isActive: checked })}
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => {
-                        setEditingJobTitle({ id: jt.id, label: jt.label });
-                        setJobTitleLabel(jt.label);
-                        setJobTitleDialogOpen(true);
-                      }}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteJobTitleId(jt.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+              {jobTitles.map(jt => {
+                const team = getTeamName(jt.teamId);
+                return (
+                  <div key={jt.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className={jt.isActive ? 'text-foreground' : 'text-muted-foreground line-through'}>{jt.label}</span>
+                      {!jt.isActive && <Badge variant="secondary" className="text-xs">Inativo</Badge>}
+                      {team ? (
+                        <Badge variant={team.isActive ? 'outline' : 'secondary'} className="text-xs">
+                          {team.name}{!team.isActive && ' (Inativa)'}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">---</span>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                    {canEdit && (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={jt.isActive}
+                          onCheckedChange={(checked) => updateJobTitle(jt.id, { isActive: checked })}
+                        />
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setEditingJobTitle({ id: jt.id, label: jt.label, teamId: jt.teamId });
+                          setJobTitleLabel(jt.label);
+                          setJobTitleTeamId(jt.teamId || '');
+                          setJobTitleDialogOpen(true);
+                        }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteJobTitleId(jt.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -120,12 +141,36 @@ export default function JobTitlesPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Nome do Cargo</Label>
+              <Label>Nome do Cargo *</Label>
               <Input
                 value={jobTitleLabel}
                 onChange={e => setJobTitleLabel(e.target.value)}
                 placeholder="Ex: Desenvolvedor Backend"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Equipe</Label>
+              {activeTeams.length > 0 ? (
+                <Select value={jobTitleTeamId} onValueChange={setJobTitleTeamId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sem equipe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem equipe</SelectItem>
+                    {activeTeams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma equipe cadastrada.{' '}
+                  <Link to="/configuracoes/equipes" className="text-primary underline">
+                    Cadastre uma equipe
+                  </Link>
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">Usada para organizar cargos e facilitar filtros e relatórios.</p>
             </div>
           </div>
           <DialogFooter>
@@ -135,11 +180,12 @@ export default function JobTitlesPage() {
                 toast.error('Nome do cargo é obrigatório');
                 return;
               }
+              const teamId = jobTitleTeamId && jobTitleTeamId !== 'none' ? jobTitleTeamId : undefined;
               if (editingJobTitle) {
-                updateJobTitle(editingJobTitle.id, { label: jobTitleLabel.trim() });
+                updateJobTitle(editingJobTitle.id, { label: jobTitleLabel.trim(), teamId });
                 toast.success('Cargo atualizado');
               } else {
-                addJobTitle(jobTitleLabel.trim());
+                addJobTitle(jobTitleLabel.trim(), teamId);
                 toast.success('Cargo adicionado');
               }
               setJobTitleDialogOpen(false);

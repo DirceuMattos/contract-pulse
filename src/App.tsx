@@ -23,6 +23,7 @@ import ContractResourcesPage from "@/pages/ContractResourcesPage";
 import ImportExportPage from "@/pages/ImportExportPage";
 import SettingsPage from "@/pages/SettingsPage";
 import JobTitlesPage from "@/pages/JobTitlesPage";
+import TeamsPage from "@/pages/TeamsPage";
 import AlertsPage from "@/pages/AlertsPage";
 import UsersPage from "@/pages/UsersPage";
 import AccessLogsPage from "@/pages/AccessLogsPage";
@@ -63,6 +64,7 @@ const App = () => (
                         <Route path="/usuarios/logs" element={<AccessLogsPage />} />
                         <Route path="/configuracoes" element={<SettingsPage />} />
                         <Route path="/configuracoes/cargos" element={<JobTitlesPage />} />
+                        <Route path="/configuracoes/equipes" element={<TeamsPage />} />
                         <Route path="/alertas" element={<AlertsPage />} />
                         <Route path="/importar-exportar" element={<ImportExportPage />} />
                         <Route path="/calculadora" element={<CalculatorPage />} />

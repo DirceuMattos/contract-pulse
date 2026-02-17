@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,7 @@ const settingsSchema = z.object({
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
-  const { settings, updateSettings, resetToDemo, jobTitles } = useData();
+  const { settings, updateSettings, resetToDemo, jobTitles, teams } = useData();
   const { canEdit } = useAuth();
   const navigate = useNavigate();
 
@@ -444,6 +444,33 @@ export default function SettingsPage() {
               <Badge variant="secondary">{jobTitles.length} cargo{jobTitles.length !== 1 ? 's' : ''} cadastrado{jobTitles.length !== 1 ? 's' : ''}</Badge>
               <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate('/configuracoes/cargos'); }}>
                 Gerenciar cargos
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card resumo de Equipes */}
+      {canEdit && (
+        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/configuracoes/equipes')}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle>Equipes</CardTitle>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <CardDescription>
+              Organize cargos em equipes para facilitar filtros e relatórios.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary">{teams.length} equipe{teams.length !== 1 ? 's' : ''} cadastrada{teams.length !== 1 ? 's' : ''}</Badge>
+              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate('/configuracoes/equipes'); }}>
+                Gerenciar equipes
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
