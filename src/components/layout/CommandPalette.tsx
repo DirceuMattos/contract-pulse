@@ -12,6 +12,7 @@ import {
   Plus,
   Moon,
   Sun,
+  Briefcase,
 } from 'lucide-react';
 import {
   CommandDialog,
@@ -99,6 +100,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes'))}>
               <Settings className="mr-2 h-4 w-4" />
               Configurações
+            </CommandItem>
+          )}
+          {canAccessModule('SETTINGS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes/cargos'))}>
+              <Briefcase className="mr-2 h-4 w-4" />
+              Configurações &gt; Cargos
             </CommandItem>
           )}
           {canAccessModule('IMPORT_EXPORT') && (
