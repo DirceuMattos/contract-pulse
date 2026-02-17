@@ -31,7 +31,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'CALCULATOR', label: 'Calculadora', description: 'Simulador de contratos', routes: ['/calculadora', '/calculadora/nova', '/calculadora/:id'], roleRestrictions: [] },
   { key: 'USERS_ADMIN', label: 'Usuários', description: 'Administração de usuários do sistema', routes: ['/usuarios'], roleRestrictions: ['c-level'] },
   { key: 'ACCESS_LOGS', label: 'Logs de Acesso', description: 'Registro de acessos ao sistema', routes: ['/usuarios/logs'], roleRestrictions: ['c-level'] },
-  { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes'], roleRestrictions: ['c-level'] },
+  { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes', '/configuracoes/cargos'], roleRestrictions: ['c-level'] },
   { key: 'IMPORT_EXPORT', label: 'Importar/Exportar', description: 'Importação e exportação de dados', routes: ['/importar-exportar'], roleRestrictions: [] },
 ];
 
@@ -73,7 +73,7 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   if (pathname === '/alertas') return 'ALERTS';
   if (pathname === '/usuarios/logs') return 'ACCESS_LOGS';
   if (pathname === '/usuarios') return 'USERS_ADMIN';
-  if (pathname === '/configuracoes') return 'SETTINGS';
+  if (pathname.startsWith('/configuracoes')) return 'SETTINGS';
   if (pathname === '/importar-exportar') return 'IMPORT_EXPORT';
   
   // Calculator routes
