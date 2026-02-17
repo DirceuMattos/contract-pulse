@@ -1,135 +1,162 @@
 
-# Configuracoes V2: Entidade "Equipe" + Campo Equipe na Tabela de Cargos
+# Modulo Squads -- Distribuicao de Equipes por Cliente/Contrato
 
 ## Resumo
 
-Criar uma entidade Team (Equipe) com CRUD completo em subtela dedicada (`/configuracoes/equipes`), adicionar campo `teamId` opcional ao `JobTitle`, e integrar com o formulario de cargos e a exibicao em recursos/calculadora.
+Criar um modulo de visualizacao (somente leitura) que consolida os recursos humanos alocados por contrato, agrupa por equipe (via tabela de cargos) e exibe a dedicacao percentual de cada recurso. Inclui filtros, exportacao CSV/XLSX e respeito ao sigilo de custos de RH.
 
 ---
 
-## 1. Tipo Team e extensao de JobTitle
-
-### `src/types/index.ts` (mod)
-
-Adicionar interface `Team`:
-```typescript
-export interface Team {
-  id: string;
-  name: string;
-  description?: string;
-  isActive: boolean;
-  sortOrder: number;
-}
-```
-
-Estender `JobTitle` com campo opcional:
-```typescript
-export interface JobTitle {
-  id: string;
-  label: string;
-  isActive: boolean;
-  teamId?: string;  // novo
-}
-```
-
----
-
-## 2. Mock data
+## 1. Atualizar seeds de Equipes
 
 ### `src/data/mockData.ts` (mod)
 
-Adicionar `defaultTeams: Team[]` com 7 equipes seed:
-- Engenharia (id: `team-001`)
-- Produto (`team-002`)
-- QA (`team-003`)
-- Suporte (`team-004`)
-- Infra/DevOps (`team-005`)
-- Administrativo (`team-006`)
-- Comercial (`team-007`)
+Substituir as 7 equipes atuais pelas 8 equipes da taxonomia obrigatoria (mantendo IDs existentes onde possivel e criando novos):
 
-Atualizar `defaultJobTitles` adicionando `teamId` a ~70% dos cargos:
-- Desenvolvedores Frontend/Backend/Full Stack, Arquiteto, DevOps -> Engenharia
-- Product Owner -> Produto
-- QA / Tester -> QA
+| sortOrder | Nome | ID |
+|-----------|------|------|
+| 1 | Lideranca Equipes | team-001 |
+| 2 | Projetos | team-002 |
+| 3 | Desenvolvimento | team-003 |
+| 4 | Testes | team-004 |
+| 5 | IA | team-005 |
+| 6 | Dados | team-006 |
+| 7 | Estrutura | team-007 |
+| 8 | Suporte | team-008 |
+
+Reatribuir `teamId` nos `defaultJobTitles`:
+- Tech Lead, Gerente de Projetos, Scrum Master -> Lideranca Equipes
+- Product Owner, UX Designer -> Projetos
+- Devs Frontend/Backend/Full Stack, Arquiteto -> Desenvolvimento
+- QA/Tester -> Testes
+- Analista de Dados -> Dados
+- DevOps, DBA -> Estrutura
 - Analista de Suporte -> Suporte
-- Scrum Master, Gerente de Projetos -> Administrativo
-- Tech Lead -> Engenharia
-- Analista de Dados, DBA -> Engenharia
-- UX Designer -> Produto
-- Analista de Sistemas -> sem equipe (testar "---")
+- Analista de Sistemas -> sem equipe (testar "Sem equipe")
 
 ---
 
-## 3. DataContext -- CRUD de equipes
-
-### `src/contexts/DataContext.tsx` (mod)
-
-Adicionar:
-- Estado `teams` com localStorage key `bnp_teams`
-- Funcoes: `addTeam`, `updateTeam`, `deleteTeam`, `getActiveTeams`
-- `deleteTeam` verifica se ha cargos vinculados (`jobTitles.some(jt => jt.teamId === id)`); se sim, lanca erro/retorna false
-- Incluir `teams` e acoes no contexto e no `resetToDemo`
-- Atualizar `addJobTitle` para aceitar `teamId` opcional: `addJobTitle(label: string, teamId?: string)`
-
----
-
-## 4. Pagina de Equipes
-
-### `src/pages/TeamsPage.tsx` (novo)
-
-Subtela dedicada, seguindo o mesmo padrao de `JobTitlesPage.tsx`:
-- PageHeader: "Equipes", breadcrumbs Configuracoes > Equipes, botao Voltar
-- Lista com colunas: Nome | Descricao | Status (badge) | Acoes (switch ativo/inativo, editar, excluir)
-- Dialog de criar/editar: campos Nome (obrigatorio, unico), Descricao (opcional), Status (switch)
-- Exclusao: `ConfirmDeleteDialog` -- se equipe tem cargos vinculados, bloquear com toast de erro e sugerir desativar
-- EmptyState quando vazio
-- Protecao `canEdit`
-
----
-
-## 5. Rotas e navegacao
-
-### `src/App.tsx` (mod)
-Adicionar rota:
-```
-<Route path="/configuracoes/equipes" element={<TeamsPage />} />
-```
+## 2. Tipos e moduleAccess
 
 ### `src/types/moduleAccess.ts` (mod)
-Adicionar `/configuracoes/equipes` ao array `routes` do modulo `SETTINGS`.
 
-### `src/pages/SettingsPage.tsx` (mod)
-Adicionar card resumo de Equipes (mesmo padrao do card de Cargos):
-- Icone Users, titulo "Equipes", descricao, badge com contagem, CTA "Gerenciar equipes"
+Adicionar `'SQUADS'` ao `MODULE_KEYS`.
+
+Adicionar ao `MODULE_CATALOG`:
+```
+{ key: 'SQUADS', label: 'Squads', description: 'Distribuicao de equipes por contrato',
+  routes: ['/squads'], roleRestrictions: [] }
+```
+
+Atualizar `getModuleKeyForRoute` para mapear `/squads` -> `SQUADS`.
+
+---
+
+## 3. Sidebar e CommandPalette
+
+### `src/components/layout/Sidebar.tsx` (mod)
+
+Adicionar item na lista `navItems`:
+```
+{ path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' }
+```
+Posicionar apos "Alertas" e antes de "Calculadora".
 
 ### `src/components/layout/CommandPalette.tsx` (mod)
-Adicionar comando "Configuracoes > Equipes" vinculado ao moduleKey SETTINGS.
+
+Adicionar comando "Squads" com navegacao para `/squads`.
 
 ---
 
-## 6. Campo Equipe no formulario de Cargos
+## 4. Pagina principal Squads
 
-### `src/pages/JobTitlesPage.tsx` (mod)
+### `src/pages/SquadsPage.tsx` (novo)
 
-- No dialog de criar/editar cargo, adicionar campo Select "Equipe":
-  - Opcoes: equipes ativas do `useData().getActiveTeams()`
-  - Opcao vazia "Sem equipe"
-  - Se nao ha equipes, mostrar helper "Nenhuma equipe cadastrada" com link para `/configuracoes/equipes`
-- Na lista de cargos, adicionar exibicao da equipe ao lado do label:
-  - Chip/badge com nome da equipe
-  - Se equipe inativa, badge "Inativa" em tom secundario
-  - Se sem equipe, mostrar "---"
-- Atualizar `addJobTitle` e `updateJobTitle` para incluir `teamId`
+Componente principal do modulo. Estrutura:
+
+**Cabecalho**
+- PageHeader: titulo "Squads", descricao "Distribuicao de equipes por cliente e contrato"
+
+**Barra de filtros**
+- Filtro por Cliente (Select com busca)
+- Filtro por Contrato (Select com busca, filtrado pelo cliente selecionado)
+- Filtro por Equipe (multi-select com as equipes na ordem fixa)
+- Toggle de agrupamento: "Por Contrato" (default) | "Por Cliente"
+- Busca textual (cargo/funcao)
+- Botao Exportar (dropdown: CSV, XLSX)
+
+**Logica de consolidacao (inline ou hook `useSquadsData`)**
+
+Para cada contrato com recursos tipo `clt` ou `pj`:
+1. Filtrar recursos HR (tipo !== 'outro')
+2. Para cada recurso, mapear cargo -> jobTitle (match case-insensitive pelo label) -> teamId -> team
+3. Se cargo nao encontrado ou sem teamId -> "Sem equipe"
+4. Calcular:
+   - `dedicacaoPercent = percentualDedicacao` (ja e 0-100)
+   - `totalFTEContrato = soma(percentualDedicacao / 100)` de todos os HR do contrato
+   - `fteEquipe[team] = soma(percentualDedicacao / 100)` por equipe
+   - `percentEquipe[team] = fteEquipe / totalFTEContrato * 100`
+5. Ordenar equipes pela ordem fixa (sortOrder)
+
+**Conteudo -- Cards por contrato**
+
+Cada card exibe:
+- Cabecalho: Cliente (razaoSocial), codigo do contrato, badge segmento (Gov/Privado), badge saude (via `calculateContractHealth`)
+- Resumo: Total FTE, N de recursos HR
+- Barras por equipe: nome da equipe, FTE, % do total
+- Botao "Ver detalhes" que expande um Collapsible/Accordion
+
+**Detalhe expandido**
+- Secoes por equipe (na ordem fixa)
+- Cada secao mostra os recursos HR:
+  - Cargo/Funcao
+  - Tipo contratacao (CLT/PJ)
+  - Dedicacao: "XX%" (com badge ">100%" se percentualDedicacao > 100)
+- NAO exibir valores salariais/custos (respeitar `canViewHRCosts`)
+  - Se `canViewHRCosts` for true (C-Level), opcionalmente mostrar custo base (nao obrigatorio nesta versao)
+
+**Empty state**
+- "Nenhum recurso humano cadastrado" + CTA "Ir para Contratos"
+
+**Agrupamento "Por Cliente"**
+- Agrupa contratos sob o mesmo cliente
+- Card externo = cliente, cards internos = contratos
 
 ---
 
-## 7. Integracao com ResourceForm (read-only)
+## 5. Exportacao
 
-### `src/components/forms/ResourceForm.tsx` (mod)
+### Dentro de `SquadsPage.tsx`
 
-Apos o select de cargo (quando um cargo e selecionado e tem `teamId`):
-- Exibir chip read-only com o nome da equipe do cargo selecionado
-- Nao afeta o modelo de dados de Resource -- apenas informativo
+**CSV/XLSX**: gerar tabela com colunas:
+- Cliente, Contrato (codigo), Equipe, Cargo/Funcao, Tipo (CLT/PJ), Dedicacao (%), FTE
+- Linha de resumo por contrato: Total FTE, % por equipe
+
+Usar `xlsx` (ja instalado) para XLSX e `papaparse` (ja instalado) para CSV.
+
+Respeitar permissoes: se nao `canViewHRCosts`, nao incluir colunas de custo.
+
+---
+
+## 6. Rota
+
+### `src/App.tsx` (mod)
+
+Adicionar:
+```
+<Route path="/squads" element={<SquadsPage />} />
+```
+
+---
+
+## 7. Permissoes e sigilo
+
+O modulo e acessivel a todos os roles (roleRestrictions = []).
+
+Regras de exibicao:
+- Todos veem: cargo, equipe, dedicacao percentual, tipo contratacao
+- Somente C-Level (`canViewHRCosts`): pode ver custos (nao obrigatorio nesta versao; manter oculto por padrao)
+- Nenhum role ve salarios no Squads (alinhado com o PRD)
 
 ---
 
@@ -137,30 +164,28 @@ Apos o select de cargo (quando um cargo e selecionado e tem `teamId`):
 
 | Arquivo | Tipo | Descricao |
 |---------|------|-----------|
-| `src/types/index.ts` | Mod | Adicionar `Team`, estender `JobTitle` com `teamId` |
-| `src/data/mockData.ts` | Mod | Adicionar `defaultTeams`, atualizar `defaultJobTitles` |
-| `src/contexts/DataContext.tsx` | Mod | CRUD de equipes, atualizar `addJobTitle` |
-| `src/pages/TeamsPage.tsx` | Novo | Subtela CRUD de equipes |
-| `src/App.tsx` | Mod | Rota `/configuracoes/equipes` |
-| `src/types/moduleAccess.ts` | Mod | Incluir rota no modulo SETTINGS |
-| `src/pages/SettingsPage.tsx` | Mod | Card resumo de equipes |
-| `src/components/layout/CommandPalette.tsx` | Mod | Comando "Configuracoes > Equipes" |
-| `src/pages/JobTitlesPage.tsx` | Mod | Select de equipe no form + coluna na lista |
-| `src/components/forms/ResourceForm.tsx` | Mod | Chip read-only de equipe do cargo |
+| `src/data/mockData.ts` | Mod | Atualizar equipes seed para taxonomia de 8 equipes e reatribuir cargos |
+| `src/types/moduleAccess.ts` | Mod | Adicionar SQUADS ao catalogo de modulos |
+| `src/components/layout/Sidebar.tsx` | Mod | Adicionar item Squads no menu |
+| `src/components/layout/CommandPalette.tsx` | Mod | Adicionar comando Squads |
+| `src/pages/SquadsPage.tsx` | Novo | Pagina principal do modulo Squads |
+| `src/App.tsx` | Mod | Adicionar rota /squads |
 
 ## Ordem de implementacao
 
-1. Tipos (`Team` + `teamId` em `JobTitle`)
-2. Mock data (equipes + atualizar cargos)
-3. DataContext (CRUD equipes + atualizar addJobTitle)
-4. TeamsPage + rota + moduleAccess + CommandPalette
-5. SettingsPage (card resumo)
-6. JobTitlesPage (select equipe + coluna)
-7. ResourceForm (chip read-only)
+1. Mock data (equipes + cargos atualizados)
+2. moduleAccess (SQUADS)
+3. Sidebar + CommandPalette
+4. SquadsPage (consolidacao, filtros, cards, detalhe, exportacao)
+5. App.tsx (rota)
 
 ## Preservacao
 
-- Cargos existentes sem `teamId` continuam funcionando (campo opcional)
-- Nenhuma alteracao em regras de role, moduleAccess ou mascaramento de RH
-- Calculadora continua consumindo cargos normalmente; equipe e apenas informativa
-- localStorage de cargos e compativel (campo novo e opcional)
+- Nenhuma alteracao em dados de recursos, contratos ou clientes
+- Modulo e somente leitura (nao altera dados)
+- Todas as regras de role, moduleAccess e mascaramento permanecem
+- Equipes existentes no localStorage dos usuarios serao diferentes das novas seeds; usuarios devem "Restaurar Demo" para ver as novas equipes
+
+## Nota importante sobre seeds
+
+Como os usuarios podem ter dados no localStorage das equipes anteriores (Engenharia, Produto, QA...), o modulo Squads fara match de cargos por `teamId` do cargo, nao pelo nome da equipe. Assim funciona com qualquer configuracao de equipes. A ordem fixa da taxonomia sera aplicada apenas aos dados seed; em runtime, a ordem segue o `sortOrder` das equipes cadastradas.
