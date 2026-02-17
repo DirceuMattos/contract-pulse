@@ -1,139 +1,172 @@
 
-# Fase 2: Autenticacao Real + Edge Function para Gestao de Usuarios
+# Fase 3: Migração do DataContext e SimulationContext para o Banco de Dados
 
-## Resumo
+## Objetivo
 
-Substituir a autenticacao local (localStorage + SystemUsersContext) por autenticacao real usando o sistema de autenticacao do Lovable Cloud. Criar uma Edge Function para que o C-Level possa gerenciar usuarios (criar, editar, excluir, ativar/desativar). O front-end sera atualizado para usar sessoes reais e buscar roles/permissoes do banco de dados.
-
----
-
-## O que sera feito
-
-### 1. Edge Function: `manage-users`
-
-Uma unica Edge Function que o C-Level usa para gerenciar usuarios do sistema. Acoes suportadas:
-
-- **list**: Lista todos os profiles com seus roles e module permissions
-- **create**: Cria usuario no Auth (com `supabaseAdmin`) + atribui role e module permissions
-- **update**: Atualiza profile, role e module permissions. Opcionalmente reseta senha
-- **delete**: Remove usuario do Auth (cascade deleta profile, roles, permissions)
-- **toggle-status**: Bane/desbane usuario via API Admin do Auth
-- **get-by-id**: Busca um usuario especifico com role e permissions
-
-Seguranca: valida JWT via `getClaims()`, verifica se o chamador tem role `c-level` no banco.
-
-### 2. AuthContext reescrito
-
-Substituir o AuthContext atual para usar o sistema de autenticacao real:
-
-- `login()`: chama `supabase.auth.signInWithPassword()`
-- `logout()`: chama `supabase.auth.signOut()`
-- Escuta `onAuthStateChange` para manter sessao sincronizada
-- Busca role do usuario na tabela `user_roles` apos login
-- Busca `user_module_permissions` do banco
-- Mantem as propriedades derivadas: `canViewValues`, `canEdit`, `canViewHRCosts`
-- Remove dependencia do `SystemUsersContext`
-
-### 3. SystemUsersContext reescrito
-
-Trocar de localStorage para chamadas a Edge Function `manage-users`:
-
-- `users`: busca via Edge Function (action: list)
-- `addUser()`: chama Edge Function (action: create)
-- `updateUser()`: chama Edge Function (action: update)
-- `deleteUser()`: chama Edge Function (action: delete)
-- `toggleUserStatus()`: chama Edge Function (action: toggle-status)
-- `validateCredentials()`: removido (nao mais necessario)
-- `getUser()` e `getUserByEmail()`: operam sobre a lista carregada
-
-### 4. useModuleAccess atualizado
-
-- Em vez de buscar `moduleAccess` do SystemUsersContext via `getUser()`, buscar as permissoes que ja estao carregadas no AuthContext (vindas do banco)
-- Mantem a mesma logica de intersecao: `rolePermission AND modulePermission`
-
-### 5. LoginPage atualizado
-
-- Remove a secao "Usuarios de demonstracao" (nao ha mais senhas hardcoded)
-- Mantem o mesmo layout visual
-- Usa o novo `login()` do AuthContext
-
-### 6. UsersPage e UserFormDialog
-
-- Continuam funcionando igual, mas agora chamam o SystemUsersContext que faz requests a Edge Function
-- O campo "senha" continua existindo para criar usuario e para resetar senha (opcional na edicao)
-- O botao ativar/desativar agora bane/desbane via Auth Admin
-
-### 7. AccessLogContext
-
-- Adaptar para gravar sessoes na tabela `access_log_sessions` do banco (via Supabase client direto, pois a RLS permite insert para c-level -- sera necessario ajuste de RLS para que qualquer autenticado possa inserir seus proprios logs)
-
-### 8. App.tsx
-
-- Reordenar providers: AuthProvider nao depende mais de SystemUsersProvider
-- SystemUsersProvider pode ficar dentro de AuthProvider
+Substituir o armazenamento em localStorage (DataContext) e SimulationContext por persistência real no banco de dados do Lovable Cloud. Os dados de clientes, contratos, recursos, histórico, snapshots, configurações, overhead, anexos de documentos, cargos, equipes e simulações passarão a ser armazenados de forma centralizada e multi-usuário.
 
 ---
 
-## Detalhes tecnicos
+## Escopo da migração
 
-### Edge Function `manage-users`
+### Entidades a migrar (DataContext)
 
-Arquivo: `supabase/functions/manage-users/index.ts`
+| Entidade | Tabela no banco | Observações |
+|----------|----------------|-------------|
+| clients | `clients` | snake_case → camelCase via mapper |
+| contracts | `contracts` | snake_case → camelCase via mapper |
+| resources | `resources` | snake_case → camelCase |
+| overhead_items | `overhead_items` | snake_case → camelCase |
+| history_events | `history_events` | snake_case → camelCase |
+| snapshots | `snapshots` | snake_case → camelCase |
+| settings | `settings` | único registro global (c-level) |
+| attachments | `document_attachments` | arquivo binário → Supabase Storage |
+| attachment_configs | `attachment_description_configs` | snake_case → camelCase |
+| job_titles | `job_titles` | snake_case → camelCase |
+| teams | `teams` | snake_case → camelCase |
 
-- Usa `createClient` com `SUPABASE_SERVICE_ROLE_KEY` para operacoes admin (criar/deletar usuarios no Auth)
-- Usa `getClaims()` para validar o JWT do chamador
-- Verifica role c-level no banco via query na tabela `user_roles`
-- Acoes mapeadas por campo `action` no body do POST
+### Simulações (SimulationContext)
 
-Configuracao em `supabase/config.toml`:
-```text
-[functions.manage-users]
-verify_jwt = false
-```
+| Entidade | Tabelas no banco |
+|----------|----------------|
+| ContractSimulation | `simulations` + `simulation_hr_items` + `simulation_other_costs` |
 
-### Migracao SQL adicional
+### Alertas
 
-- Ajustar RLS de `access_log_sessions` para permitir INSERT por qualquer usuario autenticado (hoje so c-level pode inserir, mas todos os usuarios geram logs de acesso)
-- Adicionar coluna `banned` ou usar a funcionalidade nativa do Auth Admin (`banUser`/`unbanUser`) -- o Auth ja suporta isso nativamente, sem necessidade de coluna extra
+Os alertas são gerados dinamicamente pelo `alertGenerator.ts` a partir dos dados carregados — **não são persistidos no banco**. A tabela `alerts` existente não será usada nessa fase. O comportamento atual é mantido.
 
-### Fluxo de autenticacao
+---
 
-1. Usuario digita email/senha no LoginPage
-2. `supabase.auth.signInWithPassword()` valida credenciais
-3. `onAuthStateChange` dispara com sessao
-4. AuthContext busca role em `user_roles` e permissions em `user_module_permissions`
-5. Usuario e redirecionado ao dashboard
+## Abordagem técnica
 
-### Seed do primeiro usuario admin
+### Camada de mapeamento (DTO)
 
-- Sera necessario criar manualmente o primeiro usuario C-Level no Auth (via Edge Function ou inserindo diretamente)
-- A Edge Function tera uma acao especial `seed-admin` que cria o admin inicial se nao existir nenhum usuario c-level
+O banco usa snake_case e o front-end usa camelCase. Cada entidade terá funções:
+- `fromDbRow()` — converte registro do banco para tipo TypeScript
+- `toDbInsert()` — converte tipo TypeScript para objeto de inserção no banco
 
-### Arquivos criados/modificados
+Essas funções serão criadas num novo arquivo `src/lib/dbMappers.ts`.
 
-| Arquivo | Acao |
-|---------|------|
-| `supabase/functions/manage-users/index.ts` | Criar |
-| `supabase/config.toml` | Adicionar config da nova function |
-| `src/contexts/AuthContext.tsx` | Reescrever (Auth real) |
-| `src/contexts/SystemUsersContext.tsx` | Reescrever (Edge Function) |
-| `src/hooks/useModuleAccess.ts` | Atualizar (buscar do AuthContext) |
-| `src/pages/LoginPage.tsx` | Atualizar (remover demo users) |
-| `src/contexts/AccessLogContext.tsx` | Atualizar (gravar no banco) |
-| `src/App.tsx` | Reordenar providers |
-| Migracao SQL | Ajustar RLS de access_log_sessions |
+### Carregamento de dados
 
-### Dependencias
+O DataProvider usará `useEffect` (disparado após autenticação) para buscar todos os dados do banco via `supabase.from(...)`. Estados React continuam sendo a fonte de dados local para performance — a UI não muda.
 
-Nenhuma nova dependencia necessaria. O `@supabase/supabase-js` ja esta instalado.
+### Operações CRUD
+
+Cada operação (add/update/delete) irá:
+1. Executar a mutation no banco (`supabase.from(...).insert/update/delete`)
+2. Atualizar o estado React localmente para resposta imediata (sem esperar reload)
+3. Em caso de erro, reverter o estado e exibir toast de erro
+
+### Settings
+
+A tabela `settings` tem um único registro. O sistema tentará buscar via `SELECT ... LIMIT 1`. Se não existir, usará os defaults. A `updateSettings` fará `UPDATE` (o registro é criado na migração SQL da Fase 1).
+
+### Arquivos (Anexos)
+
+Mudança importante: em vez de salvar em IndexedDB, os arquivos passarão a ser enviados para o bucket `contract-documents` do Supabase Storage.
+- **Upload**: `supabase.storage.from('contract-documents').upload(storageKey, file)`
+- **Download/Visualização**: `supabase.storage.from('contract-documents').createSignedUrl(storageKey, 3600)`
+- O `AttachmentUploadDialog` e o `PDFViewerDialog` serão adaptados.
+- Arquivos antigos em IndexedDB (dados mock) serão tratados como incompatíveis e mostrarão mensagem.
+
+### Simulações
+
+`SimulationContext` terá a mesma abordagem: carrega todas as simulações do banco na montagem, mantém estado local, e cada operação CRUD persiste no banco. A complexidade aqui é que uma simulação tem 3 tabelas relacionadas (`simulations`, `simulation_hr_items`, `simulation_other_costs`), então:
+- **create/update**: upsert na tabela principal + delete/re-insert dos itens relacionados
+- **delete**: deleta a simulação (CASCADE no banco apaga os filhos)
+- **duplicate**: cria nova entrada completa
+
+### resetToDemo
+
+A função `resetToDemo` será adaptada para limpar os dados do banco e inserir os dados mock.
+
+---
+
+## Arquivos a criar/modificar
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `src/lib/dbMappers.ts` | Criar | Funções fromDbRow/toDbInsert para todas as entidades |
+| `src/contexts/DataContext.tsx` | Reescrever | Supabase em vez de localStorage |
+| `src/contexts/SimulationContext.tsx` | Reescrever | Supabase em vez de localStorage |
+| `src/components/contracts/AttachmentUploadDialog.tsx` | Modificar | Upload para Supabase Storage |
+| `src/components/contracts/PDFViewerDialog.tsx` | Modificar | Signed URL do Supabase Storage |
+| `src/pages/SettingsPage.tsx` | Verificar | Compatível, sem alteração esperada |
+
+---
+
+## Detalhes técnicos dos mappers (snake_case ↔ camelCase)
+
+Exemplos de campos que precisam de conversão:
+
+**Client**:
+- `razao_social` ↔ `razaoSocial`
+- `nome_fantasia` ↔ `nomeFantasia`
+- `contato_principal` ↔ `contatoPrincipal`
+- `inscricao_estadual` ↔ `inscricaoEstadual`
+- `created_at` ↔ `createdAt`, `updated_at` ↔ `updatedAt`
+
+**Contract**:
+- `client_id` ↔ `clientId`
+- `data_inicio` ↔ `dataInicio`, `data_fim` ↔ `dataFim`
+- `renovacao_automatica` ↔ `renovacaoAutomatica`
+- `status_renovacao` ↔ `statusRenovacao`
+- `modelo_receita` ↔ `modeloReceita`
+- `valor_mensal_referencia` ↔ `valorMensalReferencia`
+- `responsavel_interno` ↔ `responsavelInterno`
+- `ultima_atualizacao_recursos` ↔ `ultimaAtualizacaoRecursos`
+- E outros ~20 campos
+
+**Simulation** (mais complexo, 3 tabelas):
+- `client_name` ↔ `clientName`
+- `contract_type` ↔ `contractType`
+- `complexity_level` ↔ `complexityLevel`
+- `suggested_overhead` / `custom_overhead` ↔ `suggestedOverhead` / `customOverhead` (JSONB)
+- `using_suggested` ↔ `usingSuggested`
+- HR items e other costs: tabelas filhas com `is_suggested` ↔ `isSuggested`, `hiring_type` ↔ `hiringType`, etc.
+
+---
+
+## Tratamento de carregamento (loading state)
+
+O DataContext expõe `loading: boolean`. Enquanto os dados não chegam do banco:
+- O `MainLayout` já trata `loading` do AuthContext
+- O DataContext terá seu próprio `loading` para mostrar esqueletos nas páginas
+
+---
+
+## Compatibilidade com dados locais existentes
+
+Dados no localStorage do usuário NÃO serão migrados automaticamente. A migração é de base de código — a partir da Fase 3, todos os dados novos vão para o banco. Os dados demo antigos no localStorage ficam "esquecidos".
+
+---
+
+## Impacto no restante do sistema
+
+- `useAlerts.ts` — sem alteração (lê do DataContext, que mantem mesma interface)
+- `alertGenerator.ts` — sem alteração (lógica pura)
+- `useModuleAccess.ts` — sem alteração
+- `calculations.ts`, `simulationEngine.ts` — sem alteração (lógica pura)
+- `importExport.ts` — compatível, usa a mesma interface do DataContext
+- Todas as páginas e formulários — sem alteração (mesma interface de contexto)
+
+---
+
+## Ordem de implementação
+
+1. Criar `src/lib/dbMappers.ts` (todos os mappers)
+2. Reescrever `DataContext.tsx` (carrega do banco, CRUD persiste no banco)
+3. Reescrever `SimulationContext.tsx` (idem, com 3 tabelas)
+4. Adaptar `AttachmentUploadDialog.tsx` (Supabase Storage)
+5. Adaptar `PDFViewerDialog.tsx` (Signed URLs)
 
 ---
 
 ## Resultado esperado
 
-- Login real com email/senha validados pelo backend
-- Sessoes persistentes (refresh token automatico)
-- Gestao de usuarios (CRUD) feita pelo C-Level via Edge Function segura
-- Roles e permissoes por modulo armazenados e consultados no banco
-- Logs de acesso registrados no banco
-- Front-end mantendo a mesma experiencia visual
+- Todos os dados de clientes, contratos, recursos, simulações e configurações persistidos de forma centralizada no banco
+- Múltiplos usuários veem os mesmos dados em tempo real (sem precisar de Realtime — refetch acontece no carregamento)
+- Arquivos de documentos armazenados em storage seguro com URLs assinadas temporárias
+- Mesma interface do usuário, sem mudanças visuais
+- A função "Restaurar Demo" limpa e repopula o banco com dados mock
