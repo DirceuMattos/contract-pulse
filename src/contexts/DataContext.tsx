@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig } from '@/types';
-import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents, defaultAttachmentConfigs, mockAttachments } from '@/data/mockData';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle } from '@/types';
+import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents, defaultAttachmentConfigs, mockAttachments, defaultJobTitles } from '@/data/mockData';
 import { deleteBlob, clearAllBlobs } from '@/lib/indexedDBStorage';
 
 
@@ -15,6 +15,7 @@ interface DataContextType {
   historyEvents: HistoryEvent[];
   attachments: DocumentAttachment[];
   attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
+  jobTitles: JobTitle[];
   
   // Client actions
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Client;
@@ -64,6 +65,12 @@ interface DataContextType {
   updateDescriptionConfig: (id: string, data: Partial<AttachmentDescriptionConfig>) => void;
   getActiveDescriptionConfigs: () => AttachmentDescriptionConfig[];
 
+  // Job title actions
+  addJobTitle: (label: string) => JobTitle;
+  updateJobTitle: (id: string, data: Partial<JobTitle>) => void;
+  deleteJobTitle: (id: string) => void;
+  getActiveJobTitles: () => JobTitle[];
+
   // Utils
   resetToDemo: () => void;
 }
@@ -81,6 +88,7 @@ const STORAGE_KEYS = {
   historyEvents: 'bnp_history_events',
   attachments: 'bnp_attachments',
   attachmentConfigs: 'bnp_attachment_configs',
+  jobTitles: 'bnp_job_titles',
 };
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -107,6 +115,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>(() => loadFromStorage(STORAGE_KEYS.historyEvents, mockHistoryEvents));
   const [attachments, setAttachments] = useState<DocumentAttachment[]>(() => loadFromStorage(STORAGE_KEYS.attachments, mockAttachments));
   const [attachmentConfigs, setAttachmentConfigs] = useState<AttachmentDescriptionConfig[]>(() => loadFromStorage(STORAGE_KEYS.attachmentConfigs, defaultAttachmentConfigs));
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>(() => loadFromStorage(STORAGE_KEYS.jobTitles, defaultJobTitles));
   
   // Persist to localStorage
   useEffect(() => { saveToStorage(STORAGE_KEYS.clients, clients); }, [clients]);
@@ -119,6 +128,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveToStorage(STORAGE_KEYS.historyEvents, historyEvents); }, [historyEvents]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.attachments, attachments); }, [attachments]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.attachmentConfigs, attachmentConfigs); }, [attachmentConfigs]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.jobTitles, jobTitles); }, [jobTitles]);
   
   // Client actions
   const addClient = (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client => {
@@ -333,6 +343,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getActiveDescriptionConfigs = () => attachmentConfigs.filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // Job title actions
+  const addJobTitle = (label: string): JobTitle => {
+    const jt: JobTitle = {
+      id: `jt-${crypto.randomUUID().slice(0, 8)}`,
+      label,
+      isActive: true,
+    };
+    setJobTitles(prev => [...prev, jt]);
+    return jt;
+  };
+
+  const updateJobTitle = (id: string, data: Partial<JobTitle>) => {
+    setJobTitles(prev => prev.map(jt => jt.id === id ? { ...jt, ...data } : jt));
+  };
+
+  const deleteJobTitle = (id: string) => {
+    setJobTitles(prev => prev.filter(jt => jt.id !== id));
+  };
+
+  const getActiveJobTitles = () => jobTitles.filter(jt => jt.isActive).sort((a, b) => a.label.localeCompare(b.label));
+
   // Reset to demo data
   const resetToDemo = () => {
     setClients(mockClients);
@@ -345,6 +376,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setHistoryEvents(mockHistoryEvents);
     setAttachments(mockAttachments);
     setAttachmentConfigs(defaultAttachmentConfigs);
+    setJobTitles(defaultJobTitles);
     clearAllBlobs();
   };
   
@@ -390,6 +422,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addDescriptionConfig,
       updateDescriptionConfig,
       getActiveDescriptionConfigs,
+      jobTitles,
+      addJobTitle,
+      updateJobTitle,
+      deleteJobTitle,
+      getActiveJobTitles,
       resetToDemo,
     }}>
       {children}

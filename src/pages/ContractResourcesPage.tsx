@@ -447,25 +447,30 @@ export default function ContractResourcesPage() {
                           </div>
 
                           {/* Actions */}
-                          {canEdit && (
-                            <div className="flex gap-1 shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setEditingResource(resource)}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteId(resource.id)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
+                          {(() => {
+                            const isHR = resource.tipo === 'clt' || resource.tipo === 'pj';
+                            const canEditThis = canEdit && (!isHR || canViewHRCosts);
+                            if (!canEditThis) return null;
+                            return (
+                              <div className="flex gap-1 shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setEditingResource(resource)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteId(resource.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </CardContent>
                     </Card>

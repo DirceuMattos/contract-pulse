@@ -1,3 +1,10 @@
+// Job Title Types
+export interface JobTitle {
+  id: string;
+  label: string;
+  isActive: boolean;
+}
+
 // User and Auth Types
 export type UserRole = 'c-level' | 'intermediario' | 'leitor';
 

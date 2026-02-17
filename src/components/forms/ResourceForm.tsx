@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Resource, ResourceType, OtherCostCategory, Seniority, Settings } from '@/types';
 import { formatCurrency, calculateResourceCost } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
+import { useData } from '@/contexts/DataContext';
 import {
   Tooltip,
   TooltipContent,
@@ -97,6 +98,13 @@ const recorrenciaOptions = [
 ];
 
 export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
+  const { getActiveJobTitles } = useData();
+  const activeJobTitles = getActiveJobTitles();
+  const [customCargo, setCustomCargo] = useState(false);
+
+  // Check if existing cargo is not in the list
+  const existingCargoInList = resource?.cargo ? activeJobTitles.some(jt => jt.label === resource.cargo) : true;
+
   const form = useForm<ResourceFormData>({
     resolver: zodResolver(resourceFormSchema),
     defaultValues: {
@@ -242,9 +250,45 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cargo / Papel</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Desenvolvedor Backend" {...field} />
-                      </FormControl>
+                      {customCargo || (!existingCargoInList && !customCargo) ? (
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input placeholder="Digite o cargo" {...field} />
+                          </FormControl>
+                          <Button type="button" variant="outline" size="sm" onClick={() => {
+                            setCustomCargo(false);
+                            field.onChange('');
+                          }}>
+                            Lista
+                          </Button>
+                        </div>
+                      ) : (
+                        <Select
+                          onValueChange={(val) => {
+                            if (val === '__other__') {
+                              setCustomCargo(true);
+                              field.onChange('');
+                            } else {
+                              field.onChange(val);
+                            }
+                          }}
+                          value={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o cargo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {activeJobTitles.map(jt => (
+                              <SelectItem key={jt.id} value={jt.label}>
+                                {jt.label}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="__other__">Outro...</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
