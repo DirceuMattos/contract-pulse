@@ -44,11 +44,11 @@ async function persistSimulation(sim: ContractSimulation): Promise<void> {
   ];
 
   if (hrRows.length > 0) {
-    const { error } = await supabase.from('simulation_hr_items').insert(hrRows);
+    const { error } = await supabase.from('simulation_hr_items').insert(hrRows as any);
     if (error) throw error;
   }
   if (costRows.length > 0) {
-    const { error } = await supabase.from('simulation_other_costs').insert(costRows);
+    const { error } = await supabase.from('simulation_other_costs').insert(costRows as any);
     if (error) throw error;
   }
 }
