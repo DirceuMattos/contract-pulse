@@ -171,9 +171,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
     mod.description.toLowerCase().includes(moduleSearch.toLowerCase())
   );
 
-  const onSubmit = (data: SystemUserFormData) => {
-    const dataWithAccess = { ...data, moduleAccess };
-
+  const onSubmit = async (data: SystemUserFormData) => {
     if (isEditing) {
       const updateData: Partial<SystemUserFormData> = {
         name: data.name,
@@ -187,7 +185,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         updateData.password = data.password;
       }
 
-      const success = updateUser(editingUser.id, updateData);
+      const success = await updateUser(editingUser.id, updateData);
       
       if (success) {
         toast({
@@ -209,7 +207,8 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         return;
       }
 
-      const newUser = addUser(dataWithAccess, currentUser?.id);
+      const dataWithAccess = { ...data, moduleAccess };
+      const newUser = await addUser(dataWithAccess, currentUser?.id);
       
       if (newUser) {
         toast({

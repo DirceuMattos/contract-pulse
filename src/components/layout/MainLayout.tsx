@@ -11,7 +11,7 @@ import { useModuleAccess } from '@/hooks/useModuleAccess';
 import AccessDeniedPage from '@/pages/AccessDeniedPage';
 
 export function MainLayout() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { trackNavigation } = useAccessLogs();
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,6 +85,8 @@ export function MainLayout() {
     };
   }, [navigate]);
   
+  if (authLoading) return null;
+
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

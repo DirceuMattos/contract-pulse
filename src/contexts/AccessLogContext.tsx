@@ -1,10 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { AccessLogSession, User } from '@/types';
+import { AccessLogSession } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockAccessLogs } from '@/data/mockAccessLogs';
+import { supabase } from '@/integrations/supabase/client';
 
-const STORAGE_KEY = 'bnp_access_logs';
-const MAX_LOGS = 500;
+interface AccessLogContextType {
+  accessLogs: AccessLogSession[];
+  currentSessionId: string | null;
+  trackNavigation: (pathname: string) => void;
+  getLogsByUser: (userId: string) => AccessLogSession[];
+  clearAllLogs: () => void;
+  getAllLogs: () => AccessLogSession[];
+}
+
+const AccessLogContext = createContext<AccessLogContextType | undefined>(undefined);
 
 const ROUTE_MODULE_MAP: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -20,97 +28,79 @@ const ROUTE_MODULE_MAP: Record<string, string> = {
 };
 
 function resolveModule(pathname: string): string {
-  // Exact match first
   if (ROUTE_MODULE_MAP[pathname]) return ROUTE_MODULE_MAP[pathname];
-  
-  // Pattern matching for dynamic routes
   if (/^\/contratos\/[^/]+\/recursos$/.test(pathname)) return 'Contrato:Recursos';
   if (/^\/contratos\/[^/]+\/editar$/.test(pathname)) return 'Contrato:Edicao';
   if (/^\/contratos\/[^/]+$/.test(pathname)) return 'Contrato:Detalhe';
   if (/^\/clientes\/[^/]+\/editar$/.test(pathname)) return 'Cliente:Edicao';
   if (/^\/clientes\/[^/]+$/.test(pathname)) return 'Cliente:Detalhe';
-  
   return pathname;
-}
-
-function generateFakeIp(): string {
-  const subnets = ['192.168', '10.0'];
-  const subnet = subnets[Math.floor(Math.random() * subnets.length)];
-  return `${subnet}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-}
-
-interface AccessLogContextType {
-  accessLogs: AccessLogSession[];
-  currentSessionId: string | null;
-  trackNavigation: (pathname: string) => void;
-  getLogsByUser: (userId: string) => AccessLogSession[];
-  clearAllLogs: () => void;
-  getAllLogs: () => AccessLogSession[];
-}
-
-const AccessLogContext = createContext<AccessLogContextType | undefined>(undefined);
-
-function loadLogs(): AccessLogSession[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch { /* ignore */ }
-  // Seed with mock data
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(mockAccessLogs));
-  return [...mockAccessLogs];
-}
-
-function saveLogs(logs: AccessLogSession[]) {
-  const trimmed = logs.slice(-MAX_LOGS);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-  return trimmed;
 }
 
 export function AccessLogProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [accessLogs, setAccessLogs] = useState<AccessLogSession[]>(loadLogs);
+  const [accessLogs, setAccessLogs] = useState<AccessLogSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const prevUserRef = useRef<User | null>(null);
+  const prevUserRef = useRef<string | null>(null);
+
+  // Load logs for c-level users
+  const loadLogs = useCallback(async () => {
+    const { data } = await supabase
+      .from('access_log_sessions')
+      .select('*')
+      .order('started_at', { ascending: false })
+      .limit(500);
+
+    if (data) {
+      setAccessLogs(data.map(d => ({
+        id: d.id,
+        userId: d.user_id,
+        userNameSnapshot: d.user_name_snapshot,
+        ipAddress: d.ip_address,
+        userAgent: d.user_agent,
+        startedAt: d.started_at,
+        endedAt: d.ended_at,
+        modulesAccessed: d.modules_accessed || [],
+        routesAccessed: d.routes_accessed || [],
+        lastActivityAt: d.last_activity_at,
+      })));
+    }
+  }, []);
 
   // Start/end session based on user changes
   useEffect(() => {
-    const prevUser = prevUserRef.current;
-    prevUserRef.current = user;
+    const prevUserId = prevUserRef.current;
+    const currentUserId = user?.id ?? null;
+    prevUserRef.current = currentUserId;
 
-    if (prevUser && !user) {
+    if (prevUserId && !currentUserId && currentSessionId) {
       // User logged out - end session
-      setAccessLogs(prev => {
-        if (!currentSessionId) return prev;
-        const updated = prev.map(log =>
-          log.id === currentSessionId ? { ...log, endedAt: new Date().toISOString() } : log
-        );
-        return saveLogs(updated);
-      });
+      supabase
+        .from('access_log_sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('id', currentSessionId)
+        .then();
       setCurrentSessionId(null);
     }
 
-    if (!prevUser && user) {
+    if (!prevUserId && currentUserId && user) {
       // User logged in - start session
-      const newSession: AccessLogSession = {
-        id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        userId: user.id,
-        userNameSnapshot: user.name,
-        ipAddress: generateFakeIp(),
-        userAgent: navigator.userAgent,
-        startedAt: new Date().toISOString(),
-        endedAt: null,
-        modulesAccessed: [],
-        routesAccessed: [],
-        lastActivityAt: null,
-      };
-      setAccessLogs(prev => {
-        const updated = [...prev, newSession];
-        return saveLogs(updated);
-      });
-      setCurrentSessionId(newSession.id);
+      const sessionId = crypto.randomUUID();
+      supabase
+        .from('access_log_sessions')
+        .insert({
+          id: sessionId,
+          user_id: currentUserId,
+          user_name_snapshot: user.name,
+          ip_address: '0.0.0.0',
+          user_agent: navigator.userAgent,
+          modules_accessed: [],
+          routes_accessed: [],
+        })
+        .then(() => {
+          setCurrentSessionId(sessionId);
+          loadLogs();
+        });
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,11 +108,16 @@ export function AccessLogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handler = () => {
       if (!currentSessionId) return;
-      const logs = loadLogs();
-      const updated = logs.map(log =>
-        log.id === currentSessionId ? { ...log, endedAt: new Date().toISOString() } : log
-      );
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(-MAX_LOGS)));
+      // Use sendBeacon for reliability
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/access_log_sessions?id=eq.${currentSessionId}`;
+      const body = JSON.stringify({ ended_at: new Date().toISOString() });
+      navigator.sendBeacon?.(url);
+      // Fallback: try supabase update
+      supabase
+        .from('access_log_sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('id', currentSessionId)
+        .then();
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
@@ -131,28 +126,41 @@ export function AccessLogProvider({ children }: { children: ReactNode }) {
   const trackNavigation = useCallback((pathname: string) => {
     if (!currentSessionId) return;
     const moduleName = resolveModule(pathname);
-    setAccessLogs(prev => {
-      const updated = prev.map(log => {
-        if (log.id !== currentSessionId) return log;
-        const modulesAccessed = log.modulesAccessed.includes(moduleName)
-          ? log.modulesAccessed
-          : [...log.modulesAccessed, moduleName];
-        const routesAccessed = log.routesAccessed.includes(pathname)
-          ? log.routesAccessed
-          : [...log.routesAccessed.slice(-49), pathname];
-        return { ...log, modulesAccessed, routesAccessed, lastActivityAt: new Date().toISOString() };
+
+    // Update session in DB
+    supabase
+      .from('access_log_sessions')
+      .select('modules_accessed, routes_accessed')
+      .eq('id', currentSessionId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        const modules = data.modules_accessed?.includes(moduleName)
+          ? data.modules_accessed
+          : [...(data.modules_accessed || []), moduleName];
+        const routes = data.routes_accessed?.includes(pathname)
+          ? data.routes_accessed
+          : [...(data.routes_accessed || []).slice(-49), pathname];
+
+        supabase
+          .from('access_log_sessions')
+          .update({
+            modules_accessed: modules,
+            routes_accessed: routes,
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq('id', currentSessionId)
+          .then();
       });
-      return saveLogs(updated);
-    });
   }, [currentSessionId]);
 
   const getLogsByUser = useCallback((userId: string) => {
     return accessLogs.filter(l => l.userId === userId);
   }, [accessLogs]);
 
-  const clearAllLogs = useCallback(() => {
+  const clearAllLogs = useCallback(async () => {
+    // Only c-level can clear - but we just clear local state
     setAccessLogs([]);
-    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   const getAllLogs = useCallback(() => accessLogs, [accessLogs]);
