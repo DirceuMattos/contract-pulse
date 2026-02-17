@@ -91,7 +91,7 @@ export default function ContractFormPage() {
         });
         navigate(`/contratos/${contract.id}`);
       } else {
-        const newContract = addContract(contractData);
+        const newContract = await addContract(contractData);
         toast({
           title: 'Contrato criado',
           description: 'O novo contrato foi cadastrado com sucesso.',

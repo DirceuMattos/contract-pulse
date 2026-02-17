@@ -143,7 +143,7 @@ export function ClientForm({ client, mode }: ClientFormProps) {
       };
       
       if (mode === 'create') {
-        const newClient = addClient(clientData);
+        const newClient = await addClient(clientData);
         toast({
           title: 'Cliente criado',
           description: `${data.nomeFantasia || data.razaoSocial} foi cadastrado com sucesso.`,

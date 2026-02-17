@@ -467,9 +467,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         { data: insertedTeams },
         { data: insertedConfigs },
       ] = await Promise.all([
-        supabase.from('clients').insert(mockClients.map(c => clientToDb(c))).select(),
-        supabase.from('teams').insert(defaultTeams.map(t => teamToDb(t))).select(),
-        supabase.from('attachment_description_configs').insert(defaultAttachmentConfigs.map(c => attachmentConfigToDb(c))).select(),
+        supabase.from('clients').insert(mockClients.map(c => clientToDb(c)) as any).select(),
+        supabase.from('teams').insert(defaultTeams.map(t => teamToDb(t)) as any).select(),
+        supabase.from('attachment_description_configs').insert(defaultAttachmentConfigs.map(c => attachmentConfigToDb(c)) as any).select(),
       ]);
 
       const clientIdMap: Record<string, string> = {};
@@ -478,7 +478,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
 
       const mappedContracts = mockContracts.map(c => ({ ...contractToDb({ ...c, clientId: clientIdMap[c.clientId] ?? c.clientId }) }));
-      const { data: insertedContracts } = await supabase.from('contracts').insert(mappedContracts).select();
+      const { data: insertedContracts } = await supabase.from('contracts').insert(mappedContracts as any).select();
 
       const contractIdMap: Record<string, string> = {};
       (insertedContracts ?? []).forEach((row, i) => {
@@ -488,11 +488,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const mapContractId = (id: string) => contractIdMap[id] ?? id;
 
       await Promise.all([
-        supabase.from('resources').insert(mockResources.map(r => resourceToDb({ ...r, contractId: mapContractId(r.contractId) }))),
-        supabase.from('overhead_items').insert(mockOverheadItems.map(o => overheadToDb({ ...o, contractId: mapContractId(o.contractId) }))),
-        supabase.from('history_events').insert(mockHistoryEvents.map(e => historyEventToDb({ ...e, contractId: mapContractId(e.contractId) }))),
-        supabase.from('snapshots').insert(mockSnapshots.map(s => snapshotToDb({ ...s, contractId: mapContractId(s.contractId) }))),
-        supabase.from('document_attachments').insert(mockAttachments.map(a => attachmentToDb({ ...a, contractId: mapContractId(a.contractId) }))),
+        supabase.from('resources').insert(mockResources.map(r => resourceToDb({ ...r, contractId: mapContractId(r.contractId) })) as any),
+        supabase.from('overhead_items').insert(mockOverheadItems.map(o => overheadToDb({ ...o, contractId: mapContractId(o.contractId) })) as any),
+        supabase.from('history_events').insert(mockHistoryEvents.map(e => historyEventToDb({ ...e, contractId: mapContractId(e.contractId) })) as any),
+        supabase.from('snapshots').insert(mockSnapshots.map(s => snapshotToDb({ ...s, contractId: mapContractId(s.contractId) })) as any),
+        supabase.from('document_attachments').insert(mockAttachments.map(a => attachmentToDb({ ...a, contractId: mapContractId(a.contractId) })) as any),
       ]);
 
       if (settingsId) {
