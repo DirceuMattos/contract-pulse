@@ -1,162 +1,99 @@
 
-# Modulo Squads -- Distribuicao de Equipes por Cliente/Contrato
+# Revisao Visual do Modulo Squads -- Cards Coloridos + Lista Nominal RH
 
 ## Resumo
 
-Criar um modulo de visualizacao (somente leitura) que consolida os recursos humanos alocados por contrato, agrupa por equipe (via tabela de cargos) e exibe a dedicacao percentual de cada recurso. Inclui filtros, exportacao CSV/XLSX e respeito ao sigilo de custos de RH.
+Reescrever a UI do `SquadsPage.tsx` para um layout estilo "dashboard de cards coloridos", onde cada card representa um projeto (Cliente/Contrato). Os cards terao header colorido por saude financeira, exibirao distribuicao por equipe com barras, e listarao recursos RH com **nome + cargo + dedicacao%** (sem regime de contratacao). Adicionar toggle Compacto/Detalhado.
 
 ---
 
-## 1. Atualizar seeds de Equipes
+## Alteracoes
 
-### `src/data/mockData.ts` (mod)
+### 1. `src/pages/SquadsPage.tsx` (reescrita significativa)
 
-Substituir as 7 equipes atuais pelas 8 equipes da taxonomia obrigatoria (mantendo IDs existentes onde possivel e criando novos):
+**Mudancas na UI:**
 
-| sortOrder | Nome | ID |
-|-----------|------|------|
-| 1 | Lideranca Equipes | team-001 |
-| 2 | Projetos | team-002 |
-| 3 | Desenvolvimento | team-003 |
-| 4 | Testes | team-004 |
-| 5 | IA | team-005 |
-| 6 | Dados | team-006 |
-| 7 | Estrutura | team-007 |
-| 8 | Suporte | team-008 |
+- **Remover toggle "Por Contrato / Por Cliente"** -- agora sempre mostra grid de cards por projeto; filtro por cliente permanece como filtro global
+- **Adicionar toggle "Compacto / Detalhado"** no lugar do agrupamento
+  - Compacto: mostra apenas barras de equipe + contagem de RH por equipe (ex.: "Desenvolvimento (3)")
+  - Detalhado (default): mostra accordions por equipe com lista nominal de RH
+- **Cards coloridos por saude financeira:**
+  - Header com faixa de cor + borda lateral usando as variaveis CSS ja existentes (`--health-healthy`, `--health-attention`, `--health-critical`)
+  - Saudavel: borda-esquerda verde + header tint verde
+  - Atencao: borda-esquerda amarela + header tint amarelo
+  - Critico: borda-esquerda vermelha + header tint vermelho
+- **Grid responsivo:** `grid grid-cols-1 lg:grid-cols-2 gap-4`
+- **Busca expandida:** pesquisa tambem em nome do recurso, nome do cliente e codigo do contrato (alem de cargo)
 
-Reatribuir `teamId` nos `defaultJobTitles`:
-- Tech Lead, Gerente de Projetos, Scrum Master -> Lideranca Equipes
-- Product Owner, UX Designer -> Projetos
-- Devs Frontend/Backend/Full Stack, Arquiteto -> Desenvolvimento
-- QA/Tester -> Testes
-- Analista de Dados -> Dados
-- DevOps, DBA -> Estrutura
-- Analista de Suporte -> Suporte
-- Analista de Sistemas -> sem equipe (testar "Sem equipe")
+**Mudancas no conteudo do card:**
 
----
+- Header: Cliente + Codigo Contrato + Badge Gov/Privado + Badge saude
+- Mini-resumo: "Total alocado: X,XX FTE" + "RH: N"
+- Corpo (Camada A): barras por equipe (mantidas como estao)
+- Corpo (Camada B -- modo Detalhado): accordion por equipe listando cada RH como:
+  ```
+  Maria Silva -- Dev Full Stack -- 50%
+  ```
+  Formato: `nome -- cargo -- dedicacao%`
+  - Se `nome` vazio: exibir "Sem nome"
+  - Sem exibicao de tipo/regime (CLT/PJ) -- removido
+  - Badge ">100%" mantido para dedicacao acima de 100%
 
-## 2. Tipos e moduleAccess
+**Mudancas na exportacao:**
 
-### `src/types/moduleAccess.ts` (mod)
+- Remover coluna "Tipo" do export CSV/XLSX
+- Adicionar coluna "Nome RH" (campo `nome` do recurso)
+- Colunas finais: Cliente, Contrato, Equipe, Nome RH, Cargo/Funcao, Dedicacao (%), FTE
 
-Adicionar `'SQUADS'` ao `MODULE_KEYS`.
+**Acoes no card (novas):**
 
-Adicionar ao `MODULE_CATALOG`:
-```
-{ key: 'SQUADS', label: 'Squads', description: 'Distribuicao de equipes por contrato',
-  routes: ['/squads'], roleRestrictions: [] }
-```
+- Botao "Ver contrato" -> navega para `/contratos/:id`
+- Botao "Ver recursos" -> navega para `/contratos/:id` (aba recursos)
 
-Atualizar `getModuleKeyForRoute` para mapear `/squads` -> `SQUADS`.
+### 2. Nenhuma alteracao em outros arquivos
 
----
-
-## 3. Sidebar e CommandPalette
-
-### `src/components/layout/Sidebar.tsx` (mod)
-
-Adicionar item na lista `navItems`:
-```
-{ path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' }
-```
-Posicionar apos "Alertas" e antes de "Calculadora".
-
-### `src/components/layout/CommandPalette.tsx` (mod)
-
-Adicionar comando "Squads" com navegacao para `/squads`.
+O campo `nome` ja existe no `Resource` (linha 125 de `types/index.ts`). As variaveis CSS de saude ja existem. Nao e necessario alterar tipos, mock data, rotas ou sidebar.
 
 ---
 
-## 4. Pagina principal Squads
+## Detalhes tecnicos
 
-### `src/pages/SquadsPage.tsx` (novo)
+### Cores dos cards (implementacao CSS inline)
 
-Componente principal do modulo. Estrutura:
+Usar classes condicionais baseadas em `healthStatus`:
 
-**Cabecalho**
-- PageHeader: titulo "Squads", descricao "Distribuicao de equipes por cliente e contrato"
+```typescript
+const healthCardStyles: Record<string, string> = {
+  saudavel: 'border-l-4 border-l-[hsl(var(--health-healthy))]',
+  atencao: 'border-l-4 border-l-[hsl(var(--health-attention))]',
+  critico: 'border-l-4 border-l-[hsl(var(--health-critical))]',
+};
 
-**Barra de filtros**
-- Filtro por Cliente (Select com busca)
-- Filtro por Contrato (Select com busca, filtrado pelo cliente selecionado)
-- Filtro por Equipe (multi-select com as equipes na ordem fixa)
-- Toggle de agrupamento: "Por Contrato" (default) | "Por Cliente"
-- Busca textual (cargo/funcao)
-- Botao Exportar (dropdown: CSV, XLSX)
-
-**Logica de consolidacao (inline ou hook `useSquadsData`)**
-
-Para cada contrato com recursos tipo `clt` ou `pj`:
-1. Filtrar recursos HR (tipo !== 'outro')
-2. Para cada recurso, mapear cargo -> jobTitle (match case-insensitive pelo label) -> teamId -> team
-3. Se cargo nao encontrado ou sem teamId -> "Sem equipe"
-4. Calcular:
-   - `dedicacaoPercent = percentualDedicacao` (ja e 0-100)
-   - `totalFTEContrato = soma(percentualDedicacao / 100)` de todos os HR do contrato
-   - `fteEquipe[team] = soma(percentualDedicacao / 100)` por equipe
-   - `percentEquipe[team] = fteEquipe / totalFTEContrato * 100`
-5. Ordenar equipes pela ordem fixa (sortOrder)
-
-**Conteudo -- Cards por contrato**
-
-Cada card exibe:
-- Cabecalho: Cliente (razaoSocial), codigo do contrato, badge segmento (Gov/Privado), badge saude (via `calculateContractHealth`)
-- Resumo: Total FTE, N de recursos HR
-- Barras por equipe: nome da equipe, FTE, % do total
-- Botao "Ver detalhes" que expande um Collapsible/Accordion
-
-**Detalhe expandido**
-- Secoes por equipe (na ordem fixa)
-- Cada secao mostra os recursos HR:
-  - Cargo/Funcao
-  - Tipo contratacao (CLT/PJ)
-  - Dedicacao: "XX%" (com badge ">100%" se percentualDedicacao > 100)
-- NAO exibir valores salariais/custos (respeitar `canViewHRCosts`)
-  - Se `canViewHRCosts` for true (C-Level), opcionalmente mostrar custo base (nao obrigatorio nesta versao)
-
-**Empty state**
-- "Nenhum recurso humano cadastrado" + CTA "Ir para Contratos"
-
-**Agrupamento "Por Cliente"**
-- Agrupa contratos sob o mesmo cliente
-- Card externo = cliente, cards internos = contratos
-
----
-
-## 5. Exportacao
-
-### Dentro de `SquadsPage.tsx`
-
-**CSV/XLSX**: gerar tabela com colunas:
-- Cliente, Contrato (codigo), Equipe, Cargo/Funcao, Tipo (CLT/PJ), Dedicacao (%), FTE
-- Linha de resumo por contrato: Total FTE, % por equipe
-
-Usar `xlsx` (ja instalado) para XLSX e `papaparse` (ja instalado) para CSV.
-
-Respeitar permissoes: se nao `canViewHRCosts`, nao incluir colunas de custo.
-
----
-
-## 6. Rota
-
-### `src/App.tsx` (mod)
-
-Adicionar:
-```
-<Route path="/squads" element={<SquadsPage />} />
+const healthHeaderStyles: Record<string, string> = {
+  saudavel: 'bg-[hsl(var(--health-healthy-bg))]',
+  atencao: 'bg-[hsl(var(--health-attention-bg))]',
+  critico: 'bg-[hsl(var(--health-critical-bg))]',
+};
 ```
 
----
+### Toggle Compacto/Detalhado
 
-## 7. Permissoes e sigilo
+Estado `viewMode: 'compact' | 'detailed'` (default: `'detailed'`).
 
-O modulo e acessivel a todos os roles (roleRestrictions = []).
+- Compacto: renderiza apenas barras de equipe; cada barra mostra tambem `(N)` com contagem de recursos; nao mostra accordions
+- Detalhado: abre automaticamente todos os accordions por equipe, listando os componentes RH
 
-Regras de exibicao:
-- Todos veem: cargo, equipe, dedicacao percentual, tipo contratacao
-- Somente C-Level (`canViewHRCosts`): pode ver custos (nao obrigatorio nesta versao; manter oculto por padrao)
-- Nenhum role ve salarios no Squads (alinhado com o PRD)
+### Linha de RH (modo Detalhado)
+
+```tsx
+<div className="flex items-center gap-2 text-sm py-1.5">
+  <span className="font-medium">{r.nome || 'Sem nome'}</span>
+  <span className="text-muted-foreground">--</span>
+  <span className="text-muted-foreground">{r.cargo || 'Sem cargo'}</span>
+  <span className="ml-auto tabular-nums font-medium">{r.percentualDedicacao}%</span>
+  {r.percentualDedicacao > 100 && <Badge variant="destructive">&gt;100%</Badge>}
+</div>
+```
 
 ---
 
@@ -164,28 +101,12 @@ Regras de exibicao:
 
 | Arquivo | Tipo | Descricao |
 |---------|------|-----------|
-| `src/data/mockData.ts` | Mod | Atualizar equipes seed para taxonomia de 8 equipes e reatribuir cargos |
-| `src/types/moduleAccess.ts` | Mod | Adicionar SQUADS ao catalogo de modulos |
-| `src/components/layout/Sidebar.tsx` | Mod | Adicionar item Squads no menu |
-| `src/components/layout/CommandPalette.tsx` | Mod | Adicionar comando Squads |
-| `src/pages/SquadsPage.tsx` | Novo | Pagina principal do modulo Squads |
-| `src/App.tsx` | Mod | Adicionar rota /squads |
-
-## Ordem de implementacao
-
-1. Mock data (equipes + cargos atualizados)
-2. moduleAccess (SQUADS)
-3. Sidebar + CommandPalette
-4. SquadsPage (consolidacao, filtros, cards, detalhe, exportacao)
-5. App.tsx (rota)
+| `src/pages/SquadsPage.tsx` | Mod | Reescrita visual: grid de cards coloridos, toggle compacto/detalhado, lista nominal RH, remocao de regime |
 
 ## Preservacao
 
-- Nenhuma alteracao em dados de recursos, contratos ou clientes
-- Modulo e somente leitura (nao altera dados)
-- Todas as regras de role, moduleAccess e mascaramento permanecem
-- Equipes existentes no localStorage dos usuarios serao diferentes das novas seeds; usuarios devem "Restaurar Demo" para ver as novas equipes
-
-## Nota importante sobre seeds
-
-Como os usuarios podem ter dados no localStorage das equipes anteriores (Engenharia, Produto, QA...), o modulo Squads fara match de cargos por `teamId` do cargo, nao pelo nome da equipe. Assim funciona com qualquer configuracao de equipes. A ordem fixa da taxonomia sera aplicada apenas aos dados seed; em runtime, a ordem segue o `sortOrder` das equipes cadastradas.
+- Toda logica de consolidacao (mapeamento cargo->equipe->team, calculos FTE) permanece identica
+- Filtros por cliente, contrato e equipe permanecem
+- Exportacao CSV/XLSX preservada (apenas ajuste de colunas)
+- Nenhuma alteracao em tipos, rotas, sidebar, DataContext ou permissoes
+- Campo `nome` do Resource ja existe; nao precisa de alteracao no modelo
