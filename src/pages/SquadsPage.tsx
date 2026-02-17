@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, Eye, List } from 'lucide-react';
+import { LayoutGrid, Download, Search, Users, FileText, List, User } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +42,21 @@ interface ContractSquadData {
   teams: SquadTeamData[];
 }
 
+interface ResourceViewData {
+  resourceKey: string;
+  nome: string;
+  cargo: string;
+  teamName: string;
+  totalDedicacao: number;
+  allocations: {
+    contractId: string;
+    contractCodigo: string;
+    clientName: string;
+    healthStatus: string;
+    percentualDedicacao: number;
+  }[];
+}
+
 // --- Health card styles ---
 
 const healthCardStyles: Record<string, string> = {
@@ -67,6 +82,7 @@ export default function SquadsPage() {
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
+  const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
@@ -87,7 +103,6 @@ export default function SquadsPage() {
       const hrResources = contractResources.filter(r => r.tipo === 'clt' || r.tipo === 'pj');
       if (hrResources.length === 0) continue;
 
-      // Expanded search: name, cargo, client name, contract code
       const filteredHR = searchQuery
         ? hrResources.filter(r =>
             (r.cargo || '').toLowerCase().includes(searchLower) ||
@@ -101,7 +116,6 @@ export default function SquadsPage() {
       const health = calculateContractHealth(contract, resources, settings, overheadItems);
       const hc = healthConfig[health.status];
 
-      // Map resources to teams
       const teamMap = new Map<string, { team: Team | null; resources: Resource[] }>();
       for (const hr of filteredHR) {
         const cargoLower = (hr.cargo || '').toLowerCase();
@@ -151,6 +165,46 @@ export default function SquadsPage() {
     }
     return result;
   }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery]);
+
+  // --- Resource-centric view data ---
+
+  const resourceViewData = useMemo<ResourceViewData[]>(() => {
+    if (perspective !== 'resource') return [];
+
+    const resourceMap = new Map<string, ResourceViewData>();
+
+    for (const cd of squadsData) {
+      for (const td of cd.teams) {
+        for (const r of td.resources) {
+          // Group by resource name+cargo as key (since we don't have a person ID)
+          const key = `${(r.nome || '').toLowerCase().trim()}||${(r.cargo || '').toLowerCase().trim()}`;
+
+          if (!resourceMap.has(key)) {
+            resourceMap.set(key, {
+              resourceKey: key,
+              nome: r.nome || 'Sem nome',
+              cargo: r.cargo || 'Sem cargo',
+              teamName: td.teamName,
+              totalDedicacao: 0,
+              allocations: [],
+            });
+          }
+
+          const entry = resourceMap.get(key)!;
+          entry.totalDedicacao += r.percentualDedicacao;
+          entry.allocations.push({
+            contractId: cd.contractId,
+            contractCodigo: cd.contractCodigo,
+            clientName: cd.clientName,
+            healthStatus: cd.healthStatus,
+            percentualDedicacao: r.percentualDedicacao,
+          });
+        }
+      }
+    }
+
+    return Array.from(resourceMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [squadsData, perspective]);
 
   // --- Filter options ---
 
@@ -221,13 +275,13 @@ export default function SquadsPage() {
     );
   }
 
-  // --- Render helpers ---
+  // --- Render helpers (Project view) ---
 
   const renderTeamBar = (td: SquadTeamData) => (
     <div key={td.teamName} className="flex items-center gap-2 text-sm">
       <span className="w-32 truncate font-medium text-foreground">
         {td.teamName}
-        {viewMode === 'compact' && <span className="text-muted-foreground ml-1">({td.resources.length})</span>}
+        {viewMode === 'compact' && perspective === 'project' && <span className="text-muted-foreground ml-1">({td.resources.length})</span>}
       </span>
       <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
         <div className="h-full bg-primary/70 rounded-full transition-all" style={{ width: `${Math.min(td.percent, 100)}%` }} />
@@ -275,7 +329,6 @@ export default function SquadsPage() {
 
     return (
       <Card key={cd.contractId} className={`overflow-hidden ${cardBorder}`}>
-        {/* Colored header */}
         <CardHeader className={`pb-3 ${headerBg}`}>
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
@@ -294,15 +347,9 @@ export default function SquadsPage() {
             <span>RH: {cd.hrCount}</span>
           </div>
         </CardHeader>
-
         <CardContent className="pt-4 space-y-2">
-          {/* Team bars */}
           {cd.teams.map(renderTeamBar)}
-
-          {/* Detailed: accordion per team */}
           {viewMode === 'detailed' && renderDetailedTeams(cd)}
-
-          {/* Card actions */}
           <div className="flex items-center gap-2 pt-3 border-t mt-3">
             <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`)}>
               <FileText className="w-3 h-3 mr-1" /> Ver contrato
@@ -316,7 +363,68 @@ export default function SquadsPage() {
     );
   };
 
+  // --- Render helpers (Resource view) ---
+
+  const renderResourceCard = (rd: ResourceViewData) => {
+    const totalFTE = rd.totalDedicacao / 100;
+    const isOverloaded = rd.totalDedicacao > 100;
+
+    return (
+      <Card key={rd.resourceKey} className={`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1 min-w-0">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                {rd.nome}
+              </CardTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">{rd.cargo}</span>
+                <Badge variant="outline" className="text-[10px]">{rd.teamName}</Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="tabular-nums font-medium text-sm">{totalFTE.toFixed(2)} FTE</span>
+              {isOverloaded && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-1.5">
+            {rd.allocations.map((alloc, i) => {
+              const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
+              return (
+                <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
+                  <span className="font-medium truncate">{alloc.clientName}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground truncate">{alloc.contractCodigo}</span>
+                  {hb && <Badge variant="outline" className={`text-[9px] shrink-0 ${hb.badgeClass}`}>{hb.label}</Badge>}
+                  <span className="ml-auto tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Dedication summary bar */}
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+              <span>Dedicação total</span>
+              <span className="ml-auto tabular-nums font-medium text-foreground">{rd.totalDedicacao}%</span>
+            </div>
+            <div className="bg-muted rounded-full h-2.5 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${isOverloaded ? 'bg-[hsl(var(--health-critical))]' : 'bg-primary/70'}`}
+                style={{ width: `${Math.min(rd.totalDedicacao, 100)}%` }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // --- Main render ---
+
+  const hasResults = perspective === 'project' ? squadsData.length > 0 : resourceViewData.length > 0;
 
   return (
     <div>
@@ -324,6 +432,16 @@ export default function SquadsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
+        {/* Perspective toggle */}
+        <div className="flex items-center gap-1 border rounded-lg p-0.5">
+          <Button variant={perspective === 'project' ? 'default' : 'ghost'} size="sm" onClick={() => setPerspective('project')} className="text-xs h-7">
+            <FileText className="w-3 h-3 mr-1" /> Por Projeto
+          </Button>
+          <Button variant={perspective === 'resource' ? 'default' : 'ghost'} size="sm" onClick={() => setPerspective('resource')} className="text-xs h-7">
+            <User className="w-3 h-3 mr-1" /> Por Recurso
+          </Button>
+        </div>
+
         <Select value={clientFilter} onValueChange={v => { setClientFilter(v); setContractFilter('all'); }}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Cliente" /></SelectTrigger>
           <SelectContent>
@@ -352,15 +470,17 @@ export default function SquadsPage() {
           <Input placeholder="Buscar nome, cargo, cliente..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 w-[220px]" />
         </div>
 
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1 border rounded-lg p-0.5">
-          <Button variant={viewMode === 'compact' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('compact')} className="text-xs h-7">
-            <LayoutGrid className="w-3 h-3 mr-1" /> Compacto
-          </Button>
-          <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="text-xs h-7">
-            <List className="w-3 h-3 mr-1" /> Detalhado
-          </Button>
-        </div>
+        {/* View mode toggle (only for project perspective) */}
+        {perspective === 'project' && (
+          <div className="flex items-center gap-1 border rounded-lg p-0.5">
+            <Button variant={viewMode === 'compact' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('compact')} className="text-xs h-7">
+              <LayoutGrid className="w-3 h-3 mr-1" /> Compacto
+            </Button>
+            <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="text-xs h-7">
+              <List className="w-3 h-3 mr-1" /> Detalhado
+            </Button>
+          </div>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -374,11 +494,15 @@ export default function SquadsPage() {
       </div>
 
       {/* Content */}
-      {squadsData.length === 0 ? (
+      {!hasResults ? (
         <EmptyState icon={LayoutGrid} title="Nenhum resultado encontrado" description="Ajuste os filtros para visualizar a distribuição de equipes." />
-      ) : (
+      ) : perspective === 'project' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {squadsData.map(renderContractCard)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {resourceViewData.map(renderResourceCard)}
         </div>
       )}
     </div>
