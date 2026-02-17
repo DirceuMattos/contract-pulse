@@ -98,7 +98,7 @@ const recorrenciaOptions = [
 ];
 
 export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
-  const { getActiveJobTitles } = useData();
+  const { getActiveJobTitles, teams } = useData();
   const activeJobTitles = getActiveJobTitles();
   const [customCargo, setCustomCargo] = useState(false);
 
@@ -290,6 +290,23 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                         </Select>
                       )}
                       <FormMessage />
+                      {/* Read-only team chip */}
+                      {(() => {
+                        const selectedJt = activeJobTitles.find(jt => jt.label === field.value);
+                        if (selectedJt?.teamId) {
+                          const team = teams.find(t => t.id === selectedJt.teamId);
+                          if (team) {
+                            return (
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                                  Equipe: {team.name}
+                                </span>
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
                     </FormItem>
                   )}
                 />

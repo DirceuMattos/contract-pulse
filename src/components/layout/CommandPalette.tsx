@@ -108,6 +108,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               Configurações &gt; Cargos
             </CommandItem>
           )}
+          {canAccessModule('SETTINGS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes/equipes'))}>
+              <Users className="mr-2 h-4 w-4" />
+              Configurações &gt; Equipes
+            </CommandItem>
+          )}
           {canAccessModule('IMPORT_EXPORT') && (
             <CommandItem onSelect={() => runCommand(() => navigate('/importar-exportar'))}>
               <Upload className="mr-2 h-4 w-4" />

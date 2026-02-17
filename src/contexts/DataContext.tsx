@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle } from '@/types';
-import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents, defaultAttachmentConfigs, mockAttachments, defaultJobTitles } from '@/data/mockData';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle, Team } from '@/types';
+import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents, defaultAttachmentConfigs, mockAttachments, defaultJobTitles, defaultTeams } from '@/data/mockData';
 import { deleteBlob, clearAllBlobs } from '@/lib/indexedDBStorage';
 
 
@@ -16,6 +16,7 @@ interface DataContextType {
   attachments: DocumentAttachment[];
   attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
   jobTitles: JobTitle[];
+  teams: Team[];
   
   // Client actions
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Client;
@@ -66,10 +67,16 @@ interface DataContextType {
   getActiveDescriptionConfigs: () => AttachmentDescriptionConfig[];
 
   // Job title actions
-  addJobTitle: (label: string) => JobTitle;
+  addJobTitle: (label: string, teamId?: string) => JobTitle;
   updateJobTitle: (id: string, data: Partial<JobTitle>) => void;
   deleteJobTitle: (id: string) => void;
   getActiveJobTitles: () => JobTitle[];
+
+  // Team actions
+  addTeam: (name: string, description?: string) => Team;
+  updateTeam: (id: string, data: Partial<Team>) => void;
+  deleteTeam: (id: string) => boolean;
+  getActiveTeams: () => Team[];
 
   // Utils
   resetToDemo: () => void;
@@ -89,6 +96,7 @@ const STORAGE_KEYS = {
   attachments: 'bnp_attachments',
   attachmentConfigs: 'bnp_attachment_configs',
   jobTitles: 'bnp_job_titles',
+  teams: 'bnp_teams',
 };
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -116,6 +124,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [attachments, setAttachments] = useState<DocumentAttachment[]>(() => loadFromStorage(STORAGE_KEYS.attachments, mockAttachments));
   const [attachmentConfigs, setAttachmentConfigs] = useState<AttachmentDescriptionConfig[]>(() => loadFromStorage(STORAGE_KEYS.attachmentConfigs, defaultAttachmentConfigs));
   const [jobTitles, setJobTitles] = useState<JobTitle[]>(() => loadFromStorage(STORAGE_KEYS.jobTitles, defaultJobTitles));
+  const [teams, setTeams] = useState<Team[]>(() => loadFromStorage(STORAGE_KEYS.teams, defaultTeams));
   
   // Persist to localStorage
   useEffect(() => { saveToStorage(STORAGE_KEYS.clients, clients); }, [clients]);
@@ -129,6 +138,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveToStorage(STORAGE_KEYS.attachments, attachments); }, [attachments]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.attachmentConfigs, attachmentConfigs); }, [attachmentConfigs]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.jobTitles, jobTitles); }, [jobTitles]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.teams, teams); }, [teams]);
   
   // Client actions
   const addClient = (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client => {
@@ -151,7 +161,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteClient = (id: string) => {
     setClients(prev => prev.filter(c => c.id !== id));
-    // Also delete related contracts
     const relatedContracts = contracts.filter(c => c.clientId === id);
     relatedContracts.forEach(contract => {
       deleteContract(contract.id);
@@ -180,7 +189,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
   const deleteContract = (id: string) => {
-    // Cascade delete attachments blobs
     const contractAttachments = attachments.filter(a => a.contractId === id);
     contractAttachments.forEach(a => {
       if (!a.storageKey.startsWith('mock-')) {
@@ -344,11 +352,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getActiveDescriptionConfigs = () => attachmentConfigs.filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
 
   // Job title actions
-  const addJobTitle = (label: string): JobTitle => {
+  const addJobTitle = (label: string, teamId?: string): JobTitle => {
     const jt: JobTitle = {
       id: `jt-${crypto.randomUUID().slice(0, 8)}`,
       label,
       isActive: true,
+      teamId,
     };
     setJobTitles(prev => [...prev, jt]);
     return jt;
@@ -364,6 +373,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getActiveJobTitles = () => jobTitles.filter(jt => jt.isActive).sort((a, b) => a.label.localeCompare(b.label));
 
+  // Team actions
+  const addTeam = (name: string, description?: string): Team => {
+    const maxSort = teams.reduce((max, t) => Math.max(max, t.sortOrder), 0);
+    const team: Team = {
+      id: `team-${crypto.randomUUID().slice(0, 8)}`,
+      name,
+      description,
+      isActive: true,
+      sortOrder: maxSort + 1,
+    };
+    setTeams(prev => [...prev, team]);
+    return team;
+  };
+
+  const updateTeam = (id: string, data: Partial<Team>) => {
+    setTeams(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+  };
+
+  const deleteTeam = (id: string): boolean => {
+    const hasLinkedJobs = jobTitles.some(jt => jt.teamId === id);
+    if (hasLinkedJobs) return false;
+    setTeams(prev => prev.filter(t => t.id !== id));
+    return true;
+  };
+
+  const getActiveTeams = () => teams.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+
   // Reset to demo data
   const resetToDemo = () => {
     setClients(mockClients);
@@ -377,6 +413,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setAttachments(mockAttachments);
     setAttachmentConfigs(defaultAttachmentConfigs);
     setJobTitles(defaultJobTitles);
+    setTeams(defaultTeams);
     clearAllBlobs();
   };
   
@@ -427,6 +464,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateJobTitle,
       deleteJobTitle,
       getActiveJobTitles,
+      teams,
+      addTeam,
+      updateTeam,
+      deleteTeam,
+      getActiveTeams,
       resetToDemo,
     }}>
       {children}

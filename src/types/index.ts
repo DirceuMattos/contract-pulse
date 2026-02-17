@@ -1,8 +1,18 @@
+// Team Types
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 // Job Title Types
 export interface JobTitle {
   id: string;
   label: string;
   isActive: boolean;
+  teamId?: string;
 }
 
 // User and Auth Types
