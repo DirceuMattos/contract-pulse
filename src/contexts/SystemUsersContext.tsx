@@ -1,187 +1,134 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { SystemUser, SystemUserFormData } from '@/types/systemUser';
-import { mockSystemUsers } from '@/data/mockSystemUsers';
-import { getDefaultModuleAccess, isRoleAllowedForModule, MODULE_KEYS } from '@/types/moduleAccess';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SystemUsersContextType {
   users: SystemUser[];
-  addUser: (data: SystemUserFormData, createdById?: string) => SystemUser | null;
-  updateUser: (id: string, data: Partial<SystemUserFormData>) => boolean;
-  deleteUser: (id: string) => boolean;
+  loading: boolean;
+  addUser: (data: SystemUserFormData, createdById?: string) => Promise<SystemUser | null>;
+  updateUser: (id: string, data: Partial<SystemUserFormData>) => Promise<boolean>;
+  deleteUser: (id: string) => Promise<boolean>;
   getUser: (id: string) => SystemUser | undefined;
   getUserByEmail: (email: string) => SystemUser | undefined;
-  toggleUserStatus: (id: string) => boolean;
-  validateCredentials: (email: string, password: string) => SystemUser | null;
+  toggleUserStatus: (id: string) => Promise<boolean>;
+  refreshUsers: () => Promise<void>;
 }
 
 const SystemUsersContext = createContext<SystemUsersContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'bnp_system_users';
-const PASSWORDS_KEY = 'bnp_user_passwords';
-
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch {
-    return fallback;
-  }
+async function invokeManageUsers(action: string, payload: Record<string, unknown> = {}) {
+  const { data, error } = await supabase.functions.invoke('manage-users', {
+    body: { action, ...payload },
+  });
+  if (error) throw error;
+  return data;
 }
-
-function saveToStorage<T>(key: string, data: T): void {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-// Initialize default passwords for mock users
-const defaultPasswords: Record<string, string> = {
-  'usr-001': 'admin123',
-  'usr-002': 'demo123',
-  'usr-003': 'demo123',
-  'usr-004': 'demo123',
-};
 
 export function SystemUsersProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<SystemUser[]>(() => 
-    loadFromStorage(STORAGE_KEY, mockSystemUsers)
-  );
-  const [passwords, setPasswords] = useState<Record<string, string>>(() => 
-    loadFromStorage(PASSWORDS_KEY, defaultPasswords)
-  );
+  const { isAuthenticated, userRole } = useAuth();
+  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refreshUsers = useCallback(async () => {
+    if (!isAuthenticated || userRole !== 'c-level') {
+      setUsers([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await invokeManageUsers('list');
+      setUsers(data.users || []);
+    } catch (e) {
+      console.error('Failed to load users:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, userRole]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEY, users);
-  }, [users]);
+    refreshUsers();
+  }, [refreshUsers]);
 
-  useEffect(() => {
-    saveToStorage(PASSWORDS_KEY, passwords);
-  }, [passwords]);
-
-  const addUser = (data: SystemUserFormData, createdById?: string): SystemUser | null => {
-    // Check if email already exists
-    if (users.some(u => u.email.toLowerCase() === data.email.toLowerCase())) {
+  const addUser = async (data: SystemUserFormData, _createdById?: string): Promise<SystemUser | null> => {
+    try {
+      await invokeManageUsers('create', {
+        email: data.email,
+        password: data.password,
+        name: data.name,
+        role: data.role,
+        active: data.active,
+        moduleAccess: data.moduleAccess,
+      });
+      await refreshUsers();
+      const added = users.find(u => u.email.toLowerCase() === data.email.toLowerCase());
+      return added || null;
+    } catch (e: any) {
+      console.error('Failed to create user:', e);
       return null;
     }
-
-    const now = new Date().toISOString();
-    const moduleAccess = data.moduleAccess ?? getDefaultModuleAccess(data.role);
-    const newUser: SystemUser = {
-      id: `usr-${crypto.randomUUID().slice(0, 8)}`,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      active: data.active,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: createdById,
-      moduleAccess,
-    };
-
-    setUsers(prev => [...prev, newUser]);
-    setPasswords(prev => ({ ...prev, [newUser.id]: data.password }));
-    
-    return newUser;
   };
 
-  const updateUser = (id: string, data: Partial<SystemUserFormData>): boolean => {
-    const userExists = users.some(u => u.id === id);
-    if (!userExists) return false;
-
-    // Check email uniqueness if changing email
-    if (data.email) {
-      const emailTaken = users.some(
-        u => u.id !== id && u.email.toLowerCase() === data.email!.toLowerCase()
-      );
-      if (emailTaken) return false;
+  const updateUser = async (id: string, data: Partial<SystemUserFormData>): Promise<boolean> => {
+    try {
+      await invokeManageUsers('update', {
+        userId: id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        password: data.password || undefined,
+        moduleAccess: data.moduleAccess,
+      });
+      await refreshUsers();
+      return true;
+    } catch (e) {
+      console.error('Failed to update user:', e);
+      return false;
     }
-
-    setUsers(prev => prev.map(u => {
-      if (u.id !== id) return u;
-      const newRole = data.role ?? u.role;
-      // If role changed, reconcile moduleAccess: disable modules not allowed by new role
-      let newModuleAccess = data.moduleAccess ?? u.moduleAccess;
-      if (data.role && data.role !== u.role && newModuleAccess) {
-        const reconciled = { ...newModuleAccess };
-        for (const key of MODULE_KEYS) {
-          if (!isRoleAllowedForModule(newRole, key)) {
-            reconciled[key] = false;
-          }
-        }
-        newModuleAccess = reconciled;
-      }
-      return {
-        ...u,
-        ...(data.name && { name: data.name }),
-        ...(data.email && { email: data.email }),
-        ...(data.role && { role: data.role }),
-        ...(typeof data.active === 'boolean' && { active: data.active }),
-        ...(newModuleAccess && { moduleAccess: newModuleAccess }),
-        updatedAt: new Date().toISOString(),
-      };
-    }));
-
-    if (data.password) {
-      setPasswords(prev => ({ ...prev, [id]: data.password! }));
-    }
-
-    return true;
   };
 
-  const deleteUser = (id: string): boolean => {
-    // Prevent deleting the main admin
-    if (id === 'usr-001') return false;
-    
-    const userExists = users.some(u => u.id === id);
-    if (!userExists) return false;
+  const deleteUser = async (id: string): Promise<boolean> => {
+    try {
+      await invokeManageUsers('delete', { userId: id });
+      await refreshUsers();
+      return true;
+    } catch (e) {
+      console.error('Failed to delete user:', e);
+      return false;
+    }
+  };
 
-    setUsers(prev => prev.filter(u => u.id !== id));
-    setPasswords(prev => {
-      const newPasswords = { ...prev };
-      delete newPasswords[id];
-      return newPasswords;
-    });
-
-    return true;
+  const toggleUserStatus = async (id: string): Promise<boolean> => {
+    const user = users.find(u => u.id === id);
+    if (!user) return false;
+    try {
+      await invokeManageUsers('toggle-status', {
+        userId: id,
+        ban: user.active, // if active, ban; if inactive, unban
+      });
+      await refreshUsers();
+      return true;
+    } catch (e) {
+      console.error('Failed to toggle user status:', e);
+      return false;
+    }
   };
 
   const getUser = (id: string) => users.find(u => u.id === id);
-
-  const getUserByEmail = (email: string) => 
+  const getUserByEmail = (email: string) =>
     users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-  const toggleUserStatus = (id: string): boolean => {
-    // Prevent deactivating the main admin
-    if (id === 'usr-001') return false;
-    
-    const user = users.find(u => u.id === id);
-    if (!user) return false;
-
-    setUsers(prev => prev.map(u => 
-      u.id === id ? { ...u, active: !u.active, updatedAt: new Date().toISOString() } : u
-    ));
-
-    return true;
-  };
-
-  const validateCredentials = (email: string, password: string): SystemUser | null => {
-    const user = getUserByEmail(email);
-    if (!user || !user.active) return null;
-    
-    const storedPassword = passwords[user.id];
-    if (storedPassword !== password) return null;
-    
-    return user;
-  };
 
   return (
     <SystemUsersContext.Provider value={{
       users,
+      loading,
       addUser,
       updateUser,
       deleteUser,
       getUser,
       getUserByEmail,
       toggleUserStatus,
-      validateCredentials,
+      refreshUsers,
     }}>
       {children}
     </SystemUsersContext.Provider>

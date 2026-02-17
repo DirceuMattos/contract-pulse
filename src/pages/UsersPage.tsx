@@ -111,17 +111,17 @@ export default function UsersPage() {
   };
 
   const handleDelete = (user: SystemUser) => {
-    if (user.id === 'usr-001') {
-      toast.error('O usuário administrador principal não pode ser excluído.');
+    if (user.id === currentUser?.id) {
+      toast.error('Você não pode excluir a si mesmo.');
       return;
     }
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (userToDelete) {
-      const success = deleteUser(userToDelete.id);
+      const success = await deleteUser(userToDelete.id);
       if (success) {
         toast.success(`${userToDelete.name} foi removido do sistema.`);
       } else {
@@ -132,13 +132,13 @@ export default function UsersPage() {
     setUserToDelete(null);
   };
 
-  const handleToggleStatus = (user: SystemUser) => {
-    if (user.id === 'usr-001') {
-      toast.error('O usuário administrador principal não pode ser desativado.');
+  const handleToggleStatus = async (user: SystemUser) => {
+    if (user.id === currentUser?.id) {
+      toast.error('Você não pode desativar a si mesmo.');
       return;
     }
     
-    const success = toggleUserStatus(user.id);
+    const success = await toggleUserStatus(user.id);
     if (success) {
       toast.success(`${user.name} foi ${user.active ? 'desativado' : 'ativado'}.`);
     }
@@ -262,8 +262,8 @@ export default function UsersPage() {
                         </div>
                         <div>
                           <p className="font-medium text-foreground">{user.name}</p>
-                          {user.id === 'usr-001' && (
-                            <span className="text-xs text-primary">Administrador Principal</span>
+                         {user.id === currentUser?.id && (
+                            <span className="text-xs text-primary">Você</span>
                           )}
                         </div>
                       </div>
@@ -313,7 +313,7 @@ export default function UsersPage() {
                             <Activity className="w-4 h-4 mr-2" />
                             Logs de acessos
                           </DropdownMenuItem>
-                          {user.id !== 'usr-001' && (
+                          {user.id !== currentUser?.id && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 

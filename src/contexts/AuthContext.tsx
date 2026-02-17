@@ -1,73 +1,135 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
-import { useSystemUsers } from '@/contexts/SystemUsersContext';
+import { ModuleKey } from '@/types/moduleAccess';
+import { supabase } from '@/integrations/supabase/client';
+import type { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   canViewValues: boolean;
   canEdit: boolean;
   canViewHRCosts: boolean;
+  userRole: UserRole | null;
+  modulePermissions: Record<ModuleKey, boolean> | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'bnp_auth_user';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const { validateCredentials } = useSystemUsers();
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [modulePermissions, setModulePermissions] = useState<Record<ModuleKey, boolean> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const initializedRef = useRef(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
+  async function fetchRoleAndPermissions(userId: string): Promise<{ role: UserRole; perms: Record<ModuleKey, boolean> | null }> {
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
+
+    const role = (roleData?.role as UserRole) || 'leitor';
+
+    const { data: permsData } = await supabase
+      .from('user_module_permissions')
+      .select('module_key, is_allowed')
+      .eq('user_id', userId);
+
+    let perms: Record<ModuleKey, boolean> | null = null;
+    if (permsData && permsData.length > 0) {
+      perms = {} as Record<ModuleKey, boolean>;
+      for (const p of permsData) {
+        (perms as Record<string, boolean>)[p.module_key] = p.is_allowed;
       }
     }
+
+    return { role, perms };
+  }
+
+  async function buildUser(session: Session) {
+    const su = session.user;
+    const { role, perms } = await fetchRoleAndPermissions(su.id);
+
+    const authUser: User = {
+      id: su.id,
+      name: su.user_metadata?.name || su.email || '',
+      email: su.email || '',
+      role,
+      avatar: su.user_metadata?.avatar_url,
+    };
+
+    setUser(authUser);
+    setUserRole(role);
+    setModulePermissions(perms);
+  }
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        // Use setTimeout to avoid potential deadlock with Supabase client
+        setTimeout(async () => {
+          await buildUser(session);
+          setLoading(false);
+        }, 0);
+      } else {
+        setUser(null);
+        setUserRole(null);
+        setModulePermissions(null);
+        setLoading(false);
+      }
+    });
+
+    // Then check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        await buildUser(session);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    const systemUser = validateCredentials(email, password);
-    
-    if (!systemUser) {
-      throw new Error('Credenciais inválidas ou usuário inativo');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw new Error(error.message === 'Invalid login credentials'
+        ? 'Credenciais inválidas'
+        : error.message);
     }
-    
-    const authUser: User = {
-      id: systemUser.id,
-      name: systemUser.name,
-      email: systemUser.email,
-      role: systemUser.role as UserRole,
-      avatar: undefined,
-    };
-    
-    setUser(authUser);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
+    supabase.auth.signOut();
   };
 
-  const canViewValues = user?.role === 'c-level';
-  const canEdit = user?.role === 'c-level' || user?.role === 'intermediario';
-  const canViewHRCosts = user?.role === 'c-level';
+  const canViewValues = userRole === 'c-level';
+  const canEdit = userRole === 'c-level' || userRole === 'intermediario';
+  const canViewHRCosts = userRole === 'c-level';
 
   return (
     <AuthContext.Provider value={{
       user,
       isAuthenticated: !!user,
+      loading,
       login,
       logout,
       canViewValues,
       canEdit,
       canViewHRCosts,
+      userRole,
+      modulePermissions,
     }}>
       {children}
     </AuthContext.Provider>

@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [email, setEmail] = useState("");
@@ -21,11 +21,11 @@ export default function LoginPage() {
 
   // Redirect if already authenticated
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && isAuthenticated) {
       const from = (location.state as any)?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, authLoading, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,23 +177,9 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="bg-muted/50 rounded-xl p-3 sm:p-4 space-y-3">
-            <p className="text-sm font-medium text-foreground">Usuários de demonstração</p>
-            <div className="space-y-1.5 text-xs text-muted-foreground font-mono">
-              <p>
-                <span className="text-foreground break-all">admin@bnp.com.br</span> / admin123{" "}
-                <span className="text-primary">(C-Level)</span>
-              </p>
-              <p>
-                <span className="text-foreground break-all">joao.pereira@bnp.com.br</span> / teste123{" "}
-                <span className="text-blue-500">(Intermediário)</span>
-              </p>
-              <p>
-                <span className="text-foreground break-all">maria.santos@bnp.com.br</span> / demo123{" "}
-                <span className="text-muted-foreground">(Leitor)</span>
-              </p>
-            </div>
-          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Acesse com as credenciais fornecidas pelo administrador do sistema.
+          </p>
         </div>
       </motion.div>
     </div>
