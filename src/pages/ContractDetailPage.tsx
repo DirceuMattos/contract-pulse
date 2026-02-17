@@ -57,6 +57,7 @@ import { HealthStatus, Resource } from '@/types';
 import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 
@@ -84,6 +85,7 @@ export default function ContractDetailPage() {
   const navigate = useNavigate();
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
+  const { canAccessModule } = useModuleAccess();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
@@ -377,8 +379,8 @@ export default function ContractDetailPage() {
           <TabsTrigger value="recursos">Recursos ({contractResources.length})</TabsTrigger>
           <TabsTrigger value="escopo">Escopo</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
-          <TabsTrigger value="documentos">Documentos</TabsTrigger>
+          {canAccessModule('HISTORY') && <TabsTrigger value="historico">Histórico</TabsTrigger>}
+          {canAccessModule('DOCUMENTS') && <TabsTrigger value="documentos">Documentos</TabsTrigger>}
         </TabsList>
         
         <TabsContent value="resumo" className="space-y-6">

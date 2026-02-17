@@ -7,6 +7,8 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CommandPalette } from './CommandPalette';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
+import AccessDeniedPage from '@/pages/AccessDeniedPage';
 
 export function MainLayout() {
   const { isAuthenticated } = useAuth();
@@ -14,6 +16,7 @@ export function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { canAccessRoute } = useModuleAccess();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('bnp_sidebar_collapsed');
     return stored === 'true';
@@ -87,6 +90,7 @@ export function MainLayout() {
   }
 
   const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 72 : 260);
+  const routeAllowed = canAccessRoute(location.pathname);
   
   return (
     <div className="min-h-screen bg-background">
@@ -108,7 +112,7 @@ export function MainLayout() {
         className="pt-16 min-h-screen"
       >
         <div className="p-4 sm:p-6">
-          <Outlet />
+          {routeAllowed ? <Outlet /> : <AccessDeniedPage />}
         </div>
       </motion.main>
 

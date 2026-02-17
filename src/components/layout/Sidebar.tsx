@@ -23,6 +23,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { ModuleKey } from '@/types/moduleAccess';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -31,15 +33,15 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/clientes', label: 'Clientes', icon: Users },
-  { path: '/contratos', label: 'Contratos', icon: FileText },
-  { path: '/alertas', label: 'Alertas', icon: Bell },
-  { path: '/calculadora', label: 'Calculadora', icon: Calculator },
-  { path: '/usuarios', label: 'Usuários', icon: UserCog, adminOnly: true },
-  { path: '/configuracoes', label: 'Configurações', icon: Settings },
-  { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload },
+const navItems: { path: string; label: string; icon: any; moduleKey?: ModuleKey }[] = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
+  { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
+  { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
+  { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
+  { path: '/calculadora', label: 'Calculadora', icon: Calculator, moduleKey: 'CALCULATOR' },
+  { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
+  { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
+  { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
   { path: '/integracoes', label: 'Integrações', icon: Plug },
   { path: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ];
@@ -48,6 +50,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const location = useLocation();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
+  const { canAccessModule } = useModuleAccess();
 
   // Mobile drawer overlay
   if (isMobile) {
@@ -88,8 +91,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               {/* Navigation */}
               <nav className="flex-1 py-4 px-2 overflow-y-auto scrollbar-thin">
                 <ul className="space-y-1">
-                  {navItems
-                    .filter(item => !item.adminOnly || user?.role === 'c-level')
+                {navItems
+                    .filter(item => !item.moduleKey || canAccessModule(item.moduleKey))
                     .map((item) => {
                       const isActive = location.pathname === item.path || 
                         (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
@@ -185,7 +188,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       <nav className="flex-1 py-4 px-2 overflow-y-auto scrollbar-thin">
         <ul className="space-y-1">
           {navItems
-            .filter(item => !item.adminOnly || user?.role === 'c-level')
+            .filter(item => !item.moduleKey || canAccessModule(item.moduleKey))
             .map((item) => {
               const isActive = location.pathname === item.path || 
                 (item.path !== '/dashboard' && location.pathname.startsWith(item.path));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -12,7 +12,6 @@ import {
   Plus,
   Moon,
   Sun,
-  RotateCcw,
 } from 'lucide-react';
 import {
   CommandDialog,
@@ -25,6 +24,7 @@ import {
 } from '@/components/ui/command';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -35,6 +35,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user, canEdit } = useAuth();
+  const { canAccessModule } = useModuleAccess();
 
   const runCommand = (command: () => void) => {
     onOpenChange(false);
@@ -48,68 +49,88 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
 
         <CommandGroup heading="Navegar">
-          <CommandItem onSelect={() => runCommand(() => navigate('/dashboard'))}>
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-            <span className="ml-auto text-xs text-muted-foreground">g d</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/contratos'))}>
-            <FileText className="mr-2 h-4 w-4" />
-            Contratos
-            <span className="ml-auto text-xs text-muted-foreground">g c</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/clientes'))}>
-            <Building2 className="mr-2 h-4 w-4" />
-            Clientes
-            <span className="ml-auto text-xs text-muted-foreground">g r</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/calculadora'))}>
-            <Calculator className="mr-2 h-4 w-4" />
-            Calculadora
-            <span className="ml-auto text-xs text-muted-foreground">g k</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/alertas'))}>
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Alertas
-          </CommandItem>
-          {user?.role === 'c-level' && (
-            <>
-              <CommandItem onSelect={() => runCommand(() => navigate('/usuarios'))}>
-                <Users className="mr-2 h-4 w-4" />
-                Usuários
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => navigate('/usuarios/logs'))}>
-                <Users className="mr-2 h-4 w-4" />
-                Logs de Acesso
-              </CommandItem>
-            </>
+          {canAccessModule('DASHBOARD') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/dashboard'))}>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Dashboard
+              <span className="ml-auto text-xs text-muted-foreground">g d</span>
+            </CommandItem>
           )}
-          <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes'))}>
-            <Settings className="mr-2 h-4 w-4" />
-            Configurações
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/importar-exportar'))}>
-            <Upload className="mr-2 h-4 w-4" />
-            Importar / Exportar
-          </CommandItem>
+          {canAccessModule('CONTRACTS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/contratos'))}>
+              <FileText className="mr-2 h-4 w-4" />
+              Contratos
+              <span className="ml-auto text-xs text-muted-foreground">g c</span>
+            </CommandItem>
+          )}
+          {canAccessModule('CLIENTS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/clientes'))}>
+              <Building2 className="mr-2 h-4 w-4" />
+              Clientes
+              <span className="ml-auto text-xs text-muted-foreground">g r</span>
+            </CommandItem>
+          )}
+          {canAccessModule('CALCULATOR') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/calculadora'))}>
+              <Calculator className="mr-2 h-4 w-4" />
+              Calculadora
+              <span className="ml-auto text-xs text-muted-foreground">g k</span>
+            </CommandItem>
+          )}
+          {canAccessModule('ALERTS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/alertas'))}>
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Alertas
+            </CommandItem>
+          )}
+          {canAccessModule('USERS_ADMIN') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/usuarios'))}>
+              <Users className="mr-2 h-4 w-4" />
+              Usuários
+            </CommandItem>
+          )}
+          {canAccessModule('ACCESS_LOGS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/usuarios/logs'))}>
+              <Users className="mr-2 h-4 w-4" />
+              Logs de Acesso
+            </CommandItem>
+          )}
+          {canAccessModule('SETTINGS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes'))}>
+              <Settings className="mr-2 h-4 w-4" />
+              Configurações
+            </CommandItem>
+          )}
+          {canAccessModule('IMPORT_EXPORT') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/importar-exportar'))}>
+              <Upload className="mr-2 h-4 w-4" />
+              Importar / Exportar
+            </CommandItem>
+          )}
         </CommandGroup>
 
         {canEdit && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Ações rápidas">
-              <CommandItem onSelect={() => runCommand(() => navigate('/contratos/novo'))}>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo contrato
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => navigate('/clientes/novo'))}>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo cliente
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => navigate('/calculadora/nova'))}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova simulação
-              </CommandItem>
+              {canAccessModule('CONTRACTS') && (
+                <CommandItem onSelect={() => runCommand(() => navigate('/contratos/novo'))}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo contrato
+                </CommandItem>
+              )}
+              {canAccessModule('CLIENTS') && (
+                <CommandItem onSelect={() => runCommand(() => navigate('/clientes/novo'))}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo cliente
+                </CommandItem>
+              )}
+              {canAccessModule('CALCULATOR') && (
+                <CommandItem onSelect={() => runCommand(() => navigate('/calculadora/nova'))}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova simulação
+                </CommandItem>
+              )}
             </CommandGroup>
           </>
         )}

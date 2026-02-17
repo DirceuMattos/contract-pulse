@@ -1,4 +1,5 @@
 import { UserRole } from './index';
+import { ModuleKey } from './moduleAccess';
 
 export interface SystemUser {
   id: string;
@@ -9,6 +10,7 @@ export interface SystemUser {
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
+  moduleAccess?: Record<ModuleKey, boolean>;
 }
 
 export interface SystemUserFormData {
@@ -17,4 +19,5 @@ export interface SystemUserFormData {
   password: string;
   role: UserRole;
   active: boolean;
+  moduleAccess?: Record<ModuleKey, boolean>;
 }

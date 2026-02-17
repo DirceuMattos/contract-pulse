@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Lock, Mail, Shield } from 'lucide-react';
+import { User, Lock, Mail, Shield, Search, RotateCcw, ToggleLeft, ToggleRight } from 'lucide-react';
 import { SystemUser, SystemUserFormData } from '@/types/systemUser';
 import { UserRole } from '@/types';
+import { ModuleKey, MODULE_CATALOG, getDefaultModuleAccess, isRoleAllowedForModule } from '@/types/moduleAccess';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -34,6 +36,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 const userFormSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
@@ -65,6 +80,11 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
   const { toast } = useToast();
   const isEditing = !!editingUser;
 
+  const [moduleAccess, setModuleAccess] = useState<Record<ModuleKey, boolean>>(() =>
+    getDefaultModuleAccess('leitor')
+  );
+  const [moduleSearch, setModuleSearch] = useState('');
+
   const form = useForm<SystemUserFormData>({
     resolver: zodResolver(isEditing ? userEditSchema : userFormSchema),
     defaultValues: {
@@ -76,6 +96,8 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
     },
   });
 
+  const watchedRole = form.watch('role');
+
   useEffect(() => {
     if (editingUser) {
       form.reset({
@@ -85,6 +107,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         role: editingUser.role,
         active: editingUser.active,
       });
+      setModuleAccess(editingUser.moduleAccess ?? getDefaultModuleAccess(editingUser.role));
     } else {
       form.reset({
         name: '',
@@ -93,17 +116,71 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         role: 'leitor',
         active: true,
       });
+      setModuleAccess(getDefaultModuleAccess('leitor'));
     }
+    setModuleSearch('');
   }, [editingUser, form]);
 
+  // When role changes, reconcile moduleAccess
+  useEffect(() => {
+    setModuleAccess(prev => {
+      const updated = { ...prev };
+      for (const mod of MODULE_CATALOG) {
+        if (!isRoleAllowedForModule(watchedRole, mod.key)) {
+          updated[mod.key] = false;
+        }
+      }
+      return updated;
+    });
+  }, [watchedRole]);
+
+  const toggleModule = (key: ModuleKey, value: boolean) => {
+    // Anti-lockout: prevent admin from disabling their own USERS_ADMIN
+    if (key === 'USERS_ADMIN' && isEditing && editingUser?.id === currentUser?.id && !value) {
+      return;
+    }
+    setModuleAccess(prev => ({ ...prev, [key]: value }));
+  };
+
+  const activateAll = () => {
+    const updated = { ...moduleAccess };
+    for (const mod of MODULE_CATALOG) {
+      if (isRoleAllowedForModule(watchedRole, mod.key)) {
+        updated[mod.key] = true;
+      }
+    }
+    setModuleAccess(updated);
+  };
+
+  const deactivateAll = () => {
+    const updated = { ...moduleAccess };
+    for (const mod of MODULE_CATALOG) {
+      // Anti-lockout
+      if (mod.key === 'USERS_ADMIN' && isEditing && editingUser?.id === currentUser?.id) continue;
+      updated[mod.key] = false;
+    }
+    setModuleAccess(updated);
+  };
+
+  const resetToDefaults = () => {
+    setModuleAccess(getDefaultModuleAccess(watchedRole));
+  };
+
+  const filteredModules = MODULE_CATALOG.filter(mod =>
+    mod.label.toLowerCase().includes(moduleSearch.toLowerCase()) ||
+    mod.description.toLowerCase().includes(moduleSearch.toLowerCase())
+  );
+
   const onSubmit = (data: SystemUserFormData) => {
+    const dataWithAccess = { ...data, moduleAccess };
+
     if (isEditing) {
-      // For editing, only include password if it was changed
       const updateData: Partial<SystemUserFormData> = {
         name: data.name,
         email: data.email,
         role: data.role,
         active: data.active,
+        moduleAccess,
       };
       
       if (data.password && data.password.length > 0) {
@@ -126,14 +203,13 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         });
       }
     } else {
-      // Check if email already exists
       const existingUser = getUserByEmail(data.email);
       if (existingUser) {
         form.setError('email', { message: 'Este e-mail já está cadastrado' });
         return;
       }
 
-      const newUser = addUser(data, currentUser?.id);
+      const newUser = addUser(dataWithAccess, currentUser?.id);
       
       if (newUser) {
         toast({
@@ -153,7 +229,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
@@ -284,6 +360,107 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                 </FormItem>
               )}
             />
+
+            {/* Module Permissions Table */}
+            <div className="space-y-3 border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Permissões por Módulo
+                </h4>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={activateAll} className="gap-1">
+                  <ToggleRight className="w-3 h-3" />
+                  Ativar todos
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={deactivateAll} className="gap-1">
+                  <ToggleLeft className="w-3 h-3" />
+                  Desativar todos
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={resetToDefaults} className="gap-1">
+                  <RotateCcw className="w-3 h-3" />
+                  Restaurar padrão
+                </Button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar módulo..."
+                  value={moduleSearch}
+                  onChange={(e) => setModuleSearch(e.target.value)}
+                  className="pl-10 h-8 text-sm"
+                />
+              </div>
+
+              <div className="border rounded-md max-h-[300px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Módulo</TableHead>
+                      <TableHead className="text-xs hidden sm:table-cell">Descrição</TableHead>
+                      <TableHead className="text-xs w-[80px] text-center">Acesso</TableHead>
+                      <TableHead className="text-xs w-[120px]">Restrição</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredModules.map((mod) => {
+                      const roleAllowed = isRoleAllowedForModule(watchedRole, mod.key);
+                      const isSelfAdmin = isEditing && editingUser?.id === currentUser?.id && mod.key === 'USERS_ADMIN';
+                      const isDisabled = !roleAllowed || isSelfAdmin;
+
+                      return (
+                        <TableRow key={mod.key}>
+                          <TableCell className="text-sm font-medium py-2">
+                            <div className="flex items-center gap-1.5">
+                              {mod.isSubmodule && <span className="text-muted-foreground text-xs">└</span>}
+                              {mod.label}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
+                            {mod.description}
+                          </TableCell>
+                          <TableCell className="py-2 text-center">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="inline-flex">
+                                  <Switch
+                                    checked={roleAllowed ? (moduleAccess[mod.key] ?? true) : false}
+                                    onCheckedChange={(val) => toggleModule(mod.key, val)}
+                                    disabled={isDisabled}
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              {isDisabled && (
+                                <TooltipContent>
+                                  {!roleAllowed
+                                    ? 'Bloqueado pelo papel do usuário'
+                                    : 'Não pode ser desativado para evitar bloqueio do sistema'}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {!roleAllowed && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Restrito por papel
+                              </Badge>
+                            )}
+                            {isSelfAdmin && roleAllowed && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Anti-lockout
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
 
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
