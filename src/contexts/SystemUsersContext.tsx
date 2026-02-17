@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SystemUser, SystemUserFormData } from '@/types/systemUser';
 import { mockSystemUsers } from '@/data/mockSystemUsers';
+import { getDefaultModuleAccess, isRoleAllowedForModule, MODULE_KEYS } from '@/types/moduleAccess';
 
 interface SystemUsersContextType {
   users: SystemUser[];
@@ -62,6 +63,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
     }
 
     const now = new Date().toISOString();
+    const moduleAccess = data.moduleAccess ?? getDefaultModuleAccess(data.role);
     const newUser: SystemUser = {
       id: `usr-${crypto.randomUUID().slice(0, 8)}`,
       name: data.name,
@@ -71,6 +73,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       updatedAt: now,
       createdBy: createdById,
+      moduleAccess,
     };
 
     setUsers(prev => [...prev, newUser]);
@@ -93,12 +96,25 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
 
     setUsers(prev => prev.map(u => {
       if (u.id !== id) return u;
+      const newRole = data.role ?? u.role;
+      // If role changed, reconcile moduleAccess: disable modules not allowed by new role
+      let newModuleAccess = data.moduleAccess ?? u.moduleAccess;
+      if (data.role && data.role !== u.role && newModuleAccess) {
+        const reconciled = { ...newModuleAccess };
+        for (const key of MODULE_KEYS) {
+          if (!isRoleAllowedForModule(newRole, key)) {
+            reconciled[key] = false;
+          }
+        }
+        newModuleAccess = reconciled;
+      }
       return {
         ...u,
         ...(data.name && { name: data.name }),
         ...(data.email && { email: data.email }),
         ...(data.role && { role: data.role }),
         ...(typeof data.active === 'boolean' && { active: data.active }),
+        ...(newModuleAccess && { moduleAccess: newModuleAccess }),
         updatedAt: new Date().toISOString(),
       };
     }));
