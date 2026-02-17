@@ -1,8 +1,28 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle, Team } from '@/types';
-import { mockClients, mockContracts, mockResources, mockAlerts, mockSnapshots, defaultSettings, mockOverheadItems, mockHistoryEvents, defaultAttachmentConfigs, mockAttachments, defaultJobTitles, defaultTeams } from '@/data/mockData';
-import { deleteBlob, clearAllBlobs } from '@/lib/indexedDBStorage';
-
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem,
+  HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle, Team,
+} from '@/types';
+import {
+  clientFromDb, clientToDb,
+  contractFromDb, contractToDb,
+  resourceFromDb, resourceToDb,
+  overheadFromDb, overheadToDb,
+  historyEventFromDb, historyEventToDb,
+  snapshotFromDb, snapshotToDb,
+  settingsFromDb, settingsToDb,
+  attachmentFromDb, attachmentToDb,
+  attachmentConfigFromDb, attachmentConfigToDb,
+  jobTitleFromDb, jobTitleToDb,
+  teamFromDb, teamToDb,
+} from '@/lib/dbMappers';
+import {
+  mockClients, mockContracts, mockResources, mockSnapshots,
+  defaultSettings, mockOverheadItems, mockHistoryEvents,
+  defaultAttachmentConfigs, mockAttachments, defaultJobTitles, defaultTeams,
+} from '@/data/mockData';
 
 interface DataContextType {
   clients: Client[];
@@ -17,458 +37,541 @@ interface DataContextType {
   attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
   jobTitles: JobTitle[];
   teams: Team[];
-  
-  // Client actions
-  addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Client;
-  updateClient: (id: string, data: Partial<Client>) => void;
-  deleteClient: (id: string) => void;
+  loading: boolean;
+
+  addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Client>;
+  updateClient: (id: string, data: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
   getClient: (id: string) => Client | undefined;
-  
-  // Contract actions
-  addContract: (contract: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>) => Contract;
-  updateContract: (id: string, data: Partial<Contract>) => void;
-  deleteContract: (id: string) => void;
+
+  addContract: (contract: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Contract>;
+  updateContract: (id: string, data: Partial<Contract>) => Promise<void>;
+  deleteContract: (id: string) => Promise<void>;
   getContract: (id: string) => Contract | undefined;
   getContractsByClient: (clientId: string) => Contract[];
-  
-  // Resource actions
-  addResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => Resource;
-  updateResource: (id: string, data: Partial<Resource>) => void;
-  deleteResource: (id: string) => void;
+
+  addResource: (resource: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Resource>;
+  updateResource: (id: string, data: Partial<Resource>) => Promise<void>;
+  deleteResource: (id: string) => Promise<void>;
   getResourcesByContract: (contractId: string) => Resource[];
-  
-  // Settings actions
-  updateSettings: (data: Partial<Settings>) => void;
-  
-  // Snapshot actions
-  addSnapshot: (snapshot: Omit<Snapshot, 'id' | 'createdAt'>) => Snapshot;
+
+  updateSettings: (data: Partial<Settings>) => Promise<void>;
+
+  addSnapshot: (snapshot: Omit<Snapshot, 'id' | 'createdAt'>) => Promise<Snapshot>;
   getSnapshotsByContract: (contractId: string) => Snapshot[];
-  
-  // Overhead actions
-  addOverheadItem: (item: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => OverheadItem;
-  updateOverheadItem: (id: string, data: Partial<OverheadItem>) => void;
-  deleteOverheadItem: (id: string) => void;
+
+  addOverheadItem: (item: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<OverheadItem>;
+  updateOverheadItem: (id: string, data: Partial<OverheadItem>) => Promise<void>;
+  deleteOverheadItem: (id: string) => Promise<void>;
   getOverheadByContract: (contractId: string) => OverheadItem[];
 
-  // History event actions
-  addHistoryEvent: (event: Omit<HistoryEvent, 'id' | 'createdAt' | 'updatedAt'>) => HistoryEvent;
-  updateHistoryEvent: (id: string, data: Partial<HistoryEvent>) => void;
-  deleteHistoryEvent: (id: string) => void;
+  addHistoryEvent: (event: Omit<HistoryEvent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<HistoryEvent>;
+  updateHistoryEvent: (id: string, data: Partial<HistoryEvent>) => Promise<void>;
+  deleteHistoryEvent: (id: string) => Promise<void>;
   getHistoryEventsByContract: (contractId: string) => HistoryEvent[];
 
-  // Attachment actions
-  addAttachment: (attachment: Omit<DocumentAttachment, 'id'>) => DocumentAttachment;
-  deleteAttachment: (id: string) => void;
+  addAttachment: (attachment: Omit<DocumentAttachment, 'id'>) => Promise<DocumentAttachment>;
+  deleteAttachment: (id: string) => Promise<void>;
   getAttachmentsByContract: (contractId: string) => DocumentAttachment[];
-  
-  // Attachment config actions
-  addDescriptionConfig: (config: Omit<AttachmentDescriptionConfig, 'id'>) => AttachmentDescriptionConfig;
-  updateDescriptionConfig: (id: string, data: Partial<AttachmentDescriptionConfig>) => void;
+
+  addDescriptionConfig: (config: Omit<AttachmentDescriptionConfig, 'id'>) => Promise<AttachmentDescriptionConfig>;
+  updateDescriptionConfig: (id: string, data: Partial<AttachmentDescriptionConfig>) => Promise<void>;
   getActiveDescriptionConfigs: () => AttachmentDescriptionConfig[];
 
-  // Job title actions
-  addJobTitle: (label: string, teamId?: string) => JobTitle;
-  updateJobTitle: (id: string, data: Partial<JobTitle>) => void;
-  deleteJobTitle: (id: string) => void;
+  addJobTitle: (label: string, teamId?: string) => Promise<JobTitle>;
+  updateJobTitle: (id: string, data: Partial<JobTitle>) => Promise<void>;
+  deleteJobTitle: (id: string) => Promise<void>;
   getActiveJobTitles: () => JobTitle[];
 
-  // Team actions
-  addTeam: (name: string, description?: string) => Team;
-  updateTeam: (id: string, data: Partial<Team>) => void;
-  deleteTeam: (id: string) => boolean;
+  addTeam: (name: string, description?: string) => Promise<Team>;
+  updateTeam: (id: string, data: Partial<Team>) => Promise<void>;
+  deleteTeam: (id: string) => Promise<boolean>;
   getActiveTeams: () => Team[];
 
-  // Utils
-  resetToDemo: () => void;
+  resetToDemo: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  clients: 'bnp_clients',
-  contracts: 'bnp_contracts',
-  resources: 'bnp_resources',
-  settings: 'bnp_settings',
-  alerts: 'bnp_alerts',
-  snapshots: 'bnp_snapshots',
-  overhead: 'bnp_overhead',
-  historyEvents: 'bnp_history_events',
-  attachments: 'bnp_attachments',
-  attachmentConfigs: 'bnp_attachment_configs',
-  jobTitles: 'bnp_job_titles',
-  teams: 'bnp_teams',
-};
-
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveToStorage<T>(key: string, data: T): void {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<Client[]>(() => loadFromStorage(STORAGE_KEYS.clients, mockClients));
-  const [contracts, setContracts] = useState<Contract[]>(() => loadFromStorage(STORAGE_KEYS.contracts, mockContracts));
-  const [resources, setResources] = useState<Resource[]>(() => loadFromStorage(STORAGE_KEYS.resources, mockResources));
-  const [settings, setSettings] = useState<Settings>(() => loadFromStorage(STORAGE_KEYS.settings, defaultSettings));
-  const [alerts, setAlerts] = useState<Alert[]>(() => loadFromStorage(STORAGE_KEYS.alerts, mockAlerts));
-  const [snapshots, setSnapshots] = useState<Snapshot[]>(() => loadFromStorage(STORAGE_KEYS.snapshots, mockSnapshots));
-  const [overheadItems, setOverheadItems] = useState<OverheadItem[]>(() => loadFromStorage(STORAGE_KEYS.overhead, mockOverheadItems));
-  const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>(() => loadFromStorage(STORAGE_KEYS.historyEvents, mockHistoryEvents));
-  const [attachments, setAttachments] = useState<DocumentAttachment[]>(() => loadFromStorage(STORAGE_KEYS.attachments, mockAttachments));
-  const [attachmentConfigs, setAttachmentConfigs] = useState<AttachmentDescriptionConfig[]>(() => loadFromStorage(STORAGE_KEYS.attachmentConfigs, defaultAttachmentConfigs));
-  const [jobTitles, setJobTitles] = useState<JobTitle[]>(() => loadFromStorage(STORAGE_KEYS.jobTitles, defaultJobTitles));
-  const [teams, setTeams] = useState<Team[]>(() => loadFromStorage(STORAGE_KEYS.teams, defaultTeams));
-  
-  // Persist to localStorage
-  useEffect(() => { saveToStorage(STORAGE_KEYS.clients, clients); }, [clients]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.contracts, contracts); }, [contracts]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.resources, resources); }, [resources]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.settings, settings); }, [settings]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.alerts, alerts); }, [alerts]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.snapshots, snapshots); }, [snapshots]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.overhead, overheadItems); }, [overheadItems]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.historyEvents, historyEvents); }, [historyEvents]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.attachments, attachments); }, [attachments]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.attachmentConfigs, attachmentConfigs); }, [attachmentConfigs]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.jobTitles, jobTitles); }, [jobTitles]);
-  useEffect(() => { saveToStorage(STORAGE_KEYS.teams, teams); }, [teams]);
-  
-  // Client actions
-  const addClient = (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client => {
-    const now = new Date().toISOString();
-    const client: Client = {
-      ...data,
-      id: `cli-${crypto.randomUUID().slice(0, 8)}`,
-      createdAt: now,
-      updatedAt: now,
+  const { toast } = useToast();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [alerts] = useState<Alert[]>([]);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [overheadItems, setOverheadItems] = useState<OverheadItem[]>([]);
+  const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>([]);
+  const [attachments, setAttachments] = useState<DocumentAttachment[]>([]);
+  const [attachmentConfigs, setAttachmentConfigs] = useState<AttachmentDescriptionConfig[]>([]);
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+
+  const handleError = useCallback((err: unknown, message: string) => {
+    console.error(message, err);
+    toast({ title: 'Erro', description: message, variant: 'destructive' });
+  }, [toast]);
+
+  // ─── Load all data ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const loadAll = async () => {
+      setLoading(true);
+      try {
+        const [
+          { data: clientsData },
+          { data: contractsData },
+          { data: resourcesData },
+          { data: overheadData },
+          { data: historyData },
+          { data: snapshotsData },
+          { data: settingsData },
+          { data: attachmentsData },
+          { data: configsData },
+          { data: jobTitlesData },
+          { data: teamsData },
+        ] = await Promise.all([
+          supabase.from('clients').select('*').order('created_at'),
+          supabase.from('contracts').select('*').order('created_at'),
+          supabase.from('resources').select('*').order('created_at'),
+          supabase.from('overhead_items').select('*').order('created_at'),
+          supabase.from('history_events').select('*').order('event_date'),
+          supabase.from('snapshots').select('*').order('created_at'),
+          supabase.from('settings').select('*').limit(1),
+          supabase.from('document_attachments').select('*').order('uploaded_at'),
+          supabase.from('attachment_description_configs').select('*').order('sort_order'),
+          supabase.from('job_titles').select('*').order('label'),
+          supabase.from('teams').select('*').order('sort_order'),
+        ]);
+
+        setClients((clientsData ?? []).map(r => clientFromDb(r as unknown as Record<string, unknown>)));
+        setContracts((contractsData ?? []).map(r => contractFromDb(r as unknown as Record<string, unknown>)));
+        setResources((resourcesData ?? []).map(r => resourceFromDb(r as unknown as Record<string, unknown>)));
+        setOverheadItems((overheadData ?? []).map(r => overheadFromDb(r as unknown as Record<string, unknown>)));
+        setHistoryEvents((historyData ?? []).map(r => historyEventFromDb(r as unknown as Record<string, unknown>)));
+        setSnapshots((snapshotsData ?? []).map(r => snapshotFromDb(r as unknown as Record<string, unknown>)));
+        setAttachments((attachmentsData ?? []).map(r => attachmentFromDb(r as unknown as Record<string, unknown>)));
+        setAttachmentConfigs((configsData ?? []).map(r => attachmentConfigFromDb(r as unknown as Record<string, unknown>)));
+        setJobTitles((jobTitlesData ?? []).map(r => jobTitleFromDb(r as unknown as Record<string, unknown>)));
+        setTeams((teamsData ?? []).map(r => teamFromDb(r as unknown as Record<string, unknown>)));
+
+        if (settingsData && settingsData.length > 0) {
+          const row = settingsData[0] as unknown as Record<string, unknown>;
+          setSettingsId(row.id as string);
+          setSettings(settingsFromDb(row));
+        }
+      } catch (err) {
+        handleError(err, 'Erro ao carregar dados do banco.');
+      } finally {
+        setLoading(false);
+      }
     };
+    loadAll();
+  }, []);
+
+  // ─── CLIENT ───────────────────────────────────────────────────────────────────
+  const addClient = useCallback(async (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> => {
+    const { data: row, error } = await supabase.from('clients').insert(clientToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar cliente.'); throw error; }
+    const client = clientFromDb(row as unknown as Record<string, unknown>);
     setClients(prev => [...prev, client]);
     return client;
-  };
-  
-  const updateClient = (id: string, data: Partial<Client>) => {
-    setClients(prev => prev.map(c => 
-      c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c
-    ));
-  };
-  
-  const deleteClient = (id: string) => {
+  }, [handleError]);
+
+  const updateClient = useCallback(async (id: string, data: Partial<Client>): Promise<void> => {
+    const prev = clients.find(c => c.id === id)!;
+    const merged = { ...prev, ...data };
+    const dbData: Record<string, unknown> = clientToDb(merged);
+    setClients(prevList => prevList.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
+    const { error } = await supabase.from('clients').update(dbData).eq('id', id);
+    if (error) { setClients(prevList => prevList.map(c => c.id === id ? prev : c)); handleError(error, 'Erro ao atualizar cliente.'); }
+  }, [clients, handleError]);
+
+  const deleteClient = useCallback(async (id: string): Promise<void> => {
+    const snapshot = clients;
     setClients(prev => prev.filter(c => c.id !== id));
-    const relatedContracts = contracts.filter(c => c.clientId === id);
-    relatedContracts.forEach(contract => {
-      deleteContract(contract.id);
-    });
-  };
-  
-  const getClient = (id: string) => clients.find(c => c.id === id);
-  
-  // Contract actions
-  const addContract = (data: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>): Contract => {
-    const now = new Date().toISOString();
-    const contract: Contract = {
-      ...data,
-      id: `ctr-${crypto.randomUUID().slice(0, 8)}`,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const { error } = await supabase.from('clients').delete().eq('id', id);
+    if (error) { setClients(snapshot); handleError(error, 'Erro ao excluir cliente.'); }
+  }, [clients, handleError]);
+
+  const getClient = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
+
+  // ─── CONTRACT ─────────────────────────────────────────────────────────────────
+  const addContract = useCallback(async (data: Omit<Contract, 'id' | 'createdAt' | 'updatedAt'>): Promise<Contract> => {
+    const { data: row, error } = await supabase.from('contracts').insert(contractToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar contrato.'); throw error; }
+    const contract = contractFromDb(row as unknown as Record<string, unknown>);
     setContracts(prev => [...prev, contract]);
     return contract;
-  };
-  
-  const updateContract = (id: string, data: Partial<Contract>) => {
-    setContracts(prev => prev.map(c => 
-      c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c
-    ));
-  };
-  
-  const deleteContract = (id: string) => {
-    const contractAttachments = attachments.filter(a => a.contractId === id);
-    contractAttachments.forEach(a => {
-      if (!a.storageKey.startsWith('mock-')) {
-        deleteBlob(a.storageKey);
-      }
-    });
-    setAttachments(prev => prev.filter(a => a.contractId !== id));
+  }, [handleError]);
+
+  const updateContract = useCallback(async (id: string, data: Partial<Contract>): Promise<void> => {
+    const prev = contracts.find(c => c.id === id)!;
+    if (!prev) return;
+    const merged = { ...prev, ...data };
+    const dbData = contractToDb(merged);
+    if (data.ultimaAtualizacaoRecursos) dbData.ultima_atualizacao_recursos = data.ultimaAtualizacaoRecursos;
+    setContracts(prevList => prevList.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
+    const { error } = await supabase.from('contracts').update(dbData).eq('id', id);
+    if (error) { setContracts(prevList => prevList.map(c => c.id === id ? prev : c)); handleError(error, 'Erro ao atualizar contrato.'); }
+  }, [contracts, handleError]);
+
+  const deleteContract = useCallback(async (id: string): Promise<void> => {
+    const snapshot = { contracts, resources, overheadItems, snapshots, historyEvents, attachments };
     setContracts(prev => prev.filter(c => c.id !== id));
     setResources(prev => prev.filter(r => r.contractId !== id));
     setOverheadItems(prev => prev.filter(o => o.contractId !== id));
     setSnapshots(prev => prev.filter(s => s.contractId !== id));
-    setAlerts(prev => prev.filter(a => a.contractId !== id));
     setHistoryEvents(prev => prev.filter(e => e.contractId !== id));
-  };
-  
-  const getContract = (id: string) => contracts.find(c => c.id === id);
-  
-  const getContractsByClient = (clientId: string) => contracts.filter(c => c.clientId === clientId);
-  
-  // Resource actions
-  const addResource = (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>): Resource => {
-    const now = new Date().toISOString();
-    const resource: Resource = {
-      ...data,
-      id: `res-${crypto.randomUUID().slice(0, 8)}`,
-      createdAt: now,
-      updatedAt: now,
-    };
+    setAttachments(prev => prev.filter(a => a.contractId !== id));
+    const { error } = await supabase.from('contracts').delete().eq('id', id);
+    if (error) {
+      setContracts(snapshot.contracts);
+      setResources(snapshot.resources);
+      setOverheadItems(snapshot.overheadItems);
+      setSnapshots(snapshot.snapshots);
+      setHistoryEvents(snapshot.historyEvents);
+      setAttachments(snapshot.attachments);
+      handleError(error, 'Erro ao excluir contrato.');
+    }
+  }, [contracts, resources, overheadItems, snapshots, historyEvents, attachments, handleError]);
+
+  const getContract = useCallback((id: string) => contracts.find(c => c.id === id), [contracts]);
+  const getContractsByClient = useCallback((clientId: string) => contracts.filter(c => c.clientId === clientId), [contracts]);
+
+  // ─── RESOURCE ─────────────────────────────────────────────────────────────────
+  const addResource = useCallback(async (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>): Promise<Resource> => {
+    const { data: row, error } = await supabase.from('resources').insert(resourceToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar recurso.'); throw error; }
+    const resource = resourceFromDb(row as unknown as Record<string, unknown>);
     setResources(prev => [...prev, resource]);
-    updateContract(data.contractId, { ultimaAtualizacaoRecursos: now });
+    await updateContract(data.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
     return resource;
-  };
-  
-  const updateResource = (id: string, data: Partial<Resource>) => {
-    const resource = resources.find(r => r.id === id);
-    if (resource) {
-      setResources(prev => prev.map(r => 
-        r.id === id ? { ...r, ...data, updatedAt: new Date().toISOString() } : r
-      ));
-      updateContract(resource.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
+  }, [handleError, updateContract]);
+
+  const updateResource = useCallback(async (id: string, data: Partial<Resource>): Promise<void> => {
+    const prev = resources.find(r => r.id === id)!;
+    if (!prev) return;
+    const merged = { ...prev, ...data };
+    setResources(prevList => prevList.map(r => r.id === id ? { ...r, ...data, updatedAt: new Date().toISOString() } : r));
+    const { error } = await supabase.from('resources').update(resourceToDb(merged)).eq('id', id);
+    if (error) { setResources(prevList => prevList.map(r => r.id === id ? prev : r)); handleError(error, 'Erro ao atualizar recurso.'); }
+    else await updateContract(prev.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
+  }, [resources, handleError, updateContract]);
+
+  const deleteResource = useCallback(async (id: string): Promise<void> => {
+    const prev = resources.find(r => r.id === id);
+    setResources(p => p.filter(r => r.id !== id));
+    const { error } = await supabase.from('resources').delete().eq('id', id);
+    if (error) { setResources(p => prev ? [...p, prev] : p); handleError(error, 'Erro ao excluir recurso.'); }
+    else if (prev) await updateContract(prev.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
+  }, [resources, handleError, updateContract]);
+
+  const getResourcesByContract = useCallback((contractId: string) => resources.filter(r => r.contractId === contractId), [resources]);
+
+  // ─── SETTINGS ─────────────────────────────────────────────────────────────────
+  const updateSettings = useCallback(async (data: Partial<Settings>): Promise<void> => {
+    const prev = settings;
+    setSettings(s => ({ ...s, ...data }));
+    if (settingsId) {
+      const { error } = await supabase.from('settings').update(settingsToDb(data)).eq('id', settingsId);
+      if (error) { setSettings(prev); handleError(error, 'Erro ao atualizar configurações.'); }
     }
-  };
-  
-  const deleteResource = (id: string) => {
-    const resource = resources.find(r => r.id === id);
-    if (resource) {
-      setResources(prev => prev.filter(r => r.id !== id));
-      updateContract(resource.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
-    }
-  };
-  
-  const getResourcesByContract = (contractId: string) => resources.filter(r => r.contractId === contractId);
-  
-  // Settings actions
-  const updateSettings = (data: Partial<Settings>) => {
-    setSettings(prev => ({ ...prev, ...data }));
-  };
-  
-  // Snapshot actions
-  const addSnapshot = (data: Omit<Snapshot, 'id' | 'createdAt'>): Snapshot => {
-    const snapshot: Snapshot = {
-      ...data,
-      id: `snap-${crypto.randomUUID().slice(0, 8)}`,
-      createdAt: new Date().toISOString(),
-    };
+  }, [settings, settingsId, handleError]);
+
+  // ─── SNAPSHOT ─────────────────────────────────────────────────────────────────
+  const addSnapshot = useCallback(async (data: Omit<Snapshot, 'id' | 'createdAt'>): Promise<Snapshot> => {
+    const { data: row, error } = await supabase.from('snapshots').insert(snapshotToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao salvar snapshot.'); throw error; }
+    const snapshot = snapshotFromDb(row as unknown as Record<string, unknown>);
     setSnapshots(prev => [...prev, snapshot]);
     return snapshot;
-  };
-  
-  const getSnapshotsByContract = (contractId: string) => 
-    snapshots.filter(s => s.contractId === contractId).sort((a, b) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
+  }, [handleError]);
 
-  // Overhead actions
-  const addOverheadItem = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>): OverheadItem => {
-    const now = new Date().toISOString();
-    const item: OverheadItem = {
-      ...data,
-      id: `ovh-${crypto.randomUUID().slice(0, 8)}`,
-      createdAt: now,
-      updatedAt: now,
-    };
+  const getSnapshotsByContract = useCallback((contractId: string) =>
+    snapshots.filter(s => s.contractId === contractId).sort((a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    ), [snapshots]);
+
+  // ─── OVERHEAD ─────────────────────────────────────────────────────────────────
+  const addOverheadItem = useCallback(async (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<OverheadItem> => {
+    const { data: row, error } = await supabase.from('overhead_items').insert(overheadToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar overhead.'); throw error; }
+    const item = overheadFromDb(row as unknown as Record<string, unknown>);
     setOverheadItems(prev => [...prev, item]);
     return item;
-  };
+  }, [handleError]);
 
-  const updateOverheadItem = (id: string, data: Partial<OverheadItem>) => {
-    setOverheadItems(prev => prev.map(o =>
-      o.id === id ? { ...o, ...data, updatedAt: new Date().toISOString() } : o
-    ));
-  };
+  const updateOverheadItem = useCallback(async (id: string, data: Partial<OverheadItem>): Promise<void> => {
+    const prev = overheadItems.find(o => o.id === id)!;
+    if (!prev) return;
+    const merged = { ...prev, ...data };
+    setOverheadItems(prevList => prevList.map(o => o.id === id ? { ...o, ...data, updatedAt: new Date().toISOString() } : o));
+    const { error } = await supabase.from('overhead_items').update(overheadToDb(merged)).eq('id', id);
+    if (error) { setOverheadItems(prevList => prevList.map(o => o.id === id ? prev : o)); handleError(error, 'Erro ao atualizar overhead.'); }
+  }, [overheadItems, handleError]);
 
-  const deleteOverheadItem = (id: string) => {
-    setOverheadItems(prev => prev.filter(o => o.id !== id));
-  };
+  const deleteOverheadItem = useCallback(async (id: string): Promise<void> => {
+    setOverheadItems(p => p.filter(o => o.id !== id));
+    const { error } = await supabase.from('overhead_items').delete().eq('id', id);
+    if (error) handleError(error, 'Erro ao excluir overhead.');
+  }, [handleError]);
 
-  const getOverheadByContract = (contractId: string) => overheadItems.filter(o => o.contractId === contractId);
+  const getOverheadByContract = useCallback((contractId: string) => overheadItems.filter(o => o.contractId === contractId), [overheadItems]);
 
-  // History event actions
-  const addHistoryEvent = (data: Omit<HistoryEvent, 'id' | 'createdAt' | 'updatedAt'>): HistoryEvent => {
-    const now = new Date().toISOString();
-    const event: HistoryEvent = {
-      ...data,
-      id: `hev-${crypto.randomUUID().slice(0, 8)}`,
-      createdAt: now,
-      updatedAt: now,
-    };
+  // ─── HISTORY EVENT ────────────────────────────────────────────────────────────
+  const addHistoryEvent = useCallback(async (data: Omit<HistoryEvent, 'id' | 'createdAt' | 'updatedAt'>): Promise<HistoryEvent> => {
+    const { data: row, error } = await supabase.from('history_events').insert(historyEventToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar evento.'); throw error; }
+    const event = historyEventFromDb(row as unknown as Record<string, unknown>);
     setHistoryEvents(prev => [...prev, event]);
     return event;
-  };
+  }, [handleError]);
 
-  const updateHistoryEvent = (id: string, data: Partial<HistoryEvent>) => {
-    setHistoryEvents(prev => prev.map(e =>
-      e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e
-    ));
-  };
+  const updateHistoryEvent = useCallback(async (id: string, data: Partial<HistoryEvent>): Promise<void> => {
+    const prev = historyEvents.find(e => e.id === id)!;
+    if (!prev) return;
+    const merged = { ...prev, ...data };
+    setHistoryEvents(prevList => prevList.map(e => e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e));
+    const { error } = await supabase.from('history_events').update(historyEventToDb(merged)).eq('id', id);
+    if (error) { setHistoryEvents(prevList => prevList.map(e => e.id === id ? prev : e)); handleError(error, 'Erro ao atualizar evento.'); }
+  }, [historyEvents, handleError]);
 
-  const deleteHistoryEvent = (id: string) => {
-    setHistoryEvents(prev => prev.filter(e => e.id !== id));
-  };
+  const deleteHistoryEvent = useCallback(async (id: string): Promise<void> => {
+    setHistoryEvents(p => p.filter(e => e.id !== id));
+    const { error } = await supabase.from('history_events').delete().eq('id', id);
+    if (error) handleError(error, 'Erro ao excluir evento.');
+  }, [handleError]);
 
-  const getHistoryEventsByContract = (contractId: string) => historyEvents.filter(e => e.contractId === contractId);
-  
-  // Attachment actions
-  const addAttachment = (data: Omit<DocumentAttachment, 'id'>): DocumentAttachment => {
-    const attachment: DocumentAttachment = {
-      ...data,
-      id: `att-${crypto.randomUUID().slice(0, 8)}`,
-    };
-    setAttachments(prev => [...prev, attachment]);
-    return attachment;
-  };
+  const getHistoryEventsByContract = useCallback((contractId: string) => historyEvents.filter(e => e.contractId === contractId), [historyEvents]);
 
-  const deleteAttachmentItem = (id: string) => {
+  // ─── ATTACHMENT ───────────────────────────────────────────────────────────────
+  const addAttachment = useCallback(async (data: Omit<DocumentAttachment, 'id'>): Promise<DocumentAttachment> => {
+    const { data: row, error } = await supabase.from('document_attachments').insert(attachmentToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar anexo.'); throw error; }
+    const att = attachmentFromDb(row as unknown as Record<string, unknown>);
+    setAttachments(prev => [...prev, att]);
+    return att;
+  }, [handleError]);
+
+  const deleteAttachment = useCallback(async (id: string): Promise<void> => {
     const att = attachments.find(a => a.id === id);
-    if (att && !att.storageKey.startsWith('mock-')) {
-      deleteBlob(att.storageKey);
+    setAttachments(p => p.filter(a => a.id !== id));
+    if (att && att.storageKey && !att.storageKey.startsWith('mock-')) {
+      await supabase.storage.from('contract-documents').remove([att.storageKey]);
     }
-    setAttachments(prev => prev.filter(a => a.id !== id));
-  };
+    const { error } = await supabase.from('document_attachments').delete().eq('id', id);
+    if (error) handleError(error, 'Erro ao excluir anexo.');
+  }, [attachments, handleError]);
 
-  const getAttachmentsByContract = (contractId: string) => attachments.filter(a => a.contractId === contractId);
+  const getAttachmentsByContract = useCallback((contractId: string) => attachments.filter(a => a.contractId === contractId), [attachments]);
 
-  // Attachment config actions
-  const addDescriptionConfig = (data: Omit<AttachmentDescriptionConfig, 'id'>): AttachmentDescriptionConfig => {
-    const config: AttachmentDescriptionConfig = {
-      ...data,
-      id: `adc-${crypto.randomUUID().slice(0, 8)}`,
-    };
+  // ─── ATTACHMENT CONFIG ────────────────────────────────────────────────────────
+  const addDescriptionConfig = useCallback(async (data: Omit<AttachmentDescriptionConfig, 'id'>): Promise<AttachmentDescriptionConfig> => {
+    const { data: row, error } = await supabase.from('attachment_description_configs').insert(attachmentConfigToDb(data) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar configuração.'); throw error; }
+    const config = attachmentConfigFromDb(row as unknown as Record<string, unknown>);
     setAttachmentConfigs(prev => [...prev, config]);
     return config;
-  };
+  }, [handleError]);
 
-  const updateDescriptionConfig = (id: string, data: Partial<AttachmentDescriptionConfig>) => {
-    setAttachmentConfigs(prev => prev.map(c =>
-      c.id === id ? { ...c, ...data } : c
-    ));
-  };
+  const updateDescriptionConfig = useCallback(async (id: string, data: Partial<AttachmentDescriptionConfig>): Promise<void> => {
+    const prev = attachmentConfigs.find(c => c.id === id)!;
+    if (!prev) return;
+    setAttachmentConfigs(prevList => prevList.map(c => c.id === id ? { ...c, ...data } : c));
+    const { error } = await supabase.from('attachment_description_configs').update(attachmentConfigToDb({ ...prev, ...data })).eq('id', id);
+    if (error) { setAttachmentConfigs(prevList => prevList.map(c => c.id === id ? prev : c)); handleError(error, 'Erro ao atualizar configuração.'); }
+  }, [attachmentConfigs, handleError]);
 
-  const getActiveDescriptionConfigs = () => attachmentConfigs.filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  const getActiveDescriptionConfigs = useCallback(() =>
+    attachmentConfigs.filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder), [attachmentConfigs]);
 
-  // Job title actions
-  const addJobTitle = (label: string, teamId?: string): JobTitle => {
-    const jt: JobTitle = {
-      id: `jt-${crypto.randomUUID().slice(0, 8)}`,
-      label,
-      isActive: true,
-      teamId,
-    };
+  // ─── JOB TITLE ────────────────────────────────────────────────────────────────
+  const addJobTitle = useCallback(async (label: string, teamId?: string): Promise<JobTitle> => {
+    const { data: row, error } = await supabase.from('job_titles').insert(jobTitleToDb({ label, isActive: true, teamId }) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar cargo.'); throw error; }
+    const jt = jobTitleFromDb(row as unknown as Record<string, unknown>);
     setJobTitles(prev => [...prev, jt]);
     return jt;
-  };
+  }, [handleError]);
 
-  const updateJobTitle = (id: string, data: Partial<JobTitle>) => {
-    setJobTitles(prev => prev.map(jt => jt.id === id ? { ...jt, ...data } : jt));
-  };
+  const updateJobTitle = useCallback(async (id: string, data: Partial<JobTitle>): Promise<void> => {
+    const prev = jobTitles.find(jt => jt.id === id)!;
+    if (!prev) return;
+    setJobTitles(prevList => prevList.map(jt => jt.id === id ? { ...jt, ...data } : jt));
+    const { error } = await supabase.from('job_titles').update(jobTitleToDb({ ...prev, ...data })).eq('id', id);
+    if (error) { setJobTitles(prevList => prevList.map(jt => jt.id === id ? prev : jt)); handleError(error, 'Erro ao atualizar cargo.'); }
+  }, [jobTitles, handleError]);
 
-  const deleteJobTitle = (id: string) => {
-    setJobTitles(prev => prev.filter(jt => jt.id !== id));
-  };
+  const deleteJobTitle = useCallback(async (id: string): Promise<void> => {
+    setJobTitles(p => p.filter(jt => jt.id !== id));
+    const { error } = await supabase.from('job_titles').delete().eq('id', id);
+    if (error) handleError(error, 'Erro ao excluir cargo.');
+  }, [handleError]);
 
-  const getActiveJobTitles = () => jobTitles.filter(jt => jt.isActive).sort((a, b) => a.label.localeCompare(b.label));
+  const getActiveJobTitles = useCallback(() => jobTitles.filter(jt => jt.isActive).sort((a, b) => a.label.localeCompare(b.label)), [jobTitles]);
 
-  // Team actions
-  const addTeam = (name: string, description?: string): Team => {
+  // ─── TEAM ─────────────────────────────────────────────────────────────────────
+  const addTeam = useCallback(async (name: string, description?: string): Promise<Team> => {
     const maxSort = teams.reduce((max, t) => Math.max(max, t.sortOrder), 0);
-    const team: Team = {
-      id: `team-${crypto.randomUUID().slice(0, 8)}`,
-      name,
-      description,
-      isActive: true,
-      sortOrder: maxSort + 1,
-    };
+    const { data: row, error } = await supabase.from('teams').insert(teamToDb({ name, description, isActive: true, sortOrder: maxSort + 1 }) as any).select().single();
+    if (error) { handleError(error, 'Erro ao adicionar equipe.'); throw error; }
+    const team = teamFromDb(row as unknown as Record<string, unknown>);
     setTeams(prev => [...prev, team]);
     return team;
-  };
+  }, [teams, handleError]);
 
-  const updateTeam = (id: string, data: Partial<Team>) => {
-    setTeams(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
-  };
+  const updateTeam = useCallback(async (id: string, data: Partial<Team>): Promise<void> => {
+    const prev = teams.find(t => t.id === id)!;
+    if (!prev) return;
+    setTeams(prevList => prevList.map(t => t.id === id ? { ...t, ...data } : t));
+    const { error } = await supabase.from('teams').update(teamToDb({ ...prev, ...data })).eq('id', id);
+    if (error) { setTeams(prevList => prevList.map(t => t.id === id ? prev : t)); handleError(error, 'Erro ao atualizar equipe.'); }
+  }, [teams, handleError]);
 
-  const deleteTeam = (id: string): boolean => {
+  const deleteTeam = useCallback(async (id: string): Promise<boolean> => {
     const hasLinkedJobs = jobTitles.some(jt => jt.teamId === id);
     if (hasLinkedJobs) return false;
-    setTeams(prev => prev.filter(t => t.id !== id));
+    setTeams(p => p.filter(t => t.id !== id));
+    const { error } = await supabase.from('teams').delete().eq('id', id);
+    if (error) { handleError(error, 'Erro ao excluir equipe.'); return false; }
     return true;
-  };
+  }, [jobTitles, handleError]);
 
-  const getActiveTeams = () => teams.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  const getActiveTeams = useCallback(() => teams.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
-  // Reset to demo data
-  const resetToDemo = () => {
-    setClients(mockClients);
-    setContracts(mockContracts);
-    setResources(mockResources);
-    setSettings(defaultSettings);
-    setAlerts(mockAlerts);
-    setSnapshots(mockSnapshots);
-    setOverheadItems(mockOverheadItems);
-    setHistoryEvents(mockHistoryEvents);
-    setAttachments(mockAttachments);
-    setAttachmentConfigs(defaultAttachmentConfigs);
-    setJobTitles(defaultJobTitles);
-    setTeams(defaultTeams);
-    clearAllBlobs();
-  };
-  
+  // ─── RESET TO DEMO ────────────────────────────────────────────────────────────
+  const resetToDemo = useCallback(async (): Promise<void> => {
+    try {
+      // Delete all data (cascade handles related tables)
+      await Promise.all([
+        supabase.from('document_attachments').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('history_events').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('overhead_items').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('snapshots').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('resources').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('job_titles').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      ]);
+      await Promise.all([
+        supabase.from('contracts').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('teams').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('attachment_description_configs').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      ]);
+      await supabase.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+      // Insert demo data (without id/createdAt/updatedAt so DB generates them)
+      const [
+        { data: insertedClients },
+        { data: insertedTeams },
+        { data: insertedConfigs },
+      ] = await Promise.all([
+        supabase.from('clients').insert(mockClients.map(c => clientToDb(c))).select(),
+        supabase.from('teams').insert(defaultTeams.map(t => teamToDb(t))).select(),
+        supabase.from('attachment_description_configs').insert(defaultAttachmentConfigs.map(c => attachmentConfigToDb(c))).select(),
+      ]);
+
+      const clientIdMap: Record<string, string> = {};
+      (insertedClients ?? []).forEach((row, i) => {
+        clientIdMap[mockClients[i].id] = (row as unknown as Record<string, unknown>).id as string;
+      });
+
+      const mappedContracts = mockContracts.map(c => ({ ...contractToDb({ ...c, clientId: clientIdMap[c.clientId] ?? c.clientId }) }));
+      const { data: insertedContracts } = await supabase.from('contracts').insert(mappedContracts).select();
+
+      const contractIdMap: Record<string, string> = {};
+      (insertedContracts ?? []).forEach((row, i) => {
+        contractIdMap[mockContracts[i].id] = (row as unknown as Record<string, unknown>).id as string;
+      });
+
+      const mapContractId = (id: string) => contractIdMap[id] ?? id;
+
+      await Promise.all([
+        supabase.from('resources').insert(mockResources.map(r => resourceToDb({ ...r, contractId: mapContractId(r.contractId) }))),
+        supabase.from('overhead_items').insert(mockOverheadItems.map(o => overheadToDb({ ...o, contractId: mapContractId(o.contractId) }))),
+        supabase.from('history_events').insert(mockHistoryEvents.map(e => historyEventToDb({ ...e, contractId: mapContractId(e.contractId) }))),
+        supabase.from('snapshots').insert(mockSnapshots.map(s => snapshotToDb({ ...s, contractId: mapContractId(s.contractId) }))),
+        supabase.from('document_attachments').insert(mockAttachments.map(a => attachmentToDb({ ...a, contractId: mapContractId(a.contractId) }))),
+      ]);
+
+      if (settingsId) {
+        await supabase.from('settings').update(settingsToDb(defaultSettings)).eq('id', settingsId);
+      }
+
+      // Reload
+      const [
+        { data: clientsData },
+        { data: contractsData },
+        { data: resourcesData },
+        { data: overheadData },
+        { data: historyData },
+        { data: snapshotsData },
+        { data: attachmentsData },
+        { data: configsData },
+        { data: teamsData },
+      ] = await Promise.all([
+        supabase.from('clients').select('*').order('created_at'),
+        supabase.from('contracts').select('*').order('created_at'),
+        supabase.from('resources').select('*').order('created_at'),
+        supabase.from('overhead_items').select('*').order('created_at'),
+        supabase.from('history_events').select('*').order('event_date'),
+        supabase.from('snapshots').select('*').order('created_at'),
+        supabase.from('document_attachments').select('*').order('uploaded_at'),
+        supabase.from('attachment_description_configs').select('*').order('sort_order'),
+        supabase.from('teams').select('*').order('sort_order'),
+      ]);
+
+      setClients((clientsData ?? []).map(r => clientFromDb(r as unknown as Record<string, unknown>)));
+      setContracts((contractsData ?? []).map(r => contractFromDb(r as unknown as Record<string, unknown>)));
+      setResources((resourcesData ?? []).map(r => resourceFromDb(r as unknown as Record<string, unknown>)));
+      setOverheadItems((overheadData ?? []).map(r => overheadFromDb(r as unknown as Record<string, unknown>)));
+      setHistoryEvents((historyData ?? []).map(r => historyEventFromDb(r as unknown as Record<string, unknown>)));
+      setSnapshots((snapshotsData ?? []).map(r => snapshotFromDb(r as unknown as Record<string, unknown>)));
+      setAttachments((attachmentsData ?? []).map(r => attachmentFromDb(r as unknown as Record<string, unknown>)));
+      setAttachmentConfigs((configsData ?? []).map(r => attachmentConfigFromDb(r as unknown as Record<string, unknown>)));
+      setTeams((teamsData ?? []).map(r => teamFromDb(r as unknown as Record<string, unknown>)));
+      setSettings(defaultSettings);
+
+      // Seed job_titles after teams are inserted
+      const { data: newTeams } = await supabase.from('teams').select('*').order('sort_order');
+      const teamNameMap: Record<string, string> = {};
+      (newTeams ?? []).forEach(row => {
+        const t = teamFromDb(row as unknown as Record<string, unknown>);
+        teamNameMap[t.name] = t.id;
+      });
+      const mappedJobTitles = defaultJobTitles.map(jt => ({
+        ...jobTitleToDb({ ...jt, teamId: jt.teamId ? teamNameMap[jt.teamId] ?? jt.teamId : undefined }),
+      }));
+      await supabase.from('job_titles').insert(mappedJobTitles);
+      const { data: jtData } = await supabase.from('job_titles').select('*').order('label');
+      setJobTitles((jtData ?? []).map(r => jobTitleFromDb(r as unknown as Record<string, unknown>)));
+      setTeams((newTeams ?? []).map(r => teamFromDb(r as unknown as Record<string, unknown>)));
+      (insertedConfigs ?? []); // unused but triggers re-render
+
+      toast({ title: 'Dados de demonstração restaurados com sucesso.' });
+    } catch (err) {
+      handleError(err, 'Erro ao restaurar dados de demonstração.');
+    }
+  }, [settingsId, handleError, toast]);
+
   return (
     <DataContext.Provider value={{
-      clients,
-      contracts,
-      resources,
-      settings,
-      alerts,
-      snapshots,
-      overheadItems,
-      historyEvents,
-      addClient,
-      updateClient,
-      deleteClient,
-      getClient,
-      addContract,
-      updateContract,
-      deleteContract,
-      getContract,
-      getContractsByClient,
-      addResource,
-      updateResource,
-      deleteResource,
-      getResourcesByContract,
-      updateSettings,
-      addSnapshot,
-      getSnapshotsByContract,
-      addOverheadItem,
-      updateOverheadItem,
-      deleteOverheadItem,
-      getOverheadByContract,
-      addHistoryEvent,
-      updateHistoryEvent,
-      deleteHistoryEvent,
-      getHistoryEventsByContract,
-      attachments,
+      clients, contracts, resources, settings, alerts, snapshots,
+      overheadItems, historyEvents, attachments,
       attachmentDescriptionConfigs: attachmentConfigs,
-      addAttachment,
-      deleteAttachment: deleteAttachmentItem,
-      getAttachmentsByContract,
-      addDescriptionConfig,
-      updateDescriptionConfig,
-      getActiveDescriptionConfigs,
-      jobTitles,
-      addJobTitle,
-      updateJobTitle,
-      deleteJobTitle,
-      getActiveJobTitles,
-      teams,
-      addTeam,
-      updateTeam,
-      deleteTeam,
-      getActiveTeams,
+      jobTitles, teams, loading,
+      addClient, updateClient, deleteClient, getClient,
+      addContract, updateContract, deleteContract, getContract, getContractsByClient,
+      addResource, updateResource, deleteResource, getResourcesByContract,
+      updateSettings,
+      addSnapshot, getSnapshotsByContract,
+      addOverheadItem, updateOverheadItem, deleteOverheadItem, getOverheadByContract,
+      addHistoryEvent, updateHistoryEvent, deleteHistoryEvent, getHistoryEventsByContract,
+      addAttachment, deleteAttachment, getAttachmentsByContract,
+      addDescriptionConfig, updateDescriptionConfig, getActiveDescriptionConfigs,
+      addJobTitle, updateJobTitle, deleteJobTitle, getActiveJobTitles,
+      addTeam, updateTeam, deleteTeam, getActiveTeams,
       resetToDemo,
     }}>
       {children}
@@ -476,10 +579,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useData() {
-  const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
-  return context;
+export function useData(): DataContextType {
+  const ctx = useContext(DataContext);
+  if (!ctx) throw new Error('useData must be used within DataProvider');
+  return ctx;
 }
