@@ -1,4 +1,4 @@
-import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, AttachmentDescriptionConfig, DocumentAttachment } from '@/types';
+import { Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem, HistoryEvent, AttachmentDescriptionConfig, DocumentAttachment, JobTitle } from '@/types';
 
 export const defaultSettings: Settings = {
   percentualEncargosCLT: 68, // 68% de encargos sobre salário
@@ -848,4 +848,22 @@ export const mockAttachments: DocumentAttachment[] = [
   { id: 'att-008', contractId: 'ctr-005', fileName: 'Renovacao_BNI_2025.pdf', fileSizeBytes: 1567890, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Contrato', uploadedAt: '2025-03-01T10:30:00Z', uploadedByUserId: 'user-001', storageKey: 'mock-att-008' },
   { id: 'att-009', contractId: 'ctr-006', fileName: 'Postmortem_Incidente_Dez2025.pdf', fileSizeBytes: 2345678, fileTypeMime: 'application/pdf', fileExtension: 'pdf', descriptionType: 'Outros', descriptionText: 'Relatório postmortem', uploadedAt: '2025-12-08T10:00:00Z', uploadedByUserId: 'user-002', storageKey: 'mock-att-009' },
   { id: 'att-010', contractId: 'ctr-006', fileName: 'Proposta_Renovacao_MS.pptx', fileSizeBytes: 4567890, fileTypeMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', fileExtension: 'pptx', descriptionType: 'Proposta/Comercial', uploadedAt: '2025-06-15T14:00:00Z', uploadedByUserId: 'user-003', storageKey: 'mock-att-010' },
+];
+
+export const defaultJobTitles: JobTitle[] = [
+  { id: 'jt-001', label: 'Desenvolvedor Frontend', isActive: true },
+  { id: 'jt-002', label: 'Desenvolvedor Backend', isActive: true },
+  { id: 'jt-003', label: 'Desenvolvedor Full Stack', isActive: true },
+  { id: 'jt-004', label: 'Analista de Sistemas', isActive: true },
+  { id: 'jt-005', label: 'Analista de Dados', isActive: true },
+  { id: 'jt-006', label: 'DBA', isActive: true },
+  { id: 'jt-007', label: 'Tech Lead', isActive: true },
+  { id: 'jt-008', label: 'Scrum Master', isActive: true },
+  { id: 'jt-009', label: 'Product Owner', isActive: true },
+  { id: 'jt-010', label: 'Gerente de Projetos', isActive: true },
+  { id: 'jt-011', label: 'Arquiteto de Software', isActive: true },
+  { id: 'jt-012', label: 'DevOps Engineer', isActive: true },
+  { id: 'jt-013', label: 'QA / Tester', isActive: true },
+  { id: 'jt-014', label: 'UX Designer', isActive: true },
+  { id: 'jt-015', label: 'Analista de Suporte', isActive: true },
 ];

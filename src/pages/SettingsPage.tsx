@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -30,8 +34,14 @@ const settingsSchema = z.object({
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
-  const { settings, updateSettings, resetToDemo } = useData();
+  const { settings, updateSettings, resetToDemo, jobTitles, addJobTitle, updateJobTitle, deleteJobTitle } = useData();
   const { canEdit } = useAuth();
+
+  // Job title management state
+  const [jobTitleDialogOpen, setJobTitleDialogOpen] = useState(false);
+  const [editingJobTitle, setEditingJobTitle] = useState<{ id: string; label: string } | null>(null);
+  const [jobTitleLabel, setJobTitleLabel] = useState('');
+  const [deleteJobTitleId, setDeleteJobTitleId] = useState<string | null>(null);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -420,6 +430,115 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Tabela de Cargos */}
+      {canEdit && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                <CardTitle>Tabela de Cargos</CardTitle>
+              </div>
+              <Button size="sm" onClick={() => {
+                setEditingJobTitle(null);
+                setJobTitleLabel('');
+                setJobTitleDialogOpen(true);
+              }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Cargo
+              </Button>
+            </div>
+            <CardDescription>
+              Cargos disponíveis para seleção no formulário de recursos. Cargos inativos não aparecem na lista.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {jobTitles.map(jt => (
+                <div key={jt.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div className="flex items-center gap-3">
+                    <span className={jt.isActive ? 'text-foreground' : 'text-muted-foreground line-through'}>{jt.label}</span>
+                    {!jt.isActive && <Badge variant="secondary" className="text-xs">Inativo</Badge>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={jt.isActive}
+                      onCheckedChange={(checked) => updateJobTitle(jt.id, { isActive: checked })}
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setEditingJobTitle({ id: jt.id, label: jt.label });
+                      setJobTitleLabel(jt.label);
+                      setJobTitleDialogOpen(true);
+                    }}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteJobTitleId(jt.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {jobTitles.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum cargo cadastrado.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Job Title Dialog */}
+      <Dialog open={jobTitleDialogOpen} onOpenChange={setJobTitleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingJobTitle ? 'Editar Cargo' : 'Adicionar Cargo'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome do Cargo</Label>
+              <Input
+                value={jobTitleLabel}
+                onChange={e => setJobTitleLabel(e.target.value)}
+                placeholder="Ex: Desenvolvedor Backend"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJobTitleDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={() => {
+              if (!jobTitleLabel.trim()) {
+                toast.error('Nome do cargo é obrigatório');
+                return;
+              }
+              if (editingJobTitle) {
+                updateJobTitle(editingJobTitle.id, { label: jobTitleLabel.trim() });
+                toast.success('Cargo atualizado');
+              } else {
+                addJobTitle(jobTitleLabel.trim());
+                toast.success('Cargo adicionado');
+              }
+              setJobTitleDialogOpen(false);
+            }}>
+              {editingJobTitle ? 'Salvar' : 'Adicionar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Job Title Confirmation */}
+      <ConfirmDeleteDialog
+        open={!!deleteJobTitleId}
+        onOpenChange={(open) => !open && setDeleteJobTitleId(null)}
+        onConfirm={() => {
+          if (deleteJobTitleId) {
+            deleteJobTitle(deleteJobTitleId);
+            toast.success('Cargo removido');
+            setDeleteJobTitleId(null);
+          }
+        }}
+        title="Excluir cargo?"
+        description="O cargo será removido da lista. Recursos existentes que usam este cargo não serão afetados."
+      />
     </div>
   );
 }
