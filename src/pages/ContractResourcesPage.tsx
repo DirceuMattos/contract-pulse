@@ -247,14 +247,25 @@ export default function ContractResourcesPage() {
               </Badge>
             </div>
             {canViewValues && (
-              <p className={cn(
-                'text-2xl font-bold',
-                health.margemPercentual >= 15 && 'text-health-healthy',
-                health.margemPercentual >= 0 && health.margemPercentual < 15 && 'text-health-attention',
-                health.margemPercentual < 0 && 'text-health-critical',
-              )}>
-                {formatPercentage(health.margemPercentual)}
-              </p>
+              <>
+                <p className={cn(
+                  'text-2xl font-bold',
+                  health.margemPercentual >= 15 && 'text-health-healthy',
+                  health.margemPercentual >= 0 && health.margemPercentual < 15 && 'text-health-attention',
+                  health.margemPercentual < 0 && 'text-health-critical',
+                )}>
+                  {formatPercentage(health.margemPercentual)}
+                </p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-muted-foreground">Resultado</span>
+                  <span className={cn(
+                    'text-sm font-semibold',
+                    health.margemMensal >= 0 ? 'text-health-healthy' : 'text-health-critical',
+                  )}>
+                    {formatCurrency(health.margemMensal)}
+                  </span>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
