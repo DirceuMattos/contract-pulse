@@ -98,12 +98,15 @@ const recorrenciaOptions = [
 ];
 
 export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
-  const { getActiveJobTitles, teams } = useData();
+  const { getActiveJobTitles, teams, distinctHRNames } = useData();
   const activeJobTitles = getActiveJobTitles();
   const [customCargo, setCustomCargo] = useState(false);
+  const [customNome, setCustomNome] = useState(false);
 
   // Check if existing cargo is not in the list
   const existingCargoInList = resource?.cargo ? activeJobTitles.some(jt => jt.label === resource.cargo) : true;
+  // Check if existing nome is in the HR names list
+  const existingNomeInList = resource?.nome ? distinctHRNames.some(h => h.nome === resource.nome) : true;
 
   const form = useForm<ResourceFormData>({
     resolver: zodResolver(resourceFormSchema),
@@ -231,12 +234,55 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                   <FormLabel>
                     {tipoAtual === 'outro' ? 'Descrição *' : 'Nome / Pessoa *'}
                   </FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder={tipoAtual === 'outro' ? 'Ex: AWS Cloud' : 'Ex: João Silva'} 
-                      {...field} 
-                    />
-                  </FormControl>
+                  {tipoAtual !== 'outro' && distinctHRNames.length > 0 && !customNome && (existingNomeInList || !field.value) ? (
+                    <Select
+                      onValueChange={(val) => {
+                        if (val === '__other__') {
+                          setCustomNome(true);
+                          field.onChange('');
+                        } else {
+                          field.onChange(val);
+                          const match = distinctHRNames.find(h => h.nome === val);
+                          if (match) {
+                            form.setValue('custoBase', match.custoBase);
+                          }
+                        }
+                      }}
+                      value={field.value || ''}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a pessoa" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {distinctHRNames.map(h => (
+                          <SelectItem key={h.nome} value={h.nome}>
+                            {h.nome}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__other__">Outro...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : tipoAtual !== 'outro' ? (
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <Input placeholder="Ex: João Silva" {...field} />
+                      </FormControl>
+                      {distinctHRNames.length > 0 && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => {
+                          setCustomNome(false);
+                          field.onChange('');
+                        }}>
+                          Lista
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <FormControl>
+                      <Input placeholder="Ex: AWS Cloud" {...field} />
+                    </FormControl>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
