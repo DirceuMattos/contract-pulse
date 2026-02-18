@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -37,6 +37,7 @@ interface DataContextType {
   attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
   jobTitles: JobTitle[];
   teams: Team[];
+  distinctHRNames: { nome: string; custoBase: number }[];
   loading: boolean;
 
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Client>;
@@ -555,12 +556,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [settingsId, handleError, toast]);
 
+  // Derive distinct HR names with latest custoBase from loaded resources
+  const distinctHRNames = useMemo(() => {
+    const hrResources = resources
+      .filter(r => r.tipo === 'clt' || r.tipo === 'pj')
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const map = new Map<string, number>();
+    for (const r of hrResources) {
+      const key = r.nome.trim().toLowerCase();
+      if (key && !map.has(key)) {
+        map.set(key, r.custoBase);
+      }
+    }
+    // Return with original casing from first occurrence (most recent)
+    const seen = new Set<string>();
+    const result: { nome: string; custoBase: number }[] = [];
+    for (const r of hrResources) {
+      const key = r.nome.trim().toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        result.push({ nome: r.nome.trim(), custoBase: r.custoBase });
+      }
+    }
+    return result.sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [resources]);
+
   return (
     <DataContext.Provider value={{
       clients, contracts, resources, settings, alerts, snapshots,
       overheadItems, historyEvents, attachments,
       attachmentDescriptionConfigs: attachmentConfigs,
-      jobTitles, teams, loading,
+      jobTitles, teams, distinctHRNames, loading,
       addClient, updateClient, deleteClient, getClient,
       addContract, updateContract, deleteContract, getContract, getContractsByClient,
       addResource, updateResource, deleteResource, getResourcesByContract,
