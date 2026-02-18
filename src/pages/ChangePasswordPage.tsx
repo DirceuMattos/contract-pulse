@@ -28,13 +28,23 @@ export default function ChangePasswordPage() {
     }
   }, [isAuthenticated, authLoading, mustChangePassword, navigate]);
 
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 12) return 'A senha deve ter pelo menos 12 caracteres.';
+    if (!/[A-Z]/.test(pwd)) return 'A senha deve conter pelo menos uma letra maiúscula.';
+    if (!/[a-z]/.test(pwd)) return 'A senha deve conter pelo menos uma letra minúscula.';
+    if (!/[0-9]/.test(pwd)) return 'A senha deve conter pelo menos um número.';
+    if (!/[^A-Za-z0-9]/.test(pwd)) return 'A senha deve conter pelo menos um caractere especial.';
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (newPassword.length < 6) {
+    const pwdError = validatePassword(newPassword);
+    if (pwdError) {
       toast({
-        title: 'Senha muito curta',
-        description: 'A senha deve ter pelo menos 6 caracteres.',
+        title: 'Senha inválida',
+        description: pwdError,
         variant: 'destructive',
       });
       return;
@@ -116,7 +126,7 @@ export default function ChangePasswordPage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="pl-10"
                 required
-                minLength={6}
+                minLength={12}
               />
             </div>
           </div>
@@ -133,7 +143,7 @@ export default function ChangePasswordPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pl-10"
                 required
-                minLength={6}
+                minLength={12}
               />
             </div>
           </div>
@@ -145,7 +155,7 @@ export default function ChangePasswordPage() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
-          Mínimo de 6 caracteres.
+          Mínimo 12 caracteres com maiúscula, minúscula, número e caractere especial.
         </p>
       </motion.div>
     </div>
