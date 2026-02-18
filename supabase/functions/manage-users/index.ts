@@ -44,11 +44,15 @@ Deno.serve(async (req) => {
 
   const action = body.action as string;
 
-  // seed actions don't require auth
-  if (action === "seed-admin") {
-    return await handleSeedAdmin(adminClient, body);
-  }
-  if (action === "seed-teams-jobtitles") {
+  // seed actions require a secret token (service role key) to prevent unauthenticated access
+  if (action === "seed-admin" || action === "seed-teams-jobtitles") {
+    const seedToken = req.headers.get("x-seed-token");
+    if (seedToken !== serviceRoleKey) {
+      return err("Forbidden: invalid seed token", 403);
+    }
+    if (action === "seed-admin") {
+      return await handleSeedAdmin(adminClient, body);
+    }
     return await handleSeedTeamsJobTitles(adminClient);
   }
 
