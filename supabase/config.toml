@@ -2,3 +2,6 @@ project_id = "bjuxpqtsfnkaonczauxz"
 
 [functions.manage-users]
 verify_jwt = false
+
+[functions.simulation-insights]
+verify_jwt = false
