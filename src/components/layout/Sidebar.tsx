@@ -36,11 +36,11 @@ interface SidebarProps {
 
 const navItems: { path: string; label: string; icon: any; moduleKey?: ModuleKey }[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
+  { path: '/calculadora', label: 'Simulador de Contratos', icon: Calculator, moduleKey: 'CALCULATOR' },
   { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
   { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
   { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
   { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
-  { path: '/calculadora', label: 'Calculadora', icon: Calculator, moduleKey: 'CALCULATOR' },
   { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
   { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
   { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
