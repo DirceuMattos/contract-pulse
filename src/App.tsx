@@ -30,6 +30,7 @@ import UsersPage from "@/pages/UsersPage";
 import AccessLogsPage from "@/pages/AccessLogsPage";
 import CalculatorPage from "@/pages/CalculatorPage";
 import CalculatorWizardPage from "@/pages/CalculatorWizardPage";
+import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
                     <AccessLogProvider>
                     <Routes>
                       <Route path="/login" element={<LoginPage />} />
+                      <Route path="/trocar-senha" element={<ChangePasswordPage />} />
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route element={<MainLayout />}>
                         <Route path="/dashboard" element={<DashboardPage />} />

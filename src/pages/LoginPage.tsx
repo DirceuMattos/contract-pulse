@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, loading: authLoading } = useAuth();
+  const { login, isAuthenticated, mustChangePassword, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [email, setEmail] = useState("");
@@ -22,10 +22,14 @@ export default function LoginPage() {
   // Redirect if already authenticated
   React.useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      const from = (location.state as any)?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
+      if (mustChangePassword) {
+        navigate('/trocar-senha', { replace: true });
+      } else {
+        const from = (location.state as any)?.from?.pathname || "/dashboard";
+        navigate(from, { replace: true });
+      }
     }
-  }, [isAuthenticated, authLoading, navigate, location]);
+  }, [isAuthenticated, authLoading, mustChangePassword, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,11 +47,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      toast({
-        title: "Bem-vindo!",
-        description: "Login realizado com sucesso.",
-      });
-      navigate("/dashboard");
+      // Redirect is handled by the useEffect above after auth state updates
     } catch (error) {
       toast({
         title: "Erro ao entrar",

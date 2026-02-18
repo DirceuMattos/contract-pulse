@@ -218,7 +218,7 @@ async function handleCreate(
       email,
       password,
       email_confirm: true,
-      user_metadata: { name },
+      user_metadata: { name, must_change_password: true },
     });
 
   if (authError) return err(authError.message, 400);
