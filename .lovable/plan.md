@@ -1,39 +1,39 @@
 
 
-# Restaurar dados de Equipes e Cargos
+# Ajuste no Menu Lateral
 
-## Problema
-A ferramenta de query do banco e somente leitura (SELECT). Para inserir dados, precisamos usar uma funcao backend.
+## Alterações
 
-## Solucao
-Adicionar uma acao `seed-teams-jobtitles` na Edge Function `manage-users` existente. Essa acao insere as 8 equipes e os 15 cargos padrao no banco, com o mapeamento correto de `team_id`.
+### 1. Reordenar e renomear item no Sidebar (`src/components/layout/Sidebar.tsx`)
 
-## Etapas
+- Mover o item "Calculadora" da posição atual (7a posição) para logo abaixo de "Dashboard" (2a posição)
+- Renomear o label de **"Calculadora"** para **"Simulador de Contratos"**
 
-1. **Modificar `supabase/functions/manage-users/index.ts`**
-   - Adicionar o case `seed-teams-jobtitles`
-   - Inserir as 8 equipes na tabela `teams` e recuperar os IDs gerados
-   - Mapear os `team_id` dos cargos para os IDs reais das equipes inseridas
-   - Inserir os 15 cargos na tabela `job_titles`
+Ordem final dos itens no menu:
+1. Dashboard
+2. **Simulador de Contratos** (era "Calculadora", estava na 6a posição)
+3. Clientes
+4. Contratos
+5. Alertas
+6. Squads
+7. Usuários
+8. Configurações
+9. Importar/Exportar
+10. Integrações
+11. Ajuda
 
-2. **Deploy e execucao**
-   - Deploy automatico da Edge Function
-   - Chamar a acao via `curl` para popular o banco
+### 2. Atualizar label no catálogo de módulos (`src/types/moduleAccess.ts`)
 
-## Dados a inserir
+- Alterar o `label` do módulo `CALCULATOR` de `'Calculadora'` para `'Simulador de Contratos'`
+- Alterar a `description` para refletir o novo nome
 
-**Equipes (8)**:
-Lideranca Equipes, Projetos, Desenvolvimento, Testes, IA, Dados, Estrutura, Suporte
+---
 
-**Cargos (15)**:
-Desenvolvedor Frontend, Backend, Full Stack, Analista de Sistemas, Analista de Dados, DBA, Tech Lead, Scrum Master, Product Owner, Gerente de Projetos, Arquiteto de Software, DevOps Engineer, QA/Tester, UX Designer, Analista de Suporte
+## Detalhes técnicos
 
-## Detalhes tecnicos
+**Arquivo `src/components/layout/Sidebar.tsx`**: Reordenar o array `navItems` movendo o objeto com `path: '/calculadora'` para a segunda posição e alterando seu `label`.
 
-A Edge Function usara o `supabaseAdmin` (service role) para inserir os dados, contornando as politicas RLS. O fluxo sera:
-1. Inserir equipes com `INSERT ... RETURNING id, name`
-2. Construir mapa `nome -> uuid`
-3. Inserir cargos com o `team_id` real de cada equipe
+**Arquivo `src/types/moduleAccess.ts`**: Atualizar o `label` e `description` do módulo `CALCULATOR` no `MODULE_CATALOG`.
 
-Nenhum outro arquivo precisa ser modificado.
+Nenhuma outra alteração necessária -- as rotas, ícones e permissões permanecem iguais.
 
