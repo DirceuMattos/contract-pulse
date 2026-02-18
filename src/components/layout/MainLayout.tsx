@@ -11,7 +11,7 @@ import { useModuleAccess } from '@/hooks/useModuleAccess';
 import AccessDeniedPage from '@/pages/AccessDeniedPage';
 
 export function MainLayout() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, mustChangePassword } = useAuth();
   const { trackNavigation } = useAccessLogs();
   const location = useLocation();
   const navigate = useNavigate();
@@ -89,6 +89,10 @@ export function MainLayout() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (mustChangePassword) {
+    return <Navigate to="/trocar-senha" replace />;
   }
 
   const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 72 : 260);

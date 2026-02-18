@@ -52,7 +52,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
 
   const addUser = async (data: SystemUserFormData, _createdById?: string): Promise<SystemUser | null> => {
     try {
-      await invokeManageUsers('create', {
+      const result = await invokeManageUsers('create', {
         email: data.email,
         password: data.password,
         name: data.name,
@@ -60,9 +60,19 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         active: data.active,
         moduleAccess: data.moduleAccess,
       });
-      await refreshUsers();
-      const added = users.find(u => u.email.toLowerCase() === data.email.toLowerCase());
-      return added || null;
+      // Refresh list in background
+      refreshUsers();
+      // Return a synthetic user from the API response
+      return {
+        id: result.userId,
+        name: data.name,
+        email: data.email,
+        role: data.role as any,
+        active: data.active,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        moduleAccess: data.moduleAccess,
+      } as SystemUser;
     } catch (e: any) {
       console.error('Failed to create user:', e);
       return null;

@@ -15,6 +15,7 @@ interface AuthContextType {
   canViewHRCosts: boolean;
   userRole: UserRole | null;
   modulePermissions: Record<ModuleKey, boolean> | null;
+  mustChangePassword: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [modulePermissions, setModulePermissions] = useState<Record<ModuleKey, boolean> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const initializedRef = useRef(false);
 
   async function fetchRoleAndPermissions(userId: string): Promise<{ role: UserRole; perms: Record<ModuleKey, boolean> | null }> {
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser);
     setUserRole(role);
     setModulePermissions(perms);
+    setMustChangePassword(!!su.user_metadata?.must_change_password);
   }
 
   useEffect(() => {
@@ -84,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setUserRole(null);
         setModulePermissions(null);
+        setMustChangePassword(false);
         setLoading(false);
       }
     });
@@ -130,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canViewHRCosts,
       userRole,
       modulePermissions,
+      mustChangePassword,
     }}>
       {children}
     </AuthContext.Provider>
