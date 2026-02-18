@@ -44,9 +44,12 @@ Deno.serve(async (req) => {
 
   const action = body.action as string;
 
-  // seed-admin is a special action that doesn't require auth
+  // seed actions don't require auth
   if (action === "seed-admin") {
     return await handleSeedAdmin(adminClient, body);
+  }
+  if (action === "seed-teams-jobtitles") {
+    return await handleSeedTeamsJobTitles(adminClient);
   }
 
   // All other actions require c-level auth
@@ -403,5 +406,55 @@ async function handleGetById(
       moduleAccess:
         Object.keys(moduleAccess).length > 0 ? moduleAccess : undefined,
     },
+  });
+}
+
+async function handleSeedTeamsJobTitles(admin: ReturnType<typeof createClient>) {
+  const teamNames = [
+    "Liderança Equipes", "Projetos", "Desenvolvimento", "Testes",
+    "IA", "Dados", "Estrutura", "Suporte",
+  ];
+
+  // Insert teams
+  const { data: teams, error: tErr } = await admin
+    .from("teams")
+    .insert(teamNames.map((name, i) => ({ name, sort_order: i + 1 })))
+    .select("id, name");
+
+  if (tErr) return err(`Failed to insert teams: ${tErr.message}`, 500);
+
+  const teamMap = new Map<string, string>();
+  for (const t of teams!) teamMap.set(t.name, t.id);
+
+  const jobTitles: { label: string; team: string }[] = [
+    { label: "Tech Lead", team: "Liderança Equipes" },
+    { label: "Scrum Master", team: "Liderança Equipes" },
+    { label: "Product Owner", team: "Liderança Equipes" },
+    { label: "Gerente de Projetos", team: "Projetos" },
+    { label: "Desenvolvedor Frontend", team: "Desenvolvimento" },
+    { label: "Desenvolvedor Backend", team: "Desenvolvimento" },
+    { label: "Desenvolvedor Full Stack", team: "Desenvolvimento" },
+    { label: "Arquiteto de Software", team: "Desenvolvimento" },
+    { label: "DevOps Engineer", team: "Estrutura" },
+    { label: "QA/Tester", team: "Testes" },
+    { label: "Analista de Sistemas", team: "Projetos" },
+    { label: "Analista de Dados", team: "Dados" },
+    { label: "DBA", team: "Dados" },
+    { label: "UX Designer", team: "Projetos" },
+    { label: "Analista de Suporte", team: "Suporte" },
+  ];
+
+  const rows = jobTitles.map((jt) => ({
+    label: jt.label,
+    team_id: teamMap.get(jt.team) || null,
+  }));
+
+  const { error: jErr } = await admin.from("job_titles").insert(rows);
+  if (jErr) return err(`Failed to insert job titles: ${jErr.message}`, 500);
+
+  return json({
+    message: "Seeded successfully",
+    teams: teams!.length,
+    jobTitles: rows.length,
   });
 }
