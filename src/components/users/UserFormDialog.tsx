@@ -50,16 +50,24 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+const passwordSchema = z.string()
+  .min(12, 'Senha deve ter pelo menos 12 caracteres')
+  .max(100)
+  .regex(/[A-Z]/, 'Deve conter pelo menos uma letra maiúscula')
+  .regex(/[a-z]/, 'Deve conter pelo menos uma letra minúscula')
+  .regex(/[0-9]/, 'Deve conter pelo menos um número')
+  .regex(/[^A-Za-z0-9]/, 'Deve conter pelo menos um caractere especial');
+
 const userFormSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
   email: z.string().email('E-mail inválido').max(255),
-  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres').max(100),
+  password: passwordSchema,
   role: z.enum(['c-level', 'intermediario', 'leitor'] as const),
   active: z.boolean(),
 });
 
 const userEditSchema = userFormSchema.extend({
-  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres').max(100).optional().or(z.literal('')),
+  password: passwordSchema.optional().or(z.literal('')),
 });
 
 interface UserFormDialogProps {
@@ -303,7 +311,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                     </div>
                   </FormControl>
                   <FormDescription>
-                    Mínimo de 6 caracteres
+                    Mínimo 12 caracteres com maiúscula, minúscula, número e caractere especial
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
