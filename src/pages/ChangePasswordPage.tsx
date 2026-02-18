@@ -99,7 +99,7 @@ export default function ChangePasswordPage() {
         className="w-full max-w-md space-y-8"
       >
         <div className="flex items-center gap-3 justify-center">
-          <img src={logoBnp} alt="BNP Logo" className="w-10 h-auto object-contain" />
+          <img src={logoBnp} alt="BNP Logo" className="w-12 h-auto object-contain" />
           <div>
             <span className="text-xl font-bold text-foreground">BNP</span>
             <span className="text-xl font-semibold text-accent">ContractPulse</span>
