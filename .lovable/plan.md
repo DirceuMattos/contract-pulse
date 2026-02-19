@@ -1,23 +1,34 @@
 
-## Preencher lista de Tipo/Descricao do documento na aba Documentos do contrato
 
-### Problema
-O campo "Tipo/Descricao do documento" no upload de documentos esta vazio porque a tabela `attachment_description_configs` no banco de dados nao possui registros.
+## Busca automatica de endereco pelo CEP
 
-### Solucao
-Inserir os seguintes registros na tabela via migracao SQL:
+### O que muda
+Ao digitar um CEP valido (8 digitos) no formulario de cliente, o sistema consultara a API publica ViaCEP e preenchera automaticamente os campos: logradouro, bairro, cidade e UF.
 
-1. Contrato
-2. Minuta de Contrato (Pre-Contrato)
-3. TR - Termo de Referencia
-4. Minuta do TR
-5. Documento de Licitacao
-6. Atestados de Competencia
-7. Outros (para permitir descricao livre)
+### Como funciona
+- Quando o usuario terminar de digitar o CEP (8 digitos numericos), uma requisicao sera feita a `https://viacep.com.br/ws/{cep}/json/`
+- Se o CEP for encontrado, os campos de endereco serao preenchidos automaticamente
+- Se o CEP nao for encontrado ou houver erro, um toast informara o usuario
+- O usuario ainda podera editar manualmente os campos preenchidos
 
 ### Detalhes tecnicos
-- Executar um `INSERT INTO attachment_description_configs` com os 7 registros acima, cada um com `is_active = true` e `sort_order` sequencial.
-- Nenhuma alteracao em codigo -- o componente `AttachmentUploadDialog` ja le da tabela via `getActiveDescriptionConfigs()`.
 
-### Arquivos alterados
-- Apenas migracao SQL (nenhum arquivo de codigo alterado)
+**Arquivo alterado:** `src/components/forms/ClientForm.tsx`
+
+1. Criar uma funcao `fetchAddressByCep` que:
+   - Remove caracteres nao numericos do CEP
+   - Valida se tem 8 digitos
+   - Faz `fetch` para `https://viacep.com.br/ws/{cep}/json/`
+   - Retorna os dados ou null em caso de erro
+
+2. Adicionar um `useEffect` ou handler `onBlur` no campo CEP que:
+   - Dispara a busca quando o CEP tiver 8 digitos
+   - Preenche via `form.setValue()` os campos: logradouro, bairro, cidade e UF
+   - Exibe toast de erro se o CEP nao for encontrado
+
+3. Adicionar um estado `isFetchingCep` para mostrar feedback visual (loading) no campo CEP durante a busca
+
+**Nenhuma dependencia adicional** -- usa apenas `fetch` nativo e a API publica gratuita ViaCEP.
+
+**Nenhuma alteracao no banco de dados.**
+
