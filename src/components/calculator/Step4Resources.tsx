@@ -169,7 +169,7 @@ export function Step4Resources({ data, onChange }: Props) {
                     <Input className="h-8 text-sm" type="number" step={0.1} min={0} value={item.quantity} onChange={e => updateHR(item.id, 'quantity', parseFloat(e.target.value) || 0)} />
                   </TableCell>
                   <TableCell>
-                    <Input className="h-8 text-sm" type="number" step={500} min={0} value={item.grossMonthly} onChange={e => updateHR(item.id, 'grossMonthly', parseFloat(e.target.value) || 0)} />
+                    <Input className="h-8 text-sm" type="number" step={500} min={0} value={item.grossMonthly ?? ''} onChange={e => updateHR(item.id, 'grossMonthly', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
                   </TableCell>
                   <TableCell>
                     <Input className="h-8 text-sm" type="number" min={0} max={200} value={item.chargesPercent} onChange={e => updateHR(item.id, 'chargesPercent', parseFloat(e.target.value) || 0)} />
@@ -218,7 +218,7 @@ export function Step4Resources({ data, onChange }: Props) {
                 <TableRow key={item.id}>
                   <TableCell><Input className="h-8 text-sm" value={item.category} onChange={e => updateOC(item.id, 'category', e.target.value)} /></TableCell>
                   <TableCell><Input className="h-8 text-sm" value={item.description} onChange={e => updateOC(item.id, 'description', e.target.value)} /></TableCell>
-                  <TableCell><Input className="h-8 text-sm" type="number" step={500} min={0} value={item.valueMonthly} onChange={e => updateOC(item.id, 'valueMonthly', parseFloat(e.target.value) || 0)} /></TableCell>
+                  <TableCell><Input className="h-8 text-sm" type="number" step={500} min={0} value={item.valueMonthly ?? ''} onChange={e => updateOC(item.id, 'valueMonthly', e.target.value === '' ? 0 : parseFloat(e.target.value))} /></TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeOC(item.id)}>
                       <Trash2 className="w-4 h-4" />

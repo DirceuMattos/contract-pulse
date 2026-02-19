@@ -2,6 +2,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import type { ContractSimulation } from '@/types';
 
 interface Props {
@@ -60,7 +61,7 @@ export function Step1Identification({ data, onChange }: Props) {
 
         <div className="space-y-2">
           <Label>Data estimada de início</Label>
-          <Input type="date" value={data.expectedStartDate || ''} onChange={e => onChange({ expectedStartDate: e.target.value })} />
+          <DatePickerInput value={data.expectedStartDate || ''} onChange={v => onChange({ expectedStartDate: v })} />
         </div>
 
         <div className="space-y-2 md:col-span-2">
@@ -70,7 +71,7 @@ export function Step1Identification({ data, onChange }: Props) {
 
         <div className="space-y-2">
           <Label>Custo de consultoria previsto (mensal)</Label>
-          <Input type="number" min={0} step={500} value={data.consultancyCost || ''} onChange={e => onChange({ consultancyCost: parseFloat(e.target.value) || 0 })} placeholder="R$ 0,00 — incluso automaticamente em Outros Custos" />
+          <Input type="number" min={0} step={500} value={data.consultancyCost ?? ''} onChange={e => onChange({ consultancyCost: e.target.value === '' ? undefined : parseFloat(e.target.value) })} placeholder="R$ 0,00 — incluso automaticamente em Outros Custos" />
           <p className="text-xs text-muted-foreground">Se informado, será adicionado automaticamente à composição de custos.</p>
         </div>
       </div>

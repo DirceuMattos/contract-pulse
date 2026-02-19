@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Plus, X, Building2 } from 'lucide-react';
 import { contractFormSchema, ContractFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
@@ -14,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Calendar } from '@/components/ui/calendar';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import {
   Form,
   FormControl,
@@ -31,11 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   Accordion,
   AccordionContent,
@@ -352,35 +345,9 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Data de Início *</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), "dd/MM/yyyy", { locale: ptBR })
-                              ) : (
-                                <span>Selecione a data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <DatePickerInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -392,35 +359,9 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Data de Término *</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), "dd/MM/yyyy", { locale: ptBR })
-                              ) : (
-                                <span>Selecione a data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <DatePickerInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -555,35 +496,9 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Data base para renovação</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), "dd/MM/yyyy", { locale: ptBR })
-                              ) : (
-                                <span>Selecione a data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <DatePickerInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
                       <FormDescription>
                         Se não preenchido, usaremos a data final do contrato para calcular a renovação.
                       </FormDescription>
@@ -641,35 +556,9 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Data Base de Reajuste *</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), "dd/MM/yyyy", { locale: ptBR })
-                              ) : (
-                                <span>Selecione a data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <FormControl>
+                        <DatePickerInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -794,7 +683,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                             placeholder="Ex: 50000"
                             {...field}
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                           />
                         </FormControl>
                         <FormMessage />
@@ -817,7 +706,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                             placeholder="Ex: 1200000"
                             {...field}
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                           />
                         </FormControl>
                         <FormDescription>Será dividido pela duração em meses</FormDescription>
@@ -908,10 +797,10 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   name="slas"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>SLAs / Níveis de Serviço</FormLabel>
+                      <FormLabel>SLAs</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Disponibilidade, tempo de resposta, etc."
+                          placeholder="Acordos de nível de serviço..."
                           className="min-h-[80px]"
                           {...field}
                         />
@@ -929,7 +818,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                       <FormLabel>Riscos e Pendências</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Riscos identificados, pendências contratuais..."
+                          placeholder="Riscos identificados, pendências..."
                           className="min-h-[80px]"
                           {...field}
                         />
@@ -946,14 +835,14 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
           <AccordionItem value="responsaveis" className="border rounded-lg px-4">
             <AccordionTrigger className="hover:no-underline">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-chart-6/10 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-chart-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 rounded-lg bg-chart-5/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-chart-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
                 <div className="text-left">
                   <p className="font-semibold">Responsáveis</p>
-                  <p className="text-xs text-muted-foreground font-normal">Equipe responsável pelo contrato</p>
+                  <p className="text-xs text-muted-foreground font-normal">Gestores e pontos focais</p>
                 </div>
               </div>
             </AccordionTrigger>
@@ -964,9 +853,9 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   name="responsavelInterno"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Responsável Interno (Owner) *</FormLabel>
+                      <FormLabel>Responsável Interno *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome do responsável" {...field} />
+                        <Input placeholder="Gestor do contrato" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -994,7 +883,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                     <FormItem>
                       <FormLabel>Responsável Comercial</FormLabel>
                       <FormControl>
-                        <Input placeholder="Executivo de contas" {...field} />
+                        <Input placeholder="Executivo de conta" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1005,13 +894,13 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
           </AccordionItem>
         </Accordion>
 
-        {/* Actions */}
+        {/* Submit */}
         <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? 'Salvando...' : contract ? 'Atualizar Contrato' : 'Criar Contrato'}
+            {isLoading ? 'Salvando...' : contract ? 'Salvar Alterações' : 'Criar Contrato'}
           </Button>
         </div>
       </form>

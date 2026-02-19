@@ -186,7 +186,7 @@ export default function SettingsPage() {
                         type="number"
                         step="0.01"
                         {...field}
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                         disabled={!canEdit}
                       />
                     </FormControl>

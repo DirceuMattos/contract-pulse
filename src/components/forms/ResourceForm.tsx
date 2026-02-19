@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Building, Box, Calculator, Info } from 'lucide-react';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -461,8 +462,8 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                         step="0.01"
                         className="pl-10"
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
+                      onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                    />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -578,8 +579,8 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Início *</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
+           <FormControl>
+                  <DatePickerInput value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -593,7 +594,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
               <FormItem>
                 <FormLabel>Data de Fim (opcional)</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <DatePickerInput value={field.value || ''} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

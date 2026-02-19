@@ -1,7 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
 import { HistoryEvent, HistoryEventType, HistoryImpactArea, AlertSeverity } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,9 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { toast } from '@/hooks/use-toast';
 
 const eventTypeLabels: Record<HistoryEventType, string> = {
@@ -55,7 +50,7 @@ interface HistoryEventFormProps {
 }
 
 export default function HistoryEventForm({ open, onOpenChange, contractId, event, onSave }: HistoryEventFormProps) {
-  const [eventDate, setEventDate] = useState<Date | undefined>(event ? new Date(event.eventDate) : undefined);
+  const [eventDate, setEventDate] = useState(event?.eventDate || '');
   const [eventType, setEventType] = useState<HistoryEventType>(event?.eventType || 'outro');
   const [title, setTitle] = useState(event?.title || '');
   const [description, setDescription] = useState(event?.description || '');
@@ -66,7 +61,7 @@ export default function HistoryEventForm({ open, onOpenChange, contractId, event
 
   useEffect(() => {
     if (open) {
-      setEventDate(event ? new Date(event.eventDate) : undefined);
+      setEventDate(event?.eventDate || '');
       setEventType(event?.eventType || 'outro');
       setTitle(event?.title || '');
       setDescription(event?.description || '');
@@ -86,7 +81,7 @@ export default function HistoryEventForm({ open, onOpenChange, contractId, event
 
     onSave({
       contractId,
-      eventDate: eventDate.toISOString().split('T')[0],
+      eventDate,
       eventType,
       title: title.trim().slice(0, 120),
       description: description.trim(),
@@ -111,17 +106,7 @@ export default function HistoryEventForm({ open, onOpenChange, contractId, event
           {/* Date */}
           <div className="space-y-2">
             <Label>Data do evento *</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !eventDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {eventDate ? format(eventDate, "dd/MM/yyyy") : 'Selecione a data'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={eventDate} onSelect={setEventDate} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
+            <DatePickerInput value={eventDate} onChange={setEventDate} />
           </div>
 
           {/* Type */}
