@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
@@ -79,6 +79,30 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   const { toast } = useToast();
   const [newTag, setNewTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingCep, setIsFetchingCep] = useState(false);
+
+  const fetchAddressByCep = useCallback(async (cepValue: string) => {
+    const digits = cepValue.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+
+    setIsFetchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (data.erro) {
+        toast({ title: 'CEP não encontrado', description: 'Verifique o CEP informado.', variant: 'destructive' });
+        return;
+      }
+      form.setValue('logradouro', data.logradouro || '');
+      form.setValue('bairro', data.bairro || '');
+      form.setValue('cidade', data.localidade || '');
+      form.setValue('uf', data.uf || '');
+    } catch {
+      toast({ title: 'Erro ao buscar CEP', description: 'Não foi possível consultar o endereço.', variant: 'destructive' });
+    } finally {
+      setIsFetchingCep(false);
+    }
+  }, [toast]);
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
@@ -310,11 +334,21 @@ export function ClientForm({ client, mode }: ClientFormProps) {
                   <FormItem>
                     <FormLabel>CEP</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="00000-000" 
-                        {...field}
-                        onChange={(e) => field.onChange(maskCEP(e.target.value))}
-                      />
+                      <div className="relative">
+                        <Input 
+                          placeholder="00000-000" 
+                          {...field}
+                          onChange={(e) => {
+                            const masked = maskCEP(e.target.value);
+                            field.onChange(masked);
+                            const digits = masked.replace(/\D/g, '');
+                            if (digits.length === 8) fetchAddressByCep(digits);
+                          }}
+                        />
+                        {isFetchingCep && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
