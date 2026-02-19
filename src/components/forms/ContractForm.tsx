@@ -867,7 +867,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   name="responsavelCS"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Responsável CS</FormLabel>
+                      <FormLabel>P.O. / CS</FormLabel>
                       <FormControl>
                         <Input placeholder="Customer Success" {...field} />
                       </FormControl>
