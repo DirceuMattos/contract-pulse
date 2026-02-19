@@ -37,7 +37,7 @@ interface DataContextType {
   attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
   jobTitles: JobTitle[];
   teams: Team[];
-  distinctHRNames: { nome: string; custoBase: number }[];
+  distinctHRNames: { nome: string; custoBase: number; cargo?: string }[];
   loading: boolean;
 
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Client>;
@@ -561,21 +561,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const hrResources = resources
       .filter(r => r.tipo === 'clt' || r.tipo === 'pj')
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    const map = new Map<string, number>();
-    for (const r of hrResources) {
-      const key = r.nome.trim().toLowerCase();
-      if (key && !map.has(key)) {
-        map.set(key, r.custoBase);
-      }
-    }
     // Return with original casing from first occurrence (most recent)
     const seen = new Set<string>();
-    const result: { nome: string; custoBase: number }[] = [];
+    const result: { nome: string; custoBase: number; cargo?: string }[] = [];
     for (const r of hrResources) {
       const key = r.nome.trim().toLowerCase();
       if (key && !seen.has(key)) {
         seen.add(key);
-        result.push({ nome: r.nome.trim(), custoBase: r.custoBase });
+        result.push({ nome: r.nome.trim(), custoBase: r.custoBase, cargo: r.cargo || undefined });
       }
     }
     return result.sort((a, b) => a.nome.localeCompare(b.nome));

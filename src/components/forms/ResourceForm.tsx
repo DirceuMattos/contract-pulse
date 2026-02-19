@@ -242,10 +242,15 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                           setCustomNome(true);
                           field.onChange('');
                         } else {
-                          field.onChange(val);
+                        field.onChange(val);
                           const match = distinctHRNames.find(h => h.nome === val);
                           if (match) {
                             form.setValue('custoBase', match.custoBase);
+                            if (match.cargo) {
+                              form.setValue('cargo', match.cargo);
+                              const cargoInList = activeJobTitles.some(jt => jt.label === match.cargo);
+                              setCustomCargo(!cargoInList);
+                            }
                           }
                         }
                       }}
