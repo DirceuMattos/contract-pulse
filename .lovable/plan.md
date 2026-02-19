@@ -1,25 +1,39 @@
 
 
-## Auto-preenchimento do Cargo ao Selecionar Recurso Existente
+## Exibir campo "Indice" editavel na tela de Equipes
 
-### O que muda
-Quando o usuario selecionar um nome de recurso humano (CLT ou PJ) que ja existe no banco de dados, alem do custo mensal (que ja e preenchido automaticamente), o campo "Cargo / Papel" tambem sera preenchido automaticamente com o ultimo cargo registrado para aquele profissional.
+### Resumo
+
+O campo `sortOrder` ja existe na entidade `Team` e no banco de dados. A alteracao consiste em expor esse campo na listagem e no dialog de criacao/edicao para que o usuario possa visualizar e alterar o indice de ordenacao.
 
 ### Alteracoes
 
-**1. `src/contexts/DataContext.tsx`**
-- Expandir o tipo de `distinctHRNames` de `{ nome: string; custoBase: number }` para `{ nome: string; custoBase: number; cargo?: string }`
-- No `useMemo` que calcula `distinctHRNames`, tambem capturar o campo `cargo` do recurso mais recente
-- Atualizar a tipagem no tipo do contexto (interface `DataContextType`)
+**Arquivo: `src/pages/TeamsPage.tsx`**
 
-**2. `src/components/forms/ResourceForm.tsx`**
-- No handler `onValueChange` do Select de "Nome / Pessoa" (linha ~241-249), ao encontrar o match, tambem chamar `form.setValue('cargo', match.cargo || '')` para preencher automaticamente o campo cargo
-- Se o cargo retornado existir na lista de cargos ativos (`activeJobTitles`), manter o modo Select; se nao, ativar o modo texto customizado (`setCustomCargo`)
+1. **Listagem** -- Exibir o valor do `sortOrder` ao lado do nome da equipe como um badge ou label (ex: "#1", "#2"), para que o usuario veja a ordem atual de cada equipe.
 
-### Comportamento esperado
-1. Usuario abre formulario de recurso CLT ou PJ
-2. Seleciona um nome da lista (ex: "Joao Silva")
-3. O campo "Custo Base" e preenchido automaticamente (comportamento existente)
-4. O campo "Cargo / Papel" tambem e preenchido automaticamente com o cargo mais recente de "Joao Silva"
-5. O usuario pode alterar qualquer campo manualmente apos o preenchimento
+2. **Estado do dialog** -- Adicionar estado `teamSortOrder` (tipo `number`) junto aos estados existentes (`teamName`, `teamDescription`, `teamActive`).
+
+3. **Dialog de criacao** -- Adicionar campo "Indice" (Input numerico) no dialog. Ao criar, o valor padrao sera o proximo indice disponivel (max + 1), mas o usuario podera alterar.
+
+4. **Dialog de edicao** -- Preencher o campo "Indice" com o `sortOrder` atual da equipe. O usuario podera alterar livremente.
+
+5. **handleSave** -- Incluir `sortOrder: teamSortOrder` no payload enviado para `addTeam` ou `updateTeam`.
+
+6. **Funcao addTeam no DataContext** -- Atualmente `addTeam` aceita apenas `(name, description)`. Sera necessario expandir a assinatura para aceitar `sortOrder` como parametro opcional, mantendo o comportamento atual como fallback (max + 1).
+
+### Detalhes tecnicos
+
+**`src/contexts/DataContext.tsx`**
+- Alterar a assinatura de `addTeam` de `(name: string, description?: string)` para `(name: string, description?: string, sortOrder?: number)`
+- Se `sortOrder` for fornecido, usar esse valor; caso contrario, manter o calculo automatico (max + 1)
+- Atualizar a interface `DataContextType` com a nova assinatura
+
+**`src/pages/TeamsPage.tsx`**
+- Novo estado: `const [teamSortOrder, setTeamSortOrder] = useState(0)`
+- Em `openCreateDialog`: inicializar com `Math.max(...teams.map(t => t.sortOrder), 0) + 1`
+- Em `openEditDialog`: inicializar com `team.sortOrder`  (sera necessario incluir `sortOrder` no tipo do `editingTeam`)
+- Na listagem: exibir badge com o indice antes do nome da equipe
+- No dialog: campo Input type="number" com label "Indice" antes do campo Nome
+- Em `handleSave`: passar `teamSortOrder` para `addTeam` e `updateTeam`
 
