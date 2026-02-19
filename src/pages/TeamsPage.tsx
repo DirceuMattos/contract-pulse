@@ -22,10 +22,11 @@ export default function TeamsPage() {
   const { canEdit } = useAuth();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<{ id: string; name: string; description?: string; isActive: boolean } | null>(null);
+  const [editingTeam, setEditingTeam] = useState<{ id: string; name: string; description?: string; isActive: boolean; sortOrder: number } | null>(null);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
   const [teamActive, setTeamActive] = useState(true);
+  const [teamSortOrder, setTeamSortOrder] = useState(0);
   const [deleteTeamId, setDeleteTeamId] = useState<string | null>(null);
 
   const openCreateDialog = () => {
@@ -33,14 +34,16 @@ export default function TeamsPage() {
     setTeamName('');
     setTeamDescription('');
     setTeamActive(true);
+    setTeamSortOrder(Math.max(...teams.map(t => t.sortOrder), 0) + 1);
     setDialogOpen(true);
   };
 
-  const openEditDialog = (team: { id: string; name: string; description?: string; isActive: boolean }) => {
+  const openEditDialog = (team: { id: string; name: string; description?: string; isActive: boolean; sortOrder: number }) => {
     setEditingTeam(team);
     setTeamName(team.name);
     setTeamDescription(team.description || '');
     setTeamActive(team.isActive);
+    setTeamSortOrder(team.sortOrder);
     setDialogOpen(true);
   };
 
@@ -57,10 +60,10 @@ export default function TeamsPage() {
     }
 
     if (editingTeam) {
-      updateTeam(editingTeam.id, { name: trimmed, description: teamDescription.trim() || undefined, isActive: teamActive });
+      updateTeam(editingTeam.id, { name: trimmed, description: teamDescription.trim() || undefined, isActive: teamActive, sortOrder: teamSortOrder });
       toast.success('Equipe atualizada');
     } else {
-      addTeam(trimmed, teamDescription.trim() || undefined);
+      addTeam(trimmed, teamDescription.trim() || undefined, teamSortOrder);
       toast.success('Equipe adicionada');
     }
     setDialogOpen(false);
@@ -132,6 +135,7 @@ export default function TeamsPage() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
+                        <Badge variant="default" className="text-xs min-w-[2rem] justify-center">#{team.sortOrder}</Badge>
                         <span className={team.isActive ? 'text-foreground font-medium' : 'text-muted-foreground line-through'}>{team.name}</span>
                         {!team.isActive && <Badge variant="secondary" className="text-xs">Inativa</Badge>}
                         <Badge variant="outline" className="text-xs">{getLinkedJobsCount(team.id)} cargo{getLinkedJobsCount(team.id) !== 1 ? 's' : ''}</Badge>
@@ -169,6 +173,15 @@ export default function TeamsPage() {
             <DialogTitle>{editingTeam ? 'Editar Equipe' : 'Adicionar Equipe'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Índice *</Label>
+              <Input
+                type="number"
+                value={teamSortOrder}
+                onChange={e => setTeamSortOrder(Number(e.target.value))}
+                min={0}
+              />
+            </div>
             <div className="space-y-2">
               <Label>Nome da Equipe *</Label>
               <Input

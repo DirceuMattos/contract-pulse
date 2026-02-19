@@ -84,7 +84,7 @@ interface DataContextType {
   deleteJobTitle: (id: string) => Promise<void>;
   getActiveJobTitles: () => JobTitle[];
 
-  addTeam: (name: string, description?: string) => Promise<Team>;
+  addTeam: (name: string, description?: string, sortOrder?: number) => Promise<Team>;
   updateTeam: (id: string, data: Partial<Team>) => Promise<void>;
   deleteTeam: (id: string) => Promise<boolean>;
   getActiveTeams: () => Team[];
@@ -415,9 +415,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getActiveJobTitles = useCallback(() => jobTitles.filter(jt => jt.isActive).sort((a, b) => a.label.localeCompare(b.label)), [jobTitles]);
 
   // ─── TEAM ─────────────────────────────────────────────────────────────────────
-  const addTeam = useCallback(async (name: string, description?: string): Promise<Team> => {
-    const maxSort = teams.reduce((max, t) => Math.max(max, t.sortOrder), 0);
-    const { data: row, error } = await supabase.from('teams').insert(teamToDb({ name, description, isActive: true, sortOrder: maxSort + 1 }) as any).select().single();
+  const addTeam = useCallback(async (name: string, description?: string, sortOrder?: number): Promise<Team> => {
+    const effectiveSort = sortOrder ?? (teams.reduce((max, t) => Math.max(max, t.sortOrder), 0) + 1);
+    const { data: row, error } = await supabase.from('teams').insert(teamToDb({ name, description, isActive: true, sortOrder: effectiveSort }) as any).select().single();
     if (error) { handleError(error, 'Erro ao adicionar equipe.'); throw error; }
     const team = teamFromDb(row as unknown as Record<string, unknown>);
     setTeams(prev => [...prev, team]);
