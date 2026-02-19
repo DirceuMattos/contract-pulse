@@ -251,6 +251,9 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                               const cargoInList = activeJobTitles.some(jt => jt.label === match.cargo);
                               setCustomCargo(!cargoInList);
                             }
+                            if (match.senioridade) {
+                              form.setValue('senioridade', match.senioridade as any);
+                            }
                           }
                         }
                       }}

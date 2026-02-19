@@ -37,7 +37,7 @@ interface DataContextType {
   attachmentDescriptionConfigs: AttachmentDescriptionConfig[];
   jobTitles: JobTitle[];
   teams: Team[];
-  distinctHRNames: { nome: string; custoBase: number; cargo?: string }[];
+  distinctHRNames: { nome: string; custoBase: number; cargo?: string; senioridade?: string }[];
   loading: boolean;
 
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Client>;
@@ -563,12 +563,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     // Return with original casing from first occurrence (most recent)
     const seen = new Set<string>();
-    const result: { nome: string; custoBase: number; cargo?: string }[] = [];
+    const result: { nome: string; custoBase: number; cargo?: string; senioridade?: string }[] = [];
     for (const r of hrResources) {
       const key = r.nome.trim().toLowerCase();
       if (key && !seen.has(key)) {
         seen.add(key);
-        result.push({ nome: r.nome.trim(), custoBase: r.custoBase, cargo: r.cargo || undefined });
+        result.push({ nome: r.nome.trim(), custoBase: r.custoBase, cargo: r.cargo || undefined, senioridade: r.senioridade || undefined });
       }
     }
     return result.sort((a, b) => a.nome.localeCompare(b.nome));
