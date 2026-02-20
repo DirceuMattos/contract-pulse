@@ -375,6 +375,17 @@ export interface HRPerson {
   dataDesligamento?: string;
   motivoDesligamento?: string;
   tipoDesligamento?: HRTipoDesligamento;
+  // Novos campos
+  nivel?: string;
+  trilha?: string;
+  projeto?: string;
+  cargoAntigo?: string;
+  remuneracaoII?: number;
+  observacoesDesligamento?: string;
+  email?: string;
+  celular?: string;
+  idExterno?: string;
+  centroCusto?: string;
   createdAt: string;
   updatedAt: string;
 }

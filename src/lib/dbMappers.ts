@@ -543,6 +543,16 @@ export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
     dataDesligamento: (row.data_desligamento as string | null) ?? undefined,
     motivoDesligamento: (row.motivo_desligamento as string | null) ?? undefined,
     tipoDesligamento: (row.tipo_desligamento as HRPerson['tipoDesligamento']) ?? undefined,
+    nivel: (row.nivel as string | null) ?? undefined,
+    trilha: (row.trilha as string | null) ?? undefined,
+    projeto: (row.projeto as string | null) ?? undefined,
+    cargoAntigo: (row.cargo_antigo as string | null) ?? undefined,
+    remuneracaoII: (row.remuneracao_ii as number | null) ?? undefined,
+    observacoesDesligamento: (row.observacoes_desligamento as string | null) ?? undefined,
+    email: (row.email as string | null) ?? undefined,
+    celular: (row.celular as string | null) ?? undefined,
+    idExterno: (row.id_externo as string | null) ?? undefined,
+    centroCusto: (row.centro_custo as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -564,6 +574,16 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     data_desligamento: p.dataDesligamento ?? null,
     motivo_desligamento: p.motivoDesligamento ?? null,
     tipo_desligamento: p.tipoDesligamento ?? null,
+    nivel: p.nivel ?? null,
+    trilha: p.trilha ?? null,
+    projeto: p.projeto ?? null,
+    cargo_antigo: p.cargoAntigo ?? null,
+    remuneracao_ii: p.remuneracaoII ?? null,
+    observacoes_desligamento: p.observacoesDesligamento ?? null,
+    email: p.email ?? null,
+    celular: p.celular ?? null,
+    id_externo: p.idExterno ?? null,
+    centro_custo: p.centroCusto ?? null,
   };
 }
 
