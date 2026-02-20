@@ -29,6 +29,8 @@ import { Resource, ResourceType, OtherCostCategory, Seniority, Settings } from '
 import { formatCurrency, calculateResourceCost } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { useData } from '@/contexts/DataContext';
+import { useHR } from '@/contexts/HRContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Tooltip,
   TooltipContent,
@@ -100,14 +102,27 @@ const recorrenciaOptions = [
 
 export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
   const { getActiveJobTitles, teams, distinctHRNames } = useData();
+  const { hrPeople } = useHR();
+  const { canViewHRCosts } = useAuth();
   const activeJobTitles = getActiveJobTitles();
   const [customCargo, setCustomCargo] = useState(false);
   const [customNome, setCustomNome] = useState(false);
 
   // Check if existing cargo is not in the list
   const existingCargoInList = resource?.cargo ? activeJobTitles.some(jt => jt.label === resource.cargo) : true;
+
+  // Merge HR master list (preferred) with legacy names from resources
+  const hrMasterNames = hrPeople.map(p => ({
+    nome: p.nome,
+    custoBase: canViewHRCosts ? p.remuneracaoMensal : 0,
+    cargo: undefined as string | undefined,
+    senioridade: undefined as string | undefined,
+  }));
+  const legacyNames = distinctHRNames.filter(d => !hrMasterNames.some(h => h.nome.toLowerCase() === d.nome.toLowerCase()));
+  const allHRNames = [...hrMasterNames, ...legacyNames];
+
   // Check if existing nome is in the HR names list
-  const existingNomeInList = resource?.nome ? distinctHRNames.some(h => h.nome === resource.nome) : true;
+  const existingNomeInList = resource?.nome ? allHRNames.some(h => h.nome === resource.nome) : true;
 
   const form = useForm<ResourceFormData>({
     resolver: zodResolver(resourceFormSchema),
@@ -235,7 +250,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                   <FormLabel>
                     {tipoAtual === 'outro' ? 'Descrição *' : 'Nome / Pessoa *'}
                   </FormLabel>
-                  {tipoAtual !== 'outro' && distinctHRNames.length > 0 && !customNome && (existingNomeInList || !field.value) ? (
+                  {tipoAtual !== 'outro' && allHRNames.length > 0 && !customNome && (existingNomeInList || !field.value) ? (
                     <Select
                       onValueChange={(val) => {
                         if (val === '__other__') {
@@ -243,7 +258,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                           field.onChange('');
                         } else {
                         field.onChange(val);
-                          const match = distinctHRNames.find(h => h.nome === val);
+                          const match = allHRNames.find(h => h.nome === val);
                           if (match) {
                             form.setValue('custoBase', match.custoBase);
                             if (match.cargo) {
@@ -265,7 +280,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {distinctHRNames.map(h => (
+                        {allHRNames.map(h => (
                           <SelectItem key={h.nome} value={h.nome}>
                             {h.nome}
                           </SelectItem>
@@ -278,7 +293,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                       <FormControl>
                         <Input placeholder="Ex: João Silva" {...field} />
                       </FormControl>
-                      {distinctHRNames.length > 0 && (
+                      {allHRNames.length > 0 && (
                         <Button type="button" variant="outline" size="sm" onClick={() => {
                           setCustomNome(false);
                           field.onChange('');

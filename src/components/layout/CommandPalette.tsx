@@ -14,6 +14,7 @@ import {
   Moon,
   Sun,
   Briefcase,
+  UsersRound,
 } from 'lucide-react';
 import {
   CommandDialog,
@@ -109,16 +110,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               Configurações
             </CommandItem>
           )}
-          {canAccessModule('SETTINGS') && (
-            <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes/cargos'))}>
-              <Briefcase className="mr-2 h-4 w-4" />
-              Configurações &gt; Cargos
+          {canAccessModule('HR') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/rh'))}>
+              <UsersRound className="mr-2 h-4 w-4" />
+              Recursos Humanos
             </CommandItem>
           )}
-          {canAccessModule('SETTINGS') && (
-            <CommandItem onSelect={() => runCommand(() => navigate('/configuracoes/equipes'))}>
+          {canAccessModule('HR') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/rh/cargos'))}>
+              <Briefcase className="mr-2 h-4 w-4" />
+              RH &gt; Cargos
+            </CommandItem>
+          )}
+          {canAccessModule('HR') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/rh/equipes'))}>
               <Users className="mr-2 h-4 w-4" />
-              Configurações &gt; Equipes
+              RH &gt; Equipes
             </CommandItem>
           )}
           {canAccessModule('IMPORT_EXPORT') && (

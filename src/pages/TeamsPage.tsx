@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Users, Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +18,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 
 export default function TeamsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFromRH = location.pathname.startsWith('/rh');
   const { teams, jobTitles, addTeam, updateTeam, deleteTeam } = useData();
   const { canEdit } = useAuth();
 
@@ -88,13 +90,13 @@ export default function TeamsPage() {
         title="Equipes"
         description="Organize cargos em equipes para facilitar filtros e relatórios."
         animated={false}
-        breadcrumbs={[
-          { label: 'Configurações', href: '/configuracoes' },
-          { label: 'Equipes' },
-        ]}
+        breadcrumbs={isFromRH
+          ? [{ label: 'Recursos Humanos', href: '/rh' }, { label: 'Equipes' }]
+          : [{ label: 'Configurações', href: '/configuracoes' }, { label: 'Equipes' }]
+        }
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate('/configuracoes')}>
+            <Button variant="outline" onClick={() => navigate(isFromRH ? '/rh' : '/configuracoes')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
