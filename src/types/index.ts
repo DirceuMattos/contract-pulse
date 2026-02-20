@@ -353,6 +353,46 @@ export interface ContractHealth {
   status: HealthStatus;
 }
 
+// HR Module Types
+export type HRTipoVinculo = 'clt' | 'pj';
+export type HRSituacao = 'ativo' | 'inativo';
+export type HRTipoDesligamento = 'dispensado' | 'solicitou-dispensa' | 'transferido-grupo' | 'outro';
+export type HROcorrencia = 'reajuste' | 'bonificacao' | 'beneficio' | 'mudanca-cargo' | 'observacao' | 'outro';
+
+export interface HRPerson {
+  id: string;
+  nome: string;
+  tipoVinculo: HRTipoVinculo;
+  cargoId?: string;
+  teamId?: string;
+  remuneracaoMensal: number;
+  beneficios: number;
+  localAtuacao?: string;
+  dataAdmissao: string;
+  situacao: HRSituacao;
+  observacoes?: string;
+  comiteGestor?: string;
+  dataDesligamento?: string;
+  motivoDesligamento?: string;
+  tipoDesligamento?: HRTipoDesligamento;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HRTimelineEvent {
+  id: string;
+  personId: string;
+  eventDate: string;
+  ocorrencia: HROcorrencia;
+  descricao: string;
+  valor?: number;
+  remuneracaoApos?: number;
+  beneficiosApos?: number;
+  atualizarRemuneracao: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Simulation Types
 export type SimulationContractType = 'gov' | 'private';
 export type SimulationComplexity = 'baixa' | 'media' | 'alta';

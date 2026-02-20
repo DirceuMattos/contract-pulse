@@ -4,7 +4,7 @@ export const MODULE_KEYS = [
   'DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL',
   'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS',
   'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
-  'SETTINGS', 'IMPORT_EXPORT',
+  'SETTINGS', 'IMPORT_EXPORT', 'HR',
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
@@ -32,8 +32,9 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'CALCULATOR', label: 'Simulador de Contratos', description: 'Simulador para precificação e viabilidade de contratos', routes: ['/calculadora', '/calculadora/nova', '/calculadora/:id'], roleRestrictions: [] },
   { key: 'USERS_ADMIN', label: 'Usuários', description: 'Administração de usuários do sistema', routes: ['/usuarios'], roleRestrictions: ['c-level'] },
   { key: 'ACCESS_LOGS', label: 'Logs de Acesso', description: 'Registro de acessos ao sistema', routes: ['/usuarios/logs'], roleRestrictions: ['c-level'] },
-  { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes', '/configuracoes/cargos', '/configuracoes/equipes'], roleRestrictions: ['c-level'] },
+  { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes'], roleRestrictions: ['c-level'] },
   { key: 'IMPORT_EXPORT', label: 'Importar/Exportar', description: 'Importação e exportação de dados', routes: ['/importar-exportar'], roleRestrictions: [] },
+  { key: 'HR', label: 'Recursos Humanos', description: 'Cadastro mestre de pessoas, cargos e equipes', routes: ['/rh', '/rh/cargos', '/rh/equipes'], roleRestrictions: [] },
 ];
 
 /**
@@ -77,6 +78,9 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   if (pathname === '/usuarios') return 'USERS_ADMIN';
   if (pathname.startsWith('/configuracoes')) return 'SETTINGS';
   if (pathname === '/importar-exportar') return 'IMPORT_EXPORT';
+  
+  // HR routes
+  if (pathname.startsWith('/rh')) return 'HR';
   
   // Calculator routes
   if (pathname.startsWith('/calculadora')) return 'CALCULATOR';
