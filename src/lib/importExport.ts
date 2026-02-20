@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { Client, Contract, Resource, HRPerson, Team, JobTitle } from '@/types';
 import { differenceInMonths } from 'date-fns';
@@ -90,55 +89,205 @@ export interface ImportResult {
   errors: Array<{ row: number; message: string }>;
 }
 
-// Parse file content
+// ─── Lightweight XLSX generator (no external dependency) ──────────────────────
+// Generates a valid Office Open XML (.xlsx) file using only browser APIs.
+
+function escapeXml(val: unknown): string {
+  return String(val ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
+  const toCell = (val: unknown, colIdx: number, rowIdx: number): string => {
+    const ref = String.fromCharCode(65 + colIdx) + rowIdx;
+    const str = String(val ?? '');
+    if (str === '' || isNaN(Number(str))) {
+      return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(str)}</t></is></c>`;
+    }
+    return `<c r="${ref}"><v>${escapeXml(str)}</v></c>`;
+  };
+
+  const sheetRows = [headers, ...rows]
+    .map((row, rIdx) => `<row r="${rIdx + 1}">${(row as unknown[]).map((cell, cIdx) => toCell(cell, cIdx, rIdx + 1)).join('')}</row>`)
+    .join('');
+
+  const sheet = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`;
+
+  const wb = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+
+  const rels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+
+  // Build a simple ZIP manually (stored, no compression) using DataView
+  const enc = new TextEncoder();
+  const files: Array<{ name: string; data: Uint8Array }> = [
+    { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
+    { name: '_rels/.rels', data: enc.encode(rels) },
+    { name: 'xl/workbook.xml', data: enc.encode(wb) },
+    { name: 'xl/_rels/workbook.xml.rels', data: enc.encode(rels) },
+    { name: 'xl/worksheets/sheet1.xml', data: enc.encode(sheet) },
+  ];
+
+  // CRC-32 helper
+  const crcTable = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c;
+    }
+    return t;
+  })();
+
+  function crc32(buf: Uint8Array): number {
+    let crc = 0xffffffff;
+    for (let i = 0; i < buf.length; i++) crc = crcTable[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function writeUint32LE(view: DataView, offset: number, val: number) { view.setUint32(offset, val, true); }
+  function writeUint16LE(view: DataView, offset: number, val: number) { view.setUint16(offset, val, true); }
+
+  const localHeaders: Array<{ offset: number; name: Uint8Array; data: Uint8Array; crc: number }> = [];
+  const parts: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const crc = crc32(f.data);
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(lh.buffer);
+    writeUint32LE(lv, 0, 0x04034b50);
+    writeUint16LE(lv, 4, 20);
+    writeUint16LE(lv, 6, 0);
+    writeUint16LE(lv, 8, 0);
+    writeUint16LE(lv, 10, 0);
+    writeUint16LE(lv, 12, 0);
+    writeUint32LE(lv, 14, crc);
+    writeUint32LE(lv, 18, f.data.length);
+    writeUint32LE(lv, 22, f.data.length);
+    writeUint16LE(lv, 26, nameBytes.length);
+    writeUint16LE(lv, 28, 0);
+    lh.set(nameBytes, 30);
+    localHeaders.push({ offset, name: nameBytes, data: f.data, crc });
+    parts.push(lh, f.data);
+    offset += lh.length + f.data.length;
+  }
+
+  const cdOffset = offset;
+  for (const lh of localHeaders) {
+    const cd = new Uint8Array(46 + lh.name.length);
+    const cv = new DataView(cd.buffer);
+    writeUint32LE(cv, 0, 0x02014b50);
+    writeUint16LE(cv, 4, 20);
+    writeUint16LE(cv, 6, 20);
+    writeUint16LE(cv, 8, 0);
+    writeUint16LE(cv, 10, 0);
+    writeUint16LE(cv, 12, 0);
+    writeUint16LE(cv, 14, 0);
+    writeUint32LE(cv, 16, lh.crc);
+    writeUint32LE(cv, 20, lh.data.length);
+    writeUint32LE(cv, 24, lh.data.length);
+    writeUint16LE(cv, 28, lh.name.length);
+    writeUint16LE(cv, 30, 0);
+    writeUint16LE(cv, 32, 0);
+    writeUint16LE(cv, 34, 0);
+    writeUint16LE(cv, 36, 0);
+    writeUint32LE(cv, 38, 0);
+    writeUint32LE(cv, 42, lh.offset);
+    cd.set(lh.name, 46);
+    parts.push(cd);
+    offset += cd.length;
+  }
+
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  writeUint32LE(ev, 0, 0x06054b50);
+  writeUint16LE(ev, 4, 0);
+  writeUint16LE(ev, 6, 0);
+  writeUint16LE(ev, 8, localHeaders.length);
+  writeUint16LE(ev, 10, localHeaders.length);
+  writeUint32LE(ev, 12, offset - cdOffset);
+  writeUint32LE(ev, 16, cdOffset);
+  writeUint16LE(ev, 20, 0);
+  parts.push(eocd);
+
+  return new Blob(parts as BlobPart[], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function writeXlsxFile(headers: unknown[], rows: unknown[][], filename: string): void {
+  downloadBlob(buildXlsx(headers, rows), filename);
+}
+
+// ─── Parse file content ────────────────────────────────────────────────────────
 export function parseFile(file: File): Promise<{ headers: string[]; data: Record<string, unknown>[] }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         if (isExcel) {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
-          
-          if (jsonData.length === 0) {
-            reject(new Error('Arquivo vazio'));
-            return;
-          }
-
-          const firstRow = jsonData[0] as unknown[];
-          const headers = firstRow.map(h => String(h || '').trim());
-          const rows = jsonData.slice(1).map((row) => {
-            const rowArray = row as unknown[];
-            const obj: Record<string, unknown> = {};
-            headers.forEach((header, index) => {
-              obj[header] = rowArray[index];
+          // For reading xlsx we parse the XML manually (sheet1.xml inside the zip)
+          const ab = e.target?.result as ArrayBuffer;
+          const bytes = new Uint8Array(ab);
+          // Locate sheet1.xml in the ZIP by scanning for local file header
+          const findFile = (name: string): Uint8Array | null => {
+            const nameBytes = new TextEncoder().encode(name);
+            for (let i = 0; i < bytes.length - 30; i++) {
+              if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x03 && bytes[i + 3] === 0x04) {
+                const nameLen = bytes[i + 26] | (bytes[i + 27] << 8);
+                const extraLen = bytes[i + 28] | (bytes[i + 29] << 8);
+                const fileNameBytes = bytes.slice(i + 30, i + 30 + nameLen);
+                const compSize = bytes[i + 18] | (bytes[i + 19] << 8) | (bytes[i + 20] << 16) | (bytes[i + 21] << 24);
+                if (fileNameBytes.length === nameBytes.length && fileNameBytes.every((b, j) => b === nameBytes[j])) {
+                  const dataStart = i + 30 + nameLen + extraLen;
+                  return bytes.slice(dataStart, dataStart + compSize);
+                }
+              }
+            }
+            return null;
+          };
+          const sheetData = findFile('xl/worksheets/sheet1.xml');
+          if (!sheetData) { reject(new Error('Arquivo xlsx inválido')); return; }
+          const xml = new TextDecoder().decode(sheetData);
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xml, 'application/xml');
+          const rowEls = Array.from(doc.querySelectorAll('row'));
+          if (rowEls.length === 0) { reject(new Error('Arquivo vazio')); return; }
+          const parseRow = (el: Element): string[] =>
+            Array.from(el.querySelectorAll('c')).map(c => {
+              const t = c.getAttribute('t');
+              if (t === 'inlineStr') return c.querySelector('t')?.textContent ?? '';
+              return c.querySelector('v')?.textContent ?? '';
             });
+          const headers = parseRow(rowEls[0]).map(h => h.trim());
+          const rows = rowEls.slice(1).map(r => {
+            const vals = parseRow(r);
+            const obj: Record<string, unknown> = {};
+            headers.forEach((h, i) => { obj[h] = vals[i] ?? ''; });
             return obj;
           });
-
           resolve({ headers, data: rows });
         } else {
           Papa.parse(file, {
             complete: (result) => {
-              if (result.data.length === 0) {
-                reject(new Error('Arquivo vazio'));
-                return;
-              }
-
+              if (result.data.length === 0) { reject(new Error('Arquivo vazio')); return; }
               const headers = (result.data[0] as string[]).map(h => String(h || '').trim());
               const rows = result.data.slice(1).map((row: unknown) => {
                 const obj: Record<string, unknown> = {};
-                headers.forEach((header, index) => {
-                  obj[header] = (row as string[])[index];
-                });
+                headers.forEach((header, index) => { obj[header] = (row as string[])[index]; });
                 return obj;
               }).filter(row => Object.values(row).some(v => v !== undefined && v !== ''));
-
               resolve({ headers, data: rows });
             },
             error: (error) => reject(error),
@@ -150,12 +299,7 @@ export function parseFile(file: File): Promise<{ headers: string[]; data: Record
     };
 
     reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
-
-    if (isExcel) {
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.readAsText(file);
-    }
+    if (isExcel) { reader.readAsArrayBuffer(file); } else { reader.readAsText(file); }
   });
 }
 
@@ -273,10 +417,7 @@ export function exportToExcel<T extends Record<string, unknown>>(data: T[], enti
     });
   });
 
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, entityType);
-  XLSX.writeFile(workbook, filename);
+  writeXlsxFile(headers, rows, filename);
 }
 
 // Download CSV file
@@ -318,10 +459,7 @@ export function generateTemplate(entityType: EntityType, format: FileFormat): vo
   };
 
   if (format === 'xlsx') {
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, entityNames[entityType] || entityType);
-    XLSX.writeFile(workbook, `template_${entityNames[entityType] || entityType}.xlsx`);
+    writeXlsxFile(headers, [exampleRow], `template_${entityNames[entityType] || entityType}.xlsx`);
   } else {
     const content = [headers.join(','), exampleRow.join(',')].join('\n');
     downloadCSV(content, `template_${entityNames[entityType] || entityType}.csv`);
@@ -381,10 +519,7 @@ export function exportHRPeople(
 
   const timestamp = new Date().toISOString().split('T')[0];
   if (format === 'xlsx') {
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RH');
-    XLSX.writeFile(workbook, `rh_pessoas_${timestamp}.xlsx`);
+    writeXlsxFile(headers, rows, `rh_pessoas_${timestamp}.xlsx`);
   } else {
     const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     downloadCSV(content, `rh_pessoas_${timestamp}.csv`);
