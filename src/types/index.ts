@@ -105,6 +105,9 @@ export interface Contract {
   responsavelInterno: string;
   responsavelCS?: string;
   responsavelComercial?: string;
+  responsavelCliente?: string;
+  responsavelClienteEmail?: string;
+  responsavelClienteTelefone?: string;
   
   createdAt: string;
   updatedAt: string;

@@ -161,6 +161,9 @@ export const contractFormSchema = z.object({
     .max(100, 'Nome deve ter no máximo 100 caracteres'),
   responsavelCS: z.string().max(100).optional(),
   responsavelComercial: z.string().max(100).optional(),
+  responsavelCliente: z.string().max(100).optional(),
+  responsavelClienteEmail: z.string().email('E-mail inválido').optional().or(z.literal('')),
+  responsavelClienteTelefone: z.string().max(20).optional(),
 }).refine((data) => {
   // Validate that valorMensalReferencia is provided when modeloReceita is 'mrr'
   if (data.modeloReceita === 'mrr' && (!data.valorMensalReferencia || data.valorMensalReferencia <= 0)) {

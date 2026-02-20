@@ -81,6 +81,9 @@ export default function ContractFormPage() {
         responsavelInterno: data.responsavelInterno,
         responsavelCS: data.responsavelCS,
         responsavelComercial: data.responsavelComercial,
+        responsavelCliente: data.responsavelCliente,
+        responsavelClienteEmail: data.responsavelClienteEmail,
+        responsavelClienteTelefone: data.responsavelClienteTelefone,
       };
 
       if (isEditing && contract) {

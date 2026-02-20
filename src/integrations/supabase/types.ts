@@ -220,6 +220,9 @@ export type Database = {
           renewal_base_date: string | null
           renewal_term_months: number | null
           renovacao_automatica: boolean
+          responsavel_cliente: string | null
+          responsavel_cliente_email: string | null
+          responsavel_cliente_telefone: string | null
           responsavel_comercial: string | null
           responsavel_cs: string | null
           responsavel_interno: string
@@ -259,6 +262,9 @@ export type Database = {
           renewal_base_date?: string | null
           renewal_term_months?: number | null
           renovacao_automatica?: boolean
+          responsavel_cliente?: string | null
+          responsavel_cliente_email?: string | null
+          responsavel_cliente_telefone?: string | null
           responsavel_comercial?: string | null
           responsavel_cs?: string | null
           responsavel_interno?: string
@@ -298,6 +304,9 @@ export type Database = {
           renewal_base_date?: string | null
           renewal_term_months?: number | null
           renovacao_automatica?: boolean
+          responsavel_cliente?: string | null
+          responsavel_cliente_email?: string | null
+          responsavel_cliente_telefone?: string | null
           responsavel_comercial?: string | null
           responsavel_cs?: string | null
           responsavel_interno?: string

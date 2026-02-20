@@ -87,6 +87,9 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       responsavelInterno: contract?.responsavelInterno || '',
       responsavelCS: contract?.responsavelCS || '',
       responsavelComercial: contract?.responsavelComercial || '',
+      responsavelCliente: contract?.responsavelCliente || '',
+      responsavelClienteEmail: contract?.responsavelClienteEmail || '',
+      responsavelClienteTelefone: contract?.responsavelClienteTelefone || '',
     },
   });
 
@@ -889,6 +892,54 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                     </FormItem>
                   )}
                 />
+              </div>
+
+              {/* Responsável no Cliente */}
+              <div className="mt-6 pt-4 border-t">
+                <p className="text-sm font-semibold text-foreground mb-4">Responsável no Cliente</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="responsavelCliente"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome do responsável no cliente" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="responsavelClienteEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-mail</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@cliente.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="responsavelClienteTelefone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 00000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </AccordionContent>
           </AccordionItem>
