@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHR } from '@/contexts/HRContext';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { 
   parseFile, 
@@ -30,6 +31,7 @@ import {
   exportToExcel, 
   downloadCSV,
   generateTemplate,
+  exportHRPeople,
   clientColumns,
   contractColumns,
   resourceColumns,
@@ -42,11 +44,13 @@ const entityLabels: Record<EntityType, string> = {
   clients: 'Clientes',
   contracts: 'Contratos',
   resources: 'Recursos',
+  hr_people: 'Recursos Humanos',
 };
 
 export default function ImportExportPage() {
-  const { clients, contracts, resources, addClient, addContract, addResource } = useData();
-  const { canEdit } = useAuth();
+  const { clients, contracts, resources, addClient, addContract, addResource, jobTitles, teams } = useData();
+  const { canEdit, canViewHRCosts } = useAuth();
+  const { hrPeople } = useHR();
   const { toast } = useToast();
   
   // Export state
@@ -69,6 +73,7 @@ export default function ImportExportPage() {
       case 'clients': return clientColumns;
       case 'contracts': return contractColumns;
       case 'resources': return resourceColumns;
+      case 'hr_people': return resourceColumns; // hr uses its own export function
     }
   };
   
@@ -77,15 +82,21 @@ export default function ImportExportPage() {
       case 'clients': return clients;
       case 'contracts': return contracts;
       case 'resources': return resources;
+      case 'hr_people': return hrPeople;
     }
   };
   
   const handleExport = () => {
-    const data = getExportData(exportEntity);
     const timestamp = new Date().toISOString().split('T')[0];
+
+    if (exportEntity === 'hr_people') {
+      exportHRPeople(hrPeople, teams, jobTitles, canViewHRCosts, exportFormat);
+      toast({ title: 'Exportação concluída', description: `${hrPeople.length} pessoas exportadas.` });
+      return;
+    }
+
+    const data = getExportData(exportEntity);
     const filename = `${exportEntity}_${timestamp}`;
-    
-    // Type assertion to handle the generic export functions
     const exportData = data as unknown as Record<string, unknown>[];
     
     if (exportFormat === 'xlsx') {
@@ -257,6 +268,7 @@ export default function ImportExportPage() {
                       <SelectItem value="clients">Clientes ({clients.length})</SelectItem>
                       <SelectItem value="contracts">Contratos ({contracts.length})</SelectItem>
                       <SelectItem value="resources">Recursos ({resources.length})</SelectItem>
+                      <SelectItem value="hr_people">Recursos Humanos ({hrPeople.length})</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

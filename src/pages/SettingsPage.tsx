@@ -424,59 +424,6 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* Card resumo de Cargos */}
-      {canEdit && (
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/configuracoes/cargos')}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-5 w-5 text-primary" />
-                <CardTitle>Cargos (RH)</CardTitle>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <CardDescription>
-              Gerencie cargos, faixas e parâmetros usados em cálculos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <Badge variant="secondary">{jobTitles.length} cargo{jobTitles.length !== 1 ? 's' : ''} cadastrado{jobTitles.length !== 1 ? 's' : ''}</Badge>
-              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate('/configuracoes/cargos'); }}>
-                Gerenciar cargos
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Card resumo de Equipes */}
-      {canEdit && (
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/configuracoes/equipes')}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                <CardTitle>Equipes</CardTitle>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <CardDescription>
-              Organize cargos em equipes para facilitar filtros e relatórios.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <Badge variant="secondary">{teams.length} equipe{teams.length !== 1 ? 's' : ''} cadastrada{teams.length !== 1 ? 's' : ''}</Badge>
-              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate('/configuracoes/equipes'); }}>
-                Gerenciar equipes
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

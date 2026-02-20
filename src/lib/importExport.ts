@@ -389,3 +389,4 @@ export function exportHRPeople(
     const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     downloadCSV(content, `rh_pessoas_${timestamp}.csv`);
   }
+}

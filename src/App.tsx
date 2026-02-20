@@ -10,6 +10,7 @@ import { DataProvider } from "@/contexts/DataContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { SystemUsersProvider } from "@/contexts/SystemUsersContext";
 import { SimulationProvider } from "@/contexts/SimulationContext";
+import { HRProvider } from "@/contexts/HRContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -31,6 +32,8 @@ import AccessLogsPage from "@/pages/AccessLogsPage";
 import CalculatorPage from "@/pages/CalculatorPage";
 import CalculatorWizardPage from "@/pages/CalculatorWizardPage";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
+import HRPeoplePage from "@/pages/HRPeoplePage";
+import HRPersonDetailPage from "@/pages/HRPersonDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,49 +44,55 @@ const App = () => (
       <AuthProvider>
         <SystemUsersProvider>
           <DataProvider>
-            <NotificationProvider>
-              <SimulationProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <AccessLogProvider>
-                    <Routes>
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/trocar-senha" element={<ChangePasswordPage />} />
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                      <Route element={<MainLayout />}>
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/clientes" element={<ClientsPage />} />
-                        <Route path="/clientes/novo" element={<ClientFormPage />} />
-                        <Route path="/clientes/:id" element={<ClientDetailPage />} />
-                        <Route path="/clientes/:id/editar" element={<ClientFormPage />} />
-                        <Route path="/contratos" element={<ContractsPage />} />
-                        <Route path="/contratos/novo" element={<ContractFormPage />} />
-                        <Route path="/contratos/:id" element={<ContractDetailPage />} />
-                        <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
-                        <Route path="/contratos/:id/recursos" element={<ContractResourcesPage />} />
-                        <Route path="/usuarios" element={<UsersPage />} />
-                        <Route path="/usuarios/logs" element={<AccessLogsPage />} />
-                        <Route path="/configuracoes" element={<SettingsPage />} />
-                        <Route path="/configuracoes/cargos" element={<JobTitlesPage />} />
-                        <Route path="/configuracoes/equipes" element={<TeamsPage />} />
-                        <Route path="/alertas" element={<AlertsPage />} />
-                        <Route path="/squads" element={<SquadsPage />} />
-                        <Route path="/importar-exportar" element={<ImportExportPage />} />
-                        <Route path="/calculadora" element={<CalculatorPage />} />
-                        <Route path="/calculadora/nova" element={<CalculatorWizardPage />} />
-                        <Route path="/calculadora/:id" element={<CalculatorWizardPage />} />
-                        <Route path="/integracoes" element={<DashboardPage />} />
-                        <Route path="/ajuda" element={<DashboardPage />} />
-                      </Route>
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                    </AccessLogProvider>
-                  </BrowserRouter>
-                </TooltipProvider>
-              </SimulationProvider>
-            </NotificationProvider>
+            <HRProvider>
+              <NotificationProvider>
+                <SimulationProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <AccessLogProvider>
+                      <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/trocar-senha" element={<ChangePasswordPage />} />
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route element={<MainLayout />}>
+                          <Route path="/dashboard" element={<DashboardPage />} />
+                          <Route path="/clientes" element={<ClientsPage />} />
+                          <Route path="/clientes/novo" element={<ClientFormPage />} />
+                          <Route path="/clientes/:id" element={<ClientDetailPage />} />
+                          <Route path="/clientes/:id/editar" element={<ClientFormPage />} />
+                          <Route path="/contratos" element={<ContractsPage />} />
+                          <Route path="/contratos/novo" element={<ContractFormPage />} />
+                          <Route path="/contratos/:id" element={<ContractDetailPage />} />
+                          <Route path="/contratos/:id/editar" element={<ContractFormPage />} />
+                          <Route path="/contratos/:id/recursos" element={<ContractResourcesPage />} />
+                          <Route path="/usuarios" element={<UsersPage />} />
+                          <Route path="/usuarios/logs" element={<AccessLogsPage />} />
+                          <Route path="/configuracoes" element={<SettingsPage />} />
+                          <Route path="/configuracoes/cargos" element={<JobTitlesPage />} />
+                          <Route path="/configuracoes/equipes" element={<TeamsPage />} />
+                          <Route path="/alertas" element={<AlertsPage />} />
+                          <Route path="/squads" element={<SquadsPage />} />
+                          <Route path="/importar-exportar" element={<ImportExportPage />} />
+                          <Route path="/calculadora" element={<CalculatorPage />} />
+                          <Route path="/calculadora/nova" element={<CalculatorWizardPage />} />
+                          <Route path="/calculadora/:id" element={<CalculatorWizardPage />} />
+                          <Route path="/rh" element={<HRPeoplePage />} />
+                          <Route path="/rh/pessoas/:id" element={<HRPersonDetailPage />} />
+                          <Route path="/rh/cargos" element={<JobTitlesPage />} />
+                          <Route path="/rh/equipes" element={<TeamsPage />} />
+                          <Route path="/integracoes" element={<DashboardPage />} />
+                          <Route path="/ajuda" element={<DashboardPage />} />
+                        </Route>
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                      </AccessLogProvider>
+                    </BrowserRouter>
+                  </TooltipProvider>
+                </SimulationProvider>
+              </NotificationProvider>
+            </HRProvider>
           </DataProvider>
         </SystemUsersProvider>
       </AuthProvider>

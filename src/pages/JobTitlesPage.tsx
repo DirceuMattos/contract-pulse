@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Briefcase, Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +18,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 
 export default function JobTitlesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFromRH = location.pathname.startsWith('/rh');
   const { jobTitles, addJobTitle, updateJobTitle, deleteJobTitle, teams, getActiveTeams } = useData();
   const { canEdit } = useAuth();
   const activeTeams = getActiveTeams();
@@ -39,13 +41,13 @@ export default function JobTitlesPage() {
         title="Cargos (RH)"
         description="Cadastre e mantenha cargos usados na calculadora e nos recursos humanos."
         animated={false}
-        breadcrumbs={[
-          { label: 'Configurações', href: '/configuracoes' },
-          { label: 'Cargos' },
-        ]}
+        breadcrumbs={isFromRH
+          ? [{ label: 'Recursos Humanos', href: '/rh' }, { label: 'Cargos' }]
+          : [{ label: 'Configurações', href: '/configuracoes' }, { label: 'Cargos' }]
+        }
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate('/configuracoes')}>
+            <Button variant="outline" onClick={() => navigate(isFromRH ? '/rh' : '/configuracoes')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
