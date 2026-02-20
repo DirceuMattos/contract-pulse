@@ -1,39 +1,80 @@
 
+## Adicionar Responsável do Cliente no Módulo de Contratos
 
-## Exibir campo "Indice" editavel na tela de Equipes
+### Contexto
 
-### Resumo
+A seção "Responsáveis" no formulário de contratos atualmente tem 3 campos internos: Responsável Interno, P.O./CS e Responsável Comercial. A solicitação é incluir os dados do responsável do lado do cliente (nome, e-mail e telefone), com e-mail e telefone sendo opcionais.
 
-O campo `sortOrder` ja existe na entidade `Team` e no banco de dados. A alteracao consiste em expor esse campo na listagem e no dialog de criacao/edicao para que o usuario possa visualizar e alterar o indice de ordenacao.
+### O que será alterado
 
-### Alteracoes
+São necessárias mudanças em 6 pontos encadeados:
 
-**Arquivo: `src/pages/TeamsPage.tsx`**
+**1. Banco de dados — nova migração SQL**
 
-1. **Listagem** -- Exibir o valor do `sortOrder` ao lado do nome da equipe como um badge ou label (ex: "#1", "#2"), para que o usuario veja a ordem atual de cada equipe.
+Adicionar 3 colunas na tabela `contracts`:
+- `responsavel_cliente` (text, nullable) — nome do responsável no cliente
+- `responsavel_cliente_email` (text, nullable) — e-mail do responsável no cliente
+- `responsavel_cliente_telefone` (text, nullable) — telefone do responsável no cliente
 
-2. **Estado do dialog** -- Adicionar estado `teamSortOrder` (tipo `number`) junto aos estados existentes (`teamName`, `teamDescription`, `teamActive`).
+**2. Tipo TypeScript — `src/types/index.ts`**
 
-3. **Dialog de criacao** -- Adicionar campo "Indice" (Input numerico) no dialog. Ao criar, o valor padrao sera o proximo indice disponivel (max + 1), mas o usuario podera alterar.
+Adicionar os 3 campos opcionais na interface `Contract`:
+```
+responsavelCliente?: string;
+responsavelClienteEmail?: string;
+responsavelClienteTelefone?: string;
+```
 
-4. **Dialog de edicao** -- Preencher o campo "Indice" com o `sortOrder` atual da equipe. O usuario podera alterar livremente.
+**3. Mapeadores de banco — `src/lib/dbMappers.ts`**
 
-5. **handleSave** -- Incluir `sortOrder: teamSortOrder` no payload enviado para `addTeam` ou `updateTeam`.
+Atualizar `contractFromDb` e `contractToDb` para incluir os 3 novos campos com mapeamento `snake_case` ↔ `camelCase`.
 
-6. **Funcao addTeam no DataContext** -- Atualmente `addTeam` aceita apenas `(name, description)`. Sera necessario expandir a assinatura para aceitar `sortOrder` como parametro opcional, mantendo o comportamento atual como fallback (max + 1).
+**4. Validação do formulário — `src/lib/validators.ts`**
 
-### Detalhes tecnicos
+Adicionar no `contractFormSchema`:
+- `responsavelCliente` — string opcional, máximo 100 caracteres
+- `responsavelClienteEmail` — string opcional, validação de e-mail quando preenchida (`.optional().or(z.literal(''))`)
+- `responsavelClienteTelefone` — string opcional (reutilizar o `phoneSchema` existente)
 
-**`src/contexts/DataContext.tsx`**
-- Alterar a assinatura de `addTeam` de `(name: string, description?: string)` para `(name: string, description?: string, sortOrder?: number)`
-- Se `sortOrder` for fornecido, usar esse valor; caso contrario, manter o calculo automatico (max + 1)
-- Atualizar a interface `DataContextType` com a nova assinatura
+Atualizar o tipo `ContractFormData`.
 
-**`src/pages/TeamsPage.tsx`**
-- Novo estado: `const [teamSortOrder, setTeamSortOrder] = useState(0)`
-- Em `openCreateDialog`: inicializar com `Math.max(...teams.map(t => t.sortOrder), 0) + 1`
-- Em `openEditDialog`: inicializar com `team.sortOrder`  (sera necessario incluir `sortOrder` no tipo do `editingTeam`)
-- Na listagem: exibir badge com o indice antes do nome da equipe
-- No dialog: campo Input type="number" com label "Indice" antes do campo Nome
-- Em `handleSave`: passar `teamSortOrder` para `addTeam` e `updateTeam`
+**5. Formulário de criação/edição — `src/components/forms/ContractForm.tsx`**
 
+Na seção "Responsáveis", adicionar um separador visual e 3 novos campos após os responsáveis internos:
+- Título separador: "Responsável no Cliente"
+- Campo: "Nome do Responsável no Cliente" (input texto, opcional)
+- Campo: "E-mail" (input email, opcional)
+- Campo: "Telefone" (input texto, opcional)
+
+Inicializar os valores nos `defaultValues` do `useForm`.
+
+**6. Página de criação/edição — `src/pages/ContractFormPage.tsx`**
+
+Incluir os 3 novos campos no objeto `contractData` enviado para `addContract`/`updateContract`.
+
+**7. Página de detalhe do contrato — `src/pages/ContractDetailPage.tsx`**
+
+Na aba "Escopo" (ou criando uma seção "Responsáveis" dentro dela, seguindo o padrão existente), exibir as informações do responsável do cliente quando preenchidas, com links clicáveis para e-mail e telefone.
+
+### Detalhes técnicos
+
+**Migração SQL:**
+```sql
+ALTER TABLE contracts
+  ADD COLUMN IF NOT EXISTS responsavel_cliente text,
+  ADD COLUMN IF NOT EXISTS responsavel_cliente_email text,
+  ADD COLUMN IF NOT EXISTS responsavel_cliente_telefone text;
+```
+
+**Validação do e-mail no schema Zod:**
+```typescript
+responsavelClienteEmail: z.string().email('E-mail inválido').optional().or(z.literal('')),
+```
+
+**Exibição na página de detalhe:**
+- O responsável do cliente só será exibido se o campo `responsavelCliente` estiver preenchido
+- E-mail aparece como link `mailto:`
+- Telefone aparece como link `tel:`
+
+**Formulário:**
+- O layout dos responsáveis ficará assim: linha 1 com os 3 responsáveis internos (como hoje), depois um separador com título "Responsável no Cliente", e linha 2 com os 3 novos campos (nome, e-mail, telefone) em grid de 3 colunas no desktop
