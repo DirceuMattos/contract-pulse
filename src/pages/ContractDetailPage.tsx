@@ -620,6 +620,69 @@ export default function ContractDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Responsáveis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Responsáveis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Responsável Interno</p>
+                  <p className="font-medium">{contract.responsavelInterno}</p>
+                </div>
+                {contract.responsavelCS && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">P.O. / CS</p>
+                    <p className="font-medium">{contract.responsavelCS}</p>
+                  </div>
+                )}
+                {contract.responsavelComercial && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Responsável Comercial</p>
+                    <p className="font-medium">{contract.responsavelComercial}</p>
+                  </div>
+                )}
+              </div>
+
+              {contract.responsavelCliente && (
+                <>
+                  <div className="border-t pt-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Responsável no Cliente</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Nome</p>
+                        <p className="font-medium">{contract.responsavelCliente}</p>
+                      </div>
+                      {contract.responsavelClienteEmail && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">E-mail</p>
+                          <a
+                            href={`mailto:${contract.responsavelClienteEmail}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {contract.responsavelClienteEmail}
+                          </a>
+                        </div>
+                      )}
+                      {contract.responsavelClienteTelefone && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Telefone</p>
+                          <a
+                            href={`tel:${contract.responsavelClienteTelefone}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {contract.responsavelClienteTelefone}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
         
         <TabsContent value="vigencia" className="space-y-6">
