@@ -1,96 +1,214 @@
 
-## Ajustes no Módulo de Recursos Humanos
+## Adequação completa do banco e importação de RH à planilha real
 
-### Confirmação: Tela de Login
+### Análise dos campos da planilha
 
-A tela de login foi verificada com sucesso. **BNPContractCore** e o título **"Squads, Contratos, Resultados Financeiros"** estão exibidos corretamente em desktop.
+A planilha possui 79 colunas no total. Após análise, elas se dividem em três grupos:
 
----
+**Grupo 1 — Dados cadastrais (ir para `hr_people`)**
 
-### Problema 1: Arquivo Excel Corrompido na Exportação de RH
-
-**Causa raiz identificada:** A implementação nativa de geração de `.xlsx` em `src/lib/importExport.ts` tem dois bugs críticos:
-
-1. O arquivo `_rels/.rels` e `xl/_rels/workbook.xml.rels` usam o mesmo conteúdo — o relacionamento raiz deve apontar para o workbook, e o relacionamento do workbook deve apontar para a planilha. Os dois estão com o mesmo XML, o que corrompe a estrutura do arquivo ZIP.
-
-2. A função `toCell` usa `String.fromCharCode(65 + colIdx)` para gerar a referência de célula (A, B, C...), o que limita a 26 colunas e não suporta AA, AB, etc. O arquivo de exportação de RH tem 15 colunas, o que não causa problema imediato neste ponto, mas o conteúdo dos relacionamentos precisa ser corrigido.
-
-**Correção:**
-
-Em `src/lib/importExport.ts`, corrigir:
-
-- O arquivo `_rels/.rels` (relacionamento raiz) deve apontar com `Type=...officeDocument/2006/relationships/officeDocument` para o workbook.
-- O arquivo `xl/_rels/workbook.xml.rels` deve apontar com `Type=...officeDocument/2006/relationships/worksheet` para a planilha.
-- Atualmente ambos os arquivos têm o mesmo conteúdo (`rels` variable), o que é o bug central.
-
-```
-// Conteúdo correto para _rels/.rels (aponta para workbook)
-const rootRels = `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="...package/2006/relationships">
-  <Relationship Id="rId1" 
-    Type=".../officeDocument/2006/relationships/officeDocument" 
-    Target="xl/workbook.xml"/>
-</Relationships>`;
-
-// Conteúdo correto para xl/_rels/workbook.xml.rels (aponta para sheet)
-const wbRels = `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="...package/2006/relationships">
-  <Relationship Id="rId1" 
-    Type=".../officeDocument/2006/relationships/worksheet" 
-    Target="worksheets/sheet1.xml"/>
-</Relationships>`;
-```
-
-Isso também corrige o problema de exportação da página de Squads, que atualmente exporta CSV em vez de XLSX.
-
----
-
-### Problema 2: Limpeza e Reimportação do Banco de RH
-
-Existem atualmente **20 registros** em `hr_people` com datas de admissão incorretas (todas em 2026-02-18 ou 2026-02-19, que são as datas da migração, não as reais).
-
-**Solução proposta: Botão de Importação na página de Pessoas (HRPeoplePage)**
-
-Em vez de um processo manual, será adicionado um fluxo de importação diretamente na tela de RH, acessível apenas para usuários com permissão de edição (`canEdit`). O fluxo será:
-
-**Passo 1 — Download do template:** O usuário baixa um arquivo `.xlsx` com as colunas no formato correto para preenchimento.
-
-**Passo 2 — Upload e pré-visualização:** O usuário faz upload da planilha preenchida. O sistema lê o arquivo, mostra uma tabela de pré-visualização com os dados lidos e uma contagem de registros.
-
-**Passo 3 — Confirmação com opção de limpeza:** Antes de confirmar, o usuário escolhe se quer **substituir todos os dados atuais** (limpar o banco e reimportar) ou **adicionar** os novos registros. Um alerta claro avisa sobre a irreversibilidade da limpeza.
-
-**Passo 4 — Importação:** O sistema resolve cargos e equipes pelo nome (tolerante a maiúsculas/minúsculas), insere os registros e exibe o resultado.
-
-**Colunas do template de importação:**
-
-| Coluna | Obrigatório | Valores aceitos |
+| Coluna na planilha | Campo no sistema | Status |
 |---|---|---|
-| Nome | Sim | Texto |
-| Vínculo | Sim | CLT / PJ |
-| Cargo | Não | Nome do cargo cadastrado |
-| Departamento | Não | Nome do departamento cadastrado |
-| Local de Atuação | Não | Texto |
-| Data de Admissão | Não | YYYY-MM-DD |
-| Remuneração Mensal | Não | Número |
-| Benefícios | Não | Número |
-| Situação | Não | ativo / inativo (padrão: ativo) |
-| Observações | Não | Texto |
-| Comitê Gestor | Não | Texto |
+| `Nome` | `nome` | Existe |
+| `Tipo_Vinculo` | `tipo_vinculo` | Existe |
+| `Cargo_Funcao` | `cargo_id` (resolvido por nome) | Existe |
+| `Departamento` | `team_id` (resolvido por nome) | Existe |
+| `Remuneracao_Mensal` | `remuneracao_mensal` | Existe |
+| `Beneficios` | `beneficios` | Existe |
+| `Observacoes` | `observacoes` | Existe |
+| `Comite_Gestor` | `comite_gestor` | Existe |
+| `Local_Atuacao` | `local_atuacao` | Existe |
+| `Data_Admissao` | `data_admissao` | Existe |
+| `Situacao` | `situacao` | Existe |
+| `Data_Desligamento` | `data_desligamento` | Existe |
+| `Tipo_Motivo_Desligamento` | `tipo_desligamento` | Existe |
+| `Nivel` | `nivel` | **NOVO** |
+| `Trilha` | `trilha` | **NOVO** |
+| `Projeto` | `projeto` | **NOVO** |
+| `Cargo_Antigo` | `cargo_antigo` | **NOVO** |
+| `Remuneracao_II` | `remuneracao_ii` | **NOVO** |
+| `Observacoes_Desligamento` | `observacoes_desligamento` | **NOVO** |
+| `Email` | `email` | **NOVO** |
+| `Celular` | `celular` | **NOVO** |
+| `ID_Externo` | `id_externo` | **NOVO** |
+| `Centro_Custo` | `centro_custo` | **NOVO** |
+
+**Grupo 2 — Histórico de remuneração (ir para `hr_timeline`)**
+
+As colunas `RAW_Data Ocorrência`, `RAW_Valor`, `RAW_Data Ocorrência.1`, `RAW_Valor.1`, ... até `.16` representam até 17 eventos históricos de remuneração por pessoa. Cada par de colunas com data e valor válidos gera um evento na linha do tempo com `ocorrencia = 'reajuste'`.
+
+**Grupo 3 — Ignorados (campos calculados/redundantes)**
+
+`Tempo_de_Casa_Orig`, `Tempo_de_Casa_Calc`, e todos os campos `RAW_*` que não sejam os pares de ocorrência/valor (pois são duplicatas dos campos processados).
 
 ---
 
-### Arquivos a Modificar
+### Mudanças necessárias
 
-**Técnico:**
+#### 1. Banco de dados — Migração SQL
 
-1. `src/lib/importExport.ts`
-   - Corrigir o bug do `_rels/.rels` vs `xl/_rels/workbook.xml.rels` na função `buildXlsx`
-   - Adicionar `hrImportColumns` com a definição das colunas de importação
-   - Adicionar função `generateHRTemplate()` que gera o template de importação
+Adicionar as 9 novas colunas na tabela `hr_people`:
 
-2. `src/pages/HRPeoplePage.tsx`
-   - Adicionar botão "Importar" ao lado do botão "Exportar" no header
-   - Criar um `Dialog` de importação com 3 passos: upload → pré-visualização → confirmação (com opção de limpar tudo)
-   - A lógica de deleção e inserção em batch usa o `HRContext` (deletePerson + addPerson em loop) ou chamadas diretas ao Supabase para eficiência
+```sql
+ALTER TABLE public.hr_people
+  ADD COLUMN IF NOT EXISTS nivel text,
+  ADD COLUMN IF NOT EXISTS trilha text,
+  ADD COLUMN IF NOT EXISTS projeto text,
+  ADD COLUMN IF NOT EXISTS cargo_antigo text,
+  ADD COLUMN IF NOT EXISTS remuneracao_ii numeric,
+  ADD COLUMN IF NOT EXISTS observacoes_desligamento text,
+  ADD COLUMN IF NOT EXISTS email text,
+  ADD COLUMN IF NOT EXISTS celular text,
+  ADD COLUMN IF NOT EXISTS id_externo text,
+  ADD COLUMN IF NOT EXISTS centro_custo text;
+```
 
-3. `src/pages/SquadsPage.tsx` *(opcional, melhoria)* — restaurar exportação como `.xlsx` aproveitando a correção do `buildXlsx`
+Todas as colunas são nullable para não quebrar registros existentes.
+
+#### 2. TypeScript — `src/types/index.ts`
+
+Adicionar os novos campos à interface `HRPerson`:
+
+```typescript
+export interface HRPerson {
+  // ... campos existentes ...
+  nivel?: string;
+  trilha?: string;
+  projeto?: string;
+  cargoAntigo?: string;
+  remuneracaoII?: number;
+  observacoesDesligamento?: string;
+  email?: string;
+  celular?: string;
+  idExterno?: string;
+  centroCusto?: string;
+}
+```
+
+#### 3. Mappers — `src/lib/dbMappers.ts`
+
+Atualizar `hrPersonFromDb` e `hrPersonToDb` para incluir os 10 novos campos (snake_case ↔ camelCase).
+
+#### 4. Parser de importação — `src/lib/importExport.ts`
+
+**Reescrever completamente `parseHRImportRow`** para:
+
+- Mapear os headers exatos da planilha (`Tipo_Vinculo`, `Cargo_Funcao`, `Nivel`, `Trilha`, etc.)
+- Suportar formatos de data: `YYYY-MM-DD`, `DD/MM/YYYY`, `DD/MM/YYYY HH:MM:SS`, `YYYY-MM-DD HH:MM:SS`
+- Mapear `Tipo_Motivo_Desligamento`: "Dispensado" → `dispensado`, "Solicitou dispensa" → `solicitou-dispensa`, outros → `outro`
+- Extrair o `Observacoes_Desligamento` para `motivoDesligamento`
+- Capturar todos os campos novos
+
+**Expandir `HRImportRow`** para incluir todos os campos:
+```typescript
+export interface HRImportRow {
+  nome: string;
+  tipoVinculo: 'clt' | 'pj';
+  cargo: string;
+  departamento: string;
+  localAtuacao: string;
+  dataAdmissao: string;
+  remuneracaoMensal: number;
+  remuneracaoII: number;
+  beneficios: number;
+  situacao: 'ativo' | 'inativo';
+  observacoes: string;
+  comiteGestor: string;
+  dataDesligamento?: string;
+  tipoDesligamento?: HRTipoDesligamento;
+  motivoDesligamento?: string;
+  observacoesDesligamento?: string;
+  nivel?: string;
+  trilha?: string;
+  projeto?: string;
+  cargoAntigo?: string;
+  email?: string;
+  celular?: string;
+  idExterno?: string;
+  centroCusto?: string;
+  // Pares de timeline: até 17 entradas
+  timelineEvents: Array<{ data: string; valor: number }>;
+}
+```
+
+**Adicionar extração dos pares RAW_Data Ocorrência / RAW_Valor** (0 a 16):
+
+```typescript
+const timelineEvents: Array<{ data: string; valor: number }> = [];
+for (let i = 0; i <= 16; i++) {
+  const suffix = i === 0 ? '' : `.${i}`;
+  const dataRaw = get([`RAW_Data Ocorrência${suffix}`]);
+  const valorRaw = get([`RAW_Valor${suffix}`]);
+  if (dataRaw && valorRaw) {
+    const valorNum = parseFloat(valorRaw.replace(',', '.'));
+    const dataFmt = parseDate(dataRaw);
+    if (dataFmt && !isNaN(valorNum)) {
+      timelineEvents.push({ data: dataFmt, valor: valorNum });
+    }
+    // Se valor não é numérico (ex: "VA +R$500,00"), criar evento descritivo mas sem valor numérico
+  }
+}
+```
+
+Valores de texto como `"VA +R$500,00"` ou `"Função - Analista de Suporte"` serão inseridos como eventos de `ocorrencia: 'observacao'` com a descrição como texto, sem valor numérico.
+
+#### 5. Dialog de importação — `src/components/hr/HRImportDialog.tsx`
+
+**Alterar `handleImport`** para, após inserir cada pessoa, inserir também os eventos de timeline:
+
+```typescript
+for (const row of rows) {
+  const person = await addPerson({ ...dadosDaPessoa });
+  
+  // Inserir eventos de timeline
+  for (const ev of row.timelineEvents) {
+    await addTimelineEvent({
+      personId: person.id,
+      eventDate: ev.data,
+      ocorrencia: 'reajuste',
+      descricao: `Remuneração: ${formatCurrency(ev.valor)}`,
+      valor: ev.valor,
+      remuneracaoApos: ev.valor,
+      atualizarRemuneracao: false, // já está definida no cadastro
+    });
+  }
+}
+```
+
+**Atualizar a tabela de pré-visualização** para mostrar coluna de `Nível`, `Trilha` e contagem de eventos de timeline.
+
+#### 6. Formulário de edição — `src/components/hr/HRPersonForm.tsx`
+
+Adicionar campos novos ao formulário de criação/edição:
+- `Email` e `Celular` — seção "Identificação"
+- `Nivel` e `Trilha` — seção "Identificação" (ex: "N2 - Pleno", "Técnica")
+- `Projeto` — seção "Identificação"
+- `Cargo Antigo` — seção "Identificação"
+- `Remuneração II` (VA/Ajuste de custo) — seção "Financeiro"
+- `Centro de Custo` — seção "Identificação"
+- `ID Externo` — seção "Identificação"
+- `Observações de Desligamento` — seção "Desligamento"
+
+#### 7. Tela de detalhe — `src/pages/HRPersonDetailPage.tsx`
+
+Adicionar os novos campos ao card "Dados Pessoais" e "Financeiro":
+- `Email`, `Celular`, `Nível`, `Trilha`, `Projeto`, `Cargo Antigo`, `ID Externo`, `Centro de Custo`
+- `Remuneração II` no card financeiro
+
+---
+
+### Sequência de execução
+
+1. Migração SQL (adicionar colunas)
+2. Atualizar `HRPerson` em `types/index.ts`
+3. Atualizar mappers em `dbMappers.ts`
+4. Reescrever `parseHRImportRow` e `HRImportRow` em `importExport.ts`
+5. Atualizar `HRImportDialog` para importar timeline junto
+6. Atualizar `HRPersonForm` com novos campos
+7. Atualizar `HRPersonDetailPage` para exibir novos campos
+
+### Impacto
+
+- Zero downtime: todas as colunas novas são nullable
+- Dados existentes não são afetados
+- Após a implementação, você poderá reimportar a planilha completa com todos os campos e o histórico de remuneração de cada pessoa ficará registrado automaticamente na linha do tempo
