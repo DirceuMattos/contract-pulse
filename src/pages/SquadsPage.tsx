@@ -15,8 +15,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { calculateContractHealth } from '@/lib/calculations';
 import { healthConfig } from '@/lib/uiConstants';
 import { Resource, Team } from '@/types';
-
 import Papa from 'papaparse';
+import { buildXlsx, downloadCSV } from '@/lib/importExport';
 
 // --- Types ---
 
@@ -257,18 +257,11 @@ export default function SquadsPage() {
   const exportXLSX = () => {
     const rows = buildExportRows();
     if (rows.length === 0) return;
-    // Build CSV and download as .xlsx-compatible file
     const headers = Object.keys(rows[0]);
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => headers.map(h => {
-        const val = String(row[h] ?? '');
-        return val.includes(',') || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
-      }).join(','))
-    ].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const dataRows = rows.map(row => headers.map(h => row[h] ?? ''));
+    const blob = buildXlsx(headers, dataRows);
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'squads-export.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'squads-export.xlsx'; a.click();
     URL.revokeObjectURL(url);
   };
 

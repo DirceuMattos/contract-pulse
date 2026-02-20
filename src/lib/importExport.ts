@@ -96,9 +96,19 @@ function escapeXml(val: unknown): string {
   return String(val ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
+function colRef(idx: number): string {
+  let ref = '';
+  let n = idx;
+  do {
+    ref = String.fromCharCode(65 + (n % 26)) + ref;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return ref;
+}
+
+export function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
   const toCell = (val: unknown, colIdx: number, rowIdx: number): string => {
-    const ref = String.fromCharCode(65 + colIdx) + rowIdx;
+    const ref = colRef(colIdx) + rowIdx;
     const str = String(val ?? '');
     if (str === '' || isNaN(Number(str))) {
       return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(str)}</t></is></c>`;
@@ -114,7 +124,11 @@ function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
 
   const wb = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`;
 
-  const rels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+  // Root relationship: points to the workbook
+  const rootRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+
+  // Workbook relationship: points to the worksheet
+  const wbRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
 
   const contentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
 
@@ -122,9 +136,9 @@ function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
   const enc = new TextEncoder();
   const files: Array<{ name: string; data: Uint8Array }> = [
     { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
-    { name: '_rels/.rels', data: enc.encode(rels) },
+    { name: '_rels/.rels', data: enc.encode(rootRels) },
     { name: 'xl/workbook.xml', data: enc.encode(wb) },
-    { name: 'xl/_rels/workbook.xml.rels', data: enc.encode(rels) },
+    { name: 'xl/_rels/workbook.xml.rels', data: enc.encode(wbRels) },
     { name: 'xl/worksheets/sheet1.xml', data: enc.encode(sheet) },
   ];
 
@@ -484,6 +498,21 @@ export const hrColumns = [
   { key: 'beneficios', label: 'Benefícios', required: false },
 ];
 
+// Import columns for HR (subset used to build import template)
+export const hrImportColumns = [
+  { key: 'nome', label: 'Nome', required: true },
+  { key: 'tipoVinculo', label: 'Vínculo (CLT/PJ)', required: true },
+  { key: 'cargo', label: 'Cargo', required: false },
+  { key: 'departamento', label: 'Departamento', required: false },
+  { key: 'localAtuacao', label: 'Local de Atuação', required: false },
+  { key: 'dataAdmissao', label: 'Data de Admissão (YYYY-MM-DD)', required: false },
+  { key: 'remuneracaoMensal', label: 'Remuneração Mensal', required: false },
+  { key: 'beneficios', label: 'Benefícios', required: false },
+  { key: 'situacao', label: 'Situação (ativo/inativo)', required: false },
+  { key: 'observacoes', label: 'Observações', required: false },
+  { key: 'comiteGestor', label: 'Comitê Gestor', required: false },
+];
+
 export function exportHRPeople(
   people: HRPerson[],
   teams: Team[],
@@ -524,4 +553,81 @@ export function exportHRPeople(
     const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     downloadCSV(content, `rh_pessoas_${timestamp}.csv`);
   }
+}
+
+// Generate an HR import template (.xlsx)
+export function generateHRImportTemplate(): void {
+  const headers = hrImportColumns.map(c => `${c.label}${c.required ? ' *' : ''}`);
+  const exampleRow = hrImportColumns.map(col => {
+    if (col.key === 'nome') return 'João da Silva';
+    if (col.key === 'tipoVinculo') return 'CLT';
+    if (col.key === 'cargo') return 'Analista';
+    if (col.key === 'departamento') return 'Tecnologia';
+    if (col.key === 'localAtuacao') return 'São Paulo';
+    if (col.key === 'dataAdmissao') return '2022-03-15';
+    if (col.key === 'remuneracaoMensal') return '8000';
+    if (col.key === 'beneficios') return '1500';
+    if (col.key === 'situacao') return 'ativo';
+    return '';
+  });
+  writeXlsxFile(headers, [exampleRow], 'template_importacao_rh.xlsx');
+}
+
+// Row type returned after parsing an HR import file
+export interface HRImportRow {
+  nome: string;
+  tipoVinculo: 'clt' | 'pj';
+  cargo: string;
+  departamento: string;
+  localAtuacao: string;
+  dataAdmissao: string;
+  remuneracaoMensal: number;
+  beneficios: number;
+  situacao: 'ativo' | 'inativo';
+  observacoes: string;
+  comiteGestor: string;
+}
+
+export function parseHRImportRow(raw: Record<string, unknown>): HRImportRow | null {
+  const get = (keys: string[]): string => {
+    for (const k of keys) {
+      const found = Object.keys(raw).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
+      if (found && raw[found] !== undefined && raw[found] !== '') return String(raw[found]).trim();
+    }
+    return '';
+  };
+
+  const nome = get(['Nome', 'nome']);
+  if (!nome) return null;
+
+  const vinculoRaw = get(['Vínculo (CLT/PJ)', 'Vincculo (CLT/PJ)', 'Vinculo', 'vínculo', 'tipoVinculo']).toLowerCase();
+  const tipoVinculo: 'clt' | 'pj' = vinculoRaw === 'pj' ? 'pj' : 'clt';
+
+  const admissaoRaw = get(['Data de Admissão (YYYY-MM-DD)', 'Data de Admissao', 'dataAdmissao', 'data_admissao', 'Data de Admissão']);
+  let dataAdmissao = admissaoRaw;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(admissaoRaw)) {
+    const [d, m, y] = admissaoRaw.split('/');
+    dataAdmissao = `${y}-${m}-${d}`;
+  }
+  if (!dataAdmissao || !/^\d{4}-\d{2}-\d{2}$/.test(dataAdmissao)) {
+    dataAdmissao = new Date().toISOString().split('T')[0];
+  }
+
+  const remuneracaoRaw = get(['Remuneração Mensal', 'Remuneracao Mensal', 'remuneracaoMensal']);
+  const beneficiosRaw = get(['Benefícios', 'Beneficios', 'beneficios']);
+  const situacaoRaw = get(['Situação (ativo/inativo)', 'Situacao', 'situacao']).toLowerCase();
+
+  return {
+    nome,
+    tipoVinculo,
+    cargo: get(['Cargo', 'cargo']),
+    departamento: get(['Departamento', 'departamento']),
+    localAtuacao: get(['Local de Atuação', 'Local de Atuacao', 'localAtuacao']),
+    dataAdmissao,
+    remuneracaoMensal: parseFloat(remuneracaoRaw.replace(',', '.')) || 0,
+    beneficios: parseFloat(beneficiosRaw.replace(',', '.')) || 0,
+    situacao: situacaoRaw === 'inativo' ? 'inativo' : 'ativo',
+    observacoes: get(['Observações', 'Observacoes', 'observacoes']),
+    comiteGestor: get(['Comitê Gestor', 'Comite Gestor', 'comiteGestor']),
+  };
 }

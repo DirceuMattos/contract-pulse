@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Eye, Pencil, UserX, UserCheck } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
+import { HRImportDialog } from '@/components/hr/HRImportDialog';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +46,7 @@ export default function HRPeoplePage() {
   const [filterComite, setFilterComite] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
+  const [importOpen, setImportOpen] = useState(false);
 
   const activeTeams = teams.filter(t => t.isActive);
   const activeJobTitles = jobTitles.filter(jt => jt.isActive);
@@ -107,10 +109,16 @@ export default function HRPeoplePage() {
               Exportar
             </Button>
             {canEdit && (
-              <Button onClick={() => { setEditingPerson(undefined); setDialogOpen(true); }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Pessoa
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar
+                </Button>
+                <Button onClick={() => { setEditingPerson(undefined); setDialogOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Pessoa
+                </Button>
+              </>
             )}
           </div>
         }
@@ -262,6 +270,13 @@ export default function HRPeoplePage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <HRImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        canViewFinanceiro={canViewHRCosts}
+      />
     </div>
   );
 }
