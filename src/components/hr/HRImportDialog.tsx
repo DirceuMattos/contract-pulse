@@ -24,7 +24,7 @@ interface Props {
 }
 
 export function HRImportDialog({ open, onOpenChange, canViewFinanceiro }: Props) {
-  const { hrPeople, addPerson } = useHR();
+  const { hrPeople, addPerson, addTimelineEvent } = useHR();
   const { teams, jobTitles } = useData();
 
   const [step, setStep] = useState<Step>('upload');
@@ -101,7 +101,7 @@ export function HRImportDialog({ open, onOpenChange, canViewFinanceiro }: Props)
       for (const row of rows) {
         try {
           const { cargoId, teamId } = resolveIds(row);
-          await addPerson({
+          const person = await addPerson({
             nome: row.nome,
             tipoVinculo: row.tipoVinculo,
             cargoId: cargoId ?? undefined,
@@ -113,7 +113,41 @@ export function HRImportDialog({ open, onOpenChange, canViewFinanceiro }: Props)
             situacao: row.situacao,
             observacoes: row.observacoes || undefined,
             comiteGestor: row.comiteGestor || undefined,
+            dataDesligamento: row.dataDesligamento,
+            tipoDesligamento: row.tipoDesligamento,
+            motivoDesligamento: row.motivoDesligamento,
+            observacoesDesligamento: row.observacoesDesligamento,
+            nivel: row.nivel,
+            trilha: row.trilha,
+            projeto: row.projeto,
+            cargoAntigo: row.cargoAntigo,
+            remuneracaoII: row.remuneracaoII || undefined,
+            email: row.email,
+            celular: row.celular,
+            idExterno: row.idExterno,
+            centroCusto: row.centroCusto,
           });
+
+          // Inserir eventos de timeline (histórico de remuneração)
+          for (const ev of row.timelineEvents) {
+            try {
+              const isNumeric = ev.valor > 0;
+              await addTimelineEvent({
+                personId: person.id,
+                eventDate: ev.data,
+                ocorrencia: isNumeric ? 'reajuste' : 'observacao',
+                descricao: ev.descricaoTexto
+                  ? ev.descricaoTexto
+                  : `Remuneração: ${formatCurrency(ev.valor)}`,
+                valor: isNumeric ? ev.valor : undefined,
+                remuneracaoApos: isNumeric ? ev.valor : undefined,
+                atualizarRemuneracao: false,
+              });
+            } catch {
+              // falha em evento de timeline não cancela a importação da pessoa
+            }
+          }
+
           imported++;
         } catch {
           errors++;
@@ -213,9 +247,12 @@ export function HRImportDialog({ open, onOpenChange, canViewFinanceiro }: Props)
                       <TableHead>Vínculo</TableHead>
                       <TableHead>Cargo</TableHead>
                       <TableHead>Departamento</TableHead>
+                      <TableHead>Nível</TableHead>
+                      <TableHead>Trilha</TableHead>
                       <TableHead>Admissão</TableHead>
                       {canViewFinanceiro && <TableHead>Remuneração</TableHead>}
                       <TableHead>Situação</TableHead>
+                      <TableHead>Histórico</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -225,9 +262,16 @@ export function HRImportDialog({ open, onOpenChange, canViewFinanceiro }: Props)
                         <TableCell><Badge variant={r.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{r.tipoVinculo.toUpperCase()}</Badge></TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.cargo || '—'}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.departamento || '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{r.nivel || '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{r.trilha || '—'}</TableCell>
                         <TableCell className="text-sm">{r.dataAdmissao || '—'}</TableCell>
                         {canViewFinanceiro && <TableCell className="text-sm">{r.remuneracaoMensal ? formatCurrency(r.remuneracaoMensal) : '—'}</TableCell>}
                         <TableCell><Badge variant={r.situacao === 'ativo' ? 'default' : 'secondary'}>{r.situacao}</Badge></TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {r.timelineEvents.length > 0 ? (
+                            <Badge variant="outline">{r.timelineEvents.length} evento{r.timelineEvents.length !== 1 ? 's' : ''}</Badge>
+                          ) : '—'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

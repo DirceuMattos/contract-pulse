@@ -482,35 +482,29 @@ export function generateTemplate(entityType: EntityType, format: FileFormat): vo
 
 export const hrColumns = [
   { key: 'nome', label: 'Nome', required: true },
-  { key: 'tipoVinculo', label: 'Vínculo (CLT/PJ)', required: true },
-  { key: 'cargo', label: 'Cargo/Função', required: false },
+  { key: 'tipoVinculo', label: 'Tipo_Vinculo', required: true },
+  { key: 'cargo', label: 'Cargo_Funcao', required: false },
   { key: 'departamento', label: 'Departamento', required: false },
-  { key: 'localAtuacao', label: 'Local de Atuação', required: false },
-  { key: 'dataAdmissao', label: 'Data de Admissão', required: false },
-  { key: 'tempoDeCasaMeses', label: 'Tempo de Casa (meses)', required: false },
-  { key: 'situacao', label: 'Situação', required: false },
-  { key: 'dataDesligamento', label: 'Data de Desligamento', required: false },
-  { key: 'tipoDesligamento', label: 'Tipo de Desligamento', required: false },
-  { key: 'motivoDesligamento', label: 'Motivo de Desligamento', required: false },
-  { key: 'observacoes', label: 'Observações', required: false },
-  { key: 'comiteGestor', label: 'Comitê Gestor (mês/ano)', required: false },
-  { key: 'remuneracaoMensal', label: 'Remuneração Mensal', required: false },
-  { key: 'beneficios', label: 'Benefícios', required: false },
-];
-
-// Import columns for HR (subset used to build import template)
-export const hrImportColumns = [
-  { key: 'nome', label: 'Nome', required: true },
-  { key: 'tipoVinculo', label: 'Vínculo (CLT/PJ)', required: true },
-  { key: 'cargo', label: 'Cargo', required: false },
-  { key: 'departamento', label: 'Departamento', required: false },
-  { key: 'localAtuacao', label: 'Local de Atuação', required: false },
-  { key: 'dataAdmissao', label: 'Data de Admissão (YYYY-MM-DD)', required: false },
-  { key: 'remuneracaoMensal', label: 'Remuneração Mensal', required: false },
-  { key: 'beneficios', label: 'Benefícios', required: false },
-  { key: 'situacao', label: 'Situação (ativo/inativo)', required: false },
-  { key: 'observacoes', label: 'Observações', required: false },
-  { key: 'comiteGestor', label: 'Comitê Gestor', required: false },
+  { key: 'localAtuacao', label: 'Local_Atuacao', required: false },
+  { key: 'dataAdmissao', label: 'Data_Admissao', required: false },
+  { key: 'tempoDeCasaMeses', label: 'Tempo_de_Casa_Calc', required: false },
+  { key: 'situacao', label: 'Situacao', required: false },
+  { key: 'dataDesligamento', label: 'Data_Desligamento', required: false },
+  { key: 'tipoDesligamento', label: 'Tipo_Motivo_Desligamento', required: false },
+  { key: 'motivoDesligamento', label: 'Observacoes_Desligamento', required: false },
+  { key: 'nivel', label: 'Nivel', required: false },
+  { key: 'trilha', label: 'Trilha', required: false },
+  { key: 'projeto', label: 'Projeto', required: false },
+  { key: 'cargoAntigo', label: 'Cargo_Antigo', required: false },
+  { key: 'email', label: 'Email', required: false },
+  { key: 'celular', label: 'Celular', required: false },
+  { key: 'idExterno', label: 'ID_Externo', required: false },
+  { key: 'centroCusto', label: 'Centro_Custo', required: false },
+  { key: 'observacoes', label: 'Observacoes', required: false },
+  { key: 'comiteGestor', label: 'Comite_Gestor', required: false },
+  { key: 'remuneracaoMensal', label: 'Remuneracao_Mensal', required: false },
+  { key: 'remuneracaoII', label: 'Remuneracao_II', required: false },
+  { key: 'beneficios', label: 'Beneficios', required: false },
 ];
 
 export function exportHRPeople(
@@ -538,9 +532,18 @@ export function exportHRPeople(
       if (col.key === 'dataDesligamento') return p.dataDesligamento || '';
       if (col.key === 'tipoDesligamento') return p.tipoDesligamento || '';
       if (col.key === 'motivoDesligamento') return p.motivoDesligamento || '';
+      if (col.key === 'nivel') return p.nivel || '';
+      if (col.key === 'trilha') return p.trilha || '';
+      if (col.key === 'projeto') return p.projeto || '';
+      if (col.key === 'cargoAntigo') return p.cargoAntigo || '';
+      if (col.key === 'email') return p.email || '';
+      if (col.key === 'celular') return p.celular || '';
+      if (col.key === 'idExterno') return p.idExterno || '';
+      if (col.key === 'centroCusto') return p.centroCusto || '';
       if (col.key === 'observacoes') return p.observacoes || '';
       if (col.key === 'comiteGestor') return p.comiteGestor || '';
       if (col.key === 'remuneracaoMensal') return canViewFinanceiro ? p.remuneracaoMensal : 'CONFIDENCIAL';
+      if (col.key === 'remuneracaoII') return canViewFinanceiro ? (p.remuneracaoII || 0) : 'CONFIDENCIAL';
       if (col.key === 'beneficios') return canViewFinanceiro ? p.beneficios : 'CONFIDENCIAL';
       return '';
     });
@@ -555,25 +558,27 @@ export function exportHRPeople(
   }
 }
 
-// Generate an HR import template (.xlsx)
+// Generate an HR import template (.xlsx) matching the real spreadsheet columns
 export function generateHRImportTemplate(): void {
-  const headers = hrImportColumns.map(c => `${c.label}${c.required ? ' *' : ''}`);
-  const exampleRow = hrImportColumns.map(col => {
-    if (col.key === 'nome') return 'João da Silva';
-    if (col.key === 'tipoVinculo') return 'CLT';
-    if (col.key === 'cargo') return 'Analista';
-    if (col.key === 'departamento') return 'Tecnologia';
-    if (col.key === 'localAtuacao') return 'São Paulo';
-    if (col.key === 'dataAdmissao') return '2022-03-15';
-    if (col.key === 'remuneracaoMensal') return '8000';
-    if (col.key === 'beneficios') return '1500';
-    if (col.key === 'situacao') return 'ativo';
-    return '';
-  });
+  const headers = [
+    'Nome', 'Tipo_Vinculo', 'Cargo_Funcao', 'Departamento', 'Local_Atuacao',
+    'Data_Admissao', 'Situacao', 'Remuneracao_Mensal', 'Remuneracao_II', 'Beneficios',
+    'Observacoes', 'Comite_Gestor', 'Nivel', 'Trilha', 'Projeto', 'Cargo_Antigo',
+    'Email', 'Celular', 'ID_Externo', 'Centro_Custo',
+    'Data_Desligamento', 'Tipo_Motivo_Desligamento', 'Observacoes_Desligamento',
+  ];
+  const exampleRow = [
+    'João da Silva', 'CLT', 'Analista de Sistemas', 'Tecnologia', 'Remoto',
+    '2022-03-15', 'Ativo', '8000', '500', '1500',
+    '', '2025-01', 'N2', 'Técnica', 'Projeto Alpha', '',
+    'joao@empresa.com', '11999990000', '', '',
+    '', '', '',
+  ];
   writeXlsxFile(headers, [exampleRow], 'template_importacao_rh.xlsx');
 }
 
-// Row type returned after parsing an HR import file
+// ─── HR Import row type ───────────────────────────────────────────────────────
+
 export interface HRImportRow {
   nome: string;
   tipoVinculo: 'clt' | 'pj';
@@ -582,17 +587,57 @@ export interface HRImportRow {
   localAtuacao: string;
   dataAdmissao: string;
   remuneracaoMensal: number;
+  remuneracaoII: number;
   beneficios: number;
   situacao: 'ativo' | 'inativo';
   observacoes: string;
   comiteGestor: string;
+  dataDesligamento?: string;
+  tipoDesligamento?: 'dispensado' | 'solicitou-dispensa' | 'transferido-grupo' | 'outro';
+  motivoDesligamento?: string;
+  observacoesDesligamento?: string;
+  nivel?: string;
+  trilha?: string;
+  projeto?: string;
+  cargoAntigo?: string;
+  email?: string;
+  celular?: string;
+  idExterno?: string;
+  centroCusto?: string;
+  // Pares de histórico de remuneração extraídos das colunas RAW_*
+  timelineEvents: Array<{ data: string; valor: number; descricaoTexto?: string }>;
+}
+
+// Parse a date string supporting multiple formats into YYYY-MM-DD
+function parseDate(raw: string): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  // YYYY-MM-DD or YYYY-MM-DD HH:MM:SS
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  // DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    const [d, m, y] = s.split('/');
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return null;
+}
+
+function mapTipoDesligamento(raw: string): 'dispensado' | 'solicitou-dispensa' | 'transferido-grupo' | 'outro' {
+  const v = raw.toLowerCase().trim();
+  if (v === 'dispensado' || v === 'dispensada') return 'dispensado';
+  if (v.includes('solicitou')) return 'solicitou-dispensa';
+  if (v.includes('transfer')) return 'transferido-grupo';
+  return 'outro';
 }
 
 export function parseHRImportRow(raw: Record<string, unknown>): HRImportRow | null {
+  // Case-insensitive column lookup
   const get = (keys: string[]): string => {
     for (const k of keys) {
       const found = Object.keys(raw).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
-      if (found && raw[found] !== undefined && raw[found] !== '') return String(raw[found]).trim();
+      if (found && raw[found] !== undefined && String(raw[found]).trim() !== '') {
+        return String(raw[found]).trim();
+      }
     }
     return '';
   };
@@ -600,34 +645,89 @@ export function parseHRImportRow(raw: Record<string, unknown>): HRImportRow | nu
   const nome = get(['Nome', 'nome']);
   if (!nome) return null;
 
-  const vinculoRaw = get(['Vínculo (CLT/PJ)', 'Vincculo (CLT/PJ)', 'Vinculo', 'vínculo', 'tipoVinculo']).toLowerCase();
+  // Vínculo
+  const vinculoRaw = get(['Tipo_Vinculo', 'Vínculo (CLT/PJ)', 'Vinculo', 'tipoVinculo']).toLowerCase();
   const tipoVinculo: 'clt' | 'pj' = vinculoRaw === 'pj' ? 'pj' : 'clt';
 
-  const admissaoRaw = get(['Data de Admissão (YYYY-MM-DD)', 'Data de Admissao', 'dataAdmissao', 'data_admissao', 'Data de Admissão']);
-  let dataAdmissao = admissaoRaw;
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(admissaoRaw)) {
-    const [d, m, y] = admissaoRaw.split('/');
-    dataAdmissao = `${y}-${m}-${d}`;
-  }
-  if (!dataAdmissao || !/^\d{4}-\d{2}-\d{2}$/.test(dataAdmissao)) {
-    dataAdmissao = new Date().toISOString().split('T')[0];
-  }
+  // Data de Admissão
+  const admissaoRaw = get(['Data_Admissao', 'Data de Admissão (YYYY-MM-DD)', 'Data de Admissao', 'dataAdmissao', 'data_admissao', 'Data de Admissão']);
+  const dataAdmissao = parseDate(admissaoRaw) || new Date().toISOString().split('T')[0];
 
-  const remuneracaoRaw = get(['Remuneração Mensal', 'Remuneracao Mensal', 'remuneracaoMensal']);
-  const beneficiosRaw = get(['Benefícios', 'Beneficios', 'beneficios']);
-  const situacaoRaw = get(['Situação (ativo/inativo)', 'Situacao', 'situacao']).toLowerCase();
+  // Situação
+  const situacaoRaw = get(['Situacao', 'Situação (ativo/inativo)', 'situacao']).toLowerCase();
+  const situacao: 'ativo' | 'inativo' = situacaoRaw === 'inativo' ? 'inativo' : 'ativo';
+
+  // Financeiro
+  const remuneracaoRaw = get(['Remuneracao_Mensal', 'Remuneração Mensal', 'Remuneracao Mensal', 'remuneracaoMensal']);
+  const remuneracaoIIRaw = get(['Remuneracao_II', 'Remuneração II', 'remuneracaoII']);
+  const beneficiosRaw = get(['Beneficios', 'Benefícios', 'beneficios']);
+
+  // Desligamento
+  const desligamentoRaw = get(['Data_Desligamento', 'Data Desligamento', 'dataDesligamento', 'data_desligamento']);
+  const dataDesligamento = parseDate(desligamentoRaw) || undefined;
+  const tipoMotRaw = get(['Tipo_Motivo_Desligamento', 'Tipo Motivo Desligamento', 'tipoDesligamento']);
+  const tipoDesligamento = tipoMotRaw ? mapTipoDesligamento(tipoMotRaw) : undefined;
+  const obsDesligRaw = get(['Observacoes_Desligamento', 'Observações Desligamento', 'observacoesDesligamento']);
+
+  // Comite Gestor — planilha pode ter formato YYYY-MM ou YYYY-MM-DD
+  const comiteRaw = get(['Comite_Gestor', 'Comitê Gestor', 'Comite Gestor', 'comiteGestor']);
+  // Se vier como data completa tipo "2025-01-01", pegar só YYYY-MM
+  let comiteGestor = comiteRaw;
+  if (/^\d{4}-\d{2}-\d{2}/.test(comiteRaw)) comiteGestor = comiteRaw.substring(0, 7);
+
+  // ─── Extrair pares RAW_Data Ocorrência / RAW_Valor (0 a 16) ──────────────
+  const timelineEvents: Array<{ data: string; valor: number; descricaoTexto?: string }> = [];
+  for (let i = 0; i <= 16; i++) {
+    const suffix = i === 0 ? '' : `.${i}`;
+    const dataKey = `RAW_Data Ocorrência${suffix}`;
+    const valorKey = `RAW_Valor${suffix}`;
+
+    const dataRaw = get([dataKey]);
+    const valorRaw = get([valorKey]);
+
+    if (!dataRaw) continue; // sem data, pular
+
+    const dataFmt = parseDate(dataRaw);
+    if (!dataFmt) continue;
+
+    if (valorRaw) {
+      // Tentar parsear como número
+      const cleaned = valorRaw.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.').trim();
+      const valorNum = parseFloat(cleaned);
+      if (!isNaN(valorNum) && valorNum > 0) {
+        timelineEvents.push({ data: dataFmt, valor: valorNum });
+      } else {
+        // Valor é texto descritivo (ex: "VA +R$500,00", "Função - Analista")
+        timelineEvents.push({ data: dataFmt, valor: 0, descricaoTexto: valorRaw });
+      }
+    }
+  }
 
   return {
     nome,
     tipoVinculo,
-    cargo: get(['Cargo', 'cargo']),
+    cargo: get(['Cargo_Funcao', 'Cargo/Função', 'Cargo', 'cargo']),
     departamento: get(['Departamento', 'departamento']),
-    localAtuacao: get(['Local de Atuação', 'Local de Atuacao', 'localAtuacao']),
+    localAtuacao: get(['Local_Atuacao', 'Local de Atuação', 'Local de Atuacao', 'localAtuacao']),
     dataAdmissao,
     remuneracaoMensal: parseFloat(remuneracaoRaw.replace(',', '.')) || 0,
+    remuneracaoII: parseFloat(remuneracaoIIRaw.replace(',', '.')) || 0,
     beneficios: parseFloat(beneficiosRaw.replace(',', '.')) || 0,
-    situacao: situacaoRaw === 'inativo' ? 'inativo' : 'ativo',
-    observacoes: get(['Observações', 'Observacoes', 'observacoes']),
-    comiteGestor: get(['Comitê Gestor', 'Comite Gestor', 'comiteGestor']),
+    situacao,
+    observacoes: get(['Observacoes', 'Observações', 'observacoes']),
+    comiteGestor,
+    dataDesligamento,
+    tipoDesligamento,
+    motivoDesligamento: obsDesligRaw || undefined,
+    observacoesDesligamento: obsDesligRaw || undefined,
+    nivel: get(['Nivel', 'Nível', 'nivel']) || undefined,
+    trilha: get(['Trilha', 'trilha']) || undefined,
+    projeto: get(['Projeto', 'projeto']) || undefined,
+    cargoAntigo: get(['Cargo_Antigo', 'Cargo Antigo', 'cargoAntigo']) || undefined,
+    email: get(['Email', 'email']) || undefined,
+    celular: get(['Celular', 'celular']) || undefined,
+    idExterno: get(['ID_Externo', 'Id Externo', 'idExterno']) || undefined,
+    centroCusto: get(['Centro_Custo', 'Centro de Custo', 'centroCusto']) || undefined,
+    timelineEvents,
   };
 }

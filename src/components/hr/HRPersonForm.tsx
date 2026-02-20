@@ -19,13 +19,25 @@ const hrPersonSchema = z.object({
   teamId: z.string().optional(),
   remuneracaoMensal: z.number().min(0),
   beneficios: z.number().min(0),
+  remuneracaoII: z.number().min(0).optional(),
   localAtuacao: z.string().optional(),
   dataAdmissao: z.string().min(1, 'Data de admissão é obrigatória'),
   situacao: z.enum(['ativo', 'inativo']),
   observacoes: z.string().optional(),
   comiteGestor: z.string().optional(),
+  // Novos campos
+  nivel: z.string().optional(),
+  trilha: z.string().optional(),
+  projeto: z.string().optional(),
+  cargoAntigo: z.string().optional(),
+  email: z.string().optional(),
+  celular: z.string().optional(),
+  idExterno: z.string().optional(),
+  centroCusto: z.string().optional(),
+  // Desligamento
   dataDesligamento: z.string().optional(),
   motivoDesligamento: z.string().optional(),
+  observacoesDesligamento: z.string().optional(),
   tipoDesligamento: z.enum(['dispensado', 'solicitou-dispensa', 'transferido-grupo', 'outro']).optional(),
 });
 
@@ -52,13 +64,23 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       teamId: person?.teamId || '',
       remuneracaoMensal: person?.remuneracaoMensal || 0,
       beneficios: person?.beneficios || 0,
+      remuneracaoII: person?.remuneracaoII || 0,
       localAtuacao: person?.localAtuacao || '',
       dataAdmissao: person?.dataAdmissao || new Date().toISOString().split('T')[0],
       situacao: person?.situacao || 'ativo',
       observacoes: person?.observacoes || '',
       comiteGestor: person?.comiteGestor || '',
+      nivel: person?.nivel || '',
+      trilha: person?.trilha || '',
+      projeto: person?.projeto || '',
+      cargoAntigo: person?.cargoAntigo || '',
+      email: person?.email || '',
+      celular: person?.celular || '',
+      idExterno: person?.idExterno || '',
+      centroCusto: person?.centroCusto || '',
       dataDesligamento: person?.dataDesligamento || '',
       motivoDesligamento: person?.motivoDesligamento || '',
+      observacoesDesligamento: person?.observacoesDesligamento || '',
       tipoDesligamento: person?.tipoDesligamento,
     },
   });
@@ -73,13 +95,23 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       teamId: data.teamId && data.teamId !== 'none' ? data.teamId : undefined,
       remuneracaoMensal: data.remuneracaoMensal,
       beneficios: data.beneficios,
+      remuneracaoII: data.remuneracaoII || undefined,
       localAtuacao: data.localAtuacao || undefined,
       dataAdmissao: data.dataAdmissao,
       situacao: data.situacao,
       observacoes: data.observacoes || undefined,
       comiteGestor: data.comiteGestor || undefined,
+      nivel: data.nivel || undefined,
+      trilha: data.trilha || undefined,
+      projeto: data.projeto || undefined,
+      cargoAntigo: data.cargoAntigo || undefined,
+      email: data.email || undefined,
+      celular: data.celular || undefined,
+      idExterno: data.idExterno || undefined,
+      centroCusto: data.centroCusto || undefined,
       dataDesligamento: data.situacao === 'inativo' ? (data.dataDesligamento || undefined) : undefined,
       motivoDesligamento: data.situacao === 'inativo' ? (data.motivoDesligamento || undefined) : undefined,
+      observacoesDesligamento: data.situacao === 'inativo' ? (data.observacoesDesligamento || undefined) : undefined,
       tipoDesligamento: data.situacao === 'inativo' ? data.tipoDesligamento : undefined,
     });
   };
@@ -168,6 +200,62 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                 <FormMessage />
               </FormItem>
             )} />
+            <FormField control={form.control} name="email" render={({ field }) => (
+              <FormItem>
+                <FormLabel>E-mail</FormLabel>
+                <FormControl><Input type="email" placeholder="nome@empresa.com" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="celular" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Celular</FormLabel>
+                <FormControl><Input placeholder="(11) 99999-0000" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="nivel" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nível</FormLabel>
+                <FormControl><Input placeholder="Ex: N1, N2 - Pleno..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="trilha" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Trilha</FormLabel>
+                <FormControl><Input placeholder="Ex: Técnica, Gestão..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="projeto" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Projeto</FormLabel>
+                <FormControl><Input placeholder="Projeto de alocação..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="cargoAntigo" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cargo Anterior</FormLabel>
+                <FormControl><Input placeholder="Cargo anterior..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="idExterno" render={({ field }) => (
+              <FormItem>
+                <FormLabel>ID Externo</FormLabel>
+                <FormControl><Input placeholder="Identificador externo..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="centroCusto" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Centro de Custo</FormLabel>
+                <FormControl><Input placeholder="Centro de custo..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
           </div>
         </div>
 
@@ -190,6 +278,15 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                 <FormField control={form.control} name="beneficios" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Benefícios (R$)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" min="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="remuneracaoII" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Remuneração II — VA / Ajuste (R$)</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" min="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                     </FormControl>
@@ -256,6 +353,13 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                   <FormItem className="md:col-span-2">
                     <FormLabel>Motivo</FormLabel>
                     <FormControl><Textarea rows={2} placeholder="Detalhes do desligamento..." {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="observacoesDesligamento" render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Observações de Desligamento</FormLabel>
+                    <FormControl><Textarea rows={2} placeholder="Observações adicionais sobre o desligamento..." {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

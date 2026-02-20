@@ -445,59 +445,89 @@ export type Database = {
       hr_people: {
         Row: {
           beneficios: number
+          cargo_antigo: string | null
           cargo_id: string | null
+          celular: string | null
+          centro_custo: string | null
           comite_gestor: string | null
           created_at: string
           data_admissao: string
           data_desligamento: string | null
+          email: string | null
           id: string
+          id_externo: string | null
           local_atuacao: string | null
           motivo_desligamento: string | null
+          nivel: string | null
           nome: string
           observacoes: string | null
+          observacoes_desligamento: string | null
+          projeto: string | null
+          remuneracao_ii: number | null
           remuneracao_mensal: number
           situacao: string
           team_id: string | null
           tipo_desligamento: string | null
           tipo_vinculo: string
+          trilha: string | null
           updated_at: string
         }
         Insert: {
           beneficios?: number
+          cargo_antigo?: string | null
           cargo_id?: string | null
+          celular?: string | null
+          centro_custo?: string | null
           comite_gestor?: string | null
           created_at?: string
           data_admissao?: string
           data_desligamento?: string | null
+          email?: string | null
           id?: string
+          id_externo?: string | null
           local_atuacao?: string | null
           motivo_desligamento?: string | null
+          nivel?: string | null
           nome?: string
           observacoes?: string | null
+          observacoes_desligamento?: string | null
+          projeto?: string | null
+          remuneracao_ii?: number | null
           remuneracao_mensal?: number
           situacao?: string
           team_id?: string | null
           tipo_desligamento?: string | null
           tipo_vinculo?: string
+          trilha?: string | null
           updated_at?: string
         }
         Update: {
           beneficios?: number
+          cargo_antigo?: string | null
           cargo_id?: string | null
+          celular?: string | null
+          centro_custo?: string | null
           comite_gestor?: string | null
           created_at?: string
           data_admissao?: string
           data_desligamento?: string | null
+          email?: string | null
           id?: string
+          id_externo?: string | null
           local_atuacao?: string | null
           motivo_desligamento?: string | null
+          nivel?: string | null
           nome?: string
           observacoes?: string | null
+          observacoes_desligamento?: string | null
+          projeto?: string | null
+          remuneracao_ii?: number | null
           remuneracao_mensal?: number
           situacao?: string
           team_id?: string | null
           tipo_desligamento?: string | null
           tipo_vinculo?: string
+          trilha?: string | null
           updated_at?: string
         }
         Relationships: [

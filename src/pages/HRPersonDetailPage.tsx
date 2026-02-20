@@ -148,13 +148,21 @@ export default function HRPersonDetailPage() {
                 <Row label="Vínculo" value={<Badge variant={person.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{person.tipoVinculo.toUpperCase()}</Badge>} />
                 <Row label="Situação" value={<Badge variant={person.situacao === 'ativo' ? 'default' : 'secondary'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
                 <Row label="Cargo" value={cargoLabel || '—'} />
+                {person.cargoAntigo && <Row label="Cargo Anterior" value={person.cargoAntigo} />}
                 <Row label="Departamento" value={teamName || '—'} />
                 <Row label="Local de Atuação" value={person.localAtuacao || '—'} />
+                {person.nivel && <Row label="Nível" value={person.nivel} />}
+                {person.trilha && <Row label="Trilha" value={person.trilha} />}
+                {person.projeto && <Row label="Projeto" value={person.projeto} />}
+                {person.centroCusto && <Row label="Centro de Custo" value={person.centroCusto} />}
+                {person.idExterno && <Row label="ID Externo" value={person.idExterno} />}
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Vínculos e Tempo</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Contato & Vínculos</CardTitle></CardHeader>
               <CardContent className="space-y-3">
+                {person.email && <Row label="E-mail" value={person.email} />}
+                {person.celular && <Row label="Celular" value={person.celular} />}
                 <Row label="Data de Admissão" value={new Date(person.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')} />
                 <Row label="Tempo de Casa" value={
                   <div className="flex items-center gap-2">
@@ -167,6 +175,12 @@ export default function HRPersonDetailPage() {
                 )}
                 {person.tipoDesligamento && (
                   <Row label="Tipo de Desligamento" value={person.tipoDesligamento} />
+                )}
+                {person.motivoDesligamento && (
+                  <Row label="Motivo" value={person.motivoDesligamento} />
+                )}
+                {person.observacoesDesligamento && (
+                  <Row label="Obs. Desligamento" value={person.observacoesDesligamento} />
                 )}
               </CardContent>
             </Card>
@@ -188,10 +202,10 @@ export default function HRPersonDetailPage() {
         {/* Financeiro */}
         {canViewHRCosts && (
           <TabsContent value="financeiro">
-            <Card>
+          <Card>
               <CardHeader><CardTitle className="text-base">Dados Financeiros</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="rounded-lg border p-4 text-center">
                     <p className="text-sm text-muted-foreground mb-1">Remuneração Mensal</p>
                     <p className="text-2xl font-bold text-primary">{formatCurrency(person.remuneracaoMensal)}</p>
@@ -200,11 +214,17 @@ export default function HRPersonDetailPage() {
                     <p className="text-sm text-muted-foreground mb-1">Benefícios</p>
                     <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
                   </div>
+                  {person.remuneracaoII !== undefined && person.remuneracaoII > 0 && (
+                    <div className="rounded-lg border p-4 text-center">
+                      <p className="text-sm text-muted-foreground mb-1">Remuneração II (VA/Ajuste)</p>
+                      <p className="text-2xl font-bold">{formatCurrency(person.remuneracaoII)}</p>
+                    </div>
+                  )}
                 </div>
                 <Separator />
                 <div className="rounded-lg border p-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Total Mensal (Rem. + Benef.)</p>
-                  <p className="text-3xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios)}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Total Mensal (Rem. + Benef. + Rem. II)</p>
+                  <p className="text-3xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios + (person.remuneracaoII || 0))}</p>
                 </div>
               </CardContent>
             </Card>
