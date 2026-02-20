@@ -1,80 +1,79 @@
 
-## Adicionar Responsável do Cliente no Módulo de Contratos
+## Adicionar campos de Responsável do Cliente no Simulador de Contratos (Etapa 1 — Identificação)
 
 ### Contexto
 
-A seção "Responsáveis" no formulário de contratos atualmente tem 3 campos internos: Responsável Interno, P.O./CS e Responsável Comercial. A solicitação é incluir os dados do responsável do lado do cliente (nome, e-mail e telefone), com e-mail e telefone sendo opcionais.
+A mesma informação de "Responsável no Cliente" (nome, e-mail e telefone) que foi adicionada ao formulário de Contratos agora deve aparecer na tela de Identificação do Simulador (Step 1). Os dados ficam armazenados na entidade `ContractSimulation` e na tabela `simulations` do banco.
 
-### O que será alterado
+### O que precisa ser feito
 
-São necessárias mudanças em 6 pontos encadeados:
+São 4 pontos encadeados:
 
-**1. Banco de dados — nova migração SQL**
+---
 
-Adicionar 3 colunas na tabela `contracts`:
-- `responsavel_cliente` (text, nullable) — nome do responsável no cliente
-- `responsavel_cliente_email` (text, nullable) — e-mail do responsável no cliente
-- `responsavel_cliente_telefone` (text, nullable) — telefone do responsável no cliente
+**1. Banco de dados — migração SQL**
 
-**2. Tipo TypeScript — `src/types/index.ts`**
+Adicionar 3 colunas opcionais na tabela `simulations`:
+- `responsavel_cliente` (text, nullable)
+- `responsavel_cliente_email` (text, nullable)
+- `responsavel_cliente_telefone` (text, nullable)
 
-Adicionar os 3 campos opcionais na interface `Contract`:
-```
-responsavelCliente?: string;
-responsavelClienteEmail?: string;
-responsavelClienteTelefone?: string;
-```
-
-**3. Mapeadores de banco — `src/lib/dbMappers.ts`**
-
-Atualizar `contractFromDb` e `contractToDb` para incluir os 3 novos campos com mapeamento `snake_case` ↔ `camelCase`.
-
-**4. Validação do formulário — `src/lib/validators.ts`**
-
-Adicionar no `contractFormSchema`:
-- `responsavelCliente` — string opcional, máximo 100 caracteres
-- `responsavelClienteEmail` — string opcional, validação de e-mail quando preenchida (`.optional().or(z.literal(''))`)
-- `responsavelClienteTelefone` — string opcional (reutilizar o `phoneSchema` existente)
-
-Atualizar o tipo `ContractFormData`.
-
-**5. Formulário de criação/edição — `src/components/forms/ContractForm.tsx`**
-
-Na seção "Responsáveis", adicionar um separador visual e 3 novos campos após os responsáveis internos:
-- Título separador: "Responsável no Cliente"
-- Campo: "Nome do Responsável no Cliente" (input texto, opcional)
-- Campo: "E-mail" (input email, opcional)
-- Campo: "Telefone" (input texto, opcional)
-
-Inicializar os valores nos `defaultValues` do `useForm`.
-
-**6. Página de criação/edição — `src/pages/ContractFormPage.tsx`**
-
-Incluir os 3 novos campos no objeto `contractData` enviado para `addContract`/`updateContract`.
-
-**7. Página de detalhe do contrato — `src/pages/ContractDetailPage.tsx`**
-
-Na aba "Escopo" (ou criando uma seção "Responsáveis" dentro dela, seguindo o padrão existente), exibir as informações do responsável do cliente quando preenchidas, com links clicáveis para e-mail e telefone.
-
-### Detalhes técnicos
-
-**Migração SQL:**
 ```sql
-ALTER TABLE contracts
+ALTER TABLE simulations
   ADD COLUMN IF NOT EXISTS responsavel_cliente text,
   ADD COLUMN IF NOT EXISTS responsavel_cliente_email text,
   ADD COLUMN IF NOT EXISTS responsavel_cliente_telefone text;
 ```
 
-**Validação do e-mail no schema Zod:**
+---
+
+**2. Tipo TypeScript — `src/types/index.ts`**
+
+Adicionar 3 campos opcionais na interface `ContractSimulation` (após `consultancyCost`):
+
 ```typescript
-responsavelClienteEmail: z.string().email('E-mail inválido').optional().or(z.literal('')),
+responsavelCliente?: string;
+responsavelClienteEmail?: string;
+responsavelClienteTelefone?: string;
 ```
 
-**Exibição na página de detalhe:**
-- O responsável do cliente só será exibido se o campo `responsavelCliente` estiver preenchido
-- E-mail aparece como link `mailto:`
-- Telefone aparece como link `tel:`
+---
 
-**Formulário:**
-- O layout dos responsáveis ficará assim: linha 1 com os 3 responsáveis internos (como hoje), depois um separador com título "Responsável no Cliente", e linha 2 com os 3 novos campos (nome, e-mail, telefone) em grid de 3 colunas no desktop
+**3. Mapeadores de banco — `src/lib/dbMappers.ts`**
+
+Atualizar `simulationFromDb` para ler os 3 novos campos:
+```typescript
+responsavelCliente: (row.responsavel_cliente as string | null) ?? undefined,
+responsavelClienteEmail: (row.responsavel_cliente_email as string | null) ?? undefined,
+responsavelClienteTelefone: (row.responsavel_cliente_telefone as string | null) ?? undefined,
+```
+
+Atualizar `simulationToDb` para escrever os 3 novos campos:
+```typescript
+responsavel_cliente: sim.responsavelCliente ?? null,
+responsavel_cliente_email: sim.responsavelClienteEmail ?? null,
+responsavel_cliente_telefone: sim.responsavelClienteTelefone ?? null,
+```
+
+---
+
+**4. UI — `src/components/calculator/Step1Identification.tsx`**
+
+Adicionar uma seção "Responsável no Cliente" com separador visual, após os campos existentes e antes do campo de custo de consultoria. O layout seguirá o mesmo padrão do formulário de Contratos:
+
+- Separador com título "Responsável no Cliente"
+- Grid de 3 colunas (desktop) / 1 coluna (mobile):
+  - **Nome** — Input texto, opcional
+  - **E-mail** — Input tipo email, opcional, com hint "(opcional)"
+  - **Telefone** — Input texto, opcional, com hint "(opcional)"
+
+Os campos se ligam diretamente ao `onChange` do componente, usando as propriedades `responsavelCliente`, `responsavelClienteEmail` e `responsavelClienteTelefone` do objeto `ContractSimulation`.
+
+---
+
+### Detalhes técnicos
+
+- Nenhuma alteração necessária em `CalculatorWizardPage.tsx` — o `onChange` já propaga qualquer campo de `Partial<ContractSimulation>` genericamente.
+- Nenhuma alteração em `SimulationContext.tsx` — o `persistSimulation` usa `simulationToDb` que será atualizado.
+- Os campos não são obrigatórios nem no tipo nem na validação — e-mail e telefone ficam totalmente opcionais.
+- A função `createBlank` não precisa ser alterada, pois os campos são opcionais e terão valor `undefined` por padrão.
