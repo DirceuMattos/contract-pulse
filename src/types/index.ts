@@ -423,6 +423,9 @@ export interface ContractSimulation {
   proposedTotalValue?: number;
   description: string;
   consultancyCost?: number;
+  responsavelCliente?: string;
+  responsavelClienteEmail?: string;
+  responsavelClienteTelefone?: string;
   complexityLevel: SimulationComplexity;
   questionnaire: SimulationQuestionnaire;
   suggestedHR: SimulationHRItem[];

@@ -778,6 +778,9 @@ export type Database = {
           proposed_monthly_value: number | null
           proposed_total_value: number | null
           questionnaire: Json
+          responsavel_cliente: string | null
+          responsavel_cliente_email: string | null
+          responsavel_cliente_telefone: string | null
           status: Database["public"]["Enums"]["simulation_status"]
           suggested_overhead: Json
           term_months: number
@@ -803,6 +806,9 @@ export type Database = {
           proposed_monthly_value?: number | null
           proposed_total_value?: number | null
           questionnaire?: Json
+          responsavel_cliente?: string | null
+          responsavel_cliente_email?: string | null
+          responsavel_cliente_telefone?: string | null
           status?: Database["public"]["Enums"]["simulation_status"]
           suggested_overhead?: Json
           term_months?: number
@@ -828,6 +834,9 @@ export type Database = {
           proposed_monthly_value?: number | null
           proposed_total_value?: number | null
           questionnaire?: Json
+          responsavel_cliente?: string | null
+          responsavel_cliente_email?: string | null
+          responsavel_cliente_telefone?: string | null
           status?: Database["public"]["Enums"]["simulation_status"]
           suggested_overhead?: Json
           term_months?: number
