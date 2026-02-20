@@ -442,6 +442,131 @@ export type Database = {
           },
         ]
       }
+      hr_people: {
+        Row: {
+          beneficios: number
+          cargo_id: string | null
+          comite_gestor: string | null
+          created_at: string
+          data_admissao: string
+          data_desligamento: string | null
+          id: string
+          local_atuacao: string | null
+          motivo_desligamento: string | null
+          nome: string
+          observacoes: string | null
+          remuneracao_mensal: number
+          situacao: string
+          team_id: string | null
+          tipo_desligamento: string | null
+          tipo_vinculo: string
+          updated_at: string
+        }
+        Insert: {
+          beneficios?: number
+          cargo_id?: string | null
+          comite_gestor?: string | null
+          created_at?: string
+          data_admissao?: string
+          data_desligamento?: string | null
+          id?: string
+          local_atuacao?: string | null
+          motivo_desligamento?: string | null
+          nome?: string
+          observacoes?: string | null
+          remuneracao_mensal?: number
+          situacao?: string
+          team_id?: string | null
+          tipo_desligamento?: string | null
+          tipo_vinculo?: string
+          updated_at?: string
+        }
+        Update: {
+          beneficios?: number
+          cargo_id?: string | null
+          comite_gestor?: string | null
+          created_at?: string
+          data_admissao?: string
+          data_desligamento?: string | null
+          id?: string
+          local_atuacao?: string | null
+          motivo_desligamento?: string | null
+          nome?: string
+          observacoes?: string | null
+          remuneracao_mensal?: number
+          situacao?: string
+          team_id?: string | null
+          tipo_desligamento?: string | null
+          tipo_vinculo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_people_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "job_titles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_people_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_timeline: {
+        Row: {
+          atualizar_remuneracao: boolean
+          beneficios_apos: number | null
+          created_at: string
+          descricao: string
+          event_date: string
+          id: string
+          ocorrencia: string
+          person_id: string
+          remuneracao_apos: number | null
+          updated_at: string
+          valor: number | null
+        }
+        Insert: {
+          atualizar_remuneracao?: boolean
+          beneficios_apos?: number | null
+          created_at?: string
+          descricao?: string
+          event_date?: string
+          id?: string
+          ocorrencia?: string
+          person_id: string
+          remuneracao_apos?: number | null
+          updated_at?: string
+          valor?: number | null
+        }
+        Update: {
+          atualizar_remuneracao?: boolean
+          beneficios_apos?: number | null
+          created_at?: string
+          descricao?: string
+          event_date?: string
+          id?: string
+          ocorrencia?: string
+          person_id?: string
+          remuneracao_apos?: number | null
+          updated_at?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_timeline_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_titles: {
         Row: {
           created_at: string

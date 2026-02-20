@@ -5,6 +5,7 @@ import type {
   Client, Contract, Resource, Settings, Snapshot, OverheadItem,
   HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig,
   JobTitle, Team, ContractSimulation, SimulationHRItem, SimulationOtherCost,
+  HRPerson, HRTimelineEvent,
 } from '@/types';
 
 // ─── CLIENT ───────────────────────────────────────────────────────────────────
@@ -520,5 +521,79 @@ export function simulationToDb(sim: ContractSimulation): Record<string, unknown>
     using_suggested: sim.usingSuggested,
     status: sim.status,
     created_by_user_id: sim.createdByUserId ?? null,
+  };
+}
+
+// ─── HR PERSON ────────────────────────────────────────────────────────────────
+
+export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
+  return {
+    id: row.id as string,
+    nome: row.nome as string,
+    tipoVinculo: row.tipo_vinculo as HRPerson['tipoVinculo'],
+    cargoId: (row.cargo_id as string | null) ?? undefined,
+    teamId: (row.team_id as string | null) ?? undefined,
+    remuneracaoMensal: row.remuneracao_mensal as number,
+    beneficios: row.beneficios as number,
+    localAtuacao: (row.local_atuacao as string | null) ?? undefined,
+    dataAdmissao: row.data_admissao as string,
+    situacao: row.situacao as HRPerson['situacao'],
+    observacoes: (row.observacoes as string | null) ?? undefined,
+    comiteGestor: (row.comite_gestor as string | null) ?? undefined,
+    dataDesligamento: (row.data_desligamento as string | null) ?? undefined,
+    motivoDesligamento: (row.motivo_desligamento as string | null) ?? undefined,
+    tipoDesligamento: (row.tipo_desligamento as HRPerson['tipoDesligamento']) ?? undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>): Record<string, unknown> {
+  return {
+    nome: p.nome,
+    tipo_vinculo: p.tipoVinculo,
+    cargo_id: p.cargoId ?? null,
+    team_id: p.teamId ?? null,
+    remuneracao_mensal: p.remuneracaoMensal,
+    beneficios: p.beneficios,
+    local_atuacao: p.localAtuacao ?? null,
+    data_admissao: p.dataAdmissao,
+    situacao: p.situacao,
+    observacoes: p.observacoes ?? null,
+    comite_gestor: p.comiteGestor ?? null,
+    data_desligamento: p.dataDesligamento ?? null,
+    motivo_desligamento: p.motivoDesligamento ?? null,
+    tipo_desligamento: p.tipoDesligamento ?? null,
+  };
+}
+
+// ─── HR TIMELINE ──────────────────────────────────────────────────────────────
+
+export function hrTimelineFromDb(row: Record<string, unknown>): HRTimelineEvent {
+  return {
+    id: row.id as string,
+    personId: row.person_id as string,
+    eventDate: row.event_date as string,
+    ocorrencia: row.ocorrencia as HRTimelineEvent['ocorrencia'],
+    descricao: row.descricao as string,
+    valor: (row.valor as number | null) ?? undefined,
+    remuneracaoApos: (row.remuneracao_apos as number | null) ?? undefined,
+    beneficiosApos: (row.beneficios_apos as number | null) ?? undefined,
+    atualizarRemuneracao: row.atualizar_remuneracao as boolean,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export function hrTimelineToDb(e: Omit<HRTimelineEvent, 'id' | 'createdAt' | 'updatedAt'>): Record<string, unknown> {
+  return {
+    person_id: e.personId,
+    event_date: e.eventDate,
+    ocorrencia: e.ocorrencia,
+    descricao: e.descricao,
+    valor: e.valor ?? null,
+    remuneracao_apos: e.remuneracaoApos ?? null,
+    beneficios_apos: e.beneficiosApos ?? null,
+    atualizar_remuneracao: e.atualizarRemuneracao,
   };
 }

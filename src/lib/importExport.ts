@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-import { Client, Contract, Resource } from '@/types';
+import { Client, Contract, Resource, HRPerson, Team, JobTitle } from '@/types';
+import { differenceInMonths } from 'date-fns';
 
 // Column definitions for each entity type
 export const clientColumns = [
@@ -75,7 +76,7 @@ export const resourceColumns = [
   { key: 'rateioMeses', label: 'Rateio Meses', required: false },
 ];
 
-export type EntityType = 'clients' | 'contracts' | 'resources';
+export type EntityType = 'clients' | 'contracts' | 'resources' | 'hr_people';
 export type FileFormat = 'csv' | 'xlsx';
 
 export interface ColumnMapping {
@@ -313,15 +314,78 @@ export function generateTemplate(entityType: EntityType, format: FileFormat): vo
     clients: 'clientes',
     contracts: 'contratos',
     resources: 'recursos',
+    hr_people: 'rh_pessoas',
   };
 
   if (format === 'xlsx') {
     const worksheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, entityNames[entityType]);
-    XLSX.writeFile(workbook, `template_${entityNames[entityType]}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, entityNames[entityType] || entityType);
+    XLSX.writeFile(workbook, `template_${entityNames[entityType] || entityType}.xlsx`);
   } else {
     const content = [headers.join(','), exampleRow.join(',')].join('\n');
-    downloadCSV(content, `template_${entityNames[entityType]}.csv`);
+    downloadCSV(content, `template_${entityNames[entityType] || entityType}.csv`);
   }
 }
+
+export const hrColumns = [
+  { key: 'nome', label: 'Nome', required: true },
+  { key: 'tipoVinculo', label: 'Vínculo (CLT/PJ)', required: true },
+  { key: 'cargo', label: 'Cargo/Função', required: false },
+  { key: 'departamento', label: 'Departamento', required: false },
+  { key: 'localAtuacao', label: 'Local de Atuação', required: false },
+  { key: 'dataAdmissao', label: 'Data de Admissão', required: false },
+  { key: 'tempoDeCasaMeses', label: 'Tempo de Casa (meses)', required: false },
+  { key: 'situacao', label: 'Situação', required: false },
+  { key: 'dataDesligamento', label: 'Data de Desligamento', required: false },
+  { key: 'tipoDesligamento', label: 'Tipo de Desligamento', required: false },
+  { key: 'motivoDesligamento', label: 'Motivo de Desligamento', required: false },
+  { key: 'observacoes', label: 'Observações', required: false },
+  { key: 'comiteGestor', label: 'Comitê Gestor (mês/ano)', required: false },
+  { key: 'remuneracaoMensal', label: 'Remuneração Mensal', required: false },
+  { key: 'beneficios', label: 'Benefícios', required: false },
+];
+
+export function exportHRPeople(
+  people: HRPerson[],
+  teams: Team[],
+  jobTitles: JobTitle[],
+  canViewFinanceiro: boolean,
+  format: FileFormat
+): void {
+  const getTeamName = (teamId?: string) => teams.find(t => t.id === teamId)?.name || '';
+  const getCargoLabel = (cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label || '';
+
+  const headers = hrColumns.map(c => c.label);
+  const rows = people.map(p => {
+    const meses = differenceInMonths(new Date(), new Date(p.dataAdmissao));
+    return hrColumns.map(col => {
+      if (col.key === 'nome') return p.nome;
+      if (col.key === 'tipoVinculo') return p.tipoVinculo.toUpperCase();
+      if (col.key === 'cargo') return getCargoLabel(p.cargoId);
+      if (col.key === 'departamento') return getTeamName(p.teamId);
+      if (col.key === 'localAtuacao') return p.localAtuacao || '';
+      if (col.key === 'dataAdmissao') return p.dataAdmissao;
+      if (col.key === 'tempoDeCasaMeses') return meses;
+      if (col.key === 'situacao') return p.situacao;
+      if (col.key === 'dataDesligamento') return p.dataDesligamento || '';
+      if (col.key === 'tipoDesligamento') return p.tipoDesligamento || '';
+      if (col.key === 'motivoDesligamento') return p.motivoDesligamento || '';
+      if (col.key === 'observacoes') return p.observacoes || '';
+      if (col.key === 'comiteGestor') return p.comiteGestor || '';
+      if (col.key === 'remuneracaoMensal') return canViewFinanceiro ? p.remuneracaoMensal : 'CONFIDENCIAL';
+      if (col.key === 'beneficios') return canViewFinanceiro ? p.beneficios : 'CONFIDENCIAL';
+      return '';
+    });
+  });
+
+  const timestamp = new Date().toISOString().split('T')[0];
+  if (format === 'xlsx') {
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'RH');
+    XLSX.writeFile(workbook, `rh_pessoas_${timestamp}.xlsx`);
+  } else {
+    const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    downloadCSV(content, `rh_pessoas_${timestamp}.csv`);
+  }
