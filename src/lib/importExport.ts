@@ -251,46 +251,104 @@ export function parseFile(file: File): Promise<{ headers: string[]; data: Record
     reader.onload = async (e) => {
       try {
         if (isExcel) {
-          // For reading xlsx we parse the XML manually (sheet1.xml inside the zip)
           const ab = e.target?.result as ArrayBuffer;
           const bytes = new Uint8Array(ab);
-          // Locate sheet1.xml in the ZIP by scanning for local file header
-          const findFile = (name: string): Uint8Array | null => {
+
+          // Extract a file from the ZIP, handling both stored and deflate compression
+          const extractZipEntry = async (name: string): Promise<Uint8Array | null> => {
             const nameBytes = new TextEncoder().encode(name);
             for (let i = 0; i < bytes.length - 30; i++) {
-              if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x03 && bytes[i + 3] === 0x04) {
-                const nameLen = bytes[i + 26] | (bytes[i + 27] << 8);
-                const extraLen = bytes[i + 28] | (bytes[i + 29] << 8);
-                const fileNameBytes = bytes.slice(i + 30, i + 30 + nameLen);
-                const compSize = bytes[i + 18] | (bytes[i + 19] << 8) | (bytes[i + 20] << 16) | (bytes[i + 21] << 24);
-                if (fileNameBytes.length === nameBytes.length && fileNameBytes.every((b, j) => b === nameBytes[j])) {
-                  const dataStart = i + 30 + nameLen + extraLen;
-                  return bytes.slice(dataStart, dataStart + compSize);
+              if (bytes[i] !== 0x50 || bytes[i + 1] !== 0x4b || bytes[i + 2] !== 0x03 || bytes[i + 3] !== 0x04) continue;
+              const compressionMethod = bytes[i + 8] | (bytes[i + 9] << 8);
+              const compSize = bytes[i + 18] | (bytes[i + 19] << 8) | (bytes[i + 20] << 16) | (bytes[i + 21] << 24);
+              const nameLen = bytes[i + 26] | (bytes[i + 27] << 8);
+              const extraLen = bytes[i + 28] | (bytes[i + 29] << 8);
+              const entryName = bytes.slice(i + 30, i + 30 + nameLen);
+              if (entryName.length !== nameBytes.length || !entryName.every((b, j) => b === nameBytes[j])) continue;
+
+              const dataStart = i + 30 + nameLen + extraLen;
+              const rawData = bytes.slice(dataStart, dataStart + compSize);
+
+              if (compressionMethod === 0) {
+                // Stored (no compression)
+                return rawData;
+              } else if (compressionMethod === 8) {
+                // Deflate — use DecompressionStream
+                const ds = new DecompressionStream('raw' as CompressionFormat);
+                const writer = ds.writable.getWriter();
+                writer.write(rawData);
+                writer.close();
+                const reader = ds.readable.getReader();
+                const chunks: Uint8Array[] = [];
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  chunks.push(value);
                 }
+                const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+                const result = new Uint8Array(totalLen);
+                let offset = 0;
+                for (const c of chunks) { result.set(c, offset); offset += c.length; }
+                return result;
               }
+              return null; // Unsupported compression
             }
             return null;
           };
-          const sheetData = findFile('xl/worksheets/sheet1.xml');
-          if (!sheetData) { reject(new Error('Arquivo xlsx inválido')); return; }
-          const xml = new TextDecoder().decode(sheetData);
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(xml, 'application/xml');
-          const rowEls = Array.from(doc.querySelectorAll('row'));
-          if (rowEls.length === 0) { reject(new Error('Arquivo vazio')); return; }
-          const parseRow = (el: Element): string[] =>
-            Array.from(el.querySelectorAll('c')).map(c => {
-              const t = c.getAttribute('t');
-              if (t === 'inlineStr') return c.querySelector('t')?.textContent ?? '';
-              return c.querySelector('v')?.textContent ?? '';
+
+          // Extract shared strings table and sheet data
+          const [sharedStringsRaw, sheetRaw] = await Promise.all([
+            extractZipEntry('xl/sharedStrings.xml'),
+            extractZipEntry('xl/worksheets/sheet1.xml'),
+          ]);
+
+          if (!sheetRaw) { reject(new Error('Arquivo xlsx inválido')); return; }
+
+          const domParser = new DOMParser();
+
+          // Build shared strings array
+          const sharedStrings: string[] = [];
+          if (sharedStringsRaw) {
+            const ssXml = new TextDecoder().decode(sharedStringsRaw);
+            const ssDoc = domParser.parseFromString(ssXml, 'application/xml');
+            const siEls = ssDoc.querySelectorAll('si');
+            siEls.forEach(si => {
+              // <si> may contain a single <t> or multiple <r><t> runs
+              const tEls = si.querySelectorAll('t');
+              sharedStrings.push(Array.from(tEls).map(t => t.textContent ?? '').join(''));
             });
+          }
+
+          // Parse sheet XML
+          const sheetXml = new TextDecoder().decode(sheetRaw);
+          const sheetDoc = domParser.parseFromString(sheetXml, 'application/xml');
+          const rowEls = Array.from(sheetDoc.querySelectorAll('row'));
+          if (rowEls.length === 0) { reject(new Error('Arquivo vazio')); return; }
+
+          const parseCellValue = (c: Element): string => {
+            const t = c.getAttribute('t');
+            if (t === 's') {
+              // Shared string reference
+              const idx = parseInt(c.querySelector('v')?.textContent ?? '0', 10);
+              return sharedStrings[idx] ?? '';
+            }
+            if (t === 'inlineStr') {
+              return c.querySelector('t')?.textContent ?? '';
+            }
+            // Number or direct value
+            return c.querySelector('v')?.textContent ?? '';
+          };
+
+          const parseRow = (el: Element): string[] =>
+            Array.from(el.querySelectorAll('c')).map(parseCellValue);
+
           const headers = parseRow(rowEls[0]).map(h => h.trim());
           const rows = rowEls.slice(1).map(r => {
             const vals = parseRow(r);
             const obj: Record<string, unknown> = {};
             headers.forEach((h, i) => { obj[h] = vals[i] ?? ''; });
             return obj;
-          });
+          }).filter(row => Object.values(row).some(v => v !== undefined && v !== ''));
           resolve({ headers, data: rows });
         } else {
           Papa.parse(file, {
