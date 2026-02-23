@@ -519,8 +519,8 @@ Deno.serve(async (req) => {
         situacao: p.sit,
         nivel: p.nv,
         trilha: p.tr,
-        atualizar_remuneracao: false,
       };
+      if (p.pj) record.projeto = p.pj;
 
       if (p.obs) record.observacoes = p.obs;
       if (p.cg) record.comite_gestor = p.cg;
