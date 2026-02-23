@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.simulation-insights]
 verify_jwt = false
+
+[functions.hr-bulk-import]
+verify_jwt = false
