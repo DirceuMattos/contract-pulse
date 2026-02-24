@@ -85,13 +85,14 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   // Calculator routes
   if (pathname.startsWith('/calculadora')) return 'CALCULATOR';
   
-  // Contract sub-routes
+  // Contract sub-routes (exact matches BEFORE regex to avoid /contratos/novo matching CONTRACT_DETAIL)
+  if (pathname === '/contratos' || pathname === '/contratos/novo') return 'CONTRACTS';
   if (/^\/contratos\/[^/]+\/recursos/.test(pathname)) return 'RESOURCES';
   if (/^\/contratos\/[^/]+\/editar/.test(pathname)) return 'CONTRACT_DETAIL';
   if (/^\/contratos\/[^/]+$/.test(pathname)) return 'CONTRACT_DETAIL';
-  if (pathname === '/contratos' || pathname === '/contratos/novo') return 'CONTRACTS';
   
-  // Client routes
+  // Client routes (exact matches BEFORE wildcard)
+  if (pathname === '/clientes' || pathname === '/clientes/novo') return 'CLIENTS';
   if (pathname.startsWith('/clientes')) return 'CLIENTS';
   
   return undefined;
