@@ -51,7 +51,7 @@ const resourceFormSchemaBase = z.object({
   observacoes: z.string().optional(),
   encargosOverride: z.number().min(0).max(200).optional(),
   impostosOverride: z.number().min(0).max(100).optional(),
-  categoria: z.enum(['cloud', 'licenca', 'equipamento', 'terceiros', 'outros', 'consultoria']).optional(),
+  categoria: z.enum(['cloud', 'licenca', 'equipamento', 'terceiros', 'outros', 'consultoria', 'ia']).optional(),
   recorrencia: z.enum(['mensal', 'anual', 'unico']).optional(),
   rateioMeses: z.number().min(1).optional(),
   tipoValor: z.enum(['mensal', 'totalPeriodo']).optional(),
@@ -91,6 +91,7 @@ const categoriaOptions = [
   { value: 'equipamento', label: 'Equipamentos' },
   { value: 'terceiros', label: 'Serviços Terceiros' },
   { value: 'consultoria', label: 'Consultoria' },
+  { value: 'ia', label: 'Inteligência Artificial' },
   { value: 'outros', label: 'Outros' },
 ];
 
@@ -239,344 +240,119 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Identificação */}
+        {tipoAtual === 'outro' ? (
+          /* Layout específico para Outros */
           <div className="space-y-4">
+            {/* Linha 1: Categoria + Recorrência */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="categoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoria *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a categoria" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categoriaOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="recorrencia"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Recorrência</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {recorrenciaOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Linha 2: Descrição */}
             <FormField
               control={form.control}
               name="nome"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {tipoAtual === 'outro' ? 'Descrição *' : 'Nome / Pessoa *'}
-                  </FormLabel>
-                  {tipoAtual !== 'outro' && allHRNames.length > 0 && !customNome && (existingNomeInList || !field.value) ? (
-                    <Select
-                      onValueChange={(val) => {
-                        if (val === '__other__') {
-                          setCustomNome(true);
-                          field.onChange('');
-                        } else {
-                        field.onChange(val);
-                          const match = allHRNames.find(h => h.nome === val);
-                          if (match) {
-                            form.setValue('custoBase', match.custoBase);
-                            if (match.cargo) {
-                              form.setValue('cargo', match.cargo);
-                              const cargoInList = activeJobTitles.some(jt => jt.label === match.cargo);
-                              setCustomCargo(!cargoInList);
-                            }
-                            if (match.senioridade) {
-                              form.setValue('senioridade', match.senioridade as any);
-                            }
-                          }
-                        }
-                      }}
-                      value={field.value || ''}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a pessoa" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {allHRNames.map(h => (
-                          <SelectItem key={h.nome} value={h.nome}>
-                            {h.nome}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__other__">Outro...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : tipoAtual !== 'outro' ? (
-                    <div className="flex gap-2">
-                      <FormControl>
-                        <Input placeholder="Ex: João Silva" {...field} />
-                      </FormControl>
-                      {allHRNames.length > 0 && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => {
-                          setCustomNome(false);
-                          field.onChange('');
-                        }}>
-                          Lista
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <FormControl>
-                      <Input placeholder="Ex: AWS Cloud" {...field} />
-                    </FormControl>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {tipoAtual !== 'outro' && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="cargo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cargo / Papel</FormLabel>
-                      {customCargo || (!existingCargoInList && !customCargo) ? (
-                        <div className="flex gap-2">
-                          <FormControl>
-                            <Input placeholder="Digite o cargo" {...field} />
-                          </FormControl>
-                          <Button type="button" variant="outline" size="sm" onClick={() => {
-                            setCustomCargo(false);
-                            field.onChange('');
-                          }}>
-                            Lista
-                          </Button>
-                        </div>
-                      ) : (
-                        <Select
-                          onValueChange={(val) => {
-                            if (val === '__other__') {
-                              setCustomCargo(true);
-                              field.onChange('');
-                            } else {
-                              field.onChange(val);
-                            }
-                          }}
-                          value={field.value || ''}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o cargo" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {activeJobTitles.map(jt => (
-                              <SelectItem key={jt.id} value={jt.label}>
-                                {jt.label}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="__other__">Outro...</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                      <FormMessage />
-                      {/* Read-only team chip */}
-                      {(() => {
-                        const selectedJt = activeJobTitles.find(jt => jt.label === field.value);
-                        if (selectedJt?.teamId) {
-                          const team = teams.find(t => t.id === selectedJt.teamId);
-                          if (team) {
-                            return (
-                              <div className="flex items-center gap-1 mt-1">
-                                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-                                  Equipe: {team.name}
-                                </span>
-                              </div>
-                            );
-                          }
-                        }
-                        return null;
-                      })()}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="senioridade"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senioridade</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {senioridadeOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-
-            {tipoAtual === 'outro' && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="categoria"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Categoria *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a categoria" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categoriaOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="recorrencia"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Recorrência</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {recorrenciaOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-          </div>
-
-          {/* Custos */}
-          <div className="space-y-4">
-            <FormField
-              control={form.control}
-              name="custoBase"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {tipoAtual === 'clt' ? 'Salário Bruto Mensal *' : 
-                     tipoAtual === 'pj' ? 'Valor Mensal Contratado *' : 
-                     'Valor Mensal *'}
-                  </FormLabel>
+                  <FormLabel>Descrição *</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        R$
-                      </span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="pl-10"
-                        {...field}
-                      onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                    />
-                    </div>
+                    <Input placeholder="Ex: AWS Cloud" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="percentualDedicacao"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Percentual de Dedicação *</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="pr-8"
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        %
-                      </span>
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    Quanto deste recurso é dedicado ao contrato
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Override de encargos/impostos */}
-            {tipoAtual === 'clt' && (
+            {/* Linha 3: Valor mensal + Percentual de dedicação */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="encargosOverride"
+                name="custoBase"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Encargos CLT (override)</FormLabel>
+                    <FormLabel>Valor Mensal *</FormLabel>
                     <FormControl>
                       <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          R$
+                        </span>
                         <Input
                           type="number"
-                          min="0"
-                          max="200"
-                          step="0.1"
-                          placeholder={`Padrão: ${settings.percentualEncargosCLT}%`}
-                          className="pr-8"
+                          step="0.01"
+                          className="pl-10"
                           {...field}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                          onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                          %
-                        </span>
                       </div>
                     </FormControl>
-                    <FormDescription>
-                      Deixe vazio para usar o padrão ({settings.percentualEncargosCLT}%)
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
 
-            {tipoAtual === 'pj' && (
               <FormField
                 control={form.control}
-                name="impostosOverride"
+                name="percentualDedicacao"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Impostos PJ (override)</FormLabel>
+                    <FormLabel>Percentual de Dedicação *</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
                           type="number"
                           min="0"
                           max="100"
-                          step="0.1"
-                          placeholder={`Padrão: ${settings.percentualImpostosPJ}%`}
                           className="pr-8"
                           {...field}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                           %
@@ -584,15 +360,305 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Deixe vazio para usar o padrão ({settings.percentualImpostosPJ}%)
+                      Quanto deste recurso é dedicado ao contrato
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Layout para CLT e PJ */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Identificação */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="nome"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome / Pessoa *</FormLabel>
+                    {allHRNames.length > 0 && !customNome && (existingNomeInList || !field.value) ? (
+                      <Select
+                        onValueChange={(val) => {
+                          if (val === '__other__') {
+                            setCustomNome(true);
+                            field.onChange('');
+                          } else {
+                            field.onChange(val);
+                            const match = allHRNames.find(h => h.nome === val);
+                            if (match) {
+                              form.setValue('custoBase', match.custoBase);
+                              if (match.cargo) {
+                                form.setValue('cargo', match.cargo);
+                                const cargoInList = activeJobTitles.some(jt => jt.label === match.cargo);
+                                setCustomCargo(!cargoInList);
+                              }
+                              if (match.senioridade) {
+                                form.setValue('senioridade', match.senioridade as any);
+                              }
+                            }
+                          }
+                        }}
+                        value={field.value || ''}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a pessoa" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {allHRNames.map(h => (
+                            <SelectItem key={h.nome} value={h.nome}>
+                              {h.nome}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__other__">Outro...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input placeholder="Ex: João Silva" {...field} />
+                        </FormControl>
+                        {allHRNames.length > 0 && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => {
+                            setCustomNome(false);
+                            field.onChange('');
+                          }}>
+                            Lista
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cargo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cargo / Papel</FormLabel>
+                    {customCargo || (!existingCargoInList && !customCargo) ? (
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input placeholder="Digite o cargo" {...field} />
+                        </FormControl>
+                        <Button type="button" variant="outline" size="sm" onClick={() => {
+                          setCustomCargo(false);
+                          field.onChange('');
+                        }}>
+                          Lista
+                        </Button>
+                      </div>
+                    ) : (
+                      <Select
+                        onValueChange={(val) => {
+                          if (val === '__other__') {
+                            setCustomCargo(true);
+                            field.onChange('');
+                          } else {
+                            field.onChange(val);
+                          }
+                        }}
+                        value={field.value || ''}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o cargo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {activeJobTitles.map(jt => (
+                            <SelectItem key={jt.id} value={jt.label}>
+                              {jt.label}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__other__">Outro...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                    {/* Read-only team chip */}
+                    {(() => {
+                      const selectedJt = activeJobTitles.find(jt => jt.label === field.value);
+                      if (selectedJt?.teamId) {
+                        const team = teams.find(t => t.id === selectedJt.teamId);
+                        if (team) {
+                          return (
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                                Equipe: {team.name}
+                              </span>
+                            </div>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="senioridade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Senioridade</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {senioridadeOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Custos */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="custoBase"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {tipoAtual === 'clt' ? 'Salário Bruto Mensal *' : 'Valor Mensal Contratado *'}
+                    </FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          R$
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="pl-10"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="percentualDedicacao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Percentual de Dedicação *</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          className="pr-8"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          %
+                        </span>
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Quanto deste recurso é dedicado ao contrato
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Override de encargos/impostos */}
+              {tipoAtual === 'clt' && (
+                <FormField
+                  control={form.control}
+                  name="encargosOverride"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Encargos CLT (override)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="200"
+                            step="0.1"
+                            placeholder={`Padrão: ${settings.percentualEncargosCLT}%`}
+                            className="pr-8"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                            %
+                          </span>
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Deixe vazio para usar o padrão ({settings.percentualEncargosCLT}%)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {tipoAtual === 'pj' && (
+                <FormField
+                  control={form.control}
+                  name="impostosOverride"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Impostos PJ (override)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            placeholder={`Padrão: ${settings.percentualImpostosPJ}%`}
+                            className="pr-8"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                            %
+                          </span>
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Deixe vazio para usar o padrão ({settings.percentualImpostosPJ}%)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Datas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -602,7 +668,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Data de Início *</FormLabel>
-           <FormControl>
+                <FormControl>
                   <DatePickerInput value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
