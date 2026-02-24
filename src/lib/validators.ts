@@ -123,7 +123,7 @@ export const contractFormSchema = z.object({
 
   // Vigência
   dataInicio: z.string().min(1, 'Data de início é obrigatória'),
-  dataFim: z.string().min(1, 'Data de término é obrigatória'),
+  dataFim: z.string().optional().or(z.literal('')),
   renovacaoAutomatica: z.boolean().default(false),
   periodicidadeRenovacao: z.string().optional(),
   statusRenovacao: z.enum(['negociacao', 'renovado', 'sem-tratativa'], {
@@ -183,8 +183,17 @@ export const contractFormSchema = z.object({
   message: 'Valor total do contrato é obrigatório para modelo média mensal',
   path: ['valorTotalContrato'],
 }).refine((data) => {
+  // dataFim is required when renovacaoAutomatica is false
+  if (!data.renovacaoAutomatica && (!data.dataFim || data.dataFim.trim() === '')) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Data de término é obrigatória quando renovação automática está desligada',
+  path: ['dataFim'],
+}).refine((data) => {
   // Validate that dataFim is after dataInicio
-  if (data.dataInicio && data.dataFim) {
+  if (data.dataInicio && data.dataFim && data.dataFim.trim() !== '') {
     return new Date(data.dataFim) > new Date(data.dataInicio);
   }
   return true;

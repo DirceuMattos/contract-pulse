@@ -85,7 +85,7 @@ export function contractFromDb(row: Record<string, unknown>): Contract {
     tags: (row.tags as string[]) ?? [],
     govSphere: (row.gov_sphere as Contract['govSphere']) ?? undefined,
     dataInicio: row.data_inicio as string,
-    dataFim: row.data_fim as string,
+    dataFim: (row.data_fim as string | null) ?? undefined,
     renovacaoAutomatica: row.renovacao_automatica as boolean,
     periodicidadeRenovacao: (row.periodicidade_renovacao as string | null) ?? undefined,
     statusRenovacao: row.status_renovacao as Contract['statusRenovacao'],
@@ -503,6 +503,7 @@ export function simulationFromDb(
     status: row.status as ContractSimulation['status'],
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+    consultantAnalysis: (row.consultant_analysis as string | null) ?? undefined,
     createdByUserId: (row.created_by_user_id as string | null) ?? undefined,
   };
 }
@@ -529,6 +530,7 @@ export function simulationToDb(sim: ContractSimulation): Record<string, unknown>
     suggested_overhead: sim.suggestedOverhead,
     custom_overhead: sim.customOverhead,
     using_suggested: sim.usingSuggested,
+    consultant_analysis: sim.consultantAnalysis ?? null,
     status: sim.status,
     created_by_user_id: sim.createdByUserId ?? null,
   };

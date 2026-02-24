@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   data: ContractSimulation;
+  onChange?: (updates: Partial<ContractSimulation>) => void;
 }
 
 function formatCurrency(v: number) {
@@ -39,12 +40,12 @@ const SCENARIO_COLORS: Record<string, string> = {
   Otimista: 'hsl(142, 71%, 45%)',
 };
 
-export function Step5Results({ data }: Props) {
+export function Step5Results({ data, onChange }: Props) {
   const pricing = suggestPricing(data);
   const results = calculateSimulationResults(data);
   const scenarios = generateScenarios(data);
 
-  const [insightText, setInsightText] = useState('');
+  const [insightText, setInsightText] = useState(data.consultantAnalysis ?? '');
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError] = useState('');
 
@@ -94,7 +95,9 @@ export function Step5Results({ data }: Props) {
         return;
       }
 
-      setInsightText(funcData?.analysis || 'Nenhuma análise disponível.');
+      const text = funcData?.analysis || 'Nenhuma análise disponível.';
+      setInsightText(text);
+      onChange?.({ consultantAnalysis: text });
     } catch (e) {
       console.error('Insight error:', e);
       setInsightError('Erro de conexão. Tente novamente.');

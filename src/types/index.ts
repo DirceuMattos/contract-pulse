@@ -75,7 +75,7 @@ export interface Contract {
   
   // Vigência
   dataInicio: string;
-  dataFim: string;
+  dataFim?: string;
   renovacaoAutomatica: boolean;
   periodicidadeRenovacao?: string;
   statusRenovacao: RenewalStatus;
@@ -486,6 +486,7 @@ export interface ContractSimulation {
   customOtherCosts: SimulationOtherCost[];
   customOverhead: SimulationOverhead;
   usingSuggested: boolean;
+  consultantAnalysis?: string;
   status: SimulationStatus;
   createdAt: string;
   updatedAt: string;

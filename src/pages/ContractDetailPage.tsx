@@ -107,7 +107,7 @@ export default function ContractDetailPage() {
   const health = calculateContractHealth(contract, contractResources, settings, overheadItems);
   const contractOverheadItems = id ? getOverheadByContract(id) : [];
   const overheadCost = calculateOverheadCost(contract.id, contractResources, contractOverheadItems, settings);
-  const daysUntilEnd = getDaysUntil(contract.dataFim);
+  const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
     ? getDaysSince(contract.ultimaAtualizacaoRecursos)
@@ -278,16 +278,16 @@ export default function ContractDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Vigência</p>
                 <p className="font-medium">
-                  {daysUntilEnd > 0 ? `${daysUntilEnd} dias restantes` : 'Encerrado'}
+                  {daysUntilEnd != null ? (daysUntilEnd > 0 ? `${daysUntilEnd} dias restantes` : 'Encerrado') : 'Indeterminado'}
                 </p>
               </div>
             </div>
             <Progress 
-              value={Math.max(0, Math.min(100, 100 - (daysUntilEnd / 365) * 100))} 
+              value={daysUntilEnd != null ? Math.max(0, Math.min(100, 100 - (daysUntilEnd / 365) * 100)) : 0} 
               className="h-1.5"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              {formatDate(contract.dataInicio)} a {formatDate(contract.dataFim)}
+              {formatDate(contract.dataInicio)} a {contract.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}
             </p>
           </CardContent>
         </Card>
@@ -699,7 +699,7 @@ export default function ContractDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Término</p>
-                    <p className="font-medium">{formatDate(contract.dataFim)}</p>
+                    <p className="font-medium">{contract.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}</p>
                   </div>
                 </div>
                 {contract.segmento === 'govtech' && contract.govSphere && (
