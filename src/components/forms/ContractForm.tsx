@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CalendarIcon, Plus, X, Building2 } from 'lucide-react';
+import { formatPhoneInput } from '@/lib/utils';
 import { contractFormSchema, ContractFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
 import { Contract } from '@/types';
@@ -933,7 +934,11 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                       <FormItem>
                         <FormLabel>Telefone</FormLabel>
                         <FormControl>
-                          <Input placeholder="(00) 00000-0000" {...field} />
+                          <Input 
+                            placeholder="(00) 00000-0000" 
+                            {...field}
+                            onChange={(e) => field.onChange(formatPhoneInput(e.target.value))}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

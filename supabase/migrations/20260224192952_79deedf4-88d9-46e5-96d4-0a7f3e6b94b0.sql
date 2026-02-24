@@ -1,0 +1,1 @@
+ALTER TYPE public.other_cost_category ADD VALUE IF NOT EXISTS 'acessibilidade';

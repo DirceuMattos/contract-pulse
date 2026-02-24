@@ -4,6 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Separator } from '@/components/ui/separator';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { formatPhoneInput } from '@/lib/utils';
 import type { ContractSimulation } from '@/types';
 
 interface Props {
@@ -100,7 +102,7 @@ export function Step1Identification({ data, onChange }: Props) {
             <Label>Telefone <span className="text-muted-foreground font-normal">(opcional)</span></Label>
             <Input
               value={data.responsavelClienteTelefone ?? ''}
-              onChange={e => onChange({ responsavelClienteTelefone: e.target.value || undefined })}
+              onChange={e => onChange({ responsavelClienteTelefone: formatPhoneInput(e.target.value) || undefined })}
               placeholder="(00) 00000-0000"
             />
           </div>
@@ -111,7 +113,11 @@ export function Step1Identification({ data, onChange }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Custo de consultoria previsto (mensal)</Label>
-          <Input type="number" min={0} step={500} value={data.consultancyCost ?? ''} onChange={e => onChange({ consultancyCost: e.target.value === '' ? undefined : parseFloat(e.target.value) })} placeholder="R$ 0,00 — incluso automaticamente em Outros Custos" />
+          <CurrencyInput
+            value={data.consultancyCost}
+            onChange={v => onChange({ consultancyCost: v })}
+            placeholder="R$ 0,00 — incluso automaticamente em Outros Custos"
+          />
           <p className="text-xs text-muted-foreground">Se informado, será adicionado automaticamente à composição de custos.</p>
         </div>
       </div>

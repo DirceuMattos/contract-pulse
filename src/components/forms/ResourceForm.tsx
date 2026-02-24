@@ -51,7 +51,7 @@ const resourceFormSchemaBase = z.object({
   observacoes: z.string().optional(),
   encargosOverride: z.number().min(0).max(200).optional(),
   impostosOverride: z.number().min(0).max(100).optional(),
-  categoria: z.enum(['cloud', 'licenca', 'equipamento', 'terceiros', 'outros', 'consultoria', 'ia']).optional(),
+  categoria: z.enum(['cloud', 'licenca', 'equipamento', 'terceiros', 'outros', 'consultoria', 'ia', 'acessibilidade']).optional(),
   recorrencia: z.enum(['mensal', 'anual', 'unico']).optional(),
   rateioMeses: z.number().min(1).optional(),
   tipoValor: z.enum(['mensal', 'totalPeriodo']).optional(),
@@ -92,6 +92,7 @@ const categoriaOptions = [
   { value: 'terceiros', label: 'Serviços Terceiros' },
   { value: 'consultoria', label: 'Consultoria' },
   { value: 'ia', label: 'Inteligência Artificial' },
+  { value: 'acessibilidade', label: 'Extensão de Acessibilidade' },
   { value: 'outros', label: 'Outros' },
 ];
 

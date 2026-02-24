@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card } from '@/components/ui/card';
 import { Plus, Trash2, RotateCcw, Lightbulb } from 'lucide-react';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { generateSuggestedResources, getAppliedRules } from '@/lib/simulationEngine';
 import { useData } from '@/contexts/DataContext';
 import type { ContractSimulation, SimulationHRItem, SimulationOtherCost, SimulationOverhead } from '@/types';
@@ -19,6 +20,11 @@ interface Props {
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
+
+const OC_CATEGORY_OPTIONS = [
+  'Cloud', 'Infraestrutura', 'Observabilidade', 'Plantão', 'Viagens',
+  'Licenças', 'Equipamentos', 'Extensão de Acessibilidade', 'Inteligência Artificial', 'Outros',
+];
 
 export function Step4Resources({ data, onChange }: Props) {
   const [showSuggestion] = useState(true);
@@ -169,7 +175,11 @@ export function Step4Resources({ data, onChange }: Props) {
                     <Input className="h-8 text-sm" type="number" step={0.1} min={0} value={item.quantity} onChange={e => updateHR(item.id, 'quantity', parseFloat(e.target.value) || 0)} />
                   </TableCell>
                   <TableCell>
-                    <Input className="h-8 text-sm" type="number" step={500} min={0} value={item.grossMonthly ?? ''} onChange={e => updateHR(item.id, 'grossMonthly', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+                    <CurrencyInput
+                      value={item.grossMonthly}
+                      onChange={v => updateHR(item.id, 'grossMonthly', v ?? 0)}
+                      className="h-8 text-sm"
+                    />
                   </TableCell>
                   <TableCell>
                     <Input className="h-8 text-sm" type="number" min={0} max={200} value={item.chargesPercent} onChange={e => updateHR(item.id, 'chargesPercent', parseFloat(e.target.value) || 0)} />
@@ -216,9 +226,26 @@ export function Step4Resources({ data, onChange }: Props) {
               )}
               {oc.map(item => (
                 <TableRow key={item.id}>
-                  <TableCell><Input className="h-8 text-sm" value={item.category} onChange={e => updateOC(item.id, 'category', e.target.value)} /></TableCell>
+                  <TableCell>
+                    <Select value={OC_CATEGORY_OPTIONS.includes(item.category) ? item.category : '__custom__'} onValueChange={v => {
+                      if (v !== '__custom__') updateOC(item.id, 'category', v);
+                    }}>
+                      <SelectTrigger className="h-8 text-sm w-48"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {OC_CATEGORY_OPTIONS.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell><Input className="h-8 text-sm" value={item.description} onChange={e => updateOC(item.id, 'description', e.target.value)} /></TableCell>
-                  <TableCell><Input className="h-8 text-sm" type="number" step={500} min={0} value={item.valueMonthly ?? ''} onChange={e => updateOC(item.id, 'valueMonthly', e.target.value === '' ? 0 : parseFloat(e.target.value))} /></TableCell>
+                  <TableCell>
+                    <CurrencyInput
+                      value={item.valueMonthly}
+                      onChange={v => updateOC(item.id, 'valueMonthly', v ?? 0)}
+                      className="h-8 text-sm"
+                    />
+                  </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeOC(item.id)}>
                       <Trash2 className="w-4 h-4" />

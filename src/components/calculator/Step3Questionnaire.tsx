@@ -2,16 +2,41 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import type { ContractSimulation, SimulationQuestionnaire } from '@/types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import type { ContractSimulation, SimulationQuestionnaire, DemandType } from '@/types';
 
 interface Props {
   data: ContractSimulation;
   onChange: (updates: Partial<ContractSimulation>) => void;
 }
 
+const DEMAND_TYPE_OPTIONS: { value: DemandType; label: string }[] = [
+  { value: 'sustentacao', label: 'Sustentação / Manutenção' },
+  { value: 'evolucao', label: 'Evolução incremental' },
+  { value: 'novo-sistema', label: 'Novo sistema' },
+  { value: 'implantacao', label: 'Implantação + customização' },
+];
+
 export function Step3Questionnaire({ data, onChange }: Props) {
   const updateQ = (key: keyof SimulationQuestionnaire, value: unknown) => {
     onChange({ questionnaire: { ...data.questionnaire, [key]: value } });
+  };
+
+  // Normalize demandType to always be an array
+  const currentDemandTypes: DemandType[] = Array.isArray(data.questionnaire.demandType)
+    ? data.questionnaire.demandType
+    : data.questionnaire.demandType ? [data.questionnaire.demandType] : [];
+
+  const toggleDemandType = (dt: DemandType) => {
+    const current = [...currentDemandTypes];
+    const idx = current.indexOf(dt);
+    if (idx >= 0) {
+      if (current.length > 1) current.splice(idx, 1); // keep at least one
+    } else {
+      current.push(dt);
+    }
+    updateQ('demandType', current);
   };
 
   return (
@@ -31,17 +56,28 @@ export function Step3Questionnaire({ data, onChange }: Props) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Tipo de demanda</Label>
-          <Select value={data.questionnaire.demandType} onValueChange={v => updateQ('demandType', v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sustentacao">Sustentação / Manutenção</SelectItem>
-              <SelectItem value="evolucao">Evolução incremental</SelectItem>
-              <SelectItem value="novo-sistema">Novo sistema</SelectItem>
-              <SelectItem value="implantacao">Implantação + customização</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="space-y-2 md:col-span-2">
+          <Label>Tipo de demanda (selecione um ou mais)</Label>
+          <div className="flex flex-wrap gap-3">
+            {DEMAND_TYPE_OPTIONS.map(opt => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={currentDemandTypes.includes(opt.value)}
+                  onCheckedChange={() => toggleDemandType(opt.value)}
+                />
+                <span className="text-sm">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+          {currentDemandTypes.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {currentDemandTypes.map(dt => (
+                <Badge key={dt} variant="secondary" className="text-xs">
+                  {DEMAND_TYPE_OPTIONS.find(o => o.value === dt)?.label}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

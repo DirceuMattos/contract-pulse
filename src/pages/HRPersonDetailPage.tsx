@@ -301,6 +301,7 @@ export default function HRPersonDetailPage() {
                       <TableHead>Contrato</TableHead>
                       <TableHead>Cargo no contrato</TableHead>
                       <TableHead>Dedicação (%)</TableHead>
+                      <TableHead>Local de Atuação</TableHead>
                       <TableHead>Início</TableHead>
                       <TableHead>Fim</TableHead>
                     </TableRow>
@@ -311,6 +312,7 @@ export default function HRPersonDetailPage() {
                         <TableCell className="text-sm font-medium">{r.contractId}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.cargo || '—'}</TableCell>
                         <TableCell><Badge variant="outline">{r.percentualDedicacao}%</Badge></TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{person.localAtuacao || '—'}</TableCell>
                         <TableCell className="text-sm">{new Date(r.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell className="text-sm">{r.dataFim ? new Date(r.dataFim + 'T12:00:00').toLocaleDateString('pt-BR') : 'Em aberto'}</TableCell>
                       </TableRow>

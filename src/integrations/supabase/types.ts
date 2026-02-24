@@ -1195,6 +1195,7 @@ export type Database = {
         | "outros"
         | "consultoria"
         | "ia"
+        | "acessibilidade"
       overhead_category: "infraestrutura" | "administrativo" | "governanca"
       overhead_mode: "percentual" | "fixo"
       renewal_status: "negociacao" | "renovado" | "sem-tratativa"
@@ -1387,6 +1388,7 @@ export const Constants = {
         "outros",
         "consultoria",
         "ia",
+        "acessibilidade",
       ],
       overhead_category: ["infraestrutura", "administrativo", "governanca"],
       overhead_mode: ["percentual", "fixo"],

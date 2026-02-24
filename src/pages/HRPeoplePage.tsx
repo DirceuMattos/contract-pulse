@@ -188,16 +188,15 @@ export default function HRPeoplePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Vínculo</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Departamento</TableHead>
-                    <TableHead>Local</TableHead>
-                    <TableHead>Admissão</TableHead>
-                    <TableHead>Tempo de Casa</TableHead>
-                    {canViewHRCosts && <TableHead>Remuneração</TableHead>}
-                    {canViewHRCosts && <TableHead>Benefícios</TableHead>}
-                    <TableHead>Situação</TableHead>
+                    <TableHead className="text-xs">Nome</TableHead>
+                    <TableHead className="text-xs">Vínculo</TableHead>
+                    <TableHead className="text-xs">Cargo</TableHead>
+                    <TableHead className="text-xs">Dept.</TableHead>
+                    <TableHead className="text-xs">Local</TableHead>
+                    <TableHead className="text-xs">Admissão</TableHead>
+                    <TableHead className="text-xs">Tempo</TableHead>
+                    {canViewHRCosts && <TableHead className="text-xs">Custo Total</TableHead>}
+                    <TableHead className="text-xs">Sit.</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -206,41 +205,37 @@ export default function HRPeoplePage() {
                     const { texto: tempoCasa, meses } = calcularTempoDeCasa(p.dataAdmissao);
                     return (
                       <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
-                        <TableCell className="font-medium">{p.nome}</TableCell>
-                        <TableCell>
-                          <Badge variant={p.tipoVinculo === 'clt' ? 'default' : 'secondary'}>
+                        <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
+                        <TableCell className="py-2">
+                          <Badge variant={p.tipoVinculo === 'clt' ? 'default' : 'secondary'} className="text-xs">
                             {p.tipoVinculo.toUpperCase()}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{getCargoLabel(p.cargoId) || '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{getTeamName(p.teamId) || '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{p.localAtuacao || '—'}</TableCell>
-                        <TableCell className="text-sm">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">{tempoCasa}</span>
-                            <Badge variant="outline" className="text-xs">{meses}m</Badge>
-                          </div>
+                        <TableCell className="text-xs text-muted-foreground py-2 max-w-[140px] truncate">{getCargoLabel(p.cargoId) || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-2 max-w-[120px] truncate">{getTeamName(p.teamId) || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-2 max-w-[100px] truncate">{p.localAtuacao || '—'}</TableCell>
+                        <TableCell className="text-xs py-2 whitespace-nowrap">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="py-2">
+                          <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
                         </TableCell>
-                        {canViewHRCosts && <TableCell className="text-sm font-medium">{formatCurrency(p.remuneracaoMensal)}</TableCell>}
-                        {canViewHRCosts && <TableCell className="text-sm">{formatCurrency(p.beneficios)}</TableCell>}
-                        <TableCell>
-                          <Badge className={p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>
+                        {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
+                        <TableCell className="py-2">
+                          <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
                             {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </TableCell>
-                        <TableCell onClick={e => e.stopPropagation()}>
+                        <TableCell onClick={e => e.stopPropagation()} className="py-2">
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
-                              <Eye className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
                             {canEdit && (
                               <>
-                                <Button variant="ghost" size="icon" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
-                                  <Pencil className="h-4 w-4" />
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
+                                  <Pencil className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(p)}>
-                                  {p.situacao === 'ativo' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(p)}>
+                                  {p.situacao === 'ativo' ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
                                 </Button>
                               </>
                             )}

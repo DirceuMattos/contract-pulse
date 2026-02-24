@@ -29,7 +29,7 @@ function createBlank(userId?: string, chargesCLT?: number, chargesPJ?: number): 
   const now = new Date().toISOString();
   const suggested = generateSuggestedResources(DEFAULT_QUESTIONNAIRE, 'media', chargesCLT, chargesPJ);
   return {
-    id: `sim-${Date.now()}`,
+    id: crypto.randomUUID(),
     name: '',
     clientName: '',
     contractType: 'private',
