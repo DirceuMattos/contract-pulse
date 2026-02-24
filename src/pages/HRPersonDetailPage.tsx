@@ -146,7 +146,7 @@ export default function HRPersonDetailPage() {
               <CardContent className="space-y-3">
                 <Row label="Nome" value={person.nome} />
                 <Row label="Vínculo" value={<Badge variant={person.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{person.tipoVinculo.toUpperCase()}</Badge>} />
-                <Row label="Situação" value={<Badge variant={person.situacao === 'ativo' ? 'default' : 'secondary'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
+                <Row label="Situação" value={<Badge className={person.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
                 <Row label="Cargo" value={cargoLabel || '—'} />
                 {person.cargoAntigo && <Row label="Cargo Anterior" value={person.cargoAntigo} />}
                 <Row label="Departamento" value={teamName || '—'} />
@@ -214,17 +214,10 @@ export default function HRPersonDetailPage() {
                     <p className="text-sm text-muted-foreground mb-1">Benefícios</p>
                     <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
                   </div>
-                  {person.remuneracaoII !== undefined && person.remuneracaoII > 0 && (
-                    <div className="rounded-lg border p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-1">Remuneração II (VA/Ajuste)</p>
-                      <p className="text-2xl font-bold">{formatCurrency(person.remuneracaoII)}</p>
-                    </div>
-                  )}
-                </div>
-                <Separator />
-                <div className="rounded-lg border p-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Total Mensal (Rem. + Benef. + Rem. II)</p>
-                  <p className="text-3xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios + (person.remuneracaoII || 0))}</p>
+                  <div className="rounded-lg border p-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Remuneração Total (mensal + Benefícios)</p>
+                    <p className="text-2xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios)}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

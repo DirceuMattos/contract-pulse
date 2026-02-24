@@ -225,7 +225,7 @@ export default function HRPeoplePage() {
                         {canViewHRCosts && <TableCell className="text-sm font-medium">{formatCurrency(p.remuneracaoMensal)}</TableCell>}
                         {canViewHRCosts && <TableCell className="text-sm">{formatCurrency(p.beneficios)}</TableCell>}
                         <TableCell>
-                          <Badge variant={p.situacao === 'ativo' ? 'default' : 'secondary'}>
+                          <Badge className={p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>
                             {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </TableCell>
