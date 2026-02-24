@@ -143,7 +143,7 @@ export default function CalculatorWizardPage() {
         {step === 0 && <Step1Identification data={data} onChange={onChange} />}
         {step === 1 && <Step3Questionnaire data={data} onChange={onChange} />}
         {step === 2 && <Step4Resources data={data} onChange={onChange} />}
-        {step === 3 && <Step5Results data={data} />}
+        {step === 3 && <Step5Results data={data} onChange={onChange} />}
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-border">

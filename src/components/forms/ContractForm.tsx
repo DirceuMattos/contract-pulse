@@ -362,7 +362,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   name="dataFim"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Data de Término *</FormLabel>
+                      <FormLabel>Data de Término {!form.watch('renovacaoAutomatica') && '*'}</FormLabel>
                       <FormControl>
                         <DatePickerInput value={field.value} onChange={field.onChange} />
                       </FormControl>
@@ -499,12 +499,12 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   name="renewalBaseDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Data base para renovação</FormLabel>
+                      <FormLabel>Data base para reajuste</FormLabel>
                       <FormControl>
                         <DatePickerInput value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormDescription>
-                        Se não preenchido, usaremos a data final do contrato para calcular a renovação.
+                        Se não preenchido, usaremos a data base de reajuste do bloco Reajuste.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

@@ -266,7 +266,7 @@ export default function ClientDetailPage() {
                           <Badge variant="secondary" className="text-xs">{contract.codigo}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Vigência: {formatDate(contract.dataInicio)} a {formatDate(contract.dataFim)}
+                          Vigência: {formatDate(contract.dataInicio)} a {contract.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}
                         </p>
                       </div>
                       <div className="text-right">

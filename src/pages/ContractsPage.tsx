@@ -383,7 +383,7 @@ export default function ContractsPage() {
                         </span>
                         <span className="flex items-center gap-1 shrink-0">
                           <Calendar className="w-3.5 h-3.5" />
-                          {formatDate(contract.dataFim)}
+                          {contract.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}
                         </span>
                         <span className="flex items-center gap-1 shrink-0">
                           <User className="w-3.5 h-3.5" />

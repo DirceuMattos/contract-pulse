@@ -204,7 +204,7 @@ export type Database = {
           codigo: string
           created_at: string
           data_base_reajuste: string
-          data_fim: string
+          data_fim: string | null
           data_inicio: string
           escopo_operacional: string | null
           gov_sphere: Database["public"]["Enums"]["gov_sphere"] | null
@@ -246,7 +246,7 @@ export type Database = {
           codigo?: string
           created_at?: string
           data_base_reajuste?: string
-          data_fim?: string
+          data_fim?: string | null
           data_inicio?: string
           escopo_operacional?: string | null
           gov_sphere?: Database["public"]["Enums"]["gov_sphere"] | null
@@ -288,7 +288,7 @@ export type Database = {
           codigo?: string
           created_at?: string
           data_base_reajuste?: string
-          data_fim?: string
+          data_fim?: string | null
           data_inicio?: string
           escopo_operacional?: string | null
           gov_sphere?: Database["public"]["Enums"]["gov_sphere"] | null
@@ -918,6 +918,7 @@ export type Database = {
           client_name: string
           complexity_level: Database["public"]["Enums"]["simulation_complexity"]
           consultancy_cost: number | null
+          consultant_analysis: string | null
           contract_type: Database["public"]["Enums"]["simulation_contract_type"]
           created_at: string
           created_by_user_id: string | null
@@ -946,6 +947,7 @@ export type Database = {
           client_name?: string
           complexity_level?: Database["public"]["Enums"]["simulation_complexity"]
           consultancy_cost?: number | null
+          consultant_analysis?: string | null
           contract_type?: Database["public"]["Enums"]["simulation_contract_type"]
           created_at?: string
           created_by_user_id?: string | null
@@ -974,6 +976,7 @@ export type Database = {
           client_name?: string
           complexity_level?: Database["public"]["Enums"]["simulation_complexity"]
           consultancy_cost?: number | null
+          consultant_analysis?: string | null
           contract_type?: Database["public"]["Enums"]["simulation_contract_type"]
           created_at?: string
           created_by_user_id?: string | null
