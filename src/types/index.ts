@@ -116,7 +116,7 @@ export interface Contract {
 
 // Resource Types
 export type ResourceType = 'clt' | 'pj' | 'outro';
-export type OtherCostCategory = 'cloud' | 'licenca' | 'equipamento' | 'terceiros' | 'outros' | 'consultoria';
+export type OtherCostCategory = 'cloud' | 'licenca' | 'equipamento' | 'terceiros' | 'outros' | 'consultoria' | 'ia';
 export type Seniority = 'junior' | 'pleno' | 'senior' | 'especialista';
 
 export interface Resource {
