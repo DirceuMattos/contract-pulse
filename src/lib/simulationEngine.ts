@@ -24,6 +24,17 @@ export const DEFAULT_SALARIES: Record<string, number> = {
 const DEFAULT_CHARGES_CLT = 68; // %
 const DEFAULT_CHARGES_PJ = 10; // %
 
+// ── Default hiring type preferences per role ──
+const DEFAULT_HIRING_TYPE: Record<string, 'clt' | 'pj'> = {
+  'Product Owner': 'pj',
+  'Tech Lead': 'pj',
+  'Desenvolvedor': 'pj',
+  'QA': 'pj',
+  'Suporte': 'clt',
+  'UX Designer': 'pj',
+  'DevOps': 'pj',
+};
+
 // ── Base profiles ──
 interface ProfileEntry { role: string; quantity: number }
 
@@ -115,6 +126,11 @@ function getProfileKey(demandType: DemandType, complexity: SimulationComplexity)
   return `${demandType}-${complexity}`;
 }
 
+/** Normalize demandType to always be an array */
+function normalizeDemandTypes(dt: DemandType | DemandType[]): DemandType[] {
+  return Array.isArray(dt) ? dt : [dt];
+}
+
 let nextId = 1;
 function genId() { return `sim-hr-${nextId++}`; }
 function genOtherId() { return `sim-oc-${nextId++}`; }
@@ -127,12 +143,19 @@ export function generateSuggestedResources(
   chargesPJ?: number,
 ): { hr: SimulationHRItem[]; otherCosts: SimulationOtherCost[]; overhead: SimulationOverhead } {
   const effectiveCLT = chargesCLT ?? DEFAULT_CHARGES_CLT;
-  const _effectivePJ = chargesPJ ?? DEFAULT_CHARGES_PJ;
-  const key = getProfileKey(questionnaire.demandType, complexity);
-  const profile = PROFILES[key] || PROFILES['sustentacao-media']!;
+  const effectivePJ = chargesPJ ?? DEFAULT_CHARGES_PJ;
+  
+  const demandTypes = normalizeDemandTypes(questionnaire.demandType);
 
+  // Aggregate profiles from all demand types
   const hrMap = new Map<string, number>();
-  for (const p of profile) hrMap.set(p.role, p.quantity);
+  for (const dt of demandTypes) {
+    const key = getProfileKey(dt, complexity);
+    const profile = PROFILES[key] || PROFILES['sustentacao-media']!;
+    for (const p of profile) {
+      hrMap.set(p.role, Math.max(hrMap.get(p.role) || 0, p.quantity));
+    }
+  }
 
   const otherCosts: SimulationOtherCost[] = [];
 
@@ -177,13 +200,15 @@ export function generateSuggestedResources(
   const hr: SimulationHRItem[] = [];
   for (const [role, quantity] of hrMap) {
     if (quantity > 0) {
+      const hiringType = DEFAULT_HIRING_TYPE[role] || 'pj';
+      const chargesPercent = hiringType === 'clt' ? effectiveCLT : effectivePJ;
       hr.push({
         id: genId(),
         role,
-        hiringType: 'clt',
+        hiringType,
         quantity,
         grossMonthly: DEFAULT_SALARIES[role] || 10000,
-        chargesPercent: effectiveCLT,
+        chargesPercent,
       });
     }
   }
@@ -241,14 +266,16 @@ export function suggestPricing(simulation: ContractSimulation): {
   const breakEvenMonthly = custoMensal;
   const suggestedMonthlyValue = custoMensal / (1 - targetMarginPercent / 100);
 
-  // Suggested term based on demand type
+  // Suggested term based on demand type (use first type for term suggestion)
   const termMap: Record<DemandType, number> = {
     sustentacao: 12,
     evolucao: 18,
     'novo-sistema': 24,
     implantacao: 36,
   };
-  let suggestedTermMonths = termMap[simulation.questionnaire.demandType] || 12;
+  const demandTypes = normalizeDemandTypes(simulation.questionnaire.demandType);
+  const primaryDemand = demandTypes[0] || 'sustentacao';
+  let suggestedTermMonths = termMap[primaryDemand] || 12;
   if (simulation.contractType === 'gov') suggestedTermMonths += 12;
 
   const suggestedTotalValue = suggestedMonthlyValue * suggestedTermMonths;
@@ -320,8 +347,12 @@ export function generateScenarios(simulation: ContractSimulation): SimulationSce
 // ── Explanation of applied rules ──
 export function getAppliedRules(questionnaire: SimulationQuestionnaire, complexity: SimulationComplexity): string[] {
   const rules: string[] = [];
-  const key = getProfileKey(questionnaire.demandType, complexity);
-  rules.push(`Perfil base: ${key.replace('-', ' → ')}`);
+  const demandTypes = normalizeDemandTypes(questionnaire.demandType);
+  
+  for (const dt of demandTypes) {
+    const key = getProfileKey(dt, complexity);
+    rules.push(`Perfil base: ${key.replace('-', ' → ')}`);
+  }
 
   if (questionnaire.integrations === '3-5') rules.push('Integrações 3–5: +0,5 Dev e +0,5 QA');
   if (questionnaire.integrations === 'mais-5') rules.push('Integrações >5: +1 Dev e +1 QA');

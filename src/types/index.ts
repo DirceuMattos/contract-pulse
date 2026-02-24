@@ -116,7 +116,7 @@ export interface Contract {
 
 // Resource Types
 export type ResourceType = 'clt' | 'pj' | 'outro';
-export type OtherCostCategory = 'cloud' | 'licenca' | 'equipamento' | 'terceiros' | 'outros' | 'consultoria' | 'ia';
+export type OtherCostCategory = 'cloud' | 'licenca' | 'equipamento' | 'terceiros' | 'outros' | 'consultoria' | 'ia' | 'acessibilidade';
 export type Seniority = 'junior' | 'pleno' | 'senior' | 'especialista';
 
 export interface Resource {
@@ -419,7 +419,7 @@ export type SLALevel = 'comercial' | '12x5' | '24x7';
 export type DeliveryPace = 'flexivel' | 'moderado' | 'agressivo';
 
 export interface SimulationQuestionnaire {
-  demandType: DemandType;
+  demandType: DemandType | DemandType[];
   criticality: CriticalityLevel;
   integrations: IntegrationCount;
   modules: ModuleCount;

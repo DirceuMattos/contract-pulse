@@ -24,8 +24,7 @@ async function persistSimulation(sim: ContractSimulation): Promise<void> {
   // Upsert main simulation row
   const { error: simError } = await supabase
     .from('simulations')
-    .upsert(simulationToDb(sim))
-    .eq('id', sim.id);
+    .upsert(simulationToDb(sim) as any, { onConflict: 'id' });
   if (simError) throw simError;
 
   // Delete existing child rows then re-insert
@@ -154,7 +153,7 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
     const now = new Date().toISOString();
     const dup: ContractSimulation = {
       ...JSON.parse(JSON.stringify(original)),
-      id: `sim-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: `${original.name} (cópia)`,
       createdAt: now,
       updatedAt: now,

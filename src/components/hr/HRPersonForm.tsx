@@ -2,6 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { formatPhoneInput } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -210,7 +211,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
             <FormField control={form.control} name="celular" render={({ field }) => (
               <FormItem>
                 <FormLabel>Celular</FormLabel>
-                <FormControl><Input placeholder="(11) 99999-0000" {...field} /></FormControl>
+                <FormControl><Input placeholder="(11) 99999-0000" {...field} onChange={e => field.onChange(formatPhoneInput(e.target.value))} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

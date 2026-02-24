@@ -5,8 +5,18 @@ import type {
   Client, Contract, Resource, Settings, Snapshot, OverheadItem,
   HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig,
   JobTitle, Team, ContractSimulation, SimulationHRItem, SimulationOtherCost,
-  HRPerson, HRTimelineEvent,
+  HRPerson, HRTimelineEvent, DemandType,
 } from '@/types';
+import { emptyToNull } from '@/lib/utils';
+
+/** Ensure demandType is always an array for backward compat */
+function normalizeDemandType(q: any): ContractSimulation['questionnaire'] {
+  if (!q) return q;
+  if (q.demandType && !Array.isArray(q.demandType)) {
+    return { ...q, demandType: [q.demandType] };
+  }
+  return q;
+}
 
 // ─── CLIENT ───────────────────────────────────────────────────────────────────
 
@@ -118,15 +128,15 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     centro_custo: contract.centroCusto ?? null,
     tags: contract.tags ?? [],
     gov_sphere: contract.govSphere ?? null,
-    data_inicio: contract.dataInicio,
-    data_fim: contract.dataFim,
+    data_inicio: emptyToNull(contract.dataInicio) || new Date().toISOString().split('T')[0],
+    data_fim: emptyToNull(contract.dataFim),
     renovacao_automatica: contract.renovacaoAutomatica,
     periodicidade_renovacao: contract.periodicidadeRenovacao ?? null,
     status_renovacao: contract.statusRenovacao,
     renewal_term_months: contract.renewalTermMonths ?? null,
-    renewal_base_date: contract.renewalBaseDate ?? null,
+    renewal_base_date: emptyToNull(contract.renewalBaseDate),
     indice_reajuste: contract.indiceReajuste,
-    data_base_reajuste: contract.dataBaseReajuste,
+    data_base_reajuste: emptyToNull(contract.dataBaseReajuste) || new Date().toISOString().split('T')[0],
     percentual_fixo: contract.percentualFixo ?? null,
     alerta_reajuste_dias: contract.alertaReajusteDias,
     modelo_receita: contract.modeloReceita,
@@ -184,8 +194,8 @@ export function resourceToDb(resource: Omit<Resource, 'id' | 'createdAt' | 'upda
     senioridade: resource.senioridade ?? null,
     custo_base: resource.custoBase,
     percentual_dedicacao: resource.percentualDedicacao,
-    data_inicio: resource.dataInicio,
-    data_fim: resource.dataFim ?? null,
+    data_inicio: emptyToNull(resource.dataInicio) || new Date().toISOString().split('T')[0],
+    data_fim: emptyToNull(resource.dataFim),
     observacoes: resource.observacoes ?? null,
     encargos_override: resource.encargosOverride ?? null,
     impostos_override: resource.impostosOverride ?? null,
@@ -482,7 +492,7 @@ export function simulationFromDb(
     responsavelClienteEmail: (row.responsavel_cliente_email as string | null) ?? undefined,
     responsavelClienteTelefone: (row.responsavel_cliente_telefone as string | null) ?? undefined,
     complexityLevel: row.complexity_level as ContractSimulation['complexityLevel'],
-    questionnaire: (row.questionnaire ?? {}) as ContractSimulation['questionnaire'],
+    questionnaire: normalizeDemandType((row.questionnaire ?? {}) as ContractSimulation['questionnaire']),
     suggestedHR: hrRows.filter(h => h.isSuggested),
     suggestedOtherCosts: costRows.filter(c => c.isSuggested),
     suggestedOverhead,
@@ -504,7 +514,7 @@ export function simulationToDb(sim: ContractSimulation): Record<string, unknown>
     client_name: sim.clientName,
     contract_type: sim.contractType,
     gov_sphere: sim.govSphere ?? null,
-    expected_start_date: sim.expectedStartDate ?? null,
+    expected_start_date: emptyToNull(sim.expectedStartDate),
     term_months: sim.termMonths,
     pricing_model: sim.pricingModel ?? null,
     proposed_monthly_value: sim.proposedMonthlyValue ?? null,
@@ -567,11 +577,11 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     remuneracao_mensal: p.remuneracaoMensal,
     beneficios: p.beneficios,
     local_atuacao: p.localAtuacao ?? null,
-    data_admissao: p.dataAdmissao,
+    data_admissao: emptyToNull(p.dataAdmissao) || new Date().toISOString().split('T')[0],
     situacao: p.situacao,
     observacoes: p.observacoes ?? null,
     comite_gestor: p.comiteGestor ?? null,
-    data_desligamento: p.dataDesligamento ?? null,
+    data_desligamento: emptyToNull(p.dataDesligamento),
     motivo_desligamento: p.motivoDesligamento ?? null,
     tipo_desligamento: p.tipoDesligamento ?? null,
     nivel: p.nivel ?? null,
