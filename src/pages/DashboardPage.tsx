@@ -233,8 +233,8 @@ export default function DashboardPage() {
       const margemA = a.health?.margemMensal ?? 0;
       const margemB = b.health?.margemMensal ?? 0;
       if (margemA !== margemB) return margemA - margemB;
-      const daysA = a.contract ? getDaysUntil(a.contract.dataFim) : 9999;
-      const daysB = b.contract ? getDaysUntil(b.contract.dataFim) : 9999;
+      const daysA = a.contract?.dataFim ? getDaysUntil(a.contract.dataFim) : 9999;
+      const daysB = b.contract?.dataFim ? getDaysUntil(b.contract.dataFim) : 9999;
       return daysA - daysB;
     });
   }, [filteredAlerts, contracts, clients, resources, settings, overheadItems]);
@@ -354,7 +354,7 @@ export default function DashboardPage() {
                       onSelect={() => handleContractSelect(contract.id)}
                     >
                       <Check className={cn("mr-2 h-4 w-4", selectedContractId === contract.id ? "opacity-100" : "opacity-0")} />
-                      <span className="truncate">{contract.codigo} — {contract.nome} ({formatDate(contract.dataInicio)} a {formatDate(contract.dataFim)})</span>
+                      <span className="truncate">{contract.codigo} — {contract.nome} ({formatDate(contract.dataInicio)} a {contract.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'})</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -744,7 +744,7 @@ export default function DashboardPage() {
                           </TableCell>
                         )}
                         <TableCell className="text-sm text-muted-foreground">
-                          {contract ? formatDate(contract.dataFim) : '—'}
+                          {contract?.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {contract?.dataBaseReajuste ? formatDate(contract.dataBaseReajuste) : '—'}
