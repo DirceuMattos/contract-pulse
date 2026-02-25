@@ -1200,6 +1200,7 @@ export type Database = {
         | "ACCESS_LOGS"
         | "SETTINGS"
         | "IMPORT_EXPORT"
+        | "HR"
       other_cost_category:
         | "cloud"
         | "licenca"
@@ -1392,6 +1393,7 @@ export const Constants = {
         "ACCESS_LOGS",
         "SETTINGS",
         "IMPORT_EXPORT",
+        "HR",
       ],
       other_cost_category: [
         "cloud",
