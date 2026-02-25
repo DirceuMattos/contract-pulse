@@ -309,7 +309,11 @@ export default function HRPeoplePage() {
                         <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
                           <TableCell className="py-2">
-                            <Badge variant={p.tipoVinculo === 'clt' ? 'default' : 'secondary'} className="text-xs">
+                            <Badge className={`text-xs ${
+                              p.tipoVinculo === 'clt' ? 'bg-emerald-600 text-white hover:bg-emerald-700' :
+                              p.tipoVinculo === 'pj' ? 'bg-amber-500 text-white hover:bg-amber-600' :
+                              'bg-purple-500 text-white hover:bg-purple-600'
+                            }`}>
                               {p.tipoVinculo.toUpperCase()}
                             </Badge>
                           </TableCell>
