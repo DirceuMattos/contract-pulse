@@ -714,6 +714,7 @@ export type Database = {
           data_inicio: string
           duracao_meses: number | null
           encargos_override: number | null
+          hr_person_id: string | null
           id: string
           impostos_override: number | null
           nome: string
@@ -736,6 +737,7 @@ export type Database = {
           data_inicio?: string
           duracao_meses?: number | null
           encargos_override?: number | null
+          hr_person_id?: string | null
           id?: string
           impostos_override?: number | null
           nome?: string
@@ -758,6 +760,7 @@ export type Database = {
           data_inicio?: string
           duracao_meses?: number | null
           encargos_override?: number | null
+          hr_person_id?: string | null
           id?: string
           impostos_override?: number | null
           nome?: string
@@ -776,6 +779,13 @@ export type Database = {
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_hr_person_id_fkey"
+            columns: ["hr_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
             referencedColumns: ["id"]
           },
         ]

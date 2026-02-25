@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Building, Box, Calculator, Info } from 'lucide-react';
+import { User, Building, Box, Calculator, Info, Link2 } from 'lucide-react';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Resource, ResourceType, OtherCostCategory, Seniority, Settings } from '@/types';
 import { formatCurrency, calculateResourceCost } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 const resourceFormSchemaBase = z.object({
   tipo: z.enum(['clt', 'pj', 'outro']),
   nome: z.string().min(2, 'Nome é obrigatório'),
+  hrPersonId: z.string().optional(),
   cargo: z.string().optional(),
   senioridade: z.enum(['junior', 'pleno', 'senior', 'especialista']).optional(),
   custoBase: z.number().min(0, 'Custo deve ser positivo'),
@@ -103,34 +105,44 @@ const recorrenciaOptions = [
 ];
 
 export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
-  const { getActiveJobTitles, teams, distinctHRNames } = useData();
+  const { getActiveJobTitles, teams } = useData();
   const { hrPeople } = useHR();
   const { canViewHRCosts } = useAuth();
   const activeJobTitles = getActiveJobTitles();
-  const [customCargo, setCustomCargo] = useState(false);
   const [customNome, setCustomNome] = useState(false);
+  const [selectedHrPersonId, setSelectedHrPersonId] = useState<string | undefined>(resource?.hrPersonId);
 
-  // Check if existing cargo is not in the list
-  const existingCargoInList = resource?.cargo ? activeJobTitles.some(jt => jt.label === resource.cargo) : true;
+  // Active HR people for selection
+  const activeHrPeople = useMemo(() =>
+    hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome)),
+    [hrPeople]
+  );
 
-  // Merge HR master list (preferred) with legacy names from resources
-  const hrMasterNames = hrPeople.map(p => ({
-    nome: p.nome,
-    custoBase: canViewHRCosts ? p.remuneracaoMensal : 0,
-    cargo: undefined as string | undefined,
-    senioridade: undefined as string | undefined,
-  }));
-  const legacyNames = distinctHRNames.filter(d => !hrMasterNames.some(h => h.nome.toLowerCase() === d.nome.toLowerCase()));
-  const allHRNames = [...hrMasterNames, ...legacyNames];
+  // Resolve linked person info
+  const linkedPerson = useMemo(() => {
+    if (!selectedHrPersonId) return null;
+    return hrPeople.find(p => p.id === selectedHrPersonId) ?? null;
+  }, [selectedHrPersonId, hrPeople]);
 
-  // Check if existing nome is in the HR names list
-  const existingNomeInList = resource?.nome ? allHRNames.some(h => h.nome === resource.nome) : true;
+  const linkedJob = useMemo(() => {
+    if (!linkedPerson?.cargoId) return null;
+    return activeJobTitles.find(jt => jt.id === linkedPerson.cargoId) ?? null;
+  }, [linkedPerson, activeJobTitles]);
+
+  const linkedTeam = useMemo(() => {
+    if (!linkedPerson?.teamId) return null;
+    return teams.find(t => t.id === linkedPerson.teamId) ?? null;
+  }, [linkedPerson, teams]);
+
+  // Check if editing an existing resource with no HR link (legacy or manual)
+  const isLegacyEdit = !!resource && !resource.hrPersonId;
 
   const form = useForm<ResourceFormData>({
     resolver: zodResolver(resourceFormSchema),
     defaultValues: {
       tipo: resource?.tipo || 'clt',
       nome: resource?.nome || '',
+      hrPersonId: resource?.hrPersonId || '',
       cargo: resource?.cargo || '',
       senioridade: resource?.senioridade,
       custoBase: resource?.custoBase || 0,
@@ -177,10 +189,42 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
   
   const custoCalculado = calculateResourceCost(previewResource, settings);
 
+  const handleSelectHrPerson = (personId: string) => {
+    if (personId === '__other__') {
+      setCustomNome(true);
+      setSelectedHrPersonId(undefined);
+      form.setValue('hrPersonId', '');
+      form.setValue('nome', '');
+      form.setValue('cargo', '');
+      return;
+    }
+
+    const person = hrPeople.find(p => p.id === personId);
+    if (!person) return;
+
+    setSelectedHrPersonId(personId);
+    setCustomNome(false);
+    form.setValue('hrPersonId', personId);
+    form.setValue('nome', person.nome);
+    
+    // Auto-fill tipo based on vinculo
+    form.setValue('tipo', person.tipoVinculo === 'clt' ? 'clt' : 'pj');
+    
+    // Auto-fill cargo from job title
+    const job = person.cargoId ? activeJobTitles.find(jt => jt.id === person.cargoId) : null;
+    if (job) form.setValue('cargo', job.label);
+    
+    // Auto-fill custo from remuneracao (only if allowed)
+    if (canViewHRCosts) {
+      form.setValue('custoBase', person.remuneracaoMensal);
+    }
+  };
+
   const handleFormSubmit = (data: ResourceFormData) => {
     onSubmit({
       contractId,
       tipo: data.tipo,
+      hrPersonId: data.hrPersonId || undefined,
       nome: data.nome,
       cargo: data.cargo,
       senioridade: data.senioridade,
@@ -219,7 +263,14 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                   <button
                     key={tipo.value}
                     type="button"
-                    onClick={() => field.onChange(tipo.value)}
+                    onClick={() => {
+                      field.onChange(tipo.value);
+                      // If switching to "outro", clear HR link
+                      if (tipo.value === 'outro') {
+                        setSelectedHrPersonId(undefined);
+                        form.setValue('hrPersonId', '');
+                      }
+                    }}
                     className={cn(
                       'p-4 rounded-lg border-2 transition-all text-left',
                       field.value === tipo.value
@@ -370,52 +421,44 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
             </div>
           </div>
         ) : (
-          /* Layout para CLT e PJ */
+          /* Layout para CLT e PJ — com seleção do RH Mestre */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Identificação */}
             <div className="space-y-4">
+              {/* Pessoa (RH Mestre) */}
               <FormField
                 control={form.control}
                 name="nome"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nome / Pessoa *</FormLabel>
-                    {allHRNames.length > 0 && !customNome && (existingNomeInList || !field.value) ? (
+                    <FormLabel className="flex items-center gap-2">
+                      Nome / Pessoa *
+                      {selectedHrPersonId && (
+                        <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5 text-primary border-primary/20">
+                          <Link2 className="w-3 h-3" /> RH Mestre
+                        </Badge>
+                      )}
+                    </FormLabel>
+                    {!customNome && activeHrPeople.length > 0 ? (
                       <Select
-                        onValueChange={(val) => {
-                          if (val === '__other__') {
-                            setCustomNome(true);
-                            field.onChange('');
-                          } else {
-                            field.onChange(val);
-                            const match = allHRNames.find(h => h.nome === val);
-                            if (match) {
-                              form.setValue('custoBase', match.custoBase);
-                              if (match.cargo) {
-                                form.setValue('cargo', match.cargo);
-                                const cargoInList = activeJobTitles.some(jt => jt.label === match.cargo);
-                                setCustomCargo(!cargoInList);
-                              }
-                              if (match.senioridade) {
-                                form.setValue('senioridade', match.senioridade as any);
-                              }
-                            }
-                          }
-                        }}
-                        value={field.value || ''}
+                        onValueChange={handleSelectHrPerson}
+                        value={selectedHrPersonId || ''}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione a pessoa" />
+                            <SelectValue placeholder="Selecione a pessoa do RH" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {allHRNames.map(h => (
-                            <SelectItem key={h.nome} value={h.nome}>
-                              {h.nome}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__other__">Outro...</SelectItem>
+                          {activeHrPeople.map(p => {
+                            const job = p.cargoId ? activeJobTitles.find(jt => jt.id === p.cargoId) : null;
+                            return (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.nome}{job ? ` — ${job.label}` : ''}
+                              </SelectItem>
+                            );
+                          })}
+                          <SelectItem value="__other__">Outro (entrada manual)...</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -423,7 +466,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                         <FormControl>
                           <Input placeholder="Ex: João Silva" {...field} />
                         </FormControl>
-                        {allHRNames.length > 0 && (
+                        {activeHrPeople.length > 0 && (
                           <Button type="button" variant="outline" size="sm" onClick={() => {
                             setCustomNome(false);
                             field.onChange('');
@@ -434,33 +477,40 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                       </div>
                     )}
                     <FormMessage />
+                    
+                    {/* Read-only info from HR Master */}
+                    {linkedPerson && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {linkedJob && (
+                          <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                            Cargo: {linkedJob.label}
+                          </span>
+                        )}
+                        {linkedTeam && (
+                          <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                            Equipe: {linkedTeam.name}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                          {linkedPerson.tipoVinculo === 'clt' ? 'CLT' : 'PJ'}
+                        </span>
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="cargo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cargo / Papel</FormLabel>
-                    {customCargo || (!existingCargoInList && !customCargo) ? (
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input placeholder="Digite o cargo" {...field} />
-                        </FormControl>
-                        <Button type="button" variant="outline" size="sm" onClick={() => {
-                          setCustomCargo(false);
-                          field.onChange('');
-                        }}>
-                          Lista
-                        </Button>
-                      </div>
-                    ) : (
+              {/* Cargo - only editable when not linked */}
+              {!selectedHrPersonId && (
+                <FormField
+                  control={form.control}
+                  name="cargo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cargo / Papel</FormLabel>
                       <Select
                         onValueChange={(val) => {
                           if (val === '__other__') {
-                            setCustomCargo(true);
                             field.onChange('');
                           } else {
                             field.onChange(val);
@@ -482,28 +532,11 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                           <SelectItem value="__other__">Outro...</SelectItem>
                         </SelectContent>
                       </Select>
-                    )}
-                    <FormMessage />
-                    {/* Read-only team chip */}
-                    {(() => {
-                      const selectedJt = activeJobTitles.find(jt => jt.label === field.value);
-                      if (selectedJt?.teamId) {
-                        const team = teams.find(t => t.id === selectedJt.teamId);
-                        if (team) {
-                          return (
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-                                Equipe: {team.name}
-                              </span>
-                            </div>
-                          );
-                        }
-                      }
-                      return null;
-                    })()}
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
@@ -552,9 +585,13 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                           className="pl-10"
                           {...field}
                           onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                          disabled={!!selectedHrPersonId && !canViewHRCosts}
                         />
                       </div>
                     </FormControl>
+                    {selectedHrPersonId && canViewHRCosts && (
+                      <FormDescription>Valor preenchido do RH Mestre</FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
