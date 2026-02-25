@@ -1,83 +1,55 @@
 
 
-# Plano: Correção do Controle de Acesso por Módulo e Permissões de Intermediários
+# Plano: Ajustes de Upload, Comitê Gestor e Listagem RH
 
-## Diagnóstico
+## 1. Upload: Aumentar limite para 15MB e permitir arquivos compactados
 
-### Causa Raiz Principal
-As tabelas `user_roles` e `user_module_permissions` possuem políticas de RLS que **restringem SELECT apenas a usuários c-level**:
+**Arquivo**: `src/components/contracts/AttachmentUploadDialog.tsx`
 
-```sql
--- user_roles
-Policy: user_roles_select → has_role(auth.uid(), 'c-level')
+- Alterar `MAX_FILE_SIZE` de `10 * 1024 * 1024` para `15 * 1024 * 1024`
+- Adicionar extensoes `zip`, `rar`, `7z` ao array `ALLOWED_EXTENSIONS`
+- Adicionar MIMEs correspondentes: `application/zip`, `application/x-rar-compressed`, `application/x-7z-compressed`
+- Atualizar o texto de ajuda e o atributo `accept` do input para incluir `.zip,.rar,.7z`
+- Atualizar a mensagem de erro de tamanho para "15MB"
 
--- user_module_permissions  
-Policy: ump_select → has_role(auth.uid(), 'c-level')
-```
+Este e o unico componente de upload de documentos com validacao de tipo/tamanho.
 
-**Consequência**: Quando um usuário `intermediario` faz login, o `AuthContext.fetchRoleAndPermissions()` tenta ler `user_roles` e `user_module_permissions`, mas o RLS bloqueia ambas as queries. O resultado:
-- `role` retorna `null` e assume fallback `'leitor'`
-- `modulePermissions` retorna `null` e usa defaults de `leitor`
-- `canEdit` = `false` (pois leitor não é c-level nem intermediário)
-- O usuário intermediário é tratado como leitor em todo o sistema
+## 2. Bug do Comitê Gestor salvando mês anterior
 
-Isso causa os dois problemas reportados:
-1. Intermediários não conseguem editar contratos/clientes (são tratados como leitores)
-2. Permissões por módulo configuradas pelo admin são ignoradas (o usuário não consegue ler suas próprias permissões)
+**Causa raiz**: Na exibicao (HRPersonDetailPage), o codigo faz `new Date(person.comiteGestor + '-01')` que cria a data em UTC. Se o fuso horario local for negativo (ex: UTC-3 Brasil), `2026-02-01T00:00:00Z` vira `2026-01-31T21:00:00` local, exibindo "janeiro" em vez de "fevereiro".
 
-### Problema Secundário
-A função `has_role()` é chamada dentro do RLS de `user_roles`, que por sua vez consulta `user_roles` — mas como é `SECURITY DEFINER`, não há recursão. O problema é que a policy simplesmente não permite que o próprio usuário leia seu papel.
+**Correcao**: Usar `new Date(person.comiteGestor + '-01T12:00:00')` para evitar deslocamento de fuso, ou fazer parse manual do yyyy-MM para exibir o mes/ano correto sem depender de `Date`.
 
-## Solução
+**Arquivos afetados**:
+- `src/pages/HRPersonDetailPage.tsx` (exibicao)
+- Verificar se ha outros locais que interpretam o valor
 
-### 1. Corrigir RLS de `user_roles` (Migration)
-Permitir que cada usuário leia **seu próprio** papel, além de c-level ler todos:
+## 3. Comitê Gestor na tela de listagem com edicao inline
 
-```sql
--- Drop existing restrictive policy
-DROP POLICY IF EXISTS "user_roles_select" ON public.user_roles;
+**Arquivo**: `src/pages/HRPeoplePage.tsx`
 
--- Allow users to read their own role + c-level can read all
-CREATE POLICY "user_roles_select" ON public.user_roles
-  FOR SELECT
-  USING (
-    auth.uid() = user_id 
-    OR has_role(auth.uid(), 'c-level'::app_role)
-  );
-```
+Adicionar na tabela de listagem:
+- Nova coluna "Comitê" entre "Sit." e as acoes
+- Exibir o valor formatado (ex: "fev/2026") ou "—"
+- Para usuarios com `canEdit`, ao clicar no campo, exibir um `<input type="month">` inline (ou um pequeno popover) para alterar o valor diretamente na listagem, chamando `updatePerson(id, { comiteGestor: novoValor })`
+- Adicionar um botao de limpar (X) para remover a indicacao
 
-**Nota sobre recursão**: A chamada `has_role(auth.uid(), 'c-level')` consulta `user_roles` dentro de uma policy de `user_roles`, mas como `has_role` é `SECURITY DEFINER`, ela ignora RLS e não causa recursão. A cláusula `auth.uid() = user_id` é avaliada primeiro para o próprio usuário, sem precisar da função.
+## 4. Filtro por Comitê Gestor na listagem
 
-### 2. Corrigir RLS de `user_module_permissions` (Migration)
-Permitir que cada usuário leia **suas próprias** permissões:
+**Arquivo**: `src/pages/HRPeoplePage.tsx`
 
-```sql
-DROP POLICY IF EXISTS "ump_select" ON public.user_module_permissions;
+O estado `filterComite` ja existe mas nao ha UI para ele. Adicionar:
+- Um novo `<Select>` no bloco de filtros com opcoes dinamicas extraidas dos valores unicos de `comiteGestor` presentes nos dados
+- Opcao "Todos" (sem filtro)
+- Opcao "Com indicacao" (qualquer valor preenchido)
+- Opcao "Sem indicacao" (vazio)
+- Opcoes por mes/ano especifico
 
-CREATE POLICY "ump_select" ON public.user_module_permissions
-  FOR SELECT
-  USING (
-    auth.uid() = user_id
-    OR has_role(auth.uid(), 'c-level'::app_role)
-  );
-```
+Ajustar a grid de filtros de `xl:grid-cols-6` para `xl:grid-cols-7` para acomodar o novo filtro.
 
-### 3. Nenhuma alteração de código necessária
-O `AuthContext.fetchRoleAndPermissions()` já está correto — ele consulta ambas as tabelas. O problema é exclusivamente de RLS. Uma vez corrigido:
-- Intermediários lerão seu próprio papel → `role = 'intermediario'`
-- `canEdit` será `true` para intermediários
-- Permissões de módulo personalizadas serão lidas corretamente
-- O admin poderá desabilitar HR (ou qualquer módulo) para um intermediário específico e a restrição será respeitada
+## Resumo de arquivos a alterar
 
-## Impacto
-- **Intermediários**: Passarão a ver e editar contratos/clientes normalmente
-- **Leitores**: Continuarão apenas com visualização
-- **Permissões por módulo**: Funcionarão conforme configurado pelo admin no formulário de usuários
-- **Segurança**: Cada usuário só lê seus próprios dados; c-level continua lendo tudo
-- **Nenhum arquivo de código precisa ser alterado**
-
-## Sequência
-1. Executar migration para corrigir RLS de `user_roles`
-2. Executar migration para corrigir RLS de `user_module_permissions`
-3. Testar: login como intermediário → verificar acesso a contratos e clientes
+1. `src/components/contracts/AttachmentUploadDialog.tsx` — limite 15MB + formatos compactados
+2. `src/pages/HRPersonDetailPage.tsx` — fix timezone no parse do comiteGestor
+3. `src/pages/HRPeoplePage.tsx` — coluna editavel + filtro comite gestor
 
