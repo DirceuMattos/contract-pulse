@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
@@ -54,6 +54,9 @@ export default function HRPeoplePage() {
   const [filterComite, setFilterComite] = useState('');
   const [filterAdmissao, setFilterAdmissao] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const hasActiveFilters = search !== '' || filterSituacao !== 'ativo' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterAdmissao !== '';
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('ativo'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterAdmissao(''); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -194,8 +197,8 @@ export default function HRPeoplePage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-            <div className="relative xl:col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
@@ -220,6 +223,7 @@ export default function HRPeoplePage() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="clt">CLT</SelectItem>
                 <SelectItem value="pj">PJ</SelectItem>
+                <SelectItem value="cooperado">Cooperado</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>
@@ -230,7 +234,7 @@ export default function HRPeoplePage() {
               </SelectContent>
             </Select>
             <Select value={filterComite || 'all'} onValueChange={v => setFilterComite(v === 'all' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Comitê" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Comitê Gestor" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="__com">Com indicação</SelectItem>
@@ -252,6 +256,12 @@ export default function HRPeoplePage() {
                 </Button>
               )}
             </div>
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={handleClearFilters} className="gap-2">
+                <X className="h-4 w-4" />
+                Limpar
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -274,7 +284,7 @@ export default function HRPeoplePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[calc(100vh-340px)]">
+            <div className="overflow-x-auto">
               <div className="min-w-[1100px]">
                 <Table>
                   <TableHeader>
@@ -358,8 +368,7 @@ export default function HRPeoplePage() {
                   </TableBody>
                 </Table>
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            </div>
           </CardContent>
         </Card>
       )}
