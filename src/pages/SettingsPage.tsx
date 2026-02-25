@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const settingsSchema = z.object({
   percentualEncargosCLT: z.number().min(0).max(200),
@@ -33,8 +35,9 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
   const { settings, updateSettings, resetToDemo, jobTitles, teams } = useData();
-  const { canEdit } = useAuth();
+  const { canEdit, user } = useAuth();
   const navigate = useNavigate();
+  const isCLevel = user?.role === 'c-level';
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -424,6 +427,105 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      {/* Feedz Integration */}
+      {isCLevel && <FeedzSyncSection />}
+
     </div>
+  );
+}
+
+function FeedzSyncSection() {
+  const [syncing, setSyncing] = useState(false);
+  const [runs, setRuns] = useState<any[]>([]);
+  const [loadingRuns, setLoadingRuns] = useState(true);
+
+  const loadRuns = async () => {
+    setLoadingRuns(true);
+    const { data } = await supabase
+      .from('feedz_sync_runs' as any)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setRuns(data || []);
+    setLoadingRuns(false);
+  };
+
+  useEffect(() => { loadRuns(); }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('feedz-sync');
+      if (error) throw error;
+      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados.`);
+      loadRuns();
+    } catch (err: any) {
+      toast.error(`Erro na sincronização: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const statusIcon = (status: string) => {
+    if (status === 'success') return <CheckCircle className="h-4 w-4 text-emerald-500" />;
+    if (status === 'error') return <XCircle className="h-4 w-4 text-destructive" />;
+    return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 text-primary" />
+            <CardTitle>Integração Feedz (TOTVS)</CardTitle>
+          </div>
+          <Button onClick={handleSync} disabled={syncing}>
+            {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
+          </Button>
+        </div>
+        <CardDescription>
+          Sincroniza colaboradores do Feedz com o cadastro de RH. Cargos e equipes são criados automaticamente quando não existentes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <h4 className="text-sm font-medium mb-3">Últimas sincronizações</h4>
+        {loadingRuns ? (
+          <div className="text-center py-4 text-muted-foreground text-sm">Carregando...</div>
+        ) : runs.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground text-sm">Nenhuma sincronização realizada.</div>
+        ) : (
+          <div className="border rounded-md overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Data</TableHead>
+                  <TableHead className="text-xs">Processados</TableHead>
+                  <TableHead className="text-xs">Criados</TableHead>
+                  <TableHead className="text-xs">Atualizados</TableHead>
+                  <TableHead className="text-xs">Desligados</TableHead>
+                  <TableHead className="text-xs">Erro</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {runs.map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{statusIcon(r.status)}</TableCell>
+                    <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('pt-BR')}</TableCell>
+                    <TableCell className="text-xs">{r.records_processed}</TableCell>
+                    <TableCell className="text-xs">{r.records_created}</TableCell>
+                    <TableCell className="text-xs">{r.records_updated}</TableCell>
+                    <TableCell className="text-xs">{r.records_terminated}</TableCell>
+                    <TableCell className="text-xs text-destructive truncate max-w-[200px]">{r.error_message || '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
