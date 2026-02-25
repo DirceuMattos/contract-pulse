@@ -284,7 +284,7 @@ export default function HRPeoplePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[calc(100vh-340px)] border rounded-md">
               <div className="min-w-[1100px]">
                 <Table>
                   <TableHeader>
