@@ -298,8 +298,8 @@ export default function HRPeoplePage() {
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}>Tempo <SortIcon field="tempo" /></TableHead>
                       {canViewHRCosts && <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('custoTotal')}>Custo Total <SortIcon field="custoTotal" /></TableHead>}
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('situacao')}>Sit. <SortIcon field="situacao" /></TableHead>
-                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('comiteGestor')}>Comitê <SortIcon field="comiteGestor" /></TableHead>
-                      <TableHead />
+                      <TableHead className="text-xs cursor-pointer select-none sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]" onClick={() => handleSort('comiteGestor')}>Comitê <SortIcon field="comiteGestor" /></TableHead>
+                      <TableHead className="sticky right-0 bg-background z-10 w-[72px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -326,7 +326,7 @@ export default function HRPeoplePage() {
                               {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
                             </Badge>
                           </TableCell>
-                          <TableCell onClick={e => e.stopPropagation()} className="py-2">
+                          <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
                             {canEdit ? (
                               <div className="flex items-center gap-1">
                                 <input
@@ -345,7 +345,7 @@ export default function HRPeoplePage() {
                               <span className="text-xs whitespace-nowrap">{p.comiteGestor ? formatComite(p.comiteGestor) : '—'}</span>
                             )}
                           </TableCell>
-                          <TableCell onClick={e => e.stopPropagation()} className="py-2">
+                          <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-0 bg-background z-10 w-[72px]">
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                                 <Eye className="h-3.5 w-3.5" />
