@@ -123,6 +123,7 @@ export interface Resource {
   id: string;
   contractId: string;
   tipo: ResourceType;
+  hrPersonId?: string; // FK para RH Mestre
   
   // Common fields
   nome: string;

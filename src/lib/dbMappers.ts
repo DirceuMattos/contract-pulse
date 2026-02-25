@@ -165,6 +165,7 @@ export function resourceFromDb(row: Record<string, unknown>): Resource {
     id: row.id as string,
     contractId: row.contract_id as string,
     tipo: row.tipo as Resource['tipo'],
+    hrPersonId: (row.hr_person_id as string | null) ?? undefined,
     nome: row.nome as string,
     cargo: (row.cargo as string | null) ?? undefined,
     senioridade: (row.senioridade as Resource['senioridade']) ?? undefined,
@@ -189,6 +190,7 @@ export function resourceToDb(resource: Omit<Resource, 'id' | 'createdAt' | 'upda
   return {
     contract_id: resource.contractId,
     tipo: resource.tipo,
+    hr_person_id: resource.hrPersonId ?? null,
     nome: resource.nome,
     cargo: resource.cargo ?? null,
     senioridade: resource.senioridade ?? null,

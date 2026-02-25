@@ -1,98 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft,
-  Plus,
-  User,
-  Building,
-  Box,
-  Pencil,
-  Trash2,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Users,
-  AlertTriangle,
-  Info,
-  Layers,
+  ArrowLeft, Plus, User, Building, Box, Pencil, Trash2,
+  DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle,
+  Info, Layers, Link2,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
+import { useHR } from '@/contexts/HRContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { ResourceForm } from '@/components/forms/ResourceForm';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { toast } from 'sonner';
 import { OverheadForm } from '@/components/forms/OverheadForm';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  formatCurrency,
-  formatPercentage,
-  formatDate,
-  calculateResourceCost,
-  calculateContractHealth,
-  calculateOverheadCost,
-  getContractRevenue,
+  formatCurrency, formatPercentage, formatDate,
+  calculateResourceCost, calculateContractHealth,
+  calculateOverheadCost, getContractRevenue,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { Resource, HealthStatus, OverheadItem } from '@/types';
+import { buildLookups, resolveResource, resolveResourceForCalc } from '@/lib/resourceResolver';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 const healthLabels: Record<HealthStatus, string> = {
-  saudavel: 'Saudável',
-  atencao: 'Atenção',
-  critico: 'Crítico',
+  saudavel: 'Saudável', atencao: 'Atenção', critico: 'Crítico',
 };
 
-const typeIcons = {
-  clt: User,
-  pj: Building,
-  outro: Box,
-};
-
-const typeLabels = {
-  clt: 'CLT',
-  pj: 'PJ',
-  outro: 'Outros',
-};
+const typeIcons = { clt: User, pj: Building, outro: Box };
+const typeLabels = { clt: 'CLT', pj: 'PJ', outro: 'Outros' };
 
 const categoriaLabels: Record<string, string> = {
-  cloud: 'Cloud',
-  licenca: 'Licença',
-  equipamento: 'Equipamento',
-  terceiros: 'Terceiros',
-  consultoria: 'Consultoria',
-  outros: 'Outros',
+  cloud: 'Cloud', licenca: 'Licença', equipamento: 'Equipamento',
+  terceiros: 'Terceiros', consultoria: 'Consultoria', outros: 'Outros',
 };
 
 const senioridadeLabels: Record<string, string> = {
-  junior: 'Júnior',
-  pleno: 'Pleno',
-  senior: 'Sênior',
-  especialista: 'Especialista',
+  junior: 'Júnior', pleno: 'Pleno', senior: 'Sênior', especialista: 'Especialista',
 };
 
 export default function ContractResourcesPage() {
@@ -100,19 +56,13 @@ export default function ContractResourcesPage() {
   const navigate = useNavigate();
   
   const { 
-    getContract, 
-    getClient, 
-    getResourcesByContract, 
-    addResource, 
-    updateResource, 
-    deleteResource,
-    settings,
-    overheadItems,
-    getOverheadByContract,
-    addOverheadItem,
-    updateOverheadItem,
-    deleteOverheadItem,
+    getContract, getClient, getResourcesByContract, 
+    addResource, updateResource, deleteResource,
+    settings, overheadItems,
+    getOverheadByContract, addOverheadItem, updateOverheadItem, deleteOverheadItem,
+    jobTitles, teams,
   } = useData();
+  const { hrPeople } = useHR();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -121,10 +71,25 @@ export default function ContractResourcesPage() {
   const [overheadFormOpen, setOverheadFormOpen] = useState(false);
   const [editingOverhead, setEditingOverhead] = useState<OverheadItem | null>(null);
   const [deleteOverheadId, setDeleteOverheadId] = useState<string | null>(null);
+  // Link legacy dialog
+  const [linkResourceId, setLinkResourceId] = useState<string | null>(null);
+  const [linkHrPersonId, setLinkHrPersonId] = useState<string>('');
 
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
-  const resources = id ? getResourcesByContract(id) : [];
+  const rawResources = id ? getResourcesByContract(id) : [];
+
+  // Build lookups for resolver
+  const { peopleMap, jobMap, teamMap } = useMemo(
+    () => buildLookups(hrPeople, jobTitles, teams),
+    [hrPeople, jobTitles, teams]
+  );
+
+  // Resolve resources for calculations (use HR Master cost when linked)
+  const resources = useMemo(
+    () => rawResources.map(r => resolveResourceForCalc(r, peopleMap)),
+    [rawResources, peopleMap]
+  );
 
   if (!contract) {
     return (
@@ -142,7 +107,6 @@ export default function ContractResourcesPage() {
   const contractOverhead = id ? getOverheadByContract(id) : [];
   const overheadCost = calculateOverheadCost(contract.id, resources, contractOverhead, settings);
 
-  // Group resources by type
   const resourcesByType = resources.reduce((acc, resource) => {
     const type = resource.tipo;
     if (!acc[type]) acc[type] = [];
@@ -150,7 +114,6 @@ export default function ContractResourcesPage() {
     return acc;
   }, {} as Record<string, Resource[]>);
 
-  // Calculate totals
   const custosPorTipo = {
     clt: (resourcesByType.clt || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
     pj: (resourcesByType.pj || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
@@ -178,6 +141,23 @@ export default function ContractResourcesPage() {
       toast.success('Recurso removido do contrato');
     }
   };
+
+  const handleLinkResource = async () => {
+    if (linkResourceId && linkHrPersonId) {
+      const person = hrPeople.find(p => p.id === linkHrPersonId);
+      if (person) {
+        await updateResource(linkResourceId, {
+          hrPersonId: linkHrPersonId,
+          nome: person.nome,
+          tipo: person.tipoVinculo === 'clt' ? 'clt' : 'pj',
+        });
+        toast.success('Recurso vinculado ao RH Mestre');
+      }
+      setLinkResourceId(null);
+      setLinkHrPersonId('');
+    }
+  };
+
   const handleAddOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     addOverheadItem(data);
     setOverheadFormOpen(false);
@@ -200,15 +180,11 @@ export default function ContractResourcesPage() {
     }
   };
 
+  const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome));
 
   return (
     <TooltipProvider>
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      {/* Header */}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <PageHeader
         title="Recursos do Contrato"
         description={`${contract.nome} • ${client?.nomeFantasia || client?.razaoSocial}`}
@@ -228,7 +204,6 @@ export default function ContractResourcesPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Health Status */}
         <Card className={cn(
           'border-l-4',
           health.status === 'saudavel' && 'border-l-health-healthy',
@@ -242,9 +217,7 @@ export default function ContractResourcesPage() {
                 health.status === 'saudavel' && 'health-badge-healthy',
                 health.status === 'atencao' && 'health-badge-attention',
                 health.status === 'critico' && 'health-badge-critical',
-              )}>
-                {healthLabels[health.status]}
-              </Badge>
+              )}>{healthLabels[health.status]}</Badge>
             </div>
             {canViewValues && (
               <>
@@ -253,24 +226,19 @@ export default function ContractResourcesPage() {
                   health.margemPercentual >= 15 && 'text-health-healthy',
                   health.margemPercentual >= 0 && health.margemPercentual < 15 && 'text-health-attention',
                   health.margemPercentual < 0 && 'text-health-critical',
-                )}>
-                  {formatPercentage(health.margemPercentual)}
-                </p>
+                )}>{formatPercentage(health.margemPercentual)}</p>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-muted-foreground">Resultado</span>
                   <span className={cn(
                     'text-sm font-semibold',
                     health.margemMensal >= 0 ? 'text-health-healthy' : 'text-health-critical',
-                  )}>
-                    {formatCurrency(health.margemMensal)}
-                  </span>
+                  )}>{formatCurrency(health.margemMensal)}</span>
                 </div>
               </>
             )}
           </CardContent>
         </Card>
 
-        {/* Revenue */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -285,7 +253,6 @@ export default function ContractResourcesPage() {
           </CardContent>
         </Card>
 
-        {/* Total Cost */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -300,7 +267,6 @@ export default function ContractResourcesPage() {
           </CardContent>
         </Card>
 
-        {/* Resources Count */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -377,6 +343,7 @@ export default function ContractResourcesPage() {
               {resources.map((resource) => {
                 const Icon = typeIcons[resource.tipo];
                 const custo = calculateResourceCost(resource, settings);
+                const resolved = resolveResource(resource, peopleMap, jobMap, teamMap);
 
                 return (
                   <motion.div
@@ -388,7 +355,6 @@ export default function ContractResourcesPage() {
                     <Card className="card-elevated">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
-                          {/* Icon */}
                           <div className={cn(
                             'w-12 h-12 rounded-lg flex items-center justify-center shrink-0',
                             resource.tipo === 'clt' && 'bg-primary/10 text-primary',
@@ -398,10 +364,9 @@ export default function ContractResourcesPage() {
                             <Icon className="w-6 h-6" />
                           </div>
 
-                          {/* Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold truncate">{resource.nome}</h3>
+                              <h3 className="font-semibold truncate">{resolved.nome}</h3>
                               <Badge variant="secondary" className={cn(
                                 'text-xs',
                                 resource.tipo === 'clt' && 'bg-primary/10 text-primary',
@@ -410,9 +375,23 @@ export default function ContractResourcesPage() {
                               )}>
                                 {typeLabels[resource.tipo]}
                               </Badge>
+                              {resolved.isLinked ? (
+                                <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5 text-primary border-primary/20">
+                                  <Link2 className="w-3 h-3" /> RH
+                                </Badge>
+                              ) : (resource.tipo === 'clt' || resource.tipo === 'pj') ? (
+                                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-300">
+                                  Legado
+                                </Badge>
+                              ) : null}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                              {resource.cargo && <span>{resource.cargo}</span>}
+                              {resolved.cargo && <span>{resolved.cargo}</span>}
+                              {resolved.teamName && (
+                                <Badge variant="outline" className="text-xs">
+                                  {resolved.teamName}
+                                </Badge>
+                              )}
                               {resource.senioridade && (
                                 <Badge variant="outline" className="text-xs">
                                   {senioridadeLabels[resource.senioridade]}
@@ -429,7 +408,6 @@ export default function ContractResourcesPage() {
                             </div>
                           </div>
 
-                          {/* Cost */}
                           <div className="text-right shrink-0">
                             {(() => {
                               const isHR = resource.tipo === 'clt' || resource.tipo === 'pj';
@@ -457,28 +435,36 @@ export default function ContractResourcesPage() {
                             })()}
                           </div>
 
-                          {/* Actions */}
                           {(() => {
                             const isHR = resource.tipo === 'clt' || resource.tipo === 'pj';
                             const canEditThis = canEdit && (!isHR || canViewHRCosts);
-                            if (!canEditThis) return null;
                             return (
                               <div className="flex gap-1 shrink-0">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setEditingResource(resource)}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setDeleteId(resource.id)}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                {/* Link button for legacy resources */}
+                                {!resolved.isLinked && isHR && canEdit && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => { setLinkResourceId(resource.id); setLinkHrPersonId(''); }}
+                                      >
+                                        <Link2 className="w-4 h-4 text-amber-600" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Vincular ao RH Mestre</TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {canEditThis && (
+                                  <>
+                                    <Button variant="ghost" size="icon" onClick={() => setEditingResource(resource)}>
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(resource.id)} className="text-destructive hover:text-destructive">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             );
                           })()}
@@ -520,7 +506,7 @@ export default function ContractResourcesPage() {
                 <Info className="w-4 h-4 text-muted-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
-                Custos indiretos como infraestrutura do escritório, despesas administrativas e governança. Calculados sobre a base de execução (RH + outros custos diretos).
+                Custos indiretos como infraestrutura do escritório, despesas administrativas e governança.
               </TooltipContent>
             </Tooltip>
           </h2>
@@ -532,7 +518,6 @@ export default function ContractResourcesPage() {
           )}
         </div>
 
-        {/* Overhead Summary */}
         {canViewValues && contractOverhead.length > 0 && (
           <Card className="bg-muted/30">
             <CardContent className="p-4">
@@ -540,12 +525,8 @@ export default function ContractResourcesPage() {
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   Overhead Mensal Total
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      Base de cálculo: {formatCurrency(health.custoMensal - overheadCost.total)} (RH + Outros diretos)
-                    </TooltipContent>
+                    <TooltipTrigger asChild><Info className="w-3.5 h-3.5 text-muted-foreground" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs">Base de cálculo: {formatCurrency(health.custoMensal - overheadCost.total)}</TooltipContent>
                   </Tooltip>
                 </span>
                 <span className="text-xl font-bold text-primary">{formatCurrency(overheadCost.total)}</span>
@@ -569,17 +550,13 @@ export default function ContractResourcesPage() {
                         <Badge variant="outline" className="text-xs">
                           {item.categoria === 'infraestrutura' ? 'Infraestrutura' : item.categoria === 'administrativo' ? 'Administrativo' : 'Governança'}
                         </Badge>
-                        <span>
-                          {item.modo === 'percentual' ? `${item.percentual}% da base` : 'Valor fixo'}
-                        </span>
+                        <span>{item.modo === 'percentual' ? `${item.percentual}% da base` : 'Valor fixo'}</span>
                       </div>
                     </div>
                     {canViewValues && (
                       <div className="text-right shrink-0">
                         <p className="text-lg font-bold">{formatCurrency(cost)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.modo === 'percentual' ? `${item.percentual}%` : 'fixo/mês'}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{item.modo === 'percentual' ? `${item.percentual}%` : 'fixo/mês'}</p>
                       </div>
                     )}
                     {canEdit && (
@@ -609,57 +586,66 @@ export default function ContractResourcesPage() {
 
       {/* Add/Edit Resource Dialog */}
       <Dialog open={formOpen || !!editingResource} onOpenChange={(open) => {
-        if (!open) {
-          setFormOpen(false);
-          setEditingResource(null);
-        }
+        if (!open) { setFormOpen(false); setEditingResource(null); }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingResource ? 'Editar Recurso' : 'Adicionar Recurso'}
-            </DialogTitle>
+            <DialogTitle>{editingResource ? 'Editar Recurso' : 'Adicionar Recurso'}</DialogTitle>
           </DialogHeader>
           <ResourceForm
             resource={editingResource || undefined}
             contractId={contract.id}
             settings={settings}
             onSubmit={editingResource ? handleEditResource : handleAddResource}
-            onCancel={() => {
-              setFormOpen(false);
-              setEditingResource(null);
-            }}
+            onCancel={() => { setFormOpen(false); setEditingResource(null); }}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Legacy Resource Dialog */}
+      <Dialog open={!!linkResourceId} onOpenChange={(open) => { if (!open) setLinkResourceId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Vincular ao RH Mestre</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Selecione a pessoa do cadastro mestre de RH para vincular a este recurso.
+            </p>
+            <Select onValueChange={setLinkHrPersonId} value={linkHrPersonId}>
+              <SelectTrigger><SelectValue placeholder="Selecione a pessoa" /></SelectTrigger>
+              <SelectContent>
+                {activeHrPeople.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setLinkResourceId(null)}>Cancelar</Button>
+              <Button onClick={handleLinkResource} disabled={!linkHrPersonId}>Vincular</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Add/Edit Overhead Dialog */}
       <Dialog open={overheadFormOpen || !!editingOverhead} onOpenChange={(open) => {
-        if (!open) {
-          setOverheadFormOpen(false);
-          setEditingOverhead(null);
-        }
+        if (!open) { setOverheadFormOpen(false); setEditingOverhead(null); }
       }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingOverhead ? 'Editar Overhead' : 'Adicionar Overhead'}
-            </DialogTitle>
+            <DialogTitle>{editingOverhead ? 'Editar Overhead' : 'Adicionar Overhead'}</DialogTitle>
           </DialogHeader>
           <OverheadForm
             item={editingOverhead || undefined}
             contractId={contract.id}
             baseCalculo={health.custoMensal - overheadCost.total}
             onSubmit={editingOverhead ? handleEditOverhead : handleAddOverhead}
-            onCancel={() => {
-              setOverheadFormOpen(false);
-              setEditingOverhead(null);
-            }}
+            onCancel={() => { setOverheadFormOpen(false); setEditingOverhead(null); }}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Delete Resource Confirmation */}
       <ConfirmDeleteDialog
         open={!!deleteId}
         onOpenChange={() => setDeleteId(null)}
@@ -669,7 +655,6 @@ export default function ContractResourcesPage() {
         confirmLabel="Remover"
       />
 
-      {/* Delete Overhead Confirmation */}
       <ConfirmDeleteDialog
         open={!!deleteOverheadId}
         onOpenChange={() => setDeleteOverheadId(null)}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, Download, Search, Users, FileText, List, User } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
+import { useHR } from '@/contexts/HRContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,18 +13,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { calculateContractHealth } from '@/lib/calculations';
 import { healthConfig } from '@/lib/uiConstants';
 import { Resource, Team } from '@/types';
 import Papa from 'papaparse';
 import { buildXlsx, downloadCSV } from '@/lib/importExport';
+import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 
 // --- Types ---
 
 interface SquadTeamData {
   team: Team | null;
   teamName: string;
-  resources: Resource[];
+  resources: { resource: Resource; resolvedNome: string; resolvedCargo: string }[];
   fte: number;
   percent: number;
 }
@@ -75,6 +78,7 @@ const healthHeaderStyles: Record<string, string> = {
 
 export default function SquadsPage() {
   const { clients, contracts, resources, settings, overheadItems, jobTitles, teams } = useData();
+  const { hrPeople } = useHR();
   const navigate = useNavigate();
 
   const [clientFilter, setClientFilter] = useState<string>('all');
@@ -86,7 +90,13 @@ export default function SquadsPage() {
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
-  // --- Consolidation (logic preserved from original) ---
+  // Build lookups for resolver
+  const { peopleMap, jobMap, teamMap } = useMemo(
+    () => buildLookups(hrPeople, jobTitles, teams),
+    [hrPeople, jobTitles, teams]
+  );
+
+  // --- Consolidation ---
 
   const squadsData = useMemo(() => {
     const result: ContractSquadData[] = [];
@@ -103,50 +113,70 @@ export default function SquadsPage() {
       const hrResources = contractResources.filter(r => r.tipo === 'clt' || r.tipo === 'pj');
       if (hrResources.length === 0) continue;
 
+      // Resolve each HR resource
+      const resolvedHR = hrResources.map(r => {
+        const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
+        return { resource: r, resolved };
+      });
+
       const filteredHR = searchQuery
-        ? hrResources.filter(r =>
-            (r.cargo || '').toLowerCase().includes(searchLower) ||
-            (r.nome || '').toLowerCase().includes(searchLower) ||
+        ? resolvedHR.filter(({ resolved }) =>
+            resolved.nome.toLowerCase().includes(searchLower) ||
+            (resolved.cargo || '').toLowerCase().includes(searchLower) ||
             client.razaoSocial.toLowerCase().includes(searchLower) ||
             contract.codigo.toLowerCase().includes(searchLower)
           )
-        : hrResources;
+        : resolvedHR;
       if (filteredHR.length === 0) continue;
 
       const health = calculateContractHealth(contract, resources, settings, overheadItems);
       const hc = healthConfig[health.status];
 
-      const teamMap = new Map<string, { team: Team | null; resources: Resource[] }>();
-      for (const hr of filteredHR) {
-        const cargoLower = (hr.cargo || '').toLowerCase();
-        const matchedJT = jobTitles.find(jt => jt.label.toLowerCase() === cargoLower);
-        const teamId = matchedJT?.teamId;
+      // Group by team — using HR Master teamId when linked
+      const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string }[] }>();
+      for (const { resource: hr, resolved } of filteredHR) {
+        let teamId: string | undefined;
+        
+        if (resolved.teamId) {
+          // Linked to HR Master — use person's team directly
+          teamId = resolved.teamId;
+        } else {
+          // Legacy — match by cargo text
+          const cargoLower = (resolved.cargo || '').toLowerCase();
+          const matchedJT = jobTitles.find(jt => jt.label.toLowerCase() === cargoLower);
+          teamId = matchedJT?.teamId ?? undefined;
+        }
+        
         const team = teamId ? teams.find(t => t.id === teamId) : null;
         const key = team ? team.id : '__none__';
-        if (!teamMap.has(key)) teamMap.set(key, { team: team || null, resources: [] });
-        teamMap.get(key)!.resources.push(hr);
+        if (!teamGroupMap.has(key)) teamGroupMap.set(key, { team: team || null, items: [] });
+        teamGroupMap.get(key)!.items.push({
+          resource: hr,
+          resolvedNome: resolved.nome,
+          resolvedCargo: resolved.cargo || 'Sem cargo',
+        });
       }
 
-      const totalFTE = filteredHR.reduce((sum, r) => sum + r.percentualDedicacao / 100, 0);
+      const totalFTE = filteredHR.reduce((sum, { resource: r }) => sum + r.percentualDedicacao / 100, 0);
 
       const teamsArray: SquadTeamData[] = [];
       for (const t of sortedTeams) {
-        const entry = teamMap.get(t.id);
+        const entry = teamGroupMap.get(t.id);
         if (!entry) continue;
-        const fte = entry.resources.reduce((s, r) => s + r.percentualDedicacao / 100, 0);
+        const fte = entry.items.reduce((s, { resource: r }) => s + r.percentualDedicacao / 100, 0);
         teamsArray.push({
           team: t, teamName: t.name,
-          resources: entry.resources.sort((a, b) => b.percentualDedicacao - a.percentualDedicacao),
+          resources: entry.items.sort((a, b) => b.resource.percentualDedicacao - a.resource.percentualDedicacao),
           fte, percent: totalFTE > 0 ? (fte / totalFTE) * 100 : 0,
         });
       }
 
-      const noTeam = teamMap.get('__none__');
+      const noTeam = teamGroupMap.get('__none__');
       if (noTeam) {
-        const fte = noTeam.resources.reduce((s, r) => s + r.percentualDedicacao / 100, 0);
+        const fte = noTeam.items.reduce((s, { resource: r }) => s + r.percentualDedicacao / 100, 0);
         teamsArray.push({
           team: null, teamName: 'Sem equipe',
-          resources: noTeam.resources.sort((a, b) => b.percentualDedicacao - a.percentualDedicacao),
+          resources: noTeam.items.sort((a, b) => b.resource.percentualDedicacao - a.resource.percentualDedicacao),
           fte, percent: totalFTE > 0 ? (fte / totalFTE) * 100 : 0,
         });
       }
@@ -164,7 +194,7 @@ export default function SquadsPage() {
       });
     }
     return result;
-  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery]);
+  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap]);
 
   // --- Resource-centric view data ---
 
@@ -175,15 +205,17 @@ export default function SquadsPage() {
 
     for (const cd of squadsData) {
       for (const td of cd.teams) {
-        for (const r of td.resources) {
-          // Group by resource name+cargo as key (since we don't have a person ID)
-          const key = `${(r.nome || '').toLowerCase().trim()}||${(r.cargo || '').toLowerCase().trim()}`;
+        for (const { resource: r, resolvedNome, resolvedCargo } of td.resources) {
+          // Group by hrPersonId (unique) or fallback to name+cargo
+          const key = r.hrPersonId
+            ? `hr:${r.hrPersonId}`
+            : `${resolvedNome.toLowerCase().trim()}||${resolvedCargo.toLowerCase().trim()}`;
 
           if (!resourceMap.has(key)) {
             resourceMap.set(key, {
               resourceKey: key,
-              nome: r.nome || 'Sem nome',
-              cargo: r.cargo || 'Sem cargo',
+              nome: resolvedNome || 'Sem nome',
+              cargo: resolvedCargo || 'Sem cargo',
               teamName: td.teamName,
               totalDedicacao: 0,
               allocations: [],
@@ -228,13 +260,13 @@ export default function SquadsPage() {
     const rows: Record<string, string | number>[] = [];
     for (const cd of squadsData) {
       for (const td of cd.teams) {
-        for (const r of td.resources) {
+        for (const { resolvedNome, resolvedCargo, resource: r } of td.resources) {
           rows.push({
             Cliente: cd.clientName,
             Contrato: cd.contractCodigo,
             Equipe: td.teamName,
-            'Nome RH': r.nome || 'Sem nome',
-            'Cargo/Função': r.cargo || 'Sem cargo',
+            'Nome RH': resolvedNome || 'Sem nome',
+            'Cargo/Função': resolvedCargo || 'Sem cargo',
             'Dedicação (%)': r.percentualDedicacao,
             FTE: +(r.percentualDedicacao / 100).toFixed(2),
           });
@@ -307,11 +339,11 @@ export default function SquadsPage() {
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
-                {td.resources.map(r => (
+                {td.resources.map(({ resource: r, resolvedNome, resolvedCargo }) => (
                   <div key={r.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
-                    <span className="font-medium">{r.nome || 'Sem nome'}</span>
+                    <span className="font-medium">{resolvedNome || 'Sem nome'}</span>
                     <span className="text-muted-foreground">—</span>
-                    <span className="text-muted-foreground">{r.cargo || 'Sem cargo'}</span>
+                    <span className="text-muted-foreground">{resolvedCargo || 'Sem cargo'}</span>
                     <span className="ml-auto tabular-nums font-medium">{r.percentualDedicacao}%</span>
                     {r.percentualDedicacao > 100 && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
                   </div>
@@ -409,12 +441,22 @@ export default function SquadsPage() {
           {/* Dedication summary bar */}
           <div className="mt-3 pt-3 border-t">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-              <span>Dedicação total</span>
-              <span className="ml-auto tabular-nums font-medium text-foreground">{rd.totalDedicacao}%</span>
+              <span>Dedicação total: {rd.totalDedicacao}%</span>
+              {rd.totalDedicacao > 100 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="destructive" className="text-[9px]">Sobrecarregado</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>Dedicação total excede 100%</TooltipContent>
+                </Tooltip>
+              )}
             </div>
-            <div className="bg-muted rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${isOverloaded ? 'bg-[hsl(var(--health-critical))]' : 'bg-primary/70'}`}
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  isOverloaded ? 'bg-[hsl(var(--health-critical))]' : 'bg-primary/70',
+                )}
                 style={{ width: `${Math.min(rd.totalDedicacao, 100)}%` }}
               />
             </div>
@@ -424,88 +466,136 @@ export default function SquadsPage() {
     );
   };
 
-  // --- Main render ---
-
-  const hasResults = perspective === 'project' ? squadsData.length > 0 : resourceViewData.length > 0;
-
   return (
-    <div>
-      <PageHeader title="Squads" description="Distribuição de equipes por cliente e contrato" breadcrumbs={[{ label: 'Squads' }]} />
+    <div className="space-y-6">
+      <PageHeader
+        title="Squads"
+        description="Distribuição de equipes por cliente e contrato"
+        breadcrumbs={[{ label: 'Squads' }]}
+        actions={
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Download className="w-4 h-4" /> Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportCSV}>CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={exportXLSX}>XLSX</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
+      />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        {/* Perspective toggle */}
-        <div className="flex items-center gap-1 border rounded-lg p-0.5">
-          <Button variant={perspective === 'project' ? 'default' : 'ghost'} size="sm" onClick={() => setPerspective('project')} className="text-xs h-7">
-            <FileText className="w-3 h-3 mr-1" /> Por Projeto
-          </Button>
-          <Button variant={perspective === 'resource' ? 'default' : 'ghost'} size="sm" onClick={() => setPerspective('resource')} className="text-xs h-7">
-            <User className="w-3 h-3 mr-1" /> Por Recurso
-          </Button>
-        </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            {/* Perspective toggle */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Visão</span>
+              <div className="flex border rounded-md overflow-hidden">
+                <button onClick={() => setPerspective('project')} className={cn('flex-1 px-3 py-1.5 text-xs font-medium transition-colors', perspective === 'project' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                  <LayoutGrid className="w-3 h-3 inline mr-1" /> Por Projeto
+                </button>
+                <button onClick={() => setPerspective('resource')} className={cn('flex-1 px-3 py-1.5 text-xs font-medium transition-colors', perspective === 'resource' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                  <User className="w-3 h-3 inline mr-1" /> Por Recurso
+                </button>
+              </div>
+            </div>
 
-        <Select value={clientFilter} onValueChange={v => { setClientFilter(v); setContractFilter('all'); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Cliente" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os clientes</SelectItem>
-            {clientOptions.map(cl => (<SelectItem key={cl.id} value={cl.id}>{cl.nomeFantasia || cl.razaoSocial}</SelectItem>))}
-          </SelectContent>
-        </Select>
+            {/* Client filter */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+              <Select value={clientFilter} onValueChange={(v) => { setClientFilter(v); setContractFilter('all'); }}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {clientOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <Select value={contractFilter} onValueChange={setContractFilter}>
-          <SelectTrigger className="w-[220px]"><SelectValue placeholder="Contrato" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os contratos</SelectItem>
-            {contractOptions.map(c => (<SelectItem key={c.id} value={c.id}>{c.codigo}</SelectItem>))}
-          </SelectContent>
-        </Select>
+            {/* Contract filter */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Contrato</span>
+              <Select value={contractFilter} onValueChange={setContractFilter}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {contractOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.codigo}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex items-center gap-1 flex-wrap">
-          {sortedTeams.map(t => (
-            <Badge key={t.id} variant={teamFilter.includes(t.id) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTeamFilter(t.id)}>{t.name}</Badge>
-          ))}
-          <Badge variant={teamFilter.includes('__none__') ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTeamFilter('__none__')}>Sem equipe</Badge>
-        </div>
+            {/* Search */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Buscar</span>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input className="h-9 pl-7 text-xs" placeholder="Nome, cargo, cliente..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              </div>
+            </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar nome, cargo, cliente..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 w-[220px]" />
-        </div>
-
-        {/* View mode toggle (only for project perspective) */}
-        {perspective === 'project' && (
-          <div className="flex items-center gap-1 border rounded-lg p-0.5">
-            <Button variant={viewMode === 'compact' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('compact')} className="text-xs h-7">
-              <LayoutGrid className="w-3 h-3 mr-1" /> Compacto
-            </Button>
-            <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="text-xs h-7">
-              <List className="w-3 h-3 mr-1" /> Detalhado
-            </Button>
+            {/* View mode (project only) */}
+            {perspective === 'project' && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground">Modo</span>
+                <div className="flex border rounded-md overflow-hidden">
+                  <button onClick={() => setViewMode('compact')} className={cn('flex-1 px-3 py-1.5 text-xs font-medium transition-colors', viewMode === 'compact' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                    <LayoutGrid className="w-3 h-3 inline mr-1" /> Compacto
+                  </button>
+                  <button onClick={() => setViewMode('detailed')} className={cn('flex-1 px-3 py-1.5 text-xs font-medium transition-colors', viewMode === 'detailed' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                    <List className="w-3 h-3 inline mr-1" /> Detalhado
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" /> Exportar</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={exportCSV}>CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={exportXLSX}>XLSX</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {/* Team filter chips */}
+          {sortedTeams.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-4">
+              {sortedTeams.filter(t => t.isActive).map(t => (
+                <Badge key={t.id} variant={teamFilter.includes(t.id) ? 'default' : 'outline'} className="cursor-pointer text-xs" onClick={() => toggleTeamFilter(t.id)}>
+                  {t.name}
+                </Badge>
+              ))}
+              {teamFilter.length > 0 && (
+                <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => setTeamFilter([])}>✕ Limpar</Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Contratos</p><p className="text-xl font-bold">{squadsData.length}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">FTE Total</p><p className="text-xl font-bold">{squadsData.reduce((s, c) => s + c.totalFTE, 0).toFixed(1)}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">RH Alocados</p><p className="text-xl font-bold">{squadsData.reduce((s, c) => s + c.hrCount, 0)}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">{perspective === 'resource' ? 'Pessoas Únicas' : 'Equipes Envolvidas'}</p><p className="text-xl font-bold">{perspective === 'resource' ? resourceViewData.length : new Set(squadsData.flatMap(c => c.teams.map(t => t.teamName))).size}</p></CardContent></Card>
       </div>
 
-      {/* Content */}
-      {!hasResults ? (
-        <EmptyState icon={LayoutGrid} title="Nenhum resultado encontrado" description="Ajuste os filtros para visualizar a distribuição de equipes." />
-      ) : perspective === 'project' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {squadsData.map(renderContractCard)}
-        </div>
+      {/* Cards Grid */}
+      {perspective === 'project' ? (
+        squadsData.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {squadsData.map(renderContractCard)}
+          </div>
+        ) : (
+          <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os squads." />
+        )
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {resourceViewData.map(renderResourceCard)}
-        </div>
+        resourceViewData.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {resourceViewData.map(renderResourceCard)}
+          </div>
+        ) : (
+          <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os recursos." />
+        )
       )}
     </div>
   );
