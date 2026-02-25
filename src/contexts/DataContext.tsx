@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem,
   HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle, Team,
@@ -97,7 +96,6 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -118,25 +116,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast({ title: 'Erro', description: message, variant: 'destructive' });
   }, [toast]);
 
-  // ─── Load all data ────────────────────────────────────────────────────────────
+  // ─── Load all data via direct auth listener ──────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated) {
-      // Clear all state on logout or before login
-      setClients([]);
-      setContracts([]);
-      setResources([]);
-      setSettings(defaultSettings);
-      setSnapshots([]);
-      setOverheadItems([]);
-      setHistoryEvents([]);
-      setAttachments([]);
-      setAttachmentConfigs([]);
-      setJobTitles([]);
-      setTeams([]);
-      setSettingsId(null);
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
 
     const loadAll = async () => {
       setLoading(true);
@@ -167,6 +149,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           supabase.from('teams').select('*').order('sort_order'),
         ]);
 
+        if (cancelled) return;
+
         setClients((clientsData ?? []).map(r => clientFromDb(r as unknown as Record<string, unknown>)));
         setContracts((contractsData ?? []).map(r => contractFromDb(r as unknown as Record<string, unknown>)));
         setResources((resourcesData ?? []).map(r => resourceFromDb(r as unknown as Record<string, unknown>)));
@@ -184,13 +168,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setSettings(settingsFromDb(row));
         }
       } catch (err) {
-        handleError(err, 'Erro ao carregar dados do banco.');
+        if (!cancelled) console.error('Erro ao carregar dados do banco.', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    loadAll();
-  }, [isAuthenticated]);
+
+    const clearAll = () => {
+      setClients([]);
+      setContracts([]);
+      setResources([]);
+      setSettings(defaultSettings);
+      setSnapshots([]);
+      setOverheadItems([]);
+      setHistoryEvents([]);
+      setAttachments([]);
+      setAttachmentConfigs([]);
+      setJobTitles([]);
+      setTeams([]);
+      setSettingsId(null);
+      setLoading(false);
+    };
+
+    // Listen directly to Supabase auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        loadAll();
+      } else if (event === 'SIGNED_OUT') {
+        clearAll();
+      }
+    });
+
+    // Check if there's already a session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        loadAll();
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // ─── CLIENT ───────────────────────────────────────────────────────────────────
   const addClient = useCallback(async (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> => {

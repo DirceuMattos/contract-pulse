@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import { HRPerson, HRTimelineEvent } from '@/types';
 import { hrPersonFromDb, hrPersonToDb, hrTimelineFromDb, hrTimelineToDb } from '@/lib/dbMappers';
 
@@ -26,7 +25,6 @@ const HRContext = createContext<HRContextType | undefined>(undefined);
 
 export function HRProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
   const [hrPeople, setHrPeople] = useState<HRPerson[]>([]);
   const [hrTimeline, setHrTimeline] = useState<HRTimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,12 +35,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setHrPeople([]);
-      setHrTimeline([]);
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
 
     const loadAll = async () => {
       setLoading(true);
@@ -51,16 +44,34 @@ export function HRProvider({ children }: { children: ReactNode }) {
           supabase.from('hr_people').select('*').order('nome'),
           supabase.from('hr_timeline').select('*').order('event_date', { ascending: false }),
         ]);
-        setHrPeople((peopleData ?? []).map(r => hrPersonFromDb(r as unknown as Record<string, unknown>)));
-        setHrTimeline((timelineData ?? []).map(r => hrTimelineFromDb(r as unknown as Record<string, unknown>)));
+        if (!cancelled) {
+          setHrPeople((peopleData ?? []).map(r => hrPersonFromDb(r as unknown as Record<string, unknown>)));
+          setHrTimeline((timelineData ?? []).map(r => hrTimelineFromDb(r as unknown as Record<string, unknown>)));
+        }
       } catch (err) {
-        handleError(err, 'Erro ao carregar dados de RH.');
+        if (!cancelled) handleError(err, 'Erro ao carregar dados de RH.');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    loadAll();
-  }, [isAuthenticated]);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        loadAll();
+      } else if (event === 'SIGNED_OUT') {
+        setHrPeople([]);
+        setHrTimeline([]);
+        setLoading(false);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) loadAll();
+      else setLoading(false);
+    });
+
+    return () => { cancelled = true; subscription.unsubscribe(); };
+  }, []);
 
   // ─── PEOPLE ───────────────────────────────────────────────────────────────────
   const addPerson = useCallback(async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>): Promise<HRPerson> => {

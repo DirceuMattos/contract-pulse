@@ -63,6 +63,8 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
   }, [toast]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadSimulations = async () => {
       setLoading(true);
       try {
@@ -73,7 +75,7 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
         if (error) throw error;
 
         if (!simRows || simRows.length === 0) {
-          setSimulations([]);
+          if (!cancelled) { setSimulations([]); setLoading(false); }
           return;
         }
 
@@ -106,15 +108,29 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
           return simulationFromDb(row, hrBySimId[id] ?? [], costBySimId[id] ?? []);
         });
 
-        setSimulations(sims);
+        if (!cancelled) setSimulations(sims);
       } catch (err) {
-        handleError(err, 'Erro ao carregar simulações.');
+        if (!cancelled) handleError(err, 'Erro ao carregar simulações.');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    loadSimulations();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        loadSimulations();
+      } else if (event === 'SIGNED_OUT') {
+        setSimulations([]);
+        setLoading(false);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) loadSimulations();
+      else setLoading(false);
+    });
+
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
 
   const addSimulation = useCallback(async (sim: ContractSimulation): Promise<void> => {
