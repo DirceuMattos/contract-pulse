@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.hr-bulk-import]
 verify_jwt = false
+
+[functions.feedz-sync]
+verify_jwt = false
