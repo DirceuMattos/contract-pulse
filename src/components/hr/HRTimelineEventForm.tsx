@@ -12,7 +12,7 @@ import { HRTimelineEvent } from '@/types';
 
 const schema = z.object({
   eventDate: z.string().min(1, 'Data é obrigatória'),
-  ocorrencia: z.enum(['reajuste', 'bonificacao', 'beneficio', 'mudanca-cargo', 'observacao', 'outro']),
+  ocorrencia: z.enum(['reajuste', 'bonificacao', 'beneficio', 'mudanca-cargo', 'observacao', 'desligamento', 'outro']),
   descricao: z.string().min(1, 'Descrição é obrigatória'),
   valor: z.number().optional(),
   remuneracaoApos: z.number().optional(),
@@ -35,6 +35,7 @@ const ocorrenciaOptions = [
   { value: 'bonificacao', label: 'Bonificação' },
   { value: 'beneficio', label: 'Benefício' },
   { value: 'mudanca-cargo', label: 'Mudança de Cargo' },
+  { value: 'desligamento', label: 'Desligamento' },
   { value: 'observacao', label: 'Observação' },
   { value: 'outro', label: 'Outro' },
 ];

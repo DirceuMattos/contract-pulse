@@ -15,7 +15,7 @@ import { useData } from '@/contexts/DataContext';
 
 const hrPersonSchema = z.object({
   nome: z.string().min(2, 'Nome é obrigatório'),
-  tipoVinculo: z.enum(['clt', 'pj']),
+  tipoVinculo: z.enum(['clt', 'pj', 'cooperado']),
   cargoId: z.string().optional(),
   teamId: z.string().optional(),
   remuneracaoMensal: z.number().min(0),
@@ -136,27 +136,20 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                 <FormLabel>Tipo de Vínculo *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
+                   <SelectContent>
                     <SelectItem value="clt">CLT</SelectItem>
                     <SelectItem value="pj">PJ</SelectItem>
+                    <SelectItem value="cooperado">Cooperado</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="situacao" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Situação *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormItem>
+              <FormLabel>Situação</FormLabel>
+              <Input value={person?.situacao === 'inativo' ? 'Inativo' : 'Ativo'} disabled className="bg-muted" />
+              <p className="text-xs text-muted-foreground">Use o fluxo de Desligamento para inativar.</p>
+            </FormItem>
             <FormField control={form.control} name="cargoId" render={({ field }) => (
               <FormItem>
                 <FormLabel>Cargo</FormLabel>

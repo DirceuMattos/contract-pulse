@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRTimelineEventForm } from '@/components/hr/HRTimelineEventForm';
@@ -20,8 +24,9 @@ import { formatCurrency } from '@/lib/calculations';
 import { differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
 
-function calcularTempoDeCasa(dataAdmissao: string): string {
-  const meses = differenceInMonths(new Date(), new Date(dataAdmissao));
+function calcularTempoDeCasa(dataAdmissao: string, dataDesligamento?: string): string {
+  const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
+  const meses = differenceInMonths(endDate, new Date(dataAdmissao + 'T12:00:00'));
   const anos = Math.floor(meses / 12);
   const mesesRest = meses % 12;
   let texto = '';
@@ -30,21 +35,34 @@ function calcularTempoDeCasa(dataAdmissao: string): string {
   return texto || 'Menos de 1 mês';
 }
 
+function calcularTempoDeCasaMeses(dataAdmissao: string, dataDesligamento?: string): number {
+  const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
+  return differenceInMonths(endDate, new Date(dataAdmissao + 'T12:00:00'));
+}
+
 const ocorrenciaLabels: Record<string, string> = {
   reajuste: 'Reajuste',
   bonificacao: 'Bonificação',
   beneficio: 'Benefício',
   'mudanca-cargo': 'Mudança de Cargo',
+  desligamento: 'Desligamento',
   observacao: 'Observação',
   outro: 'Outro',
+};
+
+const tipoDesligamentoLabels: Record<string, string> = {
+  'dispensado': 'Dispensado',
+  'solicitou-dispensa': 'Solicitou Dispensa',
+  'transferido-grupo': 'Transferido (Grupo)',
+  'outro': 'Outro',
 };
 
 export default function HRPersonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getPerson, updatePerson, deletePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
+  const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
   const { teams, jobTitles, resources } = useData();
-  const { canEdit, canViewHRCosts } = useAuth();
+  const { canEdit, canViewHRCosts, user } = useAuth();
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
@@ -52,8 +70,18 @@ export default function HRPersonDetailPage() {
   const [editPersonOpen, setEditPersonOpen] = useState(false);
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HRTimelineEvent | undefined>();
-  const [deletePersonOpen, setDeletePersonOpen] = useState(false);
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
+
+  // Desligamento state
+  const [desligamentoOpen, setDesligamentoOpen] = useState(false);
+  const [desligamentoData, setDesligamentoData] = useState('');
+  const [desligamentoTipo, setDesligamentoTipo] = useState('');
+  const [desligamentoMotivo, setDesligamentoMotivo] = useState('');
+  const [desligamentoObs, setDesligamentoObs] = useState('');
+  const [desligamentoLoading, setDesligamentoLoading] = useState(false);
+
+  // Reativar state
+  const [reativarOpen, setReativarOpen] = useState(false);
 
   if (!person) {
     return (
@@ -66,9 +94,10 @@ export default function HRPersonDetailPage() {
 
   const cargoLabel = jobTitles.find(jt => jt.id === person.cargoId)?.label;
   const teamName = teams.find(t => t.id === person.teamId)?.name;
-  const tempoCasa = calcularTempoDeCasa(person.dataAdmissao);
+  const isFrozen = person.situacao === 'inativo' && !!person.dataDesligamento;
+  const tempoCasa = calcularTempoDeCasa(person.dataAdmissao, isFrozen ? person.dataDesligamento : undefined);
+  const tempoCasaMeses = calcularTempoDeCasaMeses(person.dataAdmissao, isFrozen ? person.dataDesligamento : undefined);
   
-  // Alocações: contratos onde este profissional está alocado (por nome)
   const alocacoes = resources.filter(r => r.nome.trim().toLowerCase() === person.nome.trim().toLowerCase());
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -77,10 +106,53 @@ export default function HRPersonDetailPage() {
     setEditPersonOpen(false);
   };
 
-  const handleDeletePerson = async () => {
-    await deletePerson(person.id);
-    toast.success('Pessoa removida.');
-    navigate('/rh');
+  const handleDesligamento = async () => {
+    if (!desligamentoData || !desligamentoTipo || !desligamentoMotivo) {
+      toast.error('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    setDesligamentoLoading(true);
+    try {
+      await updatePerson(person.id, {
+        situacao: 'inativo',
+        dataDesligamento: desligamentoData,
+        tipoDesligamento: desligamentoTipo as any,
+        motivoDesligamento: desligamentoMotivo,
+        observacoesDesligamento: desligamentoObs || undefined,
+      });
+      await addTimelineEvent({
+        personId: person.id,
+        eventDate: desligamentoData,
+        ocorrencia: 'desligamento',
+        descricao: `${tipoDesligamentoLabels[desligamentoTipo] || desligamentoTipo}: ${desligamentoMotivo}`,
+        atualizarRemuneracao: false,
+      });
+      toast.success('Desligamento registrado com sucesso.');
+      setDesligamentoOpen(false);
+    } catch {
+      // error already toasted
+    } finally {
+      setDesligamentoLoading(false);
+    }
+  };
+
+  const handleReativar = async () => {
+    await updatePerson(person.id, {
+      situacao: 'ativo',
+      dataDesligamento: undefined,
+      tipoDesligamento: undefined,
+      motivoDesligamento: undefined,
+      observacoesDesligamento: undefined,
+    });
+    await addTimelineEvent({
+      personId: person.id,
+      eventDate: new Date().toISOString().split('T')[0],
+      ocorrencia: 'outro',
+      descricao: 'Reativação do profissional.',
+      atualizarRemuneracao: false,
+    });
+    toast.success('Profissional reativado.');
+    setReativarOpen(false);
   };
 
   const handleSaveEvent = async (data: Omit<HRTimelineEvent, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -102,6 +174,8 @@ export default function HRPersonDetailPage() {
     setDeleteEventId(null);
   };
 
+  const isCLevel = user?.role === 'c-level';
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -120,10 +194,24 @@ export default function HRPersonDetailPage() {
                   <Pencil className="h-4 w-4 mr-2" />
                   Editar
                 </Button>
-                <Button variant="destructive" onClick={() => setDeletePersonOpen(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir
-                </Button>
+                {person.situacao === 'ativo' && (
+                  <Button variant="destructive" onClick={() => {
+                    setDesligamentoData('');
+                    setDesligamentoTipo('');
+                    setDesligamentoMotivo('');
+                    setDesligamentoObs('');
+                    setDesligamentoOpen(true);
+                  }}>
+                    <UserX className="h-4 w-4 mr-2" />
+                    Desligamento
+                  </Button>
+                )}
+                {person.situacao === 'inativo' && isCLevel && (
+                  <Button variant="outline" onClick={() => setReativarOpen(true)}>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Reativar
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -164,17 +252,18 @@ export default function HRPersonDetailPage() {
                 {person.email && <Row label="E-mail" value={person.email} />}
                 {person.celular && <Row label="Celular" value={person.celular} />}
                 <Row label="Data de Admissão" value={new Date(person.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')} />
-                <Row label="Tempo de Casa" value={
+                <Row label={isFrozen ? "Tempo de Casa (final)" : "Tempo de Casa"} value={
                   <div className="flex items-center gap-2">
                     <span>{tempoCasa}</span>
-                    <Badge variant="outline" className="text-xs">{differenceInMonths(new Date(), new Date(person.dataAdmissao))}m</Badge>
+                    <Badge variant="outline" className="text-xs">{tempoCasaMeses}m</Badge>
+                    {isFrozen && <Badge variant="secondary" className="text-xs">Congelado</Badge>}
                   </div>
                 } />
                 {person.situacao === 'inativo' && person.dataDesligamento && (
                   <Row label="Data de Desligamento" value={new Date(person.dataDesligamento + 'T12:00:00').toLocaleDateString('pt-BR')} />
                 )}
                 {person.tipoDesligamento && (
-                  <Row label="Tipo de Desligamento" value={person.tipoDesligamento} />
+                  <Row label="Tipo de Desligamento" value={tipoDesligamentoLabels[person.tipoDesligamento] || person.tipoDesligamento} />
                 )}
                 {person.motivoDesligamento && (
                   <Row label="Motivo" value={person.motivoDesligamento} />
@@ -347,13 +436,61 @@ export default function HRPersonDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Person */}
+      {/* Desligamento Dialog */}
+      <Dialog open={desligamentoOpen} onOpenChange={setDesligamentoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserX className="h-5 w-5 text-destructive" />
+              Desligamento — {person.nome}
+            </DialogTitle>
+            <DialogDescription>
+              Registre o desligamento do profissional. O tempo de casa será congelado na data informada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Data de Desligamento *</Label>
+              <Input type="date" value={desligamentoData} onChange={e => setDesligamentoData(e.target.value)} />
+            </div>
+            <div>
+              <Label>Tipo *</Label>
+              <Select value={desligamentoTipo} onValueChange={setDesligamentoTipo}>
+                <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="solicitou-dispensa">Solicitou Dispensa</SelectItem>
+                  <SelectItem value="dispensado">Desligado / Dispensado</SelectItem>
+                  <SelectItem value="transferido-grupo">Transferido</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Motivo *</Label>
+              <Textarea rows={3} placeholder="Descreva o motivo do desligamento..." value={desligamentoMotivo} onChange={e => setDesligamentoMotivo(e.target.value)} />
+            </div>
+            <div>
+              <Label>Observações (opcional)</Label>
+              <Textarea rows={2} placeholder="Observações adicionais..." value={desligamentoObs} onChange={e => setDesligamentoObs(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDesligamentoOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDesligamento} disabled={desligamentoLoading}>
+              {desligamentoLoading ? 'Processando...' : 'Confirmar Desligamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reativar Dialog */}
       <ConfirmDeleteDialog
-        open={deletePersonOpen}
-        onOpenChange={setDeletePersonOpen}
-        onConfirm={handleDeletePerson}
-        title={`Excluir ${person.nome}?`}
-        description="Esta ação é irreversível. Todos os eventos da linha do tempo também serão excluídos."
+        open={reativarOpen}
+        onOpenChange={setReativarOpen}
+        onConfirm={handleReativar}
+        title={`Reativar ${person.nome}?`}
+        description="O profissional será marcado como ativo novamente e os dados de desligamento serão limpos."
+        confirmLabel="Reativar"
       />
 
       {/* Delete Event */}
@@ -370,7 +507,7 @@ export default function HRPersonDetailPage() {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex justify-between items-start gap-4">
       <span className="text-sm text-muted-foreground shrink-0">{label}</span>
       <span className="text-sm text-right">{value}</span>
     </div>
