@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,11 @@ function calcularTempoDeCasa(dataAdmissao: string): { texto: string; meses: numb
   return { texto, meses };
 }
 
+function formatComite(value: string): string {
+  const d = new Date(value + '-01T12:00:00');
+  return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+}
+
 export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, addPerson, updatePerson } = useHR();
@@ -51,6 +56,13 @@ export default function HRPeoplePage() {
   const activeTeams = teams.filter(t => t.isActive);
   const activeJobTitles = jobTitles.filter(jt => jt.isActive);
 
+  // Unique comite values for filter
+  const comiteOptions = useMemo(() => {
+    const values = new Set<string>();
+    hrPeople.forEach(p => { if (p.comiteGestor) values.add(p.comiteGestor); });
+    return Array.from(values).sort();
+  }, [hrPeople]);
+
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
@@ -59,7 +71,10 @@ export default function HRPeoplePage() {
       const matchTeam = !filterTeam || p.teamId === filterTeam;
       const matchCargo = !filterCargo || p.cargoId === filterCargo;
       const matchVinculo = !filterVinculo || p.tipoVinculo === filterVinculo;
-      const matchComite = !filterComite || (p.comiteGestor || '') === filterComite;
+      let matchComite = true;
+      if (filterComite === '__com') matchComite = !!p.comiteGestor;
+      else if (filterComite === '__sem') matchComite = !p.comiteGestor;
+      else if (filterComite) matchComite = p.comiteGestor === filterComite;
       return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite;
     });
   }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite]);
@@ -87,6 +102,11 @@ export default function HRPeoplePage() {
     const novaSituacao = person.situacao === 'ativo' ? 'inativo' : 'ativo';
     await updatePerson(person.id, { situacao: novaSituacao });
     toast.success(`${person.nome} ${novaSituacao === 'ativo' ? 'reativado' : 'inativado'}.`);
+  };
+
+  const handleComiteChange = async (personId: string, value: string) => {
+    await updatePerson(personId, { comiteGestor: value || undefined });
+    toast.success('Comitê Gestor atualizado.');
   };
 
   const handleExport = () => {
@@ -127,7 +147,7 @@ export default function HRPeoplePage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
             <div className="relative xl:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
@@ -160,6 +180,15 @@ export default function HRPeoplePage() {
               <SelectContent>
                 <SelectItem value="all">Todos cargos</SelectItem>
                 {activeJobTitles.map(jt => <SelectItem key={jt.id} value={jt.id}>{jt.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterComite || 'all'} onValueChange={v => setFilterComite(v === 'all' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Comitê" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="__com">Com indicação</SelectItem>
+                <SelectItem value="__sem">Sem indicação</SelectItem>
+                {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -197,12 +226,13 @@ export default function HRPeoplePage() {
                     <TableHead className="text-xs">Tempo</TableHead>
                     {canViewHRCosts && <TableHead className="text-xs">Custo Total</TableHead>}
                     <TableHead className="text-xs">Sit.</TableHead>
+                    <TableHead className="text-xs">Comitê</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(p => {
-                    const { texto: tempoCasa, meses } = calcularTempoDeCasa(p.dataAdmissao);
+                    const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao);
                     return (
                       <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                         <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
@@ -223,6 +253,25 @@ export default function HRPeoplePage() {
                           <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
                             {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
                           </Badge>
+                        </TableCell>
+                        <TableCell onClick={e => e.stopPropagation()} className="py-2">
+                          {canEdit ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="month"
+                                value={p.comiteGestor || ''}
+                                onChange={e => handleComiteChange(p.id, e.target.value)}
+                                className="text-xs border rounded px-1.5 py-1 bg-background text-foreground w-[120px]"
+                              />
+                              {p.comiteGestor && (
+                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleComiteChange(p.id, '')}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs whitespace-nowrap">{p.comiteGestor ? formatComite(p.comiteGestor) : '—'}</span>
+                          )}
                         </TableCell>
                         <TableCell onClick={e => e.stopPropagation()} className="py-2">
                           <div className="flex items-center gap-1">

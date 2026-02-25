@@ -11,9 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import { saveBlob } from '@/lib/indexedDBStorage';
 import { Upload, FileText, X } from 'lucide-react';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 
-const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', '7z'];
 const ALLOWED_MIMES = [
   'application/pdf',
   'application/msword',
@@ -22,6 +22,10 @@ const ALLOWED_MIMES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/x-7z-compressed',
 ];
 
 interface AttachmentUploadDialogProps {
@@ -50,10 +54,10 @@ export default function AttachmentUploadDialog({ open, onOpenChange, contractId 
   const validateFile = (f: File): string | null => {
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      return `Tipo de arquivo não permitido (.${ext}). Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX.`;
+      return `Tipo de arquivo não permitido (.${ext}). Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, ZIP, RAR, 7Z.`;
     }
     if (f.size > MAX_FILE_SIZE) {
-      return `Arquivo muito grande (${(f.size / 1024 / 1024).toFixed(1)}MB). Tamanho máximo: 10MB.`;
+      return `Arquivo muito grande (${(f.size / 1024 / 1024).toFixed(1)}MB). Tamanho máximo: 15MB.`;
     }
     // Allow if extension is valid even if MIME is generic
     if (!ALLOWED_MIMES.includes(f.type) && f.type !== '' && f.type !== 'application/octet-stream') {
@@ -200,14 +204,14 @@ export default function AttachmentUploadDialog({ open, onOpenChange, contractId 
                 <div className="space-y-2">
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto" />
                   <p className="text-sm text-muted-foreground">Arraste um arquivo ou clique para selecionar</p>
-                  <p className="text-xs text-muted-foreground">PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX — até 10MB</p>
+                  <p className="text-xs text-muted-foreground">PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, ZIP, RAR, 7Z — até 15MB</p>
                 </div>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"
                 onChange={e => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }}
               />
             </div>

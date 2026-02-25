@@ -190,7 +190,7 @@ export default function HRPersonDetailPage() {
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardHeader><CardTitle className="text-base text-amber-700 dark:text-amber-400">📋 Atualização Mensal</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <Row label="Comitê Gestor" value={person.comiteGestor ? new Date(person.comiteGestor + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '—'} />
+              <Row label="Comitê Gestor" value={person.comiteGestor ? new Date(person.comiteGestor + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '—'} />
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Observações</p>
                 <p className="text-sm">{person.observacoes || '—'}</p>
