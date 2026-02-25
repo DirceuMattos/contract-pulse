@@ -386,6 +386,83 @@ export type Database = {
           },
         ]
       }
+      feedz_sync_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          external_id: string | null
+          fields_changed: string[]
+          id: string
+          summary: string | null
+          sync_run_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          external_id?: string | null
+          fields_changed?: string[]
+          id?: string
+          summary?: string | null
+          sync_run_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          external_id?: string | null
+          fields_changed?: string[]
+          id?: string
+          summary?: string | null
+          sync_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedz_sync_events_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "feedz_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedz_sync_runs: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          error_message: string | null
+          id: string
+          records_created: number
+          records_processed: number
+          records_terminated: number
+          records_updated: number
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          records_created?: number
+          records_processed?: number
+          records_terminated?: number
+          records_updated?: number
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          records_created?: number
+          records_processed?: number
+          records_terminated?: number
+          records_updated?: number
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       history_events: {
         Row: {
           contract_id: string
@@ -603,6 +680,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          origin: string | null
           team_id: string | null
           updated_at: string
         }
@@ -611,6 +689,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          origin?: string | null
           team_id?: string | null
           updated_at?: string
         }
@@ -619,6 +698,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          origin?: string | null
           team_id?: string | null
           updated_at?: string
         }
@@ -1064,6 +1144,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          origin: string | null
           sort_order: number
           updated_at: string
         }
@@ -1073,6 +1154,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          origin?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -1082,6 +1164,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          origin?: string | null
           sort_order?: number
           updated_at?: string
         }

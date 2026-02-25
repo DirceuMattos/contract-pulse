@@ -22,8 +22,9 @@ import { differenceInMonths } from 'date-fns';
 import { formatCurrency } from '@/lib/calculations';
 import { exportHRPeople } from '@/lib/importExport';
 
-function calcularTempoDeCasa(dataAdmissao: string): { texto: string; meses: number } {
-  const meses = differenceInMonths(new Date(), new Date(dataAdmissao));
+function calcularTempoDeCasa(dataAdmissao: string, dataDesligamento?: string): { texto: string; meses: number } {
+  const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
+  const meses = differenceInMonths(endDate, new Date(dataAdmissao + 'T12:00:00'));
   const anos = Math.floor(meses / 12);
   const mesesRest = meses % 12;
   let texto = '';
@@ -104,7 +105,7 @@ export default function HRPeoplePage() {
         case 'team': va = getTeamName(a.teamId).toLowerCase(); vb = getTeamName(b.teamId).toLowerCase(); break;
         case 'localAtuacao': va = (a.localAtuacao || '').toLowerCase(); vb = (b.localAtuacao || '').toLowerCase(); break;
         case 'dataAdmissao': va = a.dataAdmissao; vb = b.dataAdmissao; break;
-        case 'tempo': va = calcularTempoDeCasa(a.dataAdmissao).meses; vb = calcularTempoDeCasa(b.dataAdmissao).meses; break;
+        case 'tempo': va = calcularTempoDeCasa(a.dataAdmissao, a.situacao === 'inativo' ? a.dataDesligamento : undefined).meses; vb = calcularTempoDeCasa(b.dataAdmissao, b.situacao === 'inativo' ? b.dataDesligamento : undefined).meses; break;
         case 'custoTotal': va = a.remuneracaoMensal + a.beneficios; vb = b.remuneracaoMensal + b.beneficios; break;
         case 'situacao': va = a.situacao; vb = b.situacao; break;
         case 'comiteGestor': va = a.comiteGestor || ''; vb = b.comiteGestor || ''; break;
@@ -170,7 +171,7 @@ export default function HRPeoplePage() {
     <div className="space-y-6">
       <PageHeader
         title="Recursos Humanos"
-        description="Cadastro mestre de pessoas CLT e PJ."
+        description="Cadastro mestre de pessoas CLT, PJ e Cooperado."
         animated={false}
         actions={
           <div className="flex items-center gap-2">
@@ -308,7 +309,8 @@ export default function HRPeoplePage() {
                   </TableHeader>
                   <TableBody>
                     {sorted.map(p => {
-                      const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao);
+                      const isFrozen = p.situacao === 'inativo' && !!p.dataDesligamento;
+                      const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao, isFrozen ? p.dataDesligamento : undefined);
                       return (
                         <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
