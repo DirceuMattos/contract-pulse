@@ -456,7 +456,14 @@ function FeedzSyncSection() {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('feedz-sync');
-      if (error) throw error;
+      if (error) {
+        // Try to extract detailed error from response
+        const detail = typeof error === 'object' && error.message ? error.message : String(error);
+        throw new Error(detail);
+      }
+      if (data?.error) {
+        throw new Error(data.error);
+      }
       toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados.`);
       loadRuns();
     } catch (err: any) {
