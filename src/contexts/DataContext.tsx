@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Client, Contract, Resource, Settings, Alert, Snapshot, OverheadItem,
   HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig, JobTitle, Team,
@@ -96,6 +97,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -118,6 +120,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // ─── Load all data ────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!isAuthenticated) {
+      // Clear all state on logout or before login
+      setClients([]);
+      setContracts([]);
+      setResources([]);
+      setSettings(defaultSettings);
+      setSnapshots([]);
+      setOverheadItems([]);
+      setHistoryEvents([]);
+      setAttachments([]);
+      setAttachmentConfigs([]);
+      setJobTitles([]);
+      setTeams([]);
+      setSettingsId(null);
+      setLoading(false);
+      return;
+    }
+
     const loadAll = async () => {
       setLoading(true);
       try {
@@ -170,7 +190,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     };
     loadAll();
-  }, []);
+  }, [isAuthenticated]);
 
   // ─── CLIENT ───────────────────────────────────────────────────────────────────
   const addClient = useCallback(async (data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> => {

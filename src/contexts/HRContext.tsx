@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { HRPerson, HRTimelineEvent } from '@/types';
 import { hrPersonFromDb, hrPersonToDb, hrTimelineFromDb, hrTimelineToDb } from '@/lib/dbMappers';
 
@@ -25,6 +26,7 @@ const HRContext = createContext<HRContextType | undefined>(undefined);
 
 export function HRProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [hrPeople, setHrPeople] = useState<HRPerson[]>([]);
   const [hrTimeline, setHrTimeline] = useState<HRTimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,13 @@ export function HRProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setHrPeople([]);
+      setHrTimeline([]);
+      setLoading(false);
+      return;
+    }
+
     const loadAll = async () => {
       setLoading(true);
       try {
@@ -51,7 +60,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
       }
     };
     loadAll();
-  }, []);
+  }, [isAuthenticated]);
 
   // ─── PEOPLE ───────────────────────────────────────────────────────────────────
   const addPerson = useCallback(async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>): Promise<HRPerson> => {
