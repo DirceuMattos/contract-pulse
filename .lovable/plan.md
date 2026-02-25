@@ -1,99 +1,211 @@
 
 
-# Plano de Ajustes (7 itens)
+# Plano: Integração Total do Cadastro Mestre de RH com Contratos, Recursos e Squads
 
-## 1. Toasts no topo da tela, com cor diferenciada, duração máxima de 3s
+## Resumo Executivo
 
-**Problema**: O `TOAST_REMOVE_DELAY` em `src/hooks/use-toast.ts` está definido como `1000000` (~16 minutos). O toast aparece na parte inferior da tela.
-
-**Solução**:
-- **`src/hooks/use-toast.ts`**: Alterar `TOAST_REMOVE_DELAY` de `1000000` para `3000` (3 segundos).
-- **`src/components/ui/toast.tsx`**: Alterar a posição do `ToastViewport` de `bottom` para `top` (classes: `top-0` em vez de `bottom-0`, e `sm:top-auto sm:bottom-0` removido).
+Atualmente, os recursos alocados em contratos armazenam dados duplicados (nome, cargo, custo) diretamente na tabela `resources`. Este plano transforma o modelo para que a **tabela `hr_people` seja a fonte única de verdade**, mantendo compatibilidade total com registros legados.
 
 ---
 
-## 2. Análise do Consultor (IA) deve ser gravada na simulação
+## 1. Modelo de Dados — Nova coluna `hr_person_id` na tabela `resources`
 
-**Problema**: O `insightText` gerado pela IA em `Step5Results.tsx` é armazenado apenas em `useState` local e se perde ao navegar ou recarregar.
+**Abordagem**: Em vez de criar uma nova tabela `contract_human_allocations`, vamos **estender a tabela `resources` existente** com um campo `hr_person_id` (FK para `hr_people`). Isso minimiza a refatoração e preserva todos os cálculos, overhead e lógica de break-even já implementados.
 
-**Solução**:
-- **Banco de dados**: Adicionar coluna `consultant_analysis text` na tabela `simulations` (nullable, default NULL).
-- **`src/types/index.ts`**: Adicionar `consultantAnalysis?: string` ao tipo `ContractSimulation`.
-- **`src/lib/dbMappers.ts`**: Mapear `consultant_analysis` ↔ `consultantAnalysis` em `simulationFromDb` e `simulationToDb`.
-- **`src/components/calculator/Step5Results.tsx`**: Inicializar `insightText` com `data.consultantAnalysis ?? ''`. Após gerar a análise com sucesso, chamar um callback `onChange` para persistir o campo `consultantAnalysis` no objeto da simulação.
-- **`src/pages/CalculatorWizardPage.tsx`**: Passar `onChange` para `Step5Results` e ao receber `consultantAnalysis`, chamar `onChange({ consultantAnalysis: text })`.
-
----
-
-## 3. Recursos Humanos estimados devem permanecer gravados
-
-**Problema**: Quando `usingSuggested` é `true`, apenas os itens "suggested" são gravados e os "custom" ficam vazios. Ao editar qualquer campo, o sistema copia os suggested para custom e muda `usingSuggested` para `false`, mas ao recarregar a simulação, se `usingSuggested` ainda era `true`, os custom são perdidos.
-
-**Análise do código**: O `persistSimulation` em `SimulationContext.tsx` grava tanto `suggestedHR` (com `isSuggested: true`) quanto `customHR` (com `isSuggested: false`). O `simulationFromDb` recupera ambos corretamente. O mecanismo parece correto.
-
-**Verificação adicional**: O problema pode estar no fato de que quando o usuário está em modo "suggested" e não fez edições, `customHR` é uma cópia dos suggested. Ao gravar, ambos são inseridos (duplicados). Ao recarregar, os itens `isSuggested: false` populam o `customHR` corretamente.
-
-**Ação**: Garantir que ao salvar, se `usingSuggested === true`, os `customHR` sejam populados com cópia dos suggested (já feito no `createBlank` e no `onChange`). Nenhuma alteração necessária se o fluxo já funciona. Vou verificar se há algum bug no fluxo de persistência durante a implementação.
-
----
-
-## 4. Corrigir cálculo do custo total na tabela de RH do simulador
-
-**Problema**: Na linha 188 de `Step4Resources.tsx`, o custo total é calculado como:
+**Migration SQL**:
+```sql
+ALTER TABLE public.resources
+  ADD COLUMN hr_person_id uuid REFERENCES public.hr_people(id) ON DELETE SET NULL;
 ```
-quantity * grossMonthly * (1 + chargesPercent / 100)
+
+**Regras de leitura (prioridade)**:
+- Se `hr_person_id` IS NOT NULL → dados (nome, cargo, vínculo, custo) vêm do RH Mestre (`hr_people`)
+- Se `hr_person_id` IS NULL → dados vêm dos campos locais (legado)
+
+**Campos legados preservados**: `nome`, `cargo`, `senioridade`, `custo_base` continuam na tabela `resources` como fallback e snapshot de auditoria.
+
+---
+
+## 2. Atualização de Tipos e Mappers
+
+**`src/types/index.ts`** — Adicionar ao tipo `Resource`:
+```typescript
+hrPersonId?: string;  // FK para RH Mestre
 ```
-Esse cálculo está correto conceitualmente (quantidade × salário bruto × (1 + encargos%)). Porém, quando o usuário altera `quantity`, `grossMonthly` ou `chargesPercent` via `updateHR`, o `onChange` copia todo o array e marca `usingSuggested: false`, mas o valor na interface pode estar usando os arrays "suggested" em vez dos "custom" recém-atualizados.
 
-**Análise**: Na linha 35, `const hr = data.usingSuggested ? data.suggestedHR : data.customHR;`. Quando o usuário edita, `updateHR` chama `onChange({ customHR: list, usingSuggested: false })`, mas o `onChange` no `CalculatorWizardPage` faz `setData(prev => ({ ...prev, ...updates }))`. Isso deveria funcionar.
-
-**Possível bug**: Ao alterar o `hiringType` (linha 65-67), o `chargesPercent` é atualizado. Porém, o valor exibido na coluna "Custo total" usa `item.chargesPercent` do array `hr`, que pode ser o array `suggestedHR` no primeiro render antes do state atualizar. Preciso verificar se o problema é de timing/state.
-
-**Ação**: Revisar o fluxo e garantir que o `hr` renderizado sempre reflete o estado mais recente. Possivelmente o problema está em que `getSourceHR()` faz `JSON.parse(JSON.stringify(...))`, criando uma cópia desconectada, e o `onChange` atualiza `customHR` mas o componente ainda renderiza `suggestedHR` se o state de `usingSuggested` não foi atualizado a tempo.
+**`src/lib/dbMappers.ts`** — `resourceFromDb` e `resourceToDb`:
+- Mapear `hr_person_id` ↔ `hrPersonId`
 
 ---
 
-## 5. Intermediário deve poder incluir e editar clientes e contratos
+## 3. Função de Resolução: `resolveResource()`
 
-**Problema**: O `canEdit` em `AuthContext.tsx` (linha 122) já retorna `true` para `intermediario`. As RLS policies no banco já permitem INSERT e UPDATE para `intermediario`. O problema relatado anteriormente era sobre rotas de criação no `moduleAccess.ts`.
+Criar em `src/lib/resourceResolver.ts` uma função utilitária:
 
-**Análise do `moduleAccess.ts`**: Linhas 89 e 95 mostram que `/contratos/novo` mapeia para `CONTRACTS` e `/clientes/novo` mapeia para `CLIENTS`, ambos com `roleRestrictions: []` (todos os roles podem acessar). Isso está correto.
+```typescript
+function resolveResource(resource: Resource, hrPeople: HRPerson[], jobTitles: JobTitle[], teams: Team[]) {
+  if (resource.hrPersonId) {
+    const person = hrPeople.find(p => p.id === resource.hrPersonId);
+    if (person) {
+      const job = jobTitles.find(j => j.id === person.cargoId);
+      const team = teams.find(t => t.id === person.teamId);
+      return {
+        nome: person.nome,
+        cargo: job?.label ?? resource.cargo,
+        teamName: team?.name,
+        teamId: person.teamId,
+        tipoVinculo: person.tipoVinculo,
+        custoBase: person.remuneracaoMensal,
+        isLinked: true,
+      };
+    }
+  }
+  // Fallback legado
+  return {
+    nome: resource.nome,
+    cargo: resource.cargo,
+    teamName: undefined,
+    teamId: undefined,
+    tipoVinculo: resource.tipo === 'clt' ? 'clt' : 'pj',
+    custoBase: resource.custoBase,
+    isLinked: false,
+  };
+}
+```
 
-**Verificação**: Preciso verificar se há algum outro bloqueio na UI que impede intermediários. O `ContractFormPage.tsx` (linha 32) verifica `canEdit`, que é `true` para intermediários. Parece correto.
-
-**Ação**: Verificar se o problema persiste ou se foi resolvido em atualizações anteriores. Se necessário, garantir que os botões "Novo Cliente" e "Novo Contrato" sejam visíveis para intermediários nas páginas de listagem.
+Esta função será usada em **Contratos**, **Squads** e **Cálculos**.
 
 ---
 
-## 6. Data de término não obrigatória quando renovação automática está ligada
+## 4. Contratos > Recursos (UI)
 
-**Problema**: No `contractFormSchema` (linha 126), `dataFim` é sempre `z.string().min(1, 'Data de término é obrigatória')`. No banco, a coluna `data_fim` é `NOT NULL` com default `CURRENT_DATE + 1 year`.
+### 4.1 Seleção de RH (ResourceForm)
 
-**Solução**:
-- **`src/lib/validators.ts`**: Alterar `dataFim` para `z.string().optional().or(z.literal(''))`. Mover a validação de obrigatoriedade para um `refine` condicional: se `renovacaoAutomatica === false`, `dataFim` deve ser preenchido.
-- **`src/components/forms/ContractForm.tsx`**: Remover o asterisco `*` da label "Data de Término" e torná-lo condicional (mostrar `*` apenas se renovação automática estiver desligada).
-- **Banco de dados**: Alterar a coluna `data_fim` para `nullable`: `ALTER TABLE contracts ALTER COLUMN data_fim DROP NOT NULL;`
-- **`src/lib/dbMappers.ts`**: Aplicar `emptyToNull` no campo `data_fim` do `contractToDb`.
+Refatorar o campo "Nome / Pessoa" no `ResourceForm.tsx`:
+- Substituir o combobox atual (que mistura nomes de HR e legados) por um **combobox que busca diretamente do `hr_people`** via `useHR()`.
+- Ao selecionar uma pessoa:
+  - Preencher `hrPersonId` no recurso
+  - Exibir cargo (read-only, vindo do RH Mestre)
+  - Exibir equipe/departamento (read-only)
+  - Preencher `tipo` (CLT/PJ) automaticamente baseado em `tipoVinculo`
+  - Preencher `custoBase` com `remuneracaoMensal` (apenas se `canViewHRCosts`)
+  - Campo de `dedicação%` continua editável
+- Manter opção "Outro..." para entrada manual (registros sem vínculo)
+
+### 4.2 Exibição de Recursos Alocados (ContractResourcesPage)
+
+Na lista de recursos do contrato:
+- Usar `resolveResource()` para exibir nome, cargo e equipe
+- Se `isLinked === true`: mostrar dados do RH Mestre
+- Se `isLinked === false`: mostrar dados locais + Badge "Legado" + botão "Vincular"
+- Coluna "Equipe/Depto" adicionada (quando vinculado ao RH Mestre)
+- Custos de RH: respeitar `canViewHRCosts` (já implementado)
+
+### 4.3 Atualização Imediata
+
+- Ao editar pessoa no RH Mestre, os dados são refletidos automaticamente nos contratos e squads, pois a resolução é feita em runtime via `resolveResource()` usando os dados mais recentes do `HRContext`.
+- Não é necessário realtime: o `HRProvider` carrega na inicialização e o `DataContext` re-fetcha ao navegar.
 
 ---
 
-## 7. Alterar label "Data base para renovação" → "Data base para reajuste"
+## 5. Squads (Integração Total)
 
-**Problema**: No `ContractForm.tsx` (linha 502), o campo `renewalBaseDate` tem a label "Data base para renovação", mas deveria ser "Data base para reajuste" para coincidir com o campo no bloco de Reajuste.
+**Refatorar `SquadsPage.tsx`**:
 
-**Solução**:
-- **`src/components/forms/ContractForm.tsx`**: Alterar a `FormLabel` de "Data base para renovação" para "Data base para reajuste" (linha 502). Também ajustar a `FormDescription` correspondente.
+Atualmente, Squads determina a equipe de um recurso fazendo match textual (`cargo → jobTitle → teamId`). Com a integração:
+
+- Se `resource.hrPersonId` existe → obter `teamId` diretamente do `hr_people.teamId`
+- Se não → manter lógica legada (match por cargo)
+
+Dados exibidos:
+- **Nome**: do RH Mestre (quando vinculado)
+- **Cargo**: do RH Mestre (quando vinculado)
+- **Equipe**: do RH Mestre (quando vinculado)
+- **Dedicação%**: do recurso/contrato (sem mudança)
+
+**Visão "Por Recurso"**: Atualmente agrupa por `nome+cargo` como chave. Com a integração:
+- Se vinculado: agrupar por `hrPersonId` (identificador único real)
+- Se legado: manter agrupamento por nome+cargo
 
 ---
 
-## Sequência de Implementação
+## 6. Cálculos (Break-even e Custo de RH)
 
-1. Migration de banco (adicionar `consultant_analysis` text à tabela `simulations`; alterar `data_fim` para nullable em `contracts`)
-2. Alterar `TOAST_REMOVE_DELAY` e posição do toast
-3. Atualizar tipos e mappers para `consultantAnalysis`
-4. Atualizar `Step5Results` para persistir análise do consultor
-5. Revisar cálculo de custo total no `Step4Resources`
-6. Alterar schema de validação para `dataFim` condicional
-7. Alterar labels no `ContractForm`
-8. Verificar permissões do intermediário
+**`calculateResourceCost()`** em `src/lib/calculations.ts`:
+
+Para recursos vinculados ao RH Mestre, o custo base deve vir de `hr_people.remuneracaoMensal`. Duas abordagens:
+
+**Abordagem escolhida**: A função `calculateResourceCost()` continua recebendo `resource.custoBase`. O valor de `custoBase` será atualizado em tempo de leitura:
+- Criar um hook `useResolvedResources(contractId)` que retorna resources com `custoBase` substituído pelo valor do RH Mestre quando `hrPersonId` existe.
+- Isso preserva toda a lógica de cálculos existente sem alteração.
+
+**Compatibilidade**: Recursos legados (sem `hrPersonId`) continuam usando `custoBase` da tabela `resources`.
+
+---
+
+## 7. Migração/Compatibilidade
+
+### 7.1 Utilitário "Vincular Alocações Legadas"
+
+Criar uma seção em **Configurações** (acessível apenas C-Level):
+- Lista todos os recursos CLT/PJ sem `hrPersonId`
+- Para cada um, mostra nome e cargo atuais + combobox para selecionar pessoa do RH Mestre
+- Botão "Vincular" que faz `UPDATE resources SET hr_person_id = ? WHERE id = ?`
+- Relatório: X vinculados, Y pendentes
+
+### 7.2 Badge "Legado" inline
+
+Na lista de recursos do contrato e no Squads:
+- Recursos sem `hrPersonId`: Badge "Legado" (amarelo)
+- Botão rápido "Vincular" que abre mini-dialog para selecionar pessoa
+
+---
+
+## 8. Performance e Cache
+
+- `HRContext` já carrega `hrPeople` na inicialização
+- `DataContext` já carrega `resources` na inicialização
+- `resolveResource()` é puro (sem side-effects) — resolve em O(1) por recurso com lookup Map
+- Ao salvar no RH Mestre (`updatePerson`), invalidar/re-render via state change no `HRContext` → componentes que usam `useHR()` re-renderizam automaticamente
+- Sem necessidade de realtime neste momento
+
+---
+
+## 9. Sequência de Implementação
+
+1. **Migration de banco**: Adicionar `hr_person_id` na tabela `resources`
+2. **Tipos e mappers**: Atualizar `Resource` type e `resourceFromDb`/`resourceToDb`
+3. **Resolver**: Criar `src/lib/resourceResolver.ts` com `resolveResource()`
+4. **ResourceForm**: Refatorar seleção de pessoa para vincular ao RH Mestre
+5. **ContractResourcesPage**: Usar resolver, exibir equipe, badge legado
+6. **SquadsPage**: Refatorar para usar `hrPersonId` na determinação de equipe
+7. **Cálculos**: Hook `useResolvedResources` para custo base do RH Mestre
+8. **Utilitário de migração**: Tela de vinculação em lote nas Configurações
+9. **Testes manuais**: Validar cenários de aceite
+
+---
+
+## Detalhes Técnicos
+
+### Arquivos a criar:
+- `src/lib/resourceResolver.ts`
+
+### Arquivos a modificar:
+- `src/types/index.ts` (adicionar `hrPersonId` ao `Resource`)
+- `src/lib/dbMappers.ts` (mapear `hr_person_id`)
+- `src/components/forms/ResourceForm.tsx` (refatorar seleção de pessoa)
+- `src/pages/ContractResourcesPage.tsx` (usar resolver, badge legado)
+- `src/pages/SquadsPage.tsx` (usar `hrPersonId` para equipe)
+- `src/lib/calculations.ts` (ou hook wrapper para custo do RH Mestre)
+- `src/pages/SettingsPage.tsx` (utilitário de vinculação em lote)
+- `src/contexts/DataContext.tsx` (expor dados resolvidos)
+
+### Migration SQL:
+```sql
+ALTER TABLE public.resources
+  ADD COLUMN hr_person_id uuid REFERENCES public.hr_people(id) ON DELETE SET NULL;
+```
+
+### Impacto em RLS:
+Nenhum — a coluna `hr_person_id` é apenas referência; as policies existentes na tabela `resources` continuam válidas.
 
