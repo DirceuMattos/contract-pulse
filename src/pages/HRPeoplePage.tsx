@@ -52,11 +52,11 @@ export default function HRPeoplePage() {
   const [filterCargo, setFilterCargo] = useState('');
   const [filterVinculo, setFilterVinculo] = useState('');
   const [filterComite, setFilterComite] = useState('');
-  const [filterAdmissao, setFilterAdmissao] = useState('');
+  const [filterMesAdmissao, setFilterMesAdmissao] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'ativo' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterAdmissao !== '';
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('ativo'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterAdmissao(''); };
+  const hasActiveFilters = search !== '' || filterSituacao !== 'ativo' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '';
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('ativo'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -82,14 +82,14 @@ export default function HRPeoplePage() {
       const matchTeam = !filterTeam || p.teamId === filterTeam;
       const matchCargo = !filterCargo || p.cargoId === filterCargo;
       const matchVinculo = !filterVinculo || p.tipoVinculo === filterVinculo;
-      const matchAdmissao = !filterAdmissao || p.dataAdmissao.slice(0, 7) === filterAdmissao;
+      const matchMesAdmissao = !filterMesAdmissao || (new Date(p.dataAdmissao + 'T12:00:00').getMonth() + 1).toString() === filterMesAdmissao;
       let matchComite = true;
       if (filterComite === '__com') matchComite = !!p.comiteGestor;
       else if (filterComite === '__sem') matchComite = !p.comiteGestor;
       else if (filterComite) matchComite = p.comiteGestor === filterComite;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchAdmissao;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterAdmissao]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -242,20 +242,24 @@ export default function HRPeoplePage() {
                 {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="relative">
-              <input
-                type="month"
-                value={filterAdmissao}
-                onChange={e => setFilterAdmissao(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                placeholder="Admissão"
-              />
-              {filterAdmissao && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" onClick={() => setFilterAdmissao('')}>
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
+            <Select value={filterMesAdmissao || 'all'} onValueChange={v => setFilterMesAdmissao(v === 'all' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Mês admissão" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os meses</SelectItem>
+                <SelectItem value="1">Janeiro</SelectItem>
+                <SelectItem value="2">Fevereiro</SelectItem>
+                <SelectItem value="3">Março</SelectItem>
+                <SelectItem value="4">Abril</SelectItem>
+                <SelectItem value="5">Maio</SelectItem>
+                <SelectItem value="6">Junho</SelectItem>
+                <SelectItem value="7">Julho</SelectItem>
+                <SelectItem value="8">Agosto</SelectItem>
+                <SelectItem value="9">Setembro</SelectItem>
+                <SelectItem value="10">Outubro</SelectItem>
+                <SelectItem value="11">Novembro</SelectItem>
+                <SelectItem value="12">Dezembro</SelectItem>
+              </SelectContent>
+            </Select>
             {hasActiveFilters && (
               <Button variant="outline" onClick={handleClearFilters} className="gap-2">
                 <X className="h-4 w-4" />
