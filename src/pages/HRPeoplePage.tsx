@@ -355,9 +355,6 @@ export default function HRPeoplePage() {
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
                                     <Pencil className="h-3.5 w-3.5" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(p)}>
-                                    {p.situacao === 'ativo' ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
-                                  </Button>
                                 </>
                               )}
                             </div>
