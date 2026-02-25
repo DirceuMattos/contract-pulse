@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
@@ -37,6 +38,8 @@ function formatComite(value: string): string {
   return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
 }
 
+type SortField = 'nome' | 'tipoVinculo' | 'cargo' | 'team' | 'localAtuacao' | 'dataAdmissao' | 'tempo' | 'custoTotal' | 'situacao' | 'comiteGestor';
+
 export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, addPerson, updatePerson } = useHR();
@@ -49,14 +52,19 @@ export default function HRPeoplePage() {
   const [filterCargo, setFilterCargo] = useState('');
   const [filterVinculo, setFilterVinculo] = useState('');
   const [filterComite, setFilterComite] = useState('');
+  const [filterAdmissao, setFilterAdmissao] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('nome');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const activeTeams = teams.filter(t => t.isActive);
   const activeJobTitles = jobTitles.filter(jt => jt.isActive);
 
-  // Unique comite values for filter
+  const getTeamName = (teamId?: string) => teams.find(t => t.id === teamId)?.name || '';
+  const getCargoLabel = (cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label || '';
+
   const comiteOptions = useMemo(() => {
     const values = new Set<string>();
     hrPeople.forEach(p => { if (p.comiteGestor) values.add(p.comiteGestor); });
@@ -71,13 +79,55 @@ export default function HRPeoplePage() {
       const matchTeam = !filterTeam || p.teamId === filterTeam;
       const matchCargo = !filterCargo || p.cargoId === filterCargo;
       const matchVinculo = !filterVinculo || p.tipoVinculo === filterVinculo;
+      const matchAdmissao = !filterAdmissao || p.dataAdmissao.slice(0, 7) === filterAdmissao;
       let matchComite = true;
       if (filterComite === '__com') matchComite = !!p.comiteGestor;
       else if (filterComite === '__sem') matchComite = !p.comiteGestor;
       else if (filterComite) matchComite = p.comiteGestor === filterComite;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchAdmissao;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterAdmissao]);
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    arr.sort((a, b) => {
+      let va: string | number = '';
+      let vb: string | number = '';
+      switch (sortField) {
+        case 'nome': va = a.nome.toLowerCase(); vb = b.nome.toLowerCase(); break;
+        case 'tipoVinculo': va = a.tipoVinculo; vb = b.tipoVinculo; break;
+        case 'cargo': va = getCargoLabel(a.cargoId).toLowerCase(); vb = getCargoLabel(b.cargoId).toLowerCase(); break;
+        case 'team': va = getTeamName(a.teamId).toLowerCase(); vb = getTeamName(b.teamId).toLowerCase(); break;
+        case 'localAtuacao': va = (a.localAtuacao || '').toLowerCase(); vb = (b.localAtuacao || '').toLowerCase(); break;
+        case 'dataAdmissao': va = a.dataAdmissao; vb = b.dataAdmissao; break;
+        case 'tempo': va = calcularTempoDeCasa(a.dataAdmissao).meses; vb = calcularTempoDeCasa(b.dataAdmissao).meses; break;
+        case 'custoTotal': va = a.remuneracaoMensal + a.beneficios; vb = b.remuneracaoMensal + b.beneficios; break;
+        case 'situacao': va = a.situacao; vb = b.situacao; break;
+        case 'comiteGestor': va = a.comiteGestor || ''; vb = b.comiteGestor || ''; break;
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+    return arr;
+  }, [filtered, sortField, sortDir]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc'
+      ? <ArrowUp className="inline h-3 w-3 ml-0.5" />
+      : <ArrowDown className="inline h-3 w-3 ml-0.5" />;
+  };
 
   const handleAdd = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -113,9 +163,6 @@ export default function HRPeoplePage() {
     exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx');
   };
 
-  const getTeamName = (teamId?: string) => teams.find(t => t.id === teamId)?.name;
-  const getCargoLabel = (cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label;
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -147,7 +194,7 @@ export default function HRPeoplePage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
             <div className="relative xl:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
@@ -191,11 +238,25 @@ export default function HRPeoplePage() {
                 {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
               </SelectContent>
             </Select>
+            <div className="relative">
+              <input
+                type="month"
+                value={filterAdmissao}
+                onChange={e => setFilterAdmissao(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="Admissão"
+              />
+              {filterAdmissao && (
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" onClick={() => setFilterAdmissao('')}>
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {filtered.length === 0 ? (
+      {sorted.length === 0 ? (
         <EmptyState
           icon={UsersRound}
           title="Nenhuma pessoa encontrada"
@@ -209,93 +270,96 @@ export default function HRPeoplePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UsersRound className="h-5 w-5 text-primary" />
-              {filtered.length} pessoa{filtered.length !== 1 ? 's' : ''}
+              {sorted.length} pessoa{sorted.length !== 1 ? 's' : ''}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Nome</TableHead>
-                    <TableHead className="text-xs">Vínculo</TableHead>
-                    <TableHead className="text-xs">Cargo</TableHead>
-                    <TableHead className="text-xs">Dept.</TableHead>
-                    <TableHead className="text-xs">Local</TableHead>
-                    <TableHead className="text-xs">Admissão</TableHead>
-                    <TableHead className="text-xs">Tempo</TableHead>
-                    {canViewHRCosts && <TableHead className="text-xs">Custo Total</TableHead>}
-                    <TableHead className="text-xs">Sit.</TableHead>
-                    <TableHead className="text-xs">Comitê</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(p => {
-                    const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao);
-                    return (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
-                        <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
-                        <TableCell className="py-2">
-                          <Badge variant={p.tipoVinculo === 'clt' ? 'default' : 'secondary'} className="text-xs">
-                            {p.tipoVinculo.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2 max-w-[140px] truncate">{getCargoLabel(p.cargoId) || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2 max-w-[120px] truncate">{getTeamName(p.teamId) || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2 max-w-[100px] truncate">{p.localAtuacao || '—'}</TableCell>
-                        <TableCell className="text-xs py-2 whitespace-nowrap">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell className="py-2">
-                          <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
-                        </TableCell>
-                        {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
-                        <TableCell className="py-2">
-                          <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
-                            {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell onClick={e => e.stopPropagation()} className="py-2">
-                          {canEdit ? (
+            <ScrollArea className="max-h-[calc(100vh-340px)]">
+              <div className="min-w-[1100px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('nome')}>Nome <SortIcon field="nome" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tipoVinculo')}>Vínculo <SortIcon field="tipoVinculo" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('cargo')}>Cargo <SortIcon field="cargo" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('team')}>Dept. <SortIcon field="team" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('localAtuacao')}>Local <SortIcon field="localAtuacao" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('dataAdmissao')}>Admissão <SortIcon field="dataAdmissao" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}>Tempo <SortIcon field="tempo" /></TableHead>
+                      {canViewHRCosts && <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('custoTotal')}>Custo Total <SortIcon field="custoTotal" /></TableHead>}
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('situacao')}>Sit. <SortIcon field="situacao" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('comiteGestor')}>Comitê <SortIcon field="comiteGestor" /></TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sorted.map(p => {
+                      const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao);
+                      return (
+                        <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                          <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
+                          <TableCell className="py-2">
+                            <Badge variant={p.tipoVinculo === 'clt' ? 'default' : 'secondary'} className="text-xs">
+                              {p.tipoVinculo.toUpperCase()}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2 max-w-[140px] truncate">{getCargoLabel(p.cargoId) || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2 max-w-[120px] truncate">{getTeamName(p.teamId) || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2 max-w-[100px] truncate">{p.localAtuacao || '—'}</TableCell>
+                          <TableCell className="text-xs py-2 whitespace-nowrap">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell className="py-2">
+                            <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
+                          </TableCell>
+                          {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
+                          <TableCell className="py-2">
+                            <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
+                              {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell onClick={e => e.stopPropagation()} className="py-2">
+                            {canEdit ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="month"
+                                  value={p.comiteGestor || ''}
+                                  onChange={e => handleComiteChange(p.id, e.target.value)}
+                                  className="text-xs border rounded px-1.5 py-1 bg-background text-foreground w-[120px]"
+                                />
+                                {p.comiteGestor && (
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleComiteChange(p.id, '')}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs whitespace-nowrap">{p.comiteGestor ? formatComite(p.comiteGestor) : '—'}</span>
+                            )}
+                          </TableCell>
+                          <TableCell onClick={e => e.stopPropagation()} className="py-2">
                             <div className="flex items-center gap-1">
-                              <input
-                                type="month"
-                                value={p.comiteGestor || ''}
-                                onChange={e => handleComiteChange(p.id, e.target.value)}
-                                className="text-xs border rounded px-1.5 py-1 bg-background text-foreground w-[120px]"
-                              />
-                              {p.comiteGestor && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleComiteChange(p.id, '')}>
-                                  <X className="h-3 w-3" />
-                                </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              {canEdit && (
+                                <>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(p)}>
+                                    {p.situacao === 'ativo' ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
+                                  </Button>
+                                </>
                               )}
                             </div>
-                          ) : (
-                            <span className="text-xs whitespace-nowrap">{p.comiteGestor ? formatComite(p.comiteGestor) : '—'}</span>
-                          )}
-                        </TableCell>
-                        <TableCell onClick={e => e.stopPropagation()} className="py-2">
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            {canEdit && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(p)}>
-                                  {p.situacao === 'ativo' ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           </CardContent>
         </Card>
       )}
