@@ -1,55 +1,58 @@
 
 
-# Plano: Ajustes de Upload, Comitê Gestor e Listagem RH
+# Plano: Ordenacao, Filtro por Admissao e Scroll Horizontal na Listagem RH
 
-## 1. Upload: Aumentar limite para 15MB e permitir arquivos compactados
-
-**Arquivo**: `src/components/contracts/AttachmentUploadDialog.tsx`
-
-- Alterar `MAX_FILE_SIZE` de `10 * 1024 * 1024` para `15 * 1024 * 1024`
-- Adicionar extensoes `zip`, `rar`, `7z` ao array `ALLOWED_EXTENSIONS`
-- Adicionar MIMEs correspondentes: `application/zip`, `application/x-rar-compressed`, `application/x-7z-compressed`
-- Atualizar o texto de ajuda e o atributo `accept` do input para incluir `.zip,.rar,.7z`
-- Atualizar a mensagem de erro de tamanho para "15MB"
-
-Este e o unico componente de upload de documentos com validacao de tipo/tamanho.
-
-## 2. Bug do Comitê Gestor salvando mês anterior
-
-**Causa raiz**: Na exibicao (HRPersonDetailPage), o codigo faz `new Date(person.comiteGestor + '-01')` que cria a data em UTC. Se o fuso horario local for negativo (ex: UTC-3 Brasil), `2026-02-01T00:00:00Z` vira `2026-01-31T21:00:00` local, exibindo "janeiro" em vez de "fevereiro".
-
-**Correcao**: Usar `new Date(person.comiteGestor + '-01T12:00:00')` para evitar deslocamento de fuso, ou fazer parse manual do yyyy-MM para exibir o mes/ano correto sem depender de `Date`.
-
-**Arquivos afetados**:
-- `src/pages/HRPersonDetailPage.tsx` (exibicao)
-- Verificar se ha outros locais que interpretam o valor
-
-## 3. Comitê Gestor na tela de listagem com edicao inline
+## 1. Ordenacao por colunas clicaveis
 
 **Arquivo**: `src/pages/HRPeoplePage.tsx`
 
-Adicionar na tabela de listagem:
-- Nova coluna "Comitê" entre "Sit." e as acoes
-- Exibir o valor formatado (ex: "fev/2026") ou "—"
-- Para usuarios com `canEdit`, ao clicar no campo, exibir um `<input type="month">` inline (ou um pequeno popover) para alterar o valor diretamente na listagem, chamando `updatePerson(id, { comiteGestor: novoValor })`
-- Adicionar um botao de limpar (X) para remover a indicacao
+Adicionar estado de ordenacao:
+```
+const [sortField, setSortField] = useState<string>('nome');
+const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+```
 
-## 4. Filtro por Comitê Gestor na listagem
+Criar funcao `handleSort(field)` que alterna direcao se mesmo campo, ou define asc para novo campo.
 
-**Arquivo**: `src/pages/HRPeoplePage.tsx`
+Aplicar `useMemo` de ordenacao sobre o array `filtered`, comparando pelos campos:
+- **nome**: string compare
+- **tipoVinculo**: string compare (clt/pj)
+- **cargo**: resolve `getCargoLabel()` e compara strings
+- **team**: resolve `getTeamName()` e compara strings
+- **localAtuacao**: string compare
+- **dataAdmissao**: string compare (yyyy-MM-dd ja ordena corretamente)
+- **tempo**: usa `calcularTempoDeCasa().meses` (numerico)
+- **custoTotal**: `remuneracaoMensal + beneficios` (numerico, so se canViewHRCosts)
+- **situacao**: string compare
+- **comiteGestor**: string compare (yyyy-MM)
 
-O estado `filterComite` ja existe mas nao ha UI para ele. Adicionar:
-- Um novo `<Select>` no bloco de filtros com opcoes dinamicas extraidas dos valores unicos de `comiteGestor` presentes nos dados
-- Opcao "Todos" (sem filtro)
-- Opcao "Com indicacao" (qualquer valor preenchido)
-- Opcao "Sem indicacao" (vazio)
-- Opcoes por mes/ano especifico
+Nos `<TableHead>`, adicionar `onClick` e `cursor-pointer`, com indicador visual (seta/chevron) mostrando direcao ativa via icones `ArrowUp`/`ArrowDown` do lucide-react.
 
-Ajustar a grid de filtros de `xl:grid-cols-6` para `xl:grid-cols-7` para acomodar o novo filtro.
+## 2. Filtro por mes/ano de admissao
 
-## Resumo de arquivos a alterar
+Adicionar estado `filterAdmissao` (string, formato `yyyy-MM`).
 
-1. `src/components/contracts/AttachmentUploadDialog.tsx` — limite 15MB + formatos compactados
-2. `src/pages/HRPersonDetailPage.tsx` — fix timezone no parse do comiteGestor
-3. `src/pages/HRPeoplePage.tsx` — coluna editavel + filtro comite gestor
+Adicionar um `<input type="month">` nos filtros (similar ao comite gestor inline) para selecionar mes/ano de admissao. A filtragem compara `p.dataAdmissao.slice(0, 7) === filterAdmissao`.
+
+Ajustar a grid de filtros para acomodar o novo campo — de `xl:grid-cols-7` para `xl:grid-cols-8`, com o campo de busca ocupando `xl:col-span-2`.
+
+## 3. Scroll horizontal visivel desde o primeiro acesso
+
+**Problema**: A tabela esta dentro de `<div className="overflow-x-auto">`, mas o container pai (Card/CardContent) nao tem altura fixa, entao a barra de scroll horizontal so aparece no fundo do conteudo.
+
+**Solucao**: Usar `ScrollArea` do Radix (ja disponivel em `@/components/ui/scroll-area`) com orientacao horizontal, substituindo o `<div className="overflow-x-auto">`. Definir uma altura maxima no container com `max-h-[calc(100vh-320px)]` para que tanto o scroll vertical quanto o horizontal fiquem visiveis sem precisar rolar a pagina inteira. Alternativamente, usar `overflow-x-auto` com `sticky` positioning na tabela wrapper para manter a scrollbar acessivel.
+
+A abordagem mais simples e eficaz: envolver a tabela em um `ScrollArea` com `orientation="horizontal"` e adicionar `<ScrollBar orientation="horizontal" />` explicitamente, junto com uma altura fixa no container para garantir que a barra horizontal fique visivel na viewport.
+
+## Resumo de alteracoes
+
+**Arquivo unico**: `src/pages/HRPeoplePage.tsx`
+- Import `ArrowUp`, `ArrowDown` do lucide
+- Import `ScrollArea`, `ScrollBar` de `@/components/ui/scroll-area`
+- Estados: `sortField`, `sortDir`, `filterAdmissao`
+- `useMemo` para ordenacao do array filtrado
+- `TableHead` clicaveis com indicadores visuais
+- Novo filtro `<input type="month">` para admissao
+- Grid de filtros `xl:grid-cols-8`
+- Container da tabela com `ScrollArea` + altura controlada
 
