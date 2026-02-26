@@ -1,39 +1,51 @@
 
 
-# Rollback da Sincronização Feedz de 26/02/2026 11:53:59
+## Diagnóstico: Integração RH Mestre com Módulos Dependentes
 
-## Contexto
+### Problemas Encontrados
 
-A sincronização com run_id `6503610e-e7cb-4713-aa11-a92be88ec587` (iniciada às 14:53:59 UTC / 11:53:59 BRT) gerou:
-- **48 registros criados** indevidamente em `hr_people`
-- **90 registros atualizados** em `hr_people` (estes já existiam)
-- **2 registros terminados** (mudança de situação para inativo)
+1. **Fallback silencioso no resolver**: Quando `hrPersonId` existe mas a pessoa não é encontrada, o sistema usa dados antigos sem avisar. Deveria sinalizar o link quebrado.
 
-## Plano de Rollback
+2. **Cálculos não passam pelo resolver**: Apenas `ContractResourcesPage` chama `resolveResourceForCalc` antes de calcular custos. Todos os demais módulos (Dashboard, Contratos, Detalhe de Contrato, Detalhe de Cliente, Squads) usam `resource.custoBase` direto — ignorando o valor atualizado do RH Mestre.
 
-### 1. Deletar os 48 registros criados indevidamente
+3. **Sem indicador visual de link quebrado**: Nenhum módulo mostra aviso quando um recurso vinculado ao RH aponta para uma pessoa inexistente.
 
-Usar a ferramenta de deleção para executar em sequência:
+### Plano de Implementação
 
-```sql
--- Remover timeline events dos 48 registros criados
-DELETE FROM hr_timeline WHERE person_id IN (
-  SELECT id FROM hr_people WHERE id_externo IN ('2047512','2051079','2051080', ... [48 IDs])
-);
+#### 1. Adicionar flag `isBrokenLink` ao resolver
+**Arquivo**: `src/lib/resourceResolver.ts`
+- Adicionar `isBrokenLink: boolean` ao tipo `ResolvedResource`
+- Quando `hrPersonId` existe mas pessoa não é encontrada: retornar `isBrokenLink: true`
+- `resolveResourceForCalc`: logar warning no console quando link quebrado
 
--- Remover os 48 registros de hr_people
-DELETE FROM hr_people WHERE id_externo IN ('2047512','2051079','2051080', ... [48 IDs]);
-```
+#### 2. Centralizar resolução de recursos no DataContext
+**Arquivo**: `src/contexts/DataContext.tsx`
+- Criar função `getResolvedResources()` que aplica `resolveResourceForCalc` em todos os recursos usando `hrPeople` do HRContext
+- Expor `resolvedResources` no contexto para que todos os módulos usem dados atualizados automaticamente
 
-### 2. Atualizar o status do sync run
+#### 3. Atualizar todos os módulos para usar recursos resolvidos
+**Arquivos**:
+- `src/pages/DashboardPage.tsx` — usar `resolvedResources` nos cálculos de KPIs
+- `src/pages/ContractsPage.tsx` — usar `resolvedResources` no cálculo de saúde
+- `src/pages/ContractDetailPage.tsx` — usar `resolvedResources` no cálculo de saúde e custos
+- `src/pages/ClientDetailPage.tsx` — usar `resolvedResources` no cálculo de saúde
+- `src/pages/SquadsPage.tsx` — usar `resolvedResources` nos cálculos (já usa resolver para display)
+- `src/pages/ContractResourcesPage.tsx` — simplificar, pois já não precisará resolver localmente
 
-```sql
-UPDATE feedz_sync_runs 
-SET status = 'rolled_back', error_message = 'Rollback manual: 48 registros criados removidos'
-WHERE id = '6503610e-e7cb-4713-aa11-a92be88ec587';
-```
+#### 4. Adicionar indicadores visuais de links quebrados
+**Arquivos**: `ContractResourcesPage.tsx`, `SquadsPage.tsx`
+- Ícone de alerta (triângulo amarelo) ao lado do nome do recurso quando `isBrokenLink === true`
+- Tooltip: "Pessoa não encontrada no RH Mestre — dados podem estar desatualizados"
 
-### Limitação
+#### 5. Alerta no Dashboard para links órfãos
+**Arquivo**: `src/pages/DashboardPage.tsx` ou `src/lib/alertGenerator.ts`
+- Contar recursos com `hrPersonId` definido mas pessoa ausente
+- Exibir banner/alerta informando quantidade de vínculos quebrados
 
-Os **90 updates** e **2 terminações** feitos em registros existentes **não podem ser revertidos automaticamente** pois não temos snapshot dos valores anteriores. Se precisar reverter algum desses, será necessário corrigir manualmente.
+### Resultado Esperado
+
+Após estas mudanças:
+- **(a)** Nova importação de RH → dados refletidos automaticamente em todos os módulos via resolver centralizado
+- **(b)** Sincronização Feedz → atualiza `hr_people` → resolver usa dados frescos em todos os cálculos
+- **(c)** Qualquer atualização no RH Mestre propaga para Dashboard, Contratos, Squads e todos os demais módulos sem intervenção manual
 
