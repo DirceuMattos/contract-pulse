@@ -1,47 +1,26 @@
 
 
-# Correções na Sincronização Feedz + Limpeza do Banco
+# Retorno ao módulo Squads após navegação
 
-## 1. Limpeza dos registros Feedz (dados)
+## Problema
+Os botões "Ver contrato" e "Ver recursos" no módulo Squads navegam para `/contratos/:id`, mas os botões de voltar nessas páginas redirecionam para `/contratos` em vez de `/squads`.
 
-Usar a ferramenta de inserção/deleção para executar:
+Além disso, ambos os botões na visão por projeto (linhas 391-396) apontam para a mesma URL (`/contratos/${cd.contractId}`), quando "Ver recursos" deveria ir para `/contratos/${cd.contractId}/recursos`.
 
-```sql
--- Deletar timeline events de pessoas vindas do Feedz
-DELETE FROM hr_timeline WHERE person_id IN (SELECT id FROM hr_people WHERE id_externo IS NOT NULL);
+## Alterações
 
--- Deletar pessoas com id_externo (vindas do Feedz)
-DELETE FROM hr_people WHERE id_externo IS NOT NULL;
-```
+### 1. SquadsPage.tsx — Passar `state` na navegação e corrigir URL de recursos
 
-## 2. Corrigir a Edge Function `feedz-sync/index.ts`
+- Linha 391: `navigate(/contratos/${cd.contractId}, { state: { from: '/squads' } })`
+- Linha 394: Corrigir URL para `/contratos/${cd.contractId}/recursos` e passar `{ state: { from: '/squads' } }`
 
-Melhorar o matching para encontrar pessoas existentes por **nome normalizado** além de `id_externo` e `email`:
+### 2. ContractDetailPage.tsx — Usar `state.from` no botão voltar
 
-**Matching atual** (insuficiente):
-- `id_externo` → `email`
-- Se não encontra, cria novo (duplica)
+- Linha 153: Alterar o `onClick` do botão `<ArrowLeft>` para usar `location.state?.from || '/contratos'` como destino
+- Importar `useLocation` (já importa `useNavigate` e `useParams`)
 
-**Matching corrigido**:
-- `id_externo` → `email` → **nome normalizado** (lowercase, trim)
-- Se encontra por qualquer critério, **atualiza** e seta o `id_externo`
-- Só cria se não encontrar por nenhum critério
+### 3. ContractResourcesPage.tsx — Usar `state.from` no breadcrumb/voltar
 
-Alterações no arquivo `supabase/functions/feedz-sync/index.ts`:
-
-1. Adicionar um `nameMap` com nomes normalizados de todas as pessoas existentes
-2. No loop de matching (linha ~162), adicionar fallback por nome:
-   ```
-   existing = peopleMap.get(externalId)
-     || emailMap.get(email)
-     || nameMap.get(nomeNormalizado)
-   ```
-3. Quando encontrar por email ou nome (sem id_externo), incluir `id_externo: externalId` no payload de update para vincular o registro existente ao Feedz
-4. Manter toda a lógica de update/timeline existente
-
-## Detalhes técnicos
-
-- A normalização do nome será `nome.toLowerCase().trim()` tanto para os registros existentes quanto para o `full_name`/`name` vindo do Feedz
-- O `id_externo` será sempre gravado no update para que nas próximas sincronizações o matching seja direto
-- Nenhuma alteração de schema necessária
+- O `PageHeader` tem breadcrumbs com `href: '/contratos'`. Quando vindo do Squads, o link "Contratos" no breadcrumb deve apontar para `/squads`
+- Adicionar `useLocation`, ler `location.state?.from` e ajustar o primeiro breadcrumb e qualquer botão de voltar
 
