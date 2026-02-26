@@ -109,7 +109,7 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
   const { hrPeople } = useHR();
   const { canViewHRCosts } = useAuth();
   const activeJobTitles = getActiveJobTitles();
-  const [customNome, setCustomNome] = useState(false);
+  
   const [selectedHrPersonId, setSelectedHrPersonId] = useState<string | undefined>(resource?.hrPersonId);
 
   // Active HR people for selection
@@ -134,8 +134,6 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
     return teams.find(t => t.id === linkedPerson.teamId) ?? null;
   }, [linkedPerson, teams]);
 
-  // Check if editing an existing resource with no HR link (legacy or manual)
-  const isLegacyEdit = !!resource && !resource.hrPersonId;
 
   const form = useForm<ResourceFormData>({
     resolver: zodResolver(resourceFormSchema),
@@ -190,20 +188,12 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
   const custoCalculado = calculateResourceCost(previewResource, settings);
 
   const handleSelectHrPerson = (personId: string) => {
-    if (personId === '__other__') {
-      setCustomNome(true);
-      setSelectedHrPersonId(undefined);
-      form.setValue('hrPersonId', '');
-      form.setValue('nome', '');
-      form.setValue('cargo', '');
-      return;
-    }
 
     const person = hrPeople.find(p => p.id === personId);
     if (!person) return;
 
     setSelectedHrPersonId(personId);
-    setCustomNome(false);
+    
     form.setValue('hrPersonId', personId);
     form.setValue('nome', person.nome);
     
@@ -439,14 +429,14 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                         </Badge>
                       )}
                     </FormLabel>
-                    {!customNome && activeHrPeople.length > 0 ? (
+                    {activeHrPeople.length > 0 ? (
                       <Select
                         onValueChange={handleSelectHrPerson}
                         value={selectedHrPersonId || ''}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione a pessoa do RH" />
+                            <SelectValue placeholder="Selecione a pessoa do RH *" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -458,22 +448,11 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
                               </SelectItem>
                             );
                           })}
-                          <SelectItem value="__other__">Outro (entrada manual)...</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input placeholder="Ex: João Silva" {...field} />
-                        </FormControl>
-                        {activeHrPeople.length > 0 && (
-                          <Button type="button" variant="outline" size="sm" onClick={() => {
-                            setCustomNome(false);
-                            field.onChange('');
-                          }}>
-                            Lista
-                          </Button>
-                        )}
+                      <div className="p-3 rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground">
+                        Nenhuma pessoa cadastrada no RH Mestre. Importe a planilha de RH primeiro.
                       </div>
                     )}
                     <FormMessage />
