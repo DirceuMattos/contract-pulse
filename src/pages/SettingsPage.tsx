@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -438,6 +438,8 @@ export default function SettingsPage() {
 
 function FeedzSyncSection() {
   const [syncing, setSyncing] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [rollbackConfirmOpen, setRollbackConfirmOpen] = useState(false);
   const [runs, setRuns] = useState<any[]>([]);
   const [loadingRuns, setLoadingRuns] = useState(true);
 
@@ -459,7 +461,6 @@ function FeedzSyncSection() {
     try {
       const { data, error } = await supabase.functions.invoke('feedz-sync');
       if (error) {
-        // Try to extract detailed error from response
         const detail = typeof error === 'object' && error.message ? error.message : String(error);
         throw new Error(detail);
       }
@@ -475,66 +476,132 @@ function FeedzSyncSection() {
     }
   };
 
+  // Find the latest run with status 'success' (only first one is rollbackable)
+  const latestSuccessRun = runs.length > 0 && runs[0].status === 'success' ? runs[0] : null;
+
+  const handleRollback = async () => {
+    if (!latestSuccessRun) return;
+    setRollingBack(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('feedz-rollback', {
+        body: { runId: latestSuccessRun.id },
+      });
+      if (error) {
+        const detail = typeof error === 'object' && error.message ? error.message : String(error);
+        throw new Error(detail);
+      }
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Rollback concluído: ${data?.removed || 0} registros removidos.`);
+      loadRuns();
+    } catch (err: any) {
+      toast.error(`Erro no rollback: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setRollingBack(false);
+      setRollbackConfirmOpen(false);
+    }
+  };
+
   const statusIcon = (status: string) => {
     if (status === 'success') return <CheckCircle className="h-4 w-4 text-emerald-500" />;
+    if (status === 'rolled_back') return <Undo2 className="h-4 w-4 text-muted-foreground" />;
     if (status === 'error') return <XCircle className="h-4 w-4 text-destructive" />;
     return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
   };
 
+  const statusLabel = (status: string) => {
+    if (status === 'rolled_back') return 'Revertido';
+    return status;
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-primary" />
-            <CardTitle>Integração Feedz (TOTVS)</CardTitle>
+    <>
+      <ConfirmDeleteDialog
+        open={rollbackConfirmOpen}
+        onOpenChange={setRollbackConfirmOpen}
+        onConfirm={handleRollback}
+        title="Reverter última sincronização?"
+        description={
+          latestSuccessRun
+            ? `Isso irá excluir os ${latestSuccessRun.records_created} registros criados nesta sincronização.${
+                (latestSuccessRun.records_updated > 0 || latestSuccessRun.records_terminated > 0)
+                  ? ` Atenção: ${latestSuccessRun.records_updated} atualizações e ${latestSuccessRun.records_terminated} desligamentos NÃO serão revertidos (sem versionamento).`
+                  : ''
+              } Esta ação não pode ser desfeita.`
+            : ''
+        }
+        confirmLabel={rollingBack ? 'Revertendo...' : 'Reverter'}
+      />
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              <CardTitle>Integração Feedz (TOTVS)</CardTitle>
+            </div>
+            <Button onClick={handleSync} disabled={syncing}>
+              {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
+            </Button>
           </div>
-          <Button onClick={handleSync} disabled={syncing}>
-            {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
-          </Button>
-        </div>
-        <CardDescription>
-          Sincroniza colaboradores do Feedz com o cadastro de RH. Cargos e equipes são criados automaticamente quando não existentes.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <h4 className="text-sm font-medium mb-3">Últimas sincronizações</h4>
-        {loadingRuns ? (
-          <div className="text-center py-4 text-muted-foreground text-sm">Carregando...</div>
-        ) : runs.length === 0 ? (
-          <div className="text-center py-4 text-muted-foreground text-sm">Nenhuma sincronização realizada.</div>
-        ) : (
-          <div className="border rounded-md overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs">Data</TableHead>
-                  <TableHead className="text-xs">Processados</TableHead>
-                  <TableHead className="text-xs">Criados</TableHead>
-                  <TableHead className="text-xs">Atualizados</TableHead>
-                  <TableHead className="text-xs">Desligados</TableHead>
-                  <TableHead className="text-xs">Erro</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {runs.map((r: any) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{statusIcon(r.status)}</TableCell>
-                    <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-xs">{r.records_processed}</TableCell>
-                    <TableCell className="text-xs">{r.records_created}</TableCell>
-                    <TableCell className="text-xs">{r.records_updated}</TableCell>
-                    <TableCell className="text-xs">{r.records_terminated}</TableCell>
-                    <TableCell className="text-xs text-destructive truncate max-w-[200px]">{r.error_message || '—'}</TableCell>
+          <CardDescription>
+            Sincroniza colaboradores do Feedz com o cadastro de RH. Cargos e equipes são criados automaticamente quando não existentes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <h4 className="text-sm font-medium mb-3">Últimas sincronizações</h4>
+          {loadingRuns ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">Carregando...</div>
+          ) : runs.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">Nenhuma sincronização realizada.</div>
+          ) : (
+            <div className="border rounded-md overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Data</TableHead>
+                    <TableHead className="text-xs">Processados</TableHead>
+                    <TableHead className="text-xs">Criados</TableHead>
+                    <TableHead className="text-xs">Atualizados</TableHead>
+                    <TableHead className="text-xs">Desligados</TableHead>
+                    <TableHead className="text-xs">Erro</TableHead>
+                    <TableHead className="text-xs">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {runs.map((r: any, idx: number) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="flex items-center gap-1.5">
+                        {statusIcon(r.status)}
+                        <span className="text-xs">{statusLabel(r.status)}</span>
+                      </TableCell>
+                      <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('pt-BR')}</TableCell>
+                      <TableCell className="text-xs">{r.records_processed}</TableCell>
+                      <TableCell className="text-xs">{r.records_created}</TableCell>
+                      <TableCell className="text-xs">{r.records_updated}</TableCell>
+                      <TableCell className="text-xs">{r.records_terminated}</TableCell>
+                      <TableCell className="text-xs text-destructive truncate max-w-[200px]">{r.error_message || '—'}</TableCell>
+                      <TableCell>
+                        {idx === 0 && r.status === 'success' && r.records_created > 0 ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRollbackConfirmOpen(true)}
+                            disabled={rollingBack}
+                          >
+                            {rollingBack ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Undo2 className="h-3 w-3 mr-1" />}
+                            Rollback
+                          </Button>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
