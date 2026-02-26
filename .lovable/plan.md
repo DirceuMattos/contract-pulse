@@ -1,48 +1,35 @@
 
 
-# Diagnóstico: Edge Function `feedz-sync` com bug de autenticação
+# Ajuste de destaque nos cards do Squads
 
-## Problema identificado
+## Alteracoes
 
-A Edge Function `feedz-sync` possui um bug que impede seu funcionamento. Na linha 48, ela usa `userClient.auth.getClaims(token)` -- **esse metodo nao existe** na biblioteca Supabase JS v2. O metodo correto e `getUser()`.
+### 1. Visao "Por Projeto" (`renderContractCard`)
+- **Linha 370**: Trocar `cd.clientName` por `cd.contractNome` (ou `cd.contractCodigo`) como titulo principal do card (`CardTitle`)
+- **Adicionar** o nome do cliente (`cd.clientName`) como texto secundario logo abaixo do titulo
+- Manter o codigo do contrato visivel
 
-Isso significa que toda chamada a funcao falha silenciosamente na verificacao de autenticacao, retornando "Unauthorized" antes mesmo de tentar conectar ao Feedz.
+### 2. Visao "Por Recurso" (`renderResourceCard`, alocacoes internas)
+- **Linha 432**: Trocar `alloc.clientName` (que esta em destaque como `font-medium`) por `alloc.contractCodigo` (nome/codigo do contrato)
+- Colocar `alloc.clientName` como texto secundario (`text-muted-foreground`) abaixo ou ao lado
 
-**Importante esclarecer:** a verificacao "c-level" **nao tem relacao com o Feedz**. E uma regra do **nosso sistema** (RBAC interno). O usuario que clicar "Sincronizar agora" precisa ter o papel `c-level` atribuido na tabela `user_roles` do nosso banco. Isso nao depende de nenhum campo do Feedz.
+### Detalhes tecnicos
 
-## Correcoes necessarias
+**Arquivo**: `src/pages/SquadsPage.tsx`
 
-### 1. Corrigir autenticacao na Edge Function
-
-Substituir o trecho com `getClaims` (linhas 42-52) por `getUser()`:
-
-```typescript
-// Antes (bugado):
-const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token)
-const userId = claimsData.claims.sub
-
-// Depois (correto):
-const { data: { user }, error: userError } = await userClient.auth.getUser()
-if (userError || !user) {
-  return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
-}
-const userId = user.id
+**Visao Por Projeto** (linhas 368-373):
+```
+Antes:  CardTitle = cd.clientName  ·  cd.contractCodigo
+Depois: CardTitle = cd.contractNome (ou contractCodigo)
+        Linha abaixo: cd.clientName
 ```
 
-### 2. Melhorar feedback de erro no frontend
+**Visao Por Recurso** (linhas 431-434, dentro das alocacoes):
+```
+Antes:  font-medium = alloc.clientName  ·  alloc.contractCodigo
+Depois: font-medium = alloc.contractCodigo (contrato em destaque)
+        muted = alloc.clientName (cliente abaixo)
+```
 
-Atualizar `SettingsPage.tsx` para exibir a mensagem de erro real retornada pela Edge Function, facilitando o diagnostico caso o Feedz retorne erro de token ou endpoint.
-
-### 3. Nenhuma outra mudanca
-
-A logica de mapeamento de campos, criacao de cargos/equipes, timeline e desligamento permanece inalterada.
-
-## Resumo das alteracoes
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `supabase/functions/feedz-sync/index.ts` | Corrigir `getClaims` para `getUser()` |
-| `src/pages/SettingsPage.tsx` | Melhorar exibicao de erros do sync |
-
-Apos essa correcao, o botao "Sincronizar agora" em **Configuracoes** (visivel apenas para usuarios c-level do nosso sistema) devera funcionar corretamente, conectando ao Feedz com o token configurado.
+Para a visao por recurso, sera necessario adicionar `contractNome` ao tipo `ResourceViewData.allocations` (atualmente so tem `contractCodigo` e `clientName`). O campo `contractNome` sera preenchido a partir de `cd.contractNome` no `useMemo` da linha 227.
 
