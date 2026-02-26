@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -24,6 +24,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
+import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,12 +86,13 @@ export default function ContractDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
+  const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { canAccessModule } = useModuleAccess();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
-  const contractResources = id ? getResourcesByContract(id) : [];
+  const contractResources = useMemo(() => id ? allResolvedResources.filter(r => r.contractId === id) : [], [allResolvedResources, id]);
   const snapshots = id ? getSnapshotsByContract(id) : [];
   const contractAlerts = alerts.filter(a => a.contractId === id);
   
@@ -123,11 +125,11 @@ export default function ContractDetailPage() {
   }, {} as Record<string, Resource[]>);
   
   // Calculate costs by type
-  const costsByType = Object.entries(resourcesByType).map(([type, resources]) => ({
+  const costsByType = Object.entries(resourcesByType).map(([type, res]) => ({
     type,
     label: type === 'clt' ? 'CLT' : type === 'pj' ? 'PJ' : 'Outros',
-    cost: resources.reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
-    count: resources.length,
+    cost: (res as Resource[]).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
+    count: (res as Resource[]).length,
   }));
   
   // Trend data from snapshots

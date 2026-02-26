@@ -194,7 +194,8 @@ export type AlertType =
   | 'financeiro-margem-baixa'
   | 'vigencia-vencido'
   | 'governanca-contatos'
-  | 'renovacao-proxima';
+  | 'renovacao-proxima'
+  | 'hr-links-quebrados';
 
 export type AlertSeverity = 'atencao' | 'critico' | 'info';
 

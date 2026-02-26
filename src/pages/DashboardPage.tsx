@@ -20,6 +20,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
+import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAlerts } from '@/hooks/useAlerts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -120,7 +121,8 @@ function loadFilters(): { selectedClientId: string; selectedContractId: string }
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { canViewValues } = useAuth();
-  const { contracts, clients, resources, settings, overheadItems } = useData();
+  const { contracts, clients, resources: _rawResources, settings, overheadItems } = useData();
+  const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
 
   const savedFilters = loadFilters();

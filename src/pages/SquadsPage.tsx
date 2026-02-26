@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, List, User } from 'lucide-react';
+import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
+import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useHR } from '@/contexts/HRContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +27,7 @@ import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 interface SquadTeamData {
   team: Team | null;
   teamName: string;
-  resources: { resource: Resource; resolvedNome: string; resolvedCargo: string }[];
+  resources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean }[];
   fte: number;
   percent: number;
 }
@@ -78,7 +79,8 @@ const healthHeaderStyles: Record<string, string> = {
 // --- Component ---
 
 export default function SquadsPage() {
-  const { clients, contracts, resources, settings, overheadItems, jobTitles, teams } = useData();
+  const { clients, contracts, resources: _rawResources, settings, overheadItems, jobTitles, teams } = useData();
+  const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const navigate = useNavigate();
 
@@ -134,15 +136,13 @@ export default function SquadsPage() {
       const hc = healthConfig[health.status];
 
       // Group by team — using HR Master teamId when linked
-      const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string }[] }>();
+      const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean }[] }>();
       for (const { resource: hr, resolved } of filteredHR) {
         let teamId: string | undefined;
         
         if (resolved.teamId) {
-          // Linked to HR Master — use person's team directly
           teamId = resolved.teamId;
         } else {
-          // Legacy — match by cargo text
           const cargoLower = (resolved.cargo || '').toLowerCase();
           const matchedJT = jobTitles.find(jt => jt.label.toLowerCase() === cargoLower);
           teamId = matchedJT?.teamId ?? undefined;
@@ -155,6 +155,7 @@ export default function SquadsPage() {
           resource: hr,
           resolvedNome: resolved.nome,
           resolvedCargo: resolved.cargo || 'Sem cargo',
+          isBrokenLink: resolved.isBrokenLink,
         });
       }
 
@@ -341,9 +342,17 @@ export default function SquadsPage() {
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
-                {td.resources.map(({ resource: r, resolvedNome, resolvedCargo }) => (
+                {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink }) => (
                   <div key={r.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
                     <span className="font-medium">{resolvedNome || 'Sem nome'}</span>
+                    {isBrokenLink && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent>Pessoa não encontrada no RH Mestre — dados podem estar desatualizados</TooltipContent>
+                      </Tooltip>
+                    )}
                     <span className="text-muted-foreground">—</span>
                     <span className="text-muted-foreground">{resolvedCargo || 'Sem cargo'}</span>
                     <span className="ml-auto tabular-nums font-medium">{r.percentualDedicacao}%</span>

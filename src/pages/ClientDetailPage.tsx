@@ -14,6 +14,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
+import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,8 @@ const healthLabels: Record<HealthStatus, string> = {
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getClient, getContractsByClient, resources, settings, overheadItems } = useData();
+  const { getClient, getContractsByClient, resources: _rawResources, settings, overheadItems } = useData();
+  const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
   
   const client = id ? getClient(id) : undefined;

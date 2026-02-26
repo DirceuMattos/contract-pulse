@@ -376,7 +376,16 @@ export default function ContractResourcesPage() {
                               )}>
                                 {typeLabels[resource.tipo]}
                               </Badge>
-                              {resolved.isLinked ? (
+                              {resolved.isBrokenLink ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="text-[10px] gap-1 bg-destructive/10 text-destructive border-destructive/30">
+                                      <AlertTriangle className="w-3 h-3" /> Link quebrado
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Pessoa não encontrada no RH Mestre — dados podem estar desatualizados</TooltipContent>
+                                </Tooltip>
+                              ) : resolved.isLinked ? (
                                 <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5 text-primary border-primary/20">
                                   <Link2 className="w-3 h-3" /> RH
                                 </Badge>

@@ -11,6 +11,7 @@ export interface ResolvedResource {
   tipoVinculo: HRTipoVinculo | string;
   custoBase: number;
   isLinked: boolean;
+  isBrokenLink: boolean;
 }
 
 /** Build lookup maps for O(1) resolution */
@@ -40,8 +41,20 @@ export function resolveResource(
         tipoVinculo: person.tipoVinculo,
         custoBase: person.remuneracaoMensal,
         isLinked: true,
+        isBrokenLink: false,
       };
     }
+    // hrPersonId exists but person not found — broken link
+    return {
+      nome: resource.nome,
+      cargo: resource.cargo,
+      teamName: undefined,
+      teamId: undefined,
+      tipoVinculo: resource.tipo === 'clt' ? 'clt' : 'pj',
+      custoBase: resource.custoBase,
+      isLinked: false,
+      isBrokenLink: true,
+    };
   }
   return {
     nome: resource.nome,
@@ -51,6 +64,7 @@ export function resolveResource(
     tipoVinculo: resource.tipo === 'clt' ? 'clt' : 'pj',
     custoBase: resource.custoBase,
     isLinked: false,
+    isBrokenLink: false,
   };
 }
 
@@ -71,6 +85,7 @@ export function resolveResourceForCalc(
         tipo: person.tipoVinculo === 'clt' ? 'clt' : 'pj',
       };
     }
+    console.warn(`[resourceResolver] Link quebrado: recurso "${resource.nome}" (id=${resource.id}) aponta para hrPersonId="${resource.hrPersonId}" que não existe no RH Mestre.`);
   }
   return resource;
 }
