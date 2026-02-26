@@ -1,27 +1,36 @@
 
 
-## Atualizar Remuneração Mensal com valores da Remuneração II
+## Rollback da Última Sincronização Feedz
 
-### Situação Atual
-- 134 registros em `hr_people`
-- 127 possuem `remuneracao_ii > 0`
-- 94 têm `remuneracao_mensal` diferente de `remuneracao_ii`
+### Escopo
+Adicionar um botão de rollback na linha da última sincronização na tabela de histórico, que reverte **apenas os registros criados** naquela execução (conforme limitação técnica já documentada — atualizações e desligamentos não são versionados).
 
-### Plano
+### Como funciona
+1. Ao clicar em "Rollback" na linha da última sync, o sistema consulta `feedz_sync_events` filtrando por `sync_run_id` e `event_type = 'create'`
+2. Para cada `external_id` encontrado, exclui o registro correspondente de `hr_people` (e timeline associada)
+3. Atualiza o status do `feedz_sync_runs` para `'rolled_back'`
+4. Exibe confirmação com contagem de registros removidos
 
-**Executar um único UPDATE no banco de dados:**
+### Implementação
 
-```sql
-UPDATE hr_people
-SET remuneracao_mensal = remuneracao_ii,
-    updated_at = now()
-WHERE remuneracao_ii > 0;
-```
+**1. Criar edge function `feedz-rollback`**
+- Recebe `{ runId }` no body
+- Valida que o caller é c-level
+- Busca eventos do run com `event_type = 'create'`
+- Deleta os `hr_people` por `id_externo` (e timeline por `person_id`)
+- Marca o run como `'rolled_back'`
+- Retorna contagem de removidos
 
-Isso copiará o valor de `remuneracao_ii` para `remuneracao_mensal` em todos os 127 registros que possuem valor positivo. Os 7 registros com `remuneracao_ii = 0` permanecerão inalterados (mantendo seus valores atuais em `remuneracao_mensal`).
+**2. Atualizar `SettingsPage.tsx` — componente `FeedzSyncSection`**
+- Adicionar coluna "Ações" na tabela de histórico
+- Na linha da **última** sync com status `'success'`, exibir botão "Rollback" com ícone `Undo2`
+- Dialog de confirmação antes de executar
+- Após sucesso, recarregar a lista de runs
 
 ### Detalhes Técnicos
-- Operação direta no banco via ferramenta de dados (INSERT tool)
-- Nenhuma alteração de código necessária
-- O campo `updated_at` será atualizado para refletir a modificação
+
+- A edge function usa `SUPABASE_SERVICE_ROLE_KEY` para bypass de RLS nas deleções
+- Apenas runs com status `'success'` podem ser revertidos
+- Apenas a **última** linha (mais recente) exibe o botão — não é possível reverter runs antigos
+- Rollback de updates/terminations não é suportado (será informado no dialog de confirmação quando houver registros atualizados/desligados no run)
 
