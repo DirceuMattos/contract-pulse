@@ -15,10 +15,67 @@ interface FeedzEmployee {
   remuneration?: string
   admission_at?: string
   status?: string          // "Ativo", "Desligado", "Desativado"
-  department?: string | { id: number; name: string }
+  department?: string
   department_data?: { id: number; name: string }
   job_description?: { id: number; title: string; description?: string }
   description?: string
+}
+
+/**
+ * Fetch all employees from Feedz API with pagination support.
+ * The API returns arrays directly (not wrapped in pagination object for employees).
+ * We also fetch inactive employees by using status[] params.
+ */
+async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee[]> {
+  const baseUrl = 'https://app.feedz.com.br/v2/integracao/employees'
+  
+  // Fetch active + inactive employees
+  const statuses = ['Ativo', 'Desligado', 'Desativado']
+  const statusParams = statuses.map(s => `status[]=${encodeURIComponent(s)}`).join('&')
+  const url = `${baseUrl}?${statusParams}`
+
+  console.log(`[feedz-sync] Fetching: ${url}`)
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${feedzToken}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  console.log(`[feedz-sync] Feedz response status: ${response.status}`)
+  console.log(`[feedz-sync] Feedz response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`)
+
+  if (!response.ok) {
+    const errText = await response.text()
+    console.error(`[feedz-sync] Feedz API error body: ${errText.substring(0, 500)}`)
+    throw new Error(`Feedz API error ${response.status}: ${errText.substring(0, 200)}`)
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    const body = await response.text()
+    console.error(`[feedz-sync] Unexpected content-type: ${contentType}. Body: ${body.substring(0, 500)}`)
+    throw new Error(`Feedz API returned non-JSON response (${contentType}). Possible Cloudflare block.`)
+  }
+
+  const data = await response.json()
+  
+  // API returns an array directly for employees
+  if (Array.isArray(data)) {
+    console.log(`[feedz-sync] Fetched ${data.length} employees`)
+    return data
+  }
+  
+  // If paginated response
+  if (data.data && Array.isArray(data.data)) {
+    console.log(`[feedz-sync] Fetched ${data.data.length} employees (paginated)`)
+    return data.data
+  }
+
+  console.error(`[feedz-sync] Unexpected response shape: ${JSON.stringify(data).substring(0, 300)}`)
+  throw new Error('Unexpected Feedz API response format')
 }
 
 Deno.serve(async (req) => {
@@ -74,22 +131,7 @@ Deno.serve(async (req) => {
   let processed = 0, created = 0, updated = 0, terminated = 0
 
   try {
-    // Fetch from Feedz API v2 — correct endpoint
-    const feedzRes = await fetch('https://app.feedz.com.br/v2/integracao/employees', {
-      headers: {
-        'Authorization': `Bearer ${feedzToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'BNPContratos/1.0 (Feedz Integration)',
-      },
-    })
-
-    if (!feedzRes.ok) {
-      const errText = await feedzRes.text()
-      throw new Error(`Feedz API error ${feedzRes.status}: ${errText}`)
-    }
-
-    const feedzData: FeedzEmployee[] = await feedzRes.json()
+    const feedzData = await fetchAllFeedzEmployees(feedzToken)
 
     // Load existing data
     const { data: existingPeople } = await db.from('hr_people').select('*')
@@ -146,7 +188,7 @@ Deno.serve(async (req) => {
       // Resolve team/departamento
       let teamId: string | null = null
       const deptName = person.department_data?.name
-        || (typeof person.department === 'string' ? person.department : (person.department as any)?.name)
+        || (typeof person.department === 'string' ? person.department : null)
       if (deptName) {
         const existingTeam = teamMap.get(deptName.toLowerCase())
         if (existingTeam) {
@@ -292,6 +334,7 @@ Deno.serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (err: any) {
+    console.error(`[feedz-sync] Error: ${err.message}`)
     await db.from('feedz_sync_runs').update({
       status: 'error',
       ended_at: new Date().toISOString(),
