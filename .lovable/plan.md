@@ -1,26 +1,39 @@
 
 
-# Retorno ao módulo Squads após navegação
+# Rollback da Sincronização Feedz de 26/02/2026 11:53:59
 
-## Problema
-Os botões "Ver contrato" e "Ver recursos" no módulo Squads navegam para `/contratos/:id`, mas os botões de voltar nessas páginas redirecionam para `/contratos` em vez de `/squads`.
+## Contexto
 
-Além disso, ambos os botões na visão por projeto (linhas 391-396) apontam para a mesma URL (`/contratos/${cd.contractId}`), quando "Ver recursos" deveria ir para `/contratos/${cd.contractId}/recursos`.
+A sincronização com run_id `6503610e-e7cb-4713-aa11-a92be88ec587` (iniciada às 14:53:59 UTC / 11:53:59 BRT) gerou:
+- **48 registros criados** indevidamente em `hr_people`
+- **90 registros atualizados** em `hr_people` (estes já existiam)
+- **2 registros terminados** (mudança de situação para inativo)
 
-## Alterações
+## Plano de Rollback
 
-### 1. SquadsPage.tsx — Passar `state` na navegação e corrigir URL de recursos
+### 1. Deletar os 48 registros criados indevidamente
 
-- Linha 391: `navigate(/contratos/${cd.contractId}, { state: { from: '/squads' } })`
-- Linha 394: Corrigir URL para `/contratos/${cd.contractId}/recursos` e passar `{ state: { from: '/squads' } }`
+Usar a ferramenta de deleção para executar em sequência:
 
-### 2. ContractDetailPage.tsx — Usar `state.from` no botão voltar
+```sql
+-- Remover timeline events dos 48 registros criados
+DELETE FROM hr_timeline WHERE person_id IN (
+  SELECT id FROM hr_people WHERE id_externo IN ('2047512','2051079','2051080', ... [48 IDs])
+);
 
-- Linha 153: Alterar o `onClick` do botão `<ArrowLeft>` para usar `location.state?.from || '/contratos'` como destino
-- Importar `useLocation` (já importa `useNavigate` e `useParams`)
+-- Remover os 48 registros de hr_people
+DELETE FROM hr_people WHERE id_externo IN ('2047512','2051079','2051080', ... [48 IDs]);
+```
 
-### 3. ContractResourcesPage.tsx — Usar `state.from` no breadcrumb/voltar
+### 2. Atualizar o status do sync run
 
-- O `PageHeader` tem breadcrumbs com `href: '/contratos'`. Quando vindo do Squads, o link "Contratos" no breadcrumb deve apontar para `/squads`
-- Adicionar `useLocation`, ler `location.state?.from` e ajustar o primeiro breadcrumb e qualquer botão de voltar
+```sql
+UPDATE feedz_sync_runs 
+SET status = 'rolled_back', error_message = 'Rollback manual: 48 registros criados removidos'
+WHERE id = '6503610e-e7cb-4713-aa11-a92be88ec587';
+```
+
+### Limitação
+
+Os **90 updates** e **2 terminações** feitos em registros existentes **não podem ser revertidos automaticamente** pois não temos snapshot dos valores anteriores. Se precisar reverter algum desses, será necessário corrigir manualmente.
 
