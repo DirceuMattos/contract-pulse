@@ -11,6 +11,7 @@ const itemVariants = {
 interface Breadcrumb {
   label: string;
   href?: string;
+  state?: Record<string, unknown>;
 }
 
 interface PageHeaderProps {
@@ -34,7 +35,7 @@ export function PageHeader({ title, description, breadcrumbs, actions, animated 
               <React.Fragment key={index}>
                 {index > 0 && <ChevronRight className="w-3 h-3" />}
                 {crumb.href ? (
-                  <Link to={crumb.href} className="hover:text-foreground transition-colors">
+                  <Link to={crumb.href} state={crumb.state} className="hover:text-foreground transition-colors">
                     {crumb.label}
                   </Link>
                 ) : (
