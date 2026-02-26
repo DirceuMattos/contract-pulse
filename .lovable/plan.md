@@ -1,32 +1,27 @@
 
 
-## Plano: Importar Eventos de Linha do Tempo (Timeline) para hr_timeline
+## Atualizar Remuneração Mensal com valores da Remuneração II
 
-### Análise da Planilha
+### Situação Atual
+- 134 registros em `hr_people`
+- 127 possuem `remuneracao_ii > 0`
+- 94 têm `remuneracao_mensal` diferente de `remuneracao_ii`
 
-A planilha contém até 17 pares de colunas de timeline por pessoa (colunas AP em diante):
-- `RAW_Data Ocorrência` / `RAW_Valor` (pares 0-16)
-- Valores podem ser numéricos (ex: `3000`, `6000`) ou textuais (ex: `VA +R$1.000,00`, `Nível Pleno`, `Alteração de função...`)
+### Plano
 
-### Mapeamento para `hr_timeline`
+**Executar um único UPDATE no banco de dados:**
 
-| Campo destino | Origem |
-|---|---|
-| `person_id` | Lookup por `nome` em `hr_people` |
-| `event_date` | `RAW_Data Ocorrência.N` |
-| `ocorrencia` | `'reajuste'` se valor numérico, `'observacao'` se texto |
-| `descricao` | Texto descritivo: "Remuneração: R$ X" ou o texto literal |
-| `valor` | Valor numérico (se aplicável) |
-| `remuneracao_apos` | Mesmo valor numérico (se aplicável) |
-| `atualizar_remuneracao` | `false` (não alterar cadastro atual) |
+```sql
+UPDATE hr_people
+SET remuneracao_mensal = remuneracao_ii,
+    updated_at = now()
+WHERE remuneracao_ii > 0;
+```
 
-### Etapas de Implementação
+Isso copiará o valor de `remuneracao_ii` para `remuneracao_mensal` em todos os 127 registros que possuem valor positivo. Os 7 registros com `remuneracao_ii = 0` permanecerão inalterados (mantendo seus valores atuais em `remuneracao_mensal`).
 
-1. **Limpar timeline existente** - DELETE de todos os registros em `hr_timeline` para evitar duplicatas
-2. **Inserir eventos em lotes** - SQL INSERTs em batches de ~20 pessoas, usando subquery `(SELECT id FROM hr_people WHERE nome = '...')` para resolver `person_id`
-3. **Verificar resultado** - Query de contagem para confirmar total de eventos importados
-
-### Estimativa
-
-~134 pessoas com 0-17 eventos cada. Estimativa de ~400-600 eventos no total. Serão necessários ~7 batches de INSERT via ferramenta de dados.
+### Detalhes Técnicos
+- Operação direta no banco via ferramenta de dados (INSERT tool)
+- Nenhuma alteração de código necessária
+- O campo `updated_at` será atualizado para refletir a modificação
 
