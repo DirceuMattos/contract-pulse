@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.feedz-sync]
 verify_jwt = false
+
+[functions.feedz-rollback]
+verify_jwt = false
