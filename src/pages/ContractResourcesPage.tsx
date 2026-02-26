@@ -192,7 +192,7 @@ export default function ContractResourcesPage() {
         animated={false}
         breadcrumbs={[
           { label: location.state?.from === '/squads' ? 'Squads' : 'Contratos', href: location.state?.from || '/contratos' },
-          { label: contract.codigo, href: `/contratos/${id}` },
+          { label: contract.codigo, href: `/contratos/${id}`, state: location.state },
           { label: 'Recursos' },
         ]}
         actions={canEdit ? (

@@ -194,7 +194,7 @@ export default function ContractDetailPage() {
         </div>
         {canEdit && (
           <div className="flex gap-2 ml-12 lg:ml-0">
-            <Button variant="outline" onClick={() => navigate(`/contratos/${id}/recursos`)} className="gap-2">
+            <Button variant="outline" onClick={() => navigate(`/contratos/${id}/recursos`, { state: location.state })} className="gap-2">
               <Users className="w-4 h-4" />
               Recursos
             </Button>
@@ -580,7 +580,7 @@ export default function ContractDetailPage() {
                 <h3 className="text-lg font-semibold mb-2">Nenhum recurso alocado</h3>
                 <p className="text-muted-foreground mb-4">Adicione recursos para calcular a saúde financeira.</p>
                 {canEdit && (
-                  <Button onClick={() => navigate(`/contratos/${id}/recursos`)} className="gap-2">
+                  <Button onClick={() => navigate(`/contratos/${id}/recursos`, { state: location.state })} className="gap-2">
                     <Users className="w-4 h-4" />
                     Gerenciar Recursos
                   </Button>
