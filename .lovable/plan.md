@@ -1,41 +1,32 @@
 
 
-## Plano: Banco de Dados Único de Recursos Humanos
+## Plano: Importar Eventos de Linha do Tempo (Timeline) para hr_timeline
 
-### Situação Atual
-- Tabela `resources` armazena dados de RH duplicados (nome, cargo, custoBase) como snapshot independente
-- Tabela `hr_people` está vazia (deveria ser a fonte única)
-- Módulos (Squads, Contratos, Dashboard) leem dados de ambos os locais, gerando inconsistência
-- Existe um `HRAutoLinkDialog` que tenta vincular dados duplicados — abordagem errada
+### Análise da Planilha
 
-### Mudanças Planejadas
+A planilha contém até 17 pares de colunas de timeline por pessoa (colunas AP em diante):
+- `RAW_Data Ocorrência` / `RAW_Valor` (pares 0-16)
+- Valores podem ser numéricos (ex: `3000`, `6000`) ou textuais (ex: `VA +R$1.000,00`, `Nível Pleno`, `Alteração de função...`)
 
-#### 1. Remover ferramenta de auto-link (desnecessária)
-- Excluir `src/components/hr/HRAutoLinkDialog.tsx`
-- Remover referência em `src/pages/SettingsPage.tsx`
+### Mapeamento para `hr_timeline`
 
-#### 2. Tornar ResourceForm obrigatoriamente vinculado ao RH para CLT/PJ
-- Em `src/components/forms/ResourceForm.tsx`: para tipos CLT e PJ, seleção de pessoa do RH Mestre é **obrigatória** (não opcional)
-- Ao selecionar pessoa, preencher automaticamente nome, cargo, tipo e custoBase do `hr_people`
-- Campos nome/cargo/custo ficam read-only quando vinculado
-- Tipo "outro" (cloud, licenças, etc.) continua sem vínculo ao RH
+| Campo destino | Origem |
+|---|---|
+| `person_id` | Lookup por `nome` em `hr_people` |
+| `event_date` | `RAW_Data Ocorrência.N` |
+| `ocorrencia` | `'reajuste'` se valor numérico, `'observacao'` se texto |
+| `descricao` | Texto descritivo: "Remuneração: R$ X" ou o texto literal |
+| `valor` | Valor numérico (se aplicável) |
+| `remuneracao_apos` | Mesmo valor numérico (se aplicável) |
+| `atualizar_remuneracao` | `false` (não alterar cadastro atual) |
 
-#### 3. Resolver centralizado já garante propagação
-- O `resolveResourceForCalc` e `useResolvedResources` já implementados substituem custoBase/tipo do RH Mestre quando `hrPersonId` está preenchido
-- Todos os módulos (Dashboard, Contratos, Squads, ClientDetail) já usam `resolvedResources` — nenhuma mudança adicional necessária nesses módulos
+### Etapas de Implementação
 
-#### 4. Aguardar upload da planilha
-- Após as mudanças de código, o usuário fará upload da planilha de RH
-- Importação populará `hr_people`
-- Com hr_people populado, recursos existentes poderão ser re-vinculados ou re-inseridos manualmente nos contratos
+1. **Limpar timeline existente** - DELETE de todos os registros em `hr_timeline` para evitar duplicatas
+2. **Inserir eventos em lotes** - SQL INSERTs em batches de ~20 pessoas, usando subquery `(SELECT id FROM hr_people WHERE nome = '...')` para resolver `person_id`
+3. **Verificar resultado** - Query de contagem para confirmar total de eventos importados
 
-### Arquivos a modificar
-- **Excluir**: `src/components/hr/HRAutoLinkDialog.tsx`
-- **Modificar**: `src/pages/SettingsPage.tsx` — remover seção de vinculação
-- **Modificar**: `src/components/forms/ResourceForm.tsx` — tornar seleção de pessoa HR obrigatória para CLT/PJ
+### Estimativa
 
-### Resultado
-- Um único banco de dados de RH (`hr_people`) como fonte de verdade
-- Recursos em contratos apenas referenciam `hr_people` via `hr_person_id`
-- Atualizações no RH (importação ou Feedz) propagam automaticamente para todos os módulos
+~134 pessoas com 0-17 eventos cada. Estimativa de ~400-600 eventos no total. Serão necessários ~7 batches de INSERT via ferramenta de dados.
 
