@@ -388,10 +388,10 @@ export default function SquadsPage() {
           {cd.teams.map(renderTeamBar)}
           {viewMode === 'detailed' && renderDetailedTeams(cd)}
           <div className="flex items-center gap-2 pt-3 border-t mt-3">
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`)}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`, { state: { from: '/squads' } })}>
               <FileText className="w-3 h-3 mr-1" /> Ver contrato
             </Button>
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`)}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}/recursos`, { state: { from: '/squads' } })}>
               <Users className="w-3 h-3 mr-1" /> Ver recursos
             </Button>
           </div>

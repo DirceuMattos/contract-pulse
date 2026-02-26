@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -83,6 +83,7 @@ const renewalLabels = {
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { canAccessModule } = useModuleAccess();
@@ -150,7 +151,7 @@ export default function ContractDetailPage() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/contratos')} className="mt-1">
+          <Button variant="ghost" size="icon" onClick={() => navigate(location.state?.from || '/contratos')} className="mt-1">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
