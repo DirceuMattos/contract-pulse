@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, User, Building, Box, Pencil, Trash2,
@@ -54,6 +54,7 @@ const senioridadeLabels: Record<string, string> = {
 export default function ContractResourcesPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const { 
     getContract, getClient, getResourcesByContract, 
@@ -97,7 +98,7 @@ export default function ContractResourcesPage() {
         <Users className="w-16 h-16 text-muted-foreground/30 mb-4" />
         <h2 className="text-xl font-semibold text-foreground mb-2">Contrato não encontrado</h2>
         <p className="text-muted-foreground mb-4">O contrato solicitado não existe ou foi removido.</p>
-        <Button onClick={() => navigate('/contratos')}>Voltar para Contratos</Button>
+        <Button onClick={() => navigate(location.state?.from || '/contratos')}>Voltar para Contratos</Button>
       </div>
     );
   }
@@ -190,7 +191,7 @@ export default function ContractResourcesPage() {
         description={`${contract.nome} • ${client?.nomeFantasia || client?.razaoSocial}`}
         animated={false}
         breadcrumbs={[
-          { label: 'Contratos', href: '/contratos' },
+          { label: location.state?.from === '/squads' ? 'Squads' : 'Contratos', href: location.state?.from || '/contratos' },
           { label: contract.codigo, href: `/contratos/${id}` },
           { label: 'Recursos' },
         ]}
