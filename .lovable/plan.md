@@ -1,44 +1,50 @@
 
 
-## Diagnóstico: Integração RH Mestre com Módulos Dependentes
+## Diagnóstico
 
-### Problemas Encontrados
+O problema real está claro agora:
 
-1. **Fallback silencioso no resolver**: Quando `hrPersonId` existe mas a pessoa não é encontrada, o sistema usa dados antigos sem avisar. Deveria sinalizar o link quebrado.
+1. **35 recursos existem na tabela `resources`** com dados diretos (nome, cargo, custo_base) — nenhum deles vinculado ao RH Mestre (`hr_person_id` é NULL em todos)
+2. **HR Mestre está vazio** (0 registros em `hr_people`)
+3. Existem **duplicatas reais** nos recursos: "Felipe Lima" aparece 3 vezes, "Fernanda Baccarini" 2 vezes, etc.
 
-2. **Cálculos não passam pelo resolver**: Apenas `ContractResourcesPage` chama `resolveResourceForCalc` antes de calcular custos. Todos os demais módulos (Dashboard, Contratos, Detalhe de Contrato, Detalhe de Cliente, Squads) usam `resource.custoBase` direto — ignorando o valor atualizado do RH Mestre.
+O sistema não mostra erro porque os recursos **nunca foram vinculados** ao RH — eles armazenam dados diretamente (padrão legado). Não há `hr_person_id` definido, logo o resolver não detecta links quebrados.
 
-3. **Sem indicador visual de link quebrado**: Nenhum módulo mostra aviso quando um recurso vinculado ao RH aponta para uma pessoa inexistente.
+## O que precisa ser feito
 
-### Implementação Realizada ✅
+### 1. Importar novo arquivo de RH
+Popular `hr_people` com os dados atualizados dos profissionais.
 
-#### 1. Flag `isBrokenLink` no resolver ✅
-- `ResolvedResource` agora inclui `isBrokenLink: boolean`
-- Quando `hrPersonId` existe mas pessoa não é encontrada: retorna `isBrokenLink: true`
-- `resolveResourceForCalc`: loga warning no console quando link quebrado
+### 2. Criar ferramenta de vinculação automática (auto-link)
+Após a importação, um processo que:
+- Cruza `resources.nome` com `hr_people.nome` (match por similaridade/nome exato)
+- Propõe os vínculos encontrados para confirmação do usuário
+- Atualiza `resources.hr_person_id` com o ID correspondente da pessoa no RH Mestre
+- Marca recursos não vinculáveis para revisão manual
 
-#### 2. Hook `useResolvedResources` centralizado ✅
-- Criado `src/hooks/useResolvedResources.ts` — combina DataContext + HRContext
-- Retorna `resolvedResources` (com custos do RH Mestre) e `brokenLinkCount`
+### 3. Após vinculação: dados fluem do RH Mestre
+Com `hr_person_id` preenchido em cada recurso:
+- O resolver substitui automaticamente nome, cargo, custo e tipo com dados do RH
+- Sincronizações futuras com o Feedz atualizam `hr_people` → reflete em todos os módulos
+- Duplicatas de nome serão eliminadas, pois o recurso aponta para uma única pessoa
 
-#### 3. Todos os módulos usando recursos resolvidos ✅
-- `DashboardPage` — usa `resolvedResources` nos cálculos de KPIs
-- `ContractsPage` — usa `resolvedResources` no cálculo de saúde
-- `ContractDetailPage` — usa `resolvedResources` no cálculo de saúde e custos
-- `ClientDetailPage` — usa `resolvedResources` no cálculo de saúde
-- `SquadsPage` — usa `resolvedResources` nos cálculos
-- `useAlerts` — usa `resolvedResources` na geração de alertas
+### Detalhes técnicos
 
-#### 4. Indicadores visuais de links quebrados ✅
-- `ContractResourcesPage`: Badge "Link quebrado" com ícone de alerta e tooltip
-- `SquadsPage`: Ícone de alerta amarelo ao lado do nome com tooltip
+**Nova página/dialog de auto-link** (`ContractResourcesPage` ou um dialog dedicado):
+- Consulta todos os recursos sem `hr_person_id`
+- Para cada um, busca candidatos em `hr_people` por nome (case-insensitive, trim)
+- Exibe tabela com: Recurso | Pessoa RH sugerida | Confiança (exato/parcial)
+- Botão "Vincular todos" e opção individual
+- Atualiza `resources.hr_person_id` via UPDATE
 
-#### 5. Alerta de links órfãos ✅
-- `useAlerts` gera alerta tipo `hr-links-quebrados` quando há vínculos quebrados
-- Alerta aparece no Dashboard e na página de Alertas
+**Arquivos a criar/modificar:**
+- Novo componente: `src/components/hr/HRAutoLinkDialog.tsx`
+- Modificar: `src/pages/ContractResourcesPage.tsx` — botão "Vincular ao RH Mestre"
+- Ou: disponibilizar na página de RH como ação global pós-importação
 
-### Resultado
+**Fluxo esperado:**
+1. Usuário importa arquivo RH → `hr_people` populado
+2. Sistema detecta recursos sem vínculo → oferece auto-link
+3. Após vinculação → todos os módulos refletem dados do RH Mestre
+4. Futuras sincs Feedz → atualizam `hr_people` → propagação automática
 
-- **(a)** Nova importação de RH → dados refletidos automaticamente em todos os módulos via resolver centralizado
-- **(b)** Sincronização Feedz → atualiza `hr_people` → resolver usa dados frescos em todos os cálculos
-- **(c)** Qualquer atualização no RH Mestre propaga para Dashboard, Contratos, Squads e todos os demais módulos sem intervenção manual
