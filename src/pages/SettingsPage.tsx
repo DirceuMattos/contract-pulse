@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { HRAutoLinkDialog } from '@/components/hr/HRAutoLinkDialog';
 
 const settingsSchema = z.object({
   percentualEncargosCLT: z.number().min(0).max(200),
@@ -427,10 +428,53 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      {/* HR Auto-Link */}
+      {isCLevel && <HRAutoLinkSection />}
+
       {/* Feedz Integration */}
       {isCLevel && <FeedzSyncSection />}
 
     </div>
+  );
+}
+
+function HRAutoLinkSection() {
+  const [open, setOpen] = useState(false);
+  const { resources } = useData();
+  const unlinkedCount = resources.filter(r => !r.hrPersonId && (r.tipo === 'clt' || r.tipo === 'pj')).length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Link2 className="h-5 w-5 text-primary" />
+          <CardTitle>Vinculação de Recursos ao RH Mestre</CardTitle>
+        </div>
+        <CardDescription>
+          Vincule alocações legadas ao cadastro centralizado de Recursos Humanos para unificar dados e eliminar duplicatas.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {unlinkedCount > 0 ? (
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              {unlinkedCount} recurso(s) CLT/PJ sem vínculo ao RH Mestre
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-emerald-500" />
+              Todos os recursos estão vinculados
+            </span>
+          )}
+        </div>
+        <Button onClick={() => setOpen(true)} variant={unlinkedCount > 0 ? 'default' : 'outline'}>
+          <Link2 className="h-4 w-4 mr-2" />
+          {unlinkedCount > 0 ? `Vincular (${unlinkedCount})` : 'Verificar'}
+        </Button>
+      </CardContent>
+      <HRAutoLinkDialog open={open} onOpenChange={setOpen} />
+    </Card>
   );
 }
 
