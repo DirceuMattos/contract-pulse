@@ -140,9 +140,16 @@ Deno.serve(async (req) => {
 
     const peopleMap = new Map<string, any>()
     const emailMap = new Map<string, any>()
+    const nameMap = new Map<string, any>()
     for (const p of (existingPeople || [])) {
       if (p.id_externo) peopleMap.set(p.id_externo, p)
       if (p.email) emailMap.set(p.email.toLowerCase(), p)
+      if (p.nome) {
+        const normalizedName = p.nome.toLowerCase().trim()
+        if (!nameMap.has(normalizedName)) {
+          nameMap.set(normalizedName, p)
+        }
+      }
     }
 
     const jobMap = new Map<string, any>()
@@ -158,11 +165,15 @@ Deno.serve(async (req) => {
     for (const person of feedzData) {
       processed++
       const externalId = String(person.employeeId)
+      const feedzNome = (person.full_name || person.name || '').toLowerCase().trim()
 
-      // Find existing by external_id or email
+      // Find existing by external_id, email, or normalized name
       let existing = peopleMap.get(externalId)
       if (!existing && person.email) {
         existing = emailMap.get(person.email.toLowerCase())
+      }
+      if (!existing && feedzNome) {
+        existing = nameMap.get(feedzNome)
       }
 
       // Resolve cargo from job_description
