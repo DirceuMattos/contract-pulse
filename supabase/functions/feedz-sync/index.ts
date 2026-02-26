@@ -79,6 +79,8 @@ Deno.serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${feedzToken}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'BNPContratos/1.0 (Feedz Integration)',
       },
     })
 
