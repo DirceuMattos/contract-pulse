@@ -1,35 +1,47 @@
 
 
-# Ajuste de destaque nos cards do Squads
+# Correções na Sincronização Feedz + Limpeza do Banco
 
-## Alteracoes
+## 1. Limpeza dos registros Feedz (dados)
 
-### 1. Visao "Por Projeto" (`renderContractCard`)
-- **Linha 370**: Trocar `cd.clientName` por `cd.contractNome` (ou `cd.contractCodigo`) como titulo principal do card (`CardTitle`)
-- **Adicionar** o nome do cliente (`cd.clientName`) como texto secundario logo abaixo do titulo
-- Manter o codigo do contrato visivel
+Usar a ferramenta de inserção/deleção para executar:
 
-### 2. Visao "Por Recurso" (`renderResourceCard`, alocacoes internas)
-- **Linha 432**: Trocar `alloc.clientName` (que esta em destaque como `font-medium`) por `alloc.contractCodigo` (nome/codigo do contrato)
-- Colocar `alloc.clientName` como texto secundario (`text-muted-foreground`) abaixo ou ao lado
+```sql
+-- Deletar timeline events de pessoas vindas do Feedz
+DELETE FROM hr_timeline WHERE person_id IN (SELECT id FROM hr_people WHERE id_externo IS NOT NULL);
 
-### Detalhes tecnicos
-
-**Arquivo**: `src/pages/SquadsPage.tsx`
-
-**Visao Por Projeto** (linhas 368-373):
-```
-Antes:  CardTitle = cd.clientName  ·  cd.contractCodigo
-Depois: CardTitle = cd.contractNome (ou contractCodigo)
-        Linha abaixo: cd.clientName
+-- Deletar pessoas com id_externo (vindas do Feedz)
+DELETE FROM hr_people WHERE id_externo IS NOT NULL;
 ```
 
-**Visao Por Recurso** (linhas 431-434, dentro das alocacoes):
-```
-Antes:  font-medium = alloc.clientName  ·  alloc.contractCodigo
-Depois: font-medium = alloc.contractCodigo (contrato em destaque)
-        muted = alloc.clientName (cliente abaixo)
-```
+## 2. Corrigir a Edge Function `feedz-sync/index.ts`
 
-Para a visao por recurso, sera necessario adicionar `contractNome` ao tipo `ResourceViewData.allocations` (atualmente so tem `contractCodigo` e `clientName`). O campo `contractNome` sera preenchido a partir de `cd.contractNome` no `useMemo` da linha 227.
+Melhorar o matching para encontrar pessoas existentes por **nome normalizado** além de `id_externo` e `email`:
+
+**Matching atual** (insuficiente):
+- `id_externo` → `email`
+- Se não encontra, cria novo (duplica)
+
+**Matching corrigido**:
+- `id_externo` → `email` → **nome normalizado** (lowercase, trim)
+- Se encontra por qualquer critério, **atualiza** e seta o `id_externo`
+- Só cria se não encontrar por nenhum critério
+
+Alterações no arquivo `supabase/functions/feedz-sync/index.ts`:
+
+1. Adicionar um `nameMap` com nomes normalizados de todas as pessoas existentes
+2. No loop de matching (linha ~162), adicionar fallback por nome:
+   ```
+   existing = peopleMap.get(externalId)
+     || emailMap.get(email)
+     || nameMap.get(nomeNormalizado)
+   ```
+3. Quando encontrar por email ou nome (sem id_externo), incluir `id_externo: externalId` no payload de update para vincular o registro existente ao Feedz
+4. Manter toda a lógica de update/timeline existente
+
+## Detalhes técnicos
+
+- A normalização do nome será `nome.toLowerCase().trim()` tanto para os registros existentes quanto para o `full_name`/`name` vindo do Feedz
+- O `id_externo` será sempre gravado no update para que nas próximas sincronizações o matching seja direto
+- Nenhuma alteração de schema necessária
 
