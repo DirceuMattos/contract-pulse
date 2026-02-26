@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { generateAlerts, countAlertsBySeverity, groupAlertsByContract } from '@/lib/alertGenerator';
 import { Alert } from '@/types';
 
@@ -7,10 +8,11 @@ import { Alert } from '@/types';
  * Hook que gera alertas automáticos baseados nos dados e configurações
  */
 export function useAlerts() {
-  const { contracts, resources, settings, snapshots, overheadItems, historyEvents } = useData();
+  const { contracts, resources: _raw, settings, snapshots, overheadItems, historyEvents } = useData();
+  const { resolvedResources: resources, brokenLinkCount } = useResolvedResources();
   
   const alerts = useMemo(() => {
-    return generateAlerts({
+    const generated = generateAlerts({
       contracts,
       resources,
       settings,
@@ -18,7 +20,24 @@ export function useAlerts() {
       overheadItems,
       historyEvents,
     });
-  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents]);
+    
+    // Add broken link alert if any
+    if (brokenLinkCount > 0) {
+      generated.push({
+        id: 'alert-broken-hr-links',
+        contractId: '',
+        type: 'hr-links-quebrados',
+        severity: 'atencao',
+        alertCategory: 'governanca',
+        title: `${brokenLinkCount} vínculo${brokenLinkCount > 1 ? 's' : ''} quebrado${brokenLinkCount > 1 ? 's' : ''} com RH Mestre`,
+        description: `Existem ${brokenLinkCount} recurso${brokenLinkCount > 1 ? 's' : ''} vinculado${brokenLinkCount > 1 ? 's' : ''} a pessoas que não existem mais no cadastro de RH. Os custos desses recursos podem estar desatualizados.`,
+        recommendation: 'Acesse os contratos afetados e corrija os vínculos dos recursos com o RH Mestre.',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    
+    return generated;
+  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount]);
   
   const counts = useMemo(() => countAlertsBySeverity(alerts), [alerts]);
   

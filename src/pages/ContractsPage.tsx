@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
+import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -94,7 +95,8 @@ const statusLabels = {
 
 export default function ContractsPage() {
   const navigate = useNavigate();
-  const { contracts, clients, resources, settings, deleteContract, overheadItems } = useData();
+  const { contracts, clients, resources: _rawResources, settings, deleteContract, overheadItems } = useData();
+  const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
   
   const [search, setSearch] = useState('');
