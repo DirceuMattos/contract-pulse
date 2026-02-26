@@ -54,6 +54,7 @@ interface ResourceViewData {
   allocations: {
     contractId: string;
     contractCodigo: string;
+    contractNome: string;
     clientName: string;
     healthStatus: string;
     percentualDedicacao: number;
@@ -227,6 +228,7 @@ export default function SquadsPage() {
           entry.allocations.push({
             contractId: cd.contractId,
             contractCodigo: cd.contractCodigo,
+            contractNome: cd.contractNome,
             clientName: cd.clientName,
             healthStatus: cd.healthStatus,
             percentualDedicacao: r.percentualDedicacao,
@@ -367,9 +369,10 @@ export default function SquadsPage() {
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-base">{cd.clientName}</CardTitle>
+                <CardTitle className="text-base">{cd.contractNome || cd.contractCodigo}</CardTitle>
                 <span className="text-sm text-muted-foreground">· {cd.contractCodigo}</span>
               </div>
+              <p className="text-sm text-muted-foreground">{cd.clientName}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className="text-[10px]">{cd.segmento === 'govtech' ? 'Gov' : 'Privado'}</Badge>
@@ -429,9 +432,10 @@ export default function SquadsPage() {
               const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
               return (
                 <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
-                  <span className="font-medium truncate">{alloc.clientName}</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground truncate">{alloc.contractCodigo}</span>
+                  <div className="min-w-0">
+                    <span className="font-medium truncate block">{alloc.contractNome || alloc.contractCodigo}</span>
+                    <span className="text-xs text-muted-foreground truncate block">{alloc.clientName}</span>
+                  </div>
                   {hb && <Badge variant="outline" className={`text-[9px] shrink-0 ${hb.badgeClass}`}>{hb.label}</Badge>}
                   <span className="ml-auto tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
                 </div>
