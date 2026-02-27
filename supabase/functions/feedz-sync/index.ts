@@ -58,7 +58,31 @@ function computeMatchScore(
   feedzAdmission: string | null, localAdmission: string | null,
 ): number {
   let score = 0
-  if (feedzNorm === localNorm) score += 1.0
+
+  // Name scoring: exact match = 1.0, containment = 0.85, shared tokens = proportional
+  if (feedzNorm === localNorm) {
+    score += 1.0
+  } else {
+    const feedzTokens = feedzNorm.split(' ').filter(t => t.length > 1)
+    const localTokens = localNorm.split(' ').filter(t => t.length > 1)
+
+    // One name contains the other entirely (e.g., "filipe borges" inside "filipe borges pereira")
+    if (feedzNorm.includes(localNorm) || localNorm.includes(feedzNorm)) {
+      const shorter = Math.min(feedzTokens.length, localTokens.length)
+      if (shorter >= 2) {
+        score += 0.85
+      } else {
+        score += 0.5
+      }
+    } else {
+      // Token overlap: count shared tokens
+      const shared = feedzTokens.filter(t => localTokens.includes(t)).length
+      const maxTokens = Math.max(feedzTokens.length, localTokens.length, 1)
+      const tokenScore = (shared / maxTokens) * 0.8
+      if (shared >= 2) score += tokenScore
+    }
+  }
+
   if (feedzDept && localTeamName && normalizeName(feedzDept) === normalizeName(localTeamName)) score += 0.2
   if (feedzJob && localJobLabel && normalizeName(feedzJob) === normalizeName(localJobLabel)) score += 0.2
   if (feedzAdmission && localAdmission) {
@@ -79,6 +103,8 @@ async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee
     headers: {
       'Authorization': `Bearer ${feedzToken}`,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': 'BNP-Contratos/1.0',
     },
   })
 
@@ -342,11 +368,17 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Step 4: name_norm + score
+      // Step 4: name_norm + score (broadened candidate detection)
       if (!existing && feedzNorm) {
+        const feedzTokens = feedzNorm.split(' ').filter(t => t.length > 1)
         const candidates: { person: any; score: number }[] = []
         for (const p of peopleWithNorm) {
-          if (p._normName === feedzNorm || p._normName.includes(feedzNorm) || feedzNorm.includes(p._normName)) {
+          if (!p._normName) continue
+          const localTokens = p._normName.split(' ').filter((t: string) => t.length > 1)
+          // Check: exact match, containment, or significant token overlap (≥2 shared tokens)
+          const isSubstring = p._normName === feedzNorm || p._normName.includes(feedzNorm) || feedzNorm.includes(p._normName)
+          const sharedTokens = feedzTokens.filter(t => localTokens.includes(t)).length
+          if (isSubstring || sharedTokens >= 2) {
             const score = computeMatchScore(
               feedzNorm, p._normName, feedzDept, p._teamName,
               feedzJob, p._jobLabel, feedzAdmission, p.data_admissao,
@@ -393,12 +425,17 @@ Deno.serve(async (req) => {
         const hasEmail = !!feedzEmailNorm
         const emailAlreadyExists = feedzEmailNorm ? emailMap.has(feedzEmailNorm) : false
 
-        // Check for probable name match (score >= 1.0)
+        // Check for probable name match (broadened: containment + token overlap)
         let probableNameMatch = false
+        const feedzTokens = feedzNorm.split(' ').filter(t => t.length > 1)
         for (const p of peopleWithNorm) {
-          if (p._normName === feedzNorm) {
+          if (!p._normName) continue
+          const localTokens = p._normName.split(' ').filter((t: string) => t.length > 1)
+          const isSubstring = p._normName === feedzNorm || p._normName.includes(feedzNorm) || feedzNorm.includes(p._normName)
+          const sharedTokens = feedzTokens.filter(t => localTokens.includes(t)).length
+          if (isSubstring || sharedTokens >= 2) {
             const score = computeMatchScore(feedzNorm, p._normName, feedzDept, p._teamName, feedzJob, p._jobLabel, feedzAdmission, p.data_admissao)
-            if (score >= 1.0) { probableNameMatch = true; break }
+            if (score >= 0.5) { probableNameMatch = true; break }
           }
         }
 
