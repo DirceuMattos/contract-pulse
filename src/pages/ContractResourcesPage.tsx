@@ -353,7 +353,7 @@ export default function ContractResourcesPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    <Card className="card-elevated">
+                    <Card className={cn("card-elevated", resolved.isVacant && "border-destructive/50 bg-destructive/5")}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
                           <div className={cn(
@@ -376,7 +376,16 @@ export default function ContractResourcesPage() {
                               )}>
                                 {typeLabels[resource.tipo]}
                               </Badge>
-                              {resolved.isBrokenLink ? (
+                              {resolved.isVacant ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="destructive" className="text-[10px] gap-1">
+                                      <AlertTriangle className="w-3 h-3" /> Vago
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Profissional desligado — designar substituto</TooltipContent>
+                                </Tooltip>
+                              ) : resolved.isBrokenLink ? (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Badge variant="outline" className="text-[10px] gap-1 bg-destructive/10 text-destructive border-destructive/30">

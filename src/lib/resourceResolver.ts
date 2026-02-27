@@ -12,6 +12,7 @@ export interface ResolvedResource {
   custoBase: number;
   isLinked: boolean;
   isBrokenLink: boolean;
+  isVacant: boolean;
 }
 
 /** Build lookup maps for O(1) resolution */
@@ -33,6 +34,7 @@ export function resolveResource(
     if (person) {
       const job = person.cargoId ? jobMap.get(person.cargoId) : undefined;
       const team = person.teamId ? teamMap.get(person.teamId) : undefined;
+      const isVacant = person.situacao === 'inativo';
       return {
         nome: person.nome,
         cargo: job?.label ?? resource.cargo,
@@ -42,6 +44,7 @@ export function resolveResource(
         custoBase: person.remuneracaoMensal,
         isLinked: true,
         isBrokenLink: false,
+        isVacant,
       };
     }
     // hrPersonId exists but person not found — broken link
@@ -54,6 +57,7 @@ export function resolveResource(
       custoBase: resource.custoBase,
       isLinked: false,
       isBrokenLink: true,
+      isVacant: false,
     };
   }
   return {
@@ -65,6 +69,7 @@ export function resolveResource(
     custoBase: resource.custoBase,
     isLinked: false,
     isBrokenLink: false,
+    isVacant: false,
   };
 }
 
