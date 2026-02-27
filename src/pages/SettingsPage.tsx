@@ -519,9 +519,10 @@ function FeedzSyncSection() {
     setExportingRun(run.id);
     try {
       const { data: items, error } = await supabase
-        .from('feedz_sync_items' as any)
+        .from('feedz_sync_items')
         .select('*')
         .eq('sync_run_id', run.id);
+      console.log('[FeedZ Report] Run:', run.id, 'Items fetched:', items?.length, 'Error:', error);
       if (error) throw error;
       if (!items || items.length === 0) {
         toast.error('Nenhum item de auditoria encontrado para este run (run anterior ao V2).');
