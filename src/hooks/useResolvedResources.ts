@@ -27,5 +27,14 @@ export function useResolvedResources() {
     [resources, peopleMap]
   );
 
-  return { resolvedResources, brokenLinkCount };
+  const vacantCount = useMemo(
+    () => resources.filter(r => {
+      if (!r.hrPersonId) return false;
+      const person = peopleMap.get(r.hrPersonId);
+      return person?.situacao === 'inativo';
+    }).length,
+    [resources, peopleMap]
+  );
+
+  return { resolvedResources, brokenLinkCount, vacantCount };
 }

@@ -27,7 +27,7 @@ import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 interface SquadTeamData {
   team: Team | null;
   teamName: string;
-  resources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean }[];
+  resources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[];
   fte: number;
   percent: number;
 }
@@ -136,7 +136,7 @@ export default function SquadsPage() {
       const hc = healthConfig[health.status];
 
       // Group by team — using HR Master teamId when linked
-      const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean }[] }>();
+      const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] }>();
       for (const { resource: hr, resolved } of filteredHR) {
         let teamId: string | undefined;
         
@@ -156,6 +156,7 @@ export default function SquadsPage() {
           resolvedNome: resolved.nome,
           resolvedCargo: resolved.cargo || 'Sem cargo',
           isBrokenLink: resolved.isBrokenLink,
+          isVacant: resolved.isVacant,
         });
       }
 
@@ -342,10 +343,20 @@ export default function SquadsPage() {
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
-                {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink }) => (
-                  <div key={r.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
-                    <span className="font-medium">{resolvedNome || 'Sem nome'}</span>
-                    {isBrokenLink && (
+                {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink, isVacant }) => (
+                  <div key={r.id} className={cn("flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0", isVacant && "bg-destructive/5")}>
+                    <span className={cn("font-medium", isVacant && "text-destructive")}>{resolvedNome || 'Sem nome'}</span>
+                    {isVacant && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="destructive" className="text-[9px] gap-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Vago
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>Profissional desligado — designar substituto</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {isBrokenLink && !isVacant && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />

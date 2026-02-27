@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,9 +17,10 @@ import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRTimelineEventForm } from '@/components/hr/HRTimelineEventForm';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { useHR } from '@/contexts/HRContext';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { HRPerson, HRTimelineEvent } from '@/types';
+import { HRPerson, HRTimelineEvent, Contract } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
 import { differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
@@ -61,7 +62,7 @@ export default function HRPersonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
-  const { teams, jobTitles, resources } = useData();
+  const { teams, jobTitles, resources, contracts, updateResource } = useData();
   const { canEdit, canViewHRCosts, user } = useAuth();
 
   const person = getPerson(id!);
@@ -79,6 +80,8 @@ export default function HRPersonDetailPage() {
   const [desligamentoMotivo, setDesligamentoMotivo] = useState('');
   const [desligamentoObs, setDesligamentoObs] = useState('');
   const [desligamentoLoading, setDesligamentoLoading] = useState(false);
+  // Replacement mapping: resourceId -> hrPersonId of replacement (empty = keep vacant)
+  const [replacements, setReplacements] = useState<Record<string, string>>({});
 
   // Reativar state
   const [reativarOpen, setReativarOpen] = useState(false);
@@ -98,7 +101,8 @@ export default function HRPersonDetailPage() {
   const tempoCasa = calcularTempoDeCasa(person.dataAdmissao, isFrozen ? person.dataDesligamento : undefined);
   const tempoCasaMeses = calcularTempoDeCasaMeses(person.dataAdmissao, isFrozen ? person.dataDesligamento : undefined);
   
-  const alocacoes = resources.filter(r => r.nome.trim().toLowerCase() === person.nome.trim().toLowerCase());
+  const alocacoes = resources.filter(r => r.hrPersonId === person.id);
+  const activeHrPeople = useHR().hrPeople.filter(p => p.situacao === 'ativo' && p.id !== person.id).sort((a, b) => a.nome.localeCompare(b.nome));
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
     await updatePerson(person.id, data);
@@ -113,6 +117,22 @@ export default function HRPersonDetailPage() {
     }
     setDesligamentoLoading(true);
     try {
+      // Apply replacements before termination
+      for (const alloc of alocacoes) {
+        const replacementId = replacements[alloc.id];
+        if (replacementId) {
+          const replacementPerson = activeHrPeople.find(p => p.id === replacementId);
+          if (replacementPerson) {
+            await updateResource(alloc.id, {
+              hrPersonId: replacementPerson.id,
+              nome: replacementPerson.nome,
+              tipo: replacementPerson.tipoVinculo === 'clt' ? 'clt' : 'pj',
+            });
+          }
+        }
+        // If no replacement chosen, resource stays linked to this person -> becomes "Vago"
+      }
+
       await updatePerson(person.id, {
         situacao: 'inativo',
         dataDesligamento: desligamentoData,
@@ -129,6 +149,7 @@ export default function HRPersonDetailPage() {
       });
       toast.success('Desligamento registrado com sucesso.');
       setDesligamentoOpen(false);
+      setReplacements({});
     } catch {
       // error already toasted
     } finally {
@@ -200,6 +221,7 @@ export default function HRPersonDetailPage() {
                     setDesligamentoTipo('');
                     setDesligamentoMotivo('');
                     setDesligamentoObs('');
+                    setReplacements({});
                     setDesligamentoOpen(true);
                   }}>
                     <UserX className="h-4 w-4 mr-2" />
@@ -396,16 +418,19 @@ export default function HRPersonDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {alocacoes.map(r => (
+                    {alocacoes.map(r => {
+                      const contract = contracts.find(c => c.id === r.contractId);
+                      return (
                       <TableRow key={r.id}>
-                        <TableCell className="text-sm font-medium">{r.contractId}</TableCell>
+                        <TableCell className="text-sm font-medium">{contract?.nome || contract?.codigo || r.contractId}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.cargo || '—'}</TableCell>
                         <TableCell><Badge variant="outline">{r.percentualDedicacao}%</Badge></TableCell>
                         <TableCell className="text-sm text-muted-foreground">{person.localAtuacao || '—'}</TableCell>
                         <TableCell className="text-sm">{new Date(r.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell className="text-sm">{r.dataFim ? new Date(r.dataFim + 'T12:00:00').toLocaleDateString('pt-BR') : 'Em aberto'}</TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -438,7 +463,7 @@ export default function HRPersonDetailPage() {
 
       {/* Desligamento Dialog */}
       <Dialog open={desligamentoOpen} onOpenChange={setDesligamentoOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserX className="h-5 w-5 text-destructive" />
@@ -448,6 +473,51 @@ export default function HRPersonDetailPage() {
               Registre o desligamento do profissional. O tempo de casa será congelado na data informada.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Allocation warning */}
+          {alocacoes.length > 0 && (
+            <Alert variant="destructive" className="border-destructive/50">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Atenção: {alocacoes.length} alocação{alocacoes.length !== 1 ? 'ões' : ''} ativa{alocacoes.length !== 1 ? 's' : ''}</AlertTitle>
+              <AlertDescription>
+                Este profissional está alocado nos contratos abaixo. Escolha um substituto ou mantenha a posição como "Vago".
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {alocacoes.length > 0 && (
+            <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+              {alocacoes.map(alloc => {
+                const contract = contracts.find(c => c.id === alloc.contractId);
+                return (
+                  <div key={alloc.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{contract?.nome || contract?.codigo || alloc.contractId}</span>
+                      <Badge variant="outline" className="text-xs">{alloc.percentualDedicacao}%</Badge>
+                    </div>
+                    <Select
+                      value={replacements[alloc.id] || '__vacant__'}
+                      onValueChange={(v) => setReplacements(prev => ({
+                        ...prev,
+                        [alloc.id]: v === '__vacant__' ? '' : v,
+                      }))}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Substituição" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__vacant__">Nenhum (manter vago)</SelectItem>
+                        {activeHrPeople.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <Label>Data de Desligamento *</Label>
