@@ -181,10 +181,15 @@ export function ClientForm({ client, mode }: ClientFormProps) {
         });
         navigate(`/clientes/${client.id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      const isDuplicate = error?.message?.includes('idx_clients_cnpj_unique') || 
+                          error?.code === '23505' ||
+                          error?.message?.includes('duplicate key');
       toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar o cliente.',
+        title: isDuplicate ? 'CNPJ já cadastrado' : 'Erro',
+        description: isDuplicate 
+          ? 'Já existe um cliente com este CNPJ. Verifique o cadastro existente.'
+          : 'Não foi possível salvar o cliente.',
         variant: 'destructive',
       });
     } finally {
