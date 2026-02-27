@@ -1,73 +1,160 @@
 
 
-## Plan: Vacant Resource Handling & Termination Allocation Warning
+## Plan: Feedz Sync V2 — Report, Match Hardening, Aliases & Enhanced Rollback
 
-### Context
-When an HR person is terminated (desligamento), their linked resources in contracts become orphaned — the person is inactive but the resource still references them. Currently there's no visual or functional treatment for this case. Two changes are needed:
-
-1. **Contract-side**: Resources linked to inactive HR people must be flagged as "Vago" (vacant) in red, signaling that a replacement is needed.
-2. **HR Termination flow**: Before confirming a termination, the system must show which contracts the person is allocated to and offer the user a chance to assign a replacement from the active HR roster. If no replacement is chosen, the resource stays as "Vago".
+This is a large incremental upgrade to the Feedz integration. The plan preserves all existing functionality and adds layers of safety, auditability, and control.
 
 ---
 
-### Implementation Steps
+### Database Changes (Migration)
 
-#### 1. Extend `resolveResource` to detect inactive HR links
+**1. New table `feedz_sync_items`** (replaces reliance on `feedz_sync_events` for audit detail)
 
-In `src/lib/resourceResolver.ts`, add an `isVacant` flag to `ResolvedResource`. When `hrPersonId` points to a person with `situacao === 'inativo'`, set `isVacant: true`.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| sync_run_id | uuid FK | |
+| feedz_id | text | external employee id |
+| feedz_email | text | |
+| feedz_name | text | |
+| match_strategy | text | `FEEDZ_ID`, `EMAIL`, `PHONE`, `NAME_SCORE`, `NONE` |
+| matched_hr_person_id | uuid nullable | |
+| action | text | `INSERT`, `UPDATE`, `SKIP`, `PENDING`, `CONFLICT` |
+| reason_code | text nullable | `NO_MATCH`, `EMAIL_CONFLICT`, `LOW_SCORE`, `MISSING_KEY`, etc. |
+| fields_changed_json | jsonb | `[{field, before, after}]` for updates |
+| snapshot_before | jsonb nullable | full record before update (for rollback) |
+| created_at | timestamptz | |
 
-#### 2. Display "Vago" badge in red on contract resource cards
+RLS: same pattern as `feedz_sync_events` (c-level insert, all select).
 
-In `src/pages/ContractResourcesPage.tsx`, when `resolved.isVacant === true`:
-- Show a red "Vago" badge next to the resource name
-- Apply `text-destructive` / red styling to the resource card border or name
-- Tooltip: "Profissional desligado — designar substituto"
+**2. New table `feedz_alias_mappings`**
 
-#### 3. Display "Vago" indicator in Squads page
+| Column | Type |
+|--------|------|
+| id | uuid PK |
+| alias_type | text (`cargo` or `departamento`) |
+| feedz_value | text (exact Feedz string) |
+| internal_id | uuid nullable (job_title or team id) |
+| internal_label | text (canonical name) |
+| is_active | boolean default true |
+| created_at, updated_at | timestamptz |
 
-In `src/pages/SquadsPage.tsx`, propagate the `isVacant` flag through the squad data and render a red indicator for vacant resources in both project and resource views.
+RLS: c-level full CRUD, all select.
 
-#### 4. Enhance HR Termination dialog with allocation awareness
+**3. New columns on `feedz_sync_runs`**
 
-In `src/pages/HRPersonDetailPage.tsx`, modify the `handleDesligamento` flow:
-- Before showing the termination form, query `resources` for all active allocations linked via `hrPersonId` to this person
-- Display a warning card listing each contract where the person is allocated (contract name, dedication %)
-- For each allocation, show a `Select` dropdown with active HR people (filtered by same team/role when possible) to pick a replacement
-- "Nenhum (manter vago)" as default option
-- On confirmation: for each allocation where a replacement was chosen, update the resource's `hrPersonId` + `nome` to the new person; for others, leave `hrPersonId` unchanged (the person becomes inactive, triggering the "Vago" display)
+- `matched_by_feedz_id` integer default 0
+- `matched_by_email` integer default 0
+- `matched_by_phone` integer default 0
+- `matched_by_name_score` integer default 0
+- `initiated_by` uuid nullable
+- `sync_mode` text default 'strict' (strict | permissive)
 
-#### 5. Fix the legacy "Janaína" record
+**4. Add `phone_norm` column to `hr_people`** (text, nullable) for phone-based matching.
 
-Run a data update to clear or handle the single remaining unlinked resource, marking it appropriately since the person is inactive.
+**5. Unique constraint on `hr_people.id_externo`** (partial — WHERE id_externo IS NOT NULL).
 
 ---
 
-### Technical Details
+### Edge Function: `feedz-sync` (Rewrite Core Logic)
 
-**ResolvedResource change:**
-```typescript
-export interface ResolvedResource {
-  // ... existing fields
-  isVacant: boolean; // true when hrPersonId -> inactive person
-}
-```
+Preserve structure, enhance matching pipeline:
 
-**resolveResource logic addition:**
-```typescript
-if (person && person.situacao === 'inativo') {
-  return { ...result, isVacant: true };
-}
-```
+1. **Normalization layer** (before any matching):
+   - `email_norm = trim(lowercase(email))`, strip invisible chars
+   - `phone_norm = digits only`, prepend `55` if 10-11 digits
+   - `name_norm` = existing `normalizeName()`
 
-**Termination dialog enhancement:**
-- Uses existing `resources` from `useData()` filtered by `r.hrPersonId === person.id`
-- Replacement select uses `hrPeople.filter(p => p.situacao === 'ativo')`
-- On submit: batch `updateResource()` calls before the termination `updatePerson()` call
+2. **Match cascade** (updated order):
+   - Step 1: `feedz_id` (id_externo) — strong match
+   - Step 2: `email_norm` — strong fallback. If email matches but id_externo diverges → CONFLICT
+   - Step 3: `phone_norm` — moderate fallback (new)
+   - Step 4: `name_norm + score` — weak fallback, threshold ≥ 1.2 for auto-match
 
-**Files to modify:**
-- `src/lib/resourceResolver.ts` — add `isVacant` field
-- `src/pages/ContractResourcesPage.tsx` — render red "Vago" badge
-- `src/pages/SquadsPage.tsx` — propagate and render vacancy indicator
-- `src/pages/HRPersonDetailPage.tsx` — allocation warning + replacement selection in termination dialog
-- `src/hooks/useResolvedResources.ts` — optionally expose vacant count
+3. **Anti-insert rule** (critical change):
+   - Only INSERT if: feedz_id present AND email present AND no existing record with same email AND no probable name match (score ≥ 1.0)
+   - Otherwise → PENDING
+
+4. **Alias resolution** for cargo/depto:
+   - Load `feedz_alias_mappings` at start
+   - Before resolving cargo/team, check alias table first
+   - In strict mode: if no alias and no exact match → PENDING (don't auto-create)
+   - In permissive mode: auto-create as before
+
+5. **Per-item audit** (`feedz_sync_items`):
+   - For every Feedz record processed, insert a row with match_strategy, action, reason_code
+   - For UPDATEs: store `snapshot_before` (full hr_people row before update) and `fields_changed_json` with before/after per field
+   - For INSERTs: store the created hr_person_id
+
+6. **Counters**: track `matched_by_*` counters and save to `feedz_sync_runs`.
+
+---
+
+### Edge Function: `feedz-rollback` (Enhanced)
+
+1. Accept `runId` parameter (any run, not just latest).
+2. Load all `feedz_sync_items` for that run.
+3. For items with `action = 'INSERT'`: delete the hr_person (and timeline entries).
+4. For items with `action = 'UPDATE'` and `snapshot_before` present: restore the previous field values from snapshot.
+5. **Safety check**: if a subsequent sync run (newer) modified the same hr_person_id, warn/block unless force flag is set.
+6. Mark run as `rolled_back`.
+
+---
+
+### Frontend: Export Report per Run
+
+Add "Exportar Relatório" button per run in `SettingsPage.tsx` (FeedzSyncSection).
+
+On click:
+1. Fetch all `feedz_sync_items` for that `run_id`
+2. Generate XLSX using existing native XLSX builder in `importExport.ts` with 5 sheets:
+   - **Resumo**: run totals
+   - **Inserções**: items where action=INSERT
+   - **Atualizações**: items where action=UPDATE, with before/after columns
+   - **Pendências**: action=PENDING with suggested matches
+   - **Conflitos**: action=CONFLICT
+
+---
+
+### Frontend: Alias Management UI
+
+Add a new section in `SettingsPage.tsx` (or a sub-page) for managing `feedz_alias_mappings`:
+- Table listing aliases (type, feedz_value, internal_label)
+- Add/Edit/Delete dialog
+- Filter by type (cargo/departamento)
+
+Add a strict/permissive toggle that saves to `feedz_sync_runs.sync_mode` (or a settings-level config).
+
+---
+
+### Frontend: Enhanced Rollback UI
+
+In the runs table:
+- Show "Rollback" button for any `success` run (not just the latest)
+- Dialog shows what will be reverted (X inserts deleted, Y updates restored)
+- Warn if subsequent syncs touched same records
+
+---
+
+### Files to Create/Modify
+
+| File | Action |
+|------|--------|
+| Migration SQL | Create `feedz_sync_items`, `feedz_alias_mappings`, alter `feedz_sync_runs`, alter `hr_people` |
+| `supabase/functions/feedz-sync/index.ts` | Major rewrite of matching + audit logic |
+| `supabase/functions/feedz-rollback/index.ts` | Add UPDATE rollback + per-run support |
+| `src/pages/SettingsPage.tsx` | Export button, alias management, enhanced rollback UI, strict/permissive toggle |
+| `src/pages/FeedzReconciliationPage.tsx` | Minor updates to use new `feedz_sync_items` data |
+| `src/lib/importExport.ts` | Add sync report XLSX generation function |
+
+---
+
+### Implementation Order
+
+1. Database migration (new tables + columns)
+2. Edge function `feedz-sync` rewrite (matching hardening + audit items)
+3. Edge function `feedz-rollback` enhancement (update rollback + any run)
+4. Frontend: export report generation
+5. Frontend: alias management UI + strict/permissive toggle
+6. Frontend: enhanced rollback UI per run
 
