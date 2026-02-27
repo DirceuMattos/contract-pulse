@@ -18,6 +18,7 @@ import {
   jobTitleFromDb, jobTitleToDb,
   teamFromDb, teamToDb,
 } from '@/lib/dbMappers';
+import { autoLinkHRPerson } from '@/lib/autoLinkHR';
 import {
   mockClients, mockContracts, mockResources, mockSnapshots,
   defaultSettings, mockOverheadItems, mockHistoryEvents,
@@ -286,7 +287,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // ─── RESOURCE ─────────────────────────────────────────────────────────────────
   const addResource = useCallback(async (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>): Promise<Resource> => {
-    const { data: row, error } = await supabase.from('resources').insert(resourceToDb(data) as any).select().single();
+    // Auto-link to HR Master if not already linked
+    const hrPersonId = await autoLinkHRPerson(data.nome, data.tipo, data.hrPersonId);
+    const enriched = hrPersonId ? { ...data, hrPersonId } : data;
+    const { data: row, error } = await supabase.from('resources').insert(resourceToDb(enriched) as any).select().single();
     if (error) { handleError(error, 'Erro ao adicionar recurso.'); throw error; }
     const resource = resourceFromDb(row as unknown as Record<string, unknown>);
     setResources(prev => [...prev, resource]);
@@ -297,6 +301,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateResource = useCallback(async (id: string, data: Partial<Resource>): Promise<void> => {
     const prev = resources.find(r => r.id === id)!;
     if (!prev) return;
+    // Auto-link if name changed and not already linked
+    if (data.nome && !data.hrPersonId && !prev.hrPersonId) {
+      const hrPersonId = await autoLinkHRPerson(data.nome, data.tipo ?? prev.tipo);
+      if (hrPersonId) data = { ...data, hrPersonId };
+    }
     const merged = { ...prev, ...data };
     setResources(prevList => prevList.map(r => r.id === id ? { ...r, ...data, updatedAt: new Date().toISOString() } : r));
     const { error } = await supabase.from('resources').update(resourceToDb(merged)).eq('id', id);
