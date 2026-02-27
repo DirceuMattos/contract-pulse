@@ -388,6 +388,10 @@ export interface HRPerson {
   celular?: string;
   idExterno?: string;
   centroCusto?: string;
+  source?: string;
+  syncStatus?: string;
+  lastSyncedAt?: string;
+  nomeNormalizado?: string;
   createdAt: string;
   updatedAt: string;
 }

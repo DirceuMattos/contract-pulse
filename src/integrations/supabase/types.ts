@@ -386,6 +386,66 @@ export type Database = {
           },
         ]
       }
+      feedz_pending_matches: {
+        Row: {
+          created_at: string | null
+          external_id: string
+          feedz_admission_date: string | null
+          feedz_department: string | null
+          feedz_email: string | null
+          feedz_job_title: string | null
+          feedz_name: string
+          feedz_remuneration: number | null
+          feedz_status: string | null
+          id: string
+          match_type: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_person_id: string | null
+          suggested_person_ids: string[] | null
+          suggested_scores: number[] | null
+          sync_run_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          external_id: string
+          feedz_admission_date?: string | null
+          feedz_department?: string | null
+          feedz_email?: string | null
+          feedz_job_title?: string | null
+          feedz_name: string
+          feedz_remuneration?: number | null
+          feedz_status?: string | null
+          id?: string
+          match_type?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_person_id?: string | null
+          suggested_person_ids?: string[] | null
+          suggested_scores?: number[] | null
+          sync_run_id: string
+        }
+        Update: {
+          created_at?: string | null
+          external_id?: string
+          feedz_admission_date?: string | null
+          feedz_department?: string | null
+          feedz_email?: string | null
+          feedz_job_title?: string | null
+          feedz_name?: string
+          feedz_remuneration?: number | null
+          feedz_status?: string | null
+          id?: string
+          match_type?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_person_id?: string | null
+          suggested_person_ids?: string[] | null
+          suggested_scores?: number[] | null
+          sync_run_id?: string
+        }
+        Relationships: []
+      }
       feedz_sync_events: {
         Row: {
           created_at: string
@@ -430,7 +490,9 @@ export type Database = {
           ended_at: string | null
           error_message: string | null
           id: string
+          records_conflicts: number | null
           records_created: number
+          records_pending: number | null
           records_processed: number
           records_terminated: number
           records_updated: number
@@ -442,7 +504,9 @@ export type Database = {
           ended_at?: string | null
           error_message?: string | null
           id?: string
+          records_conflicts?: number | null
           records_created?: number
+          records_pending?: number | null
           records_processed?: number
           records_terminated?: number
           records_updated?: number
@@ -454,7 +518,9 @@ export type Database = {
           ended_at?: string | null
           error_message?: string | null
           id?: string
+          records_conflicts?: number | null
           records_created?: number
+          records_pending?: number | null
           records_processed?: number
           records_terminated?: number
           records_updated?: number
@@ -533,16 +599,20 @@ export type Database = {
           email: string | null
           id: string
           id_externo: string | null
+          last_synced_at: string | null
           local_atuacao: string | null
           motivo_desligamento: string | null
           nivel: string | null
           nome: string
+          nome_normalizado: string | null
           observacoes: string | null
           observacoes_desligamento: string | null
           projeto: string | null
           remuneracao_ii: number | null
           remuneracao_mensal: number
           situacao: string
+          source: string | null
+          sync_status: string | null
           team_id: string | null
           tipo_desligamento: string | null
           tipo_vinculo: string
@@ -562,16 +632,20 @@ export type Database = {
           email?: string | null
           id?: string
           id_externo?: string | null
+          last_synced_at?: string | null
           local_atuacao?: string | null
           motivo_desligamento?: string | null
           nivel?: string | null
           nome?: string
+          nome_normalizado?: string | null
           observacoes?: string | null
           observacoes_desligamento?: string | null
           projeto?: string | null
           remuneracao_ii?: number | null
           remuneracao_mensal?: number
           situacao?: string
+          source?: string | null
+          sync_status?: string | null
           team_id?: string | null
           tipo_desligamento?: string | null
           tipo_vinculo?: string
@@ -591,16 +665,20 @@ export type Database = {
           email?: string | null
           id?: string
           id_externo?: string | null
+          last_synced_at?: string | null
           local_atuacao?: string | null
           motivo_desligamento?: string | null
           nivel?: string | null
           nome?: string
+          nome_normalizado?: string | null
           observacoes?: string | null
           observacoes_desligamento?: string | null
           projeto?: string | null
           remuneracao_ii?: number | null
           remuneracao_mensal?: number
           situacao?: string
+          source?: string | null
+          sync_status?: string | null
           team_id?: string | null
           tipo_desligamento?: string | null
           tipo_vinculo?: string

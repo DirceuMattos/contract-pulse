@@ -437,6 +437,7 @@ export default function SettingsPage() {
 
 
 function FeedzSyncSection() {
+  const navigate = useNavigate();
   const [syncing, setSyncing] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackConfirmOpen, setRollbackConfirmOpen] = useState(false);
@@ -547,7 +548,7 @@ function FeedzSyncSection() {
             Sincroniza colaboradores do Feedz com o cadastro de RH. Cargos e equipes são criados automaticamente quando não existentes.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <h4 className="text-sm font-medium mb-3">Últimas sincronizações</h4>
           {loadingRuns ? (
             <div className="text-center py-4 text-muted-foreground text-sm">Carregando...</div>
@@ -561,11 +562,13 @@ function FeedzSyncSection() {
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Data</TableHead>
                     <TableHead className="text-xs">Processados</TableHead>
-                    <TableHead className="text-xs">Criados</TableHead>
-                    <TableHead className="text-xs">Atualizados</TableHead>
-                    <TableHead className="text-xs">Desligados</TableHead>
-                    <TableHead className="text-xs">Erro</TableHead>
-                    <TableHead className="text-xs">Ações</TableHead>
+                     <TableHead className="text-xs">Criados</TableHead>
+                     <TableHead className="text-xs">Atualizados</TableHead>
+                     <TableHead className="text-xs">Desligados</TableHead>
+                     <TableHead className="text-xs">Pendentes</TableHead>
+                     <TableHead className="text-xs">Conflitos</TableHead>
+                     <TableHead className="text-xs">Erro</TableHead>
+                     <TableHead className="text-xs">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -580,6 +583,8 @@ function FeedzSyncSection() {
                       <TableCell className="text-xs">{r.records_created}</TableCell>
                       <TableCell className="text-xs">{r.records_updated}</TableCell>
                       <TableCell className="text-xs">{r.records_terminated}</TableCell>
+                      <TableCell className="text-xs">{r.records_pending || 0}</TableCell>
+                      <TableCell className="text-xs">{r.records_conflicts || 0}</TableCell>
                       <TableCell className="text-xs text-destructive truncate max-w-[200px]">{r.error_message || '—'}</TableCell>
                       <TableCell>
                         {idx === 0 && r.status === 'success' && r.records_created > 0 ? (
@@ -600,6 +605,12 @@ function FeedzSyncSection() {
               </Table>
             </div>
           )}
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/configuracoes/feedz-reconciliacao')}>
+              <Users className="h-4 w-4 mr-2" />
+              Reconciliação Feedz
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </>

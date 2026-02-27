@@ -567,6 +567,10 @@ export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
     celular: (row.celular as string | null) ?? undefined,
     idExterno: (row.id_externo as string | null) ?? undefined,
     centroCusto: (row.centro_custo as string | null) ?? undefined,
+    source: (row.source as string | null) ?? undefined,
+    syncStatus: (row.sync_status as string | null) ?? undefined,
+    lastSyncedAt: (row.last_synced_at as string | null) ?? undefined,
+    nomeNormalizado: (row.nome_normalizado as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -598,6 +602,10 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     celular: p.celular ?? null,
     id_externo: p.idExterno ?? null,
     centro_custo: p.centroCusto ?? null,
+    source: p.source ?? null,
+    sync_status: p.syncStatus ?? null,
+    last_synced_at: p.lastSyncedAt ?? null,
+    nome_normalizado: p.nomeNormalizado ?? null,
   };
 }
 
