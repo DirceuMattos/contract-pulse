@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2, Undo2 } from 'lucide-react';
+import { Save, RotateCcw, Percent, DollarSign, AlertTriangle, Calendar, Activity, Database, Briefcase, ChevronRight, Users, RefreshCw, CheckCircle, XCircle, Loader2, Undo2, FileSpreadsheet, Plus, Pencil, Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -18,7 +21,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
+import { buildFeedzSyncReport } from '@/lib/importExport';
 
 const settingsSchema = z.object({
   percentualEncargosCLT: z.number().min(0).max(200),
@@ -438,11 +441,21 @@ export default function SettingsPage() {
 
 function FeedzSyncSection() {
   const navigate = useNavigate();
+  const { jobTitles, teams } = useData();
   const [syncing, setSyncing] = useState(false);
-  const [rollingBack, setRollingBack] = useState(false);
-  const [rollbackConfirmOpen, setRollbackConfirmOpen] = useState(false);
+  const [rollingBack, setRollingBack] = useState<string | null>(null);
+  const [rollbackConfirmRun, setRollbackConfirmRun] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
   const [loadingRuns, setLoadingRuns] = useState(true);
+  const [syncMode, setSyncMode] = useState<'strict' | 'permissive'>('strict');
+  const [exportingRun, setExportingRun] = useState<string | null>(null);
+
+  // Alias management
+  const [aliases, setAliases] = useState<any[]>([]);
+  const [aliasDialogOpen, setAliasDialogOpen] = useState(false);
+  const [editingAlias, setEditingAlias] = useState<any>(null);
+  const [aliasForm, setAliasForm] = useState({ alias_type: 'cargo', feedz_value: '', internal_id: '', internal_label: '' });
+  const [aliasFilter, setAliasFilter] = useState<'all' | 'cargo' | 'departamento'>('all');
 
   const loadRuns = async () => {
     setLoadingRuns(true);
@@ -452,23 +465,29 @@ function FeedzSyncSection() {
       .order('created_at', { ascending: false })
       .limit(10);
     setRuns(data || []);
+    // Infer sync mode from latest run
+    if (data && data.length > 0 && (data[0] as any).sync_mode) {
+      setSyncMode((data[0] as any).sync_mode === 'permissive' ? 'permissive' : 'strict');
+    }
     setLoadingRuns(false);
   };
 
-  useEffect(() => { loadRuns(); }, []);
+  const loadAliases = async () => {
+    const { data } = await supabase.from('feedz_alias_mappings' as any).select('*').order('created_at', { ascending: false });
+    setAliases(data || []);
+  };
+
+  useEffect(() => { loadRuns(); loadAliases(); }, []);
 
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('feedz-sync');
-      if (error) {
-        const detail = typeof error === 'object' && error.message ? error.message : String(error);
-        throw new Error(detail);
-      }
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados.`);
+      const { data, error } = await supabase.functions.invoke('feedz-sync', {
+        body: { sync_mode: syncMode },
+      });
+      if (error) throw new Error(typeof error === 'object' && error.message ? error.message : String(error));
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados, ${data?.pending || 0} pendentes.`);
       loadRuns();
     } catch (err: any) {
       toast.error(`Erro na sincronização: ${err.message || 'Erro desconhecido'}`);
@@ -477,29 +496,87 @@ function FeedzSyncSection() {
     }
   };
 
-  // Find the latest run with status 'success' (only first one is rollbackable)
-  const latestSuccessRun = runs.length > 0 && runs[0].status === 'success' ? runs[0] : null;
-
-  const handleRollback = async () => {
-    if (!latestSuccessRun) return;
-    setRollingBack(true);
+  const handleRollback = async (run: any) => {
+    setRollingBack(run.id);
     try {
       const { data, error } = await supabase.functions.invoke('feedz-rollback', {
-        body: { runId: latestSuccessRun.id },
+        body: { runId: run.id },
       });
-      if (error) {
-        const detail = typeof error === 'object' && error.message ? error.message : String(error);
-        throw new Error(detail);
-      }
+      if (error) throw new Error(typeof error === 'object' && error.message ? error.message : String(error));
       if (data?.error) throw new Error(data.error);
-      toast.success(`Rollback concluído: ${data?.removed || 0} registros removidos.`);
+      const msg = `Rollback concluído: ${data?.removed || 0} removidos, ${data?.restored || 0} restaurados.`;
+      toast.success(msg);
       loadRuns();
     } catch (err: any) {
       toast.error(`Erro no rollback: ${err.message || 'Erro desconhecido'}`);
     } finally {
-      setRollingBack(false);
-      setRollbackConfirmOpen(false);
+      setRollingBack(null);
+      setRollbackConfirmRun(null);
     }
+  };
+
+  const handleExportReport = async (run: any) => {
+    setExportingRun(run.id);
+    try {
+      const { data: items, error } = await supabase
+        .from('feedz_sync_items' as any)
+        .select('*')
+        .eq('sync_run_id', run.id);
+      if (error) throw error;
+      if (!items || items.length === 0) {
+        toast.error('Nenhum item de auditoria encontrado para este run (run anterior ao V2).');
+        return;
+      }
+      const blob = buildFeedzSyncReport(run, items);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `feedz-sync-${new Date(run.created_at).toISOString().split('T')[0]}-${run.id.substring(0, 8)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Relatório exportado com sucesso!');
+    } catch (err: any) {
+      toast.error(`Erro ao exportar: ${err.message}`);
+    } finally {
+      setExportingRun(null);
+    }
+  };
+
+  // Alias CRUD
+  const openNewAlias = () => {
+    setEditingAlias(null);
+    setAliasForm({ alias_type: 'cargo', feedz_value: '', internal_id: '', internal_label: '' });
+    setAliasDialogOpen(true);
+  };
+
+  const openEditAlias = (a: any) => {
+    setEditingAlias(a);
+    setAliasForm({ alias_type: a.alias_type, feedz_value: a.feedz_value, internal_id: a.internal_id || '', internal_label: a.internal_label });
+    setAliasDialogOpen(true);
+  };
+
+  const saveAlias = async () => {
+    const payload: any = {
+      alias_type: aliasForm.alias_type,
+      feedz_value: aliasForm.feedz_value,
+      internal_id: aliasForm.internal_id || null,
+      internal_label: aliasForm.internal_label,
+      is_active: true,
+    };
+    if (editingAlias) {
+      await supabase.from('feedz_alias_mappings' as any).update(payload).eq('id', editingAlias.id);
+    } else {
+      await supabase.from('feedz_alias_mappings' as any).insert(payload);
+    }
+    toast.success(editingAlias ? 'Alias atualizado.' : 'Alias criado.');
+    setAliasDialogOpen(false);
+    loadAliases();
+  };
+
+  const deleteAlias = async (id: string) => {
+    await supabase.from('feedz_alias_mappings' as any).delete().eq('id', id);
+    toast.success('Alias removido.');
+    loadAliases();
   };
 
   const statusIcon = (status: string) => {
@@ -514,24 +591,76 @@ function FeedzSyncSection() {
     return status;
   };
 
+  const filteredAliases = aliasFilter === 'all' ? aliases : aliases.filter((a: any) => a.alias_type === aliasFilter);
+
+  // Resolve internal label for alias based on type
+  const getInternalOptions = (type: string) => {
+    if (type === 'cargo') return (jobTitles || []).map((j: any) => ({ id: j.id, label: j.label }));
+    return (teams || []).map((t: any) => ({ id: t.id, label: t.name }));
+  };
+
   return (
     <>
+      {/* Rollback confirm dialog */}
       <ConfirmDeleteDialog
-        open={rollbackConfirmOpen}
-        onOpenChange={setRollbackConfirmOpen}
-        onConfirm={handleRollback}
-        title="Reverter última sincronização?"
+        open={!!rollbackConfirmRun}
+        onOpenChange={(open) => { if (!open) setRollbackConfirmRun(null); }}
+        onConfirm={() => rollbackConfirmRun && handleRollback(rollbackConfirmRun)}
+        title="Reverter sincronização?"
         description={
-          latestSuccessRun
-            ? `Isso irá excluir os ${latestSuccessRun.records_created} registros criados nesta sincronização.${
-                (latestSuccessRun.records_updated > 0 || latestSuccessRun.records_terminated > 0)
-                  ? ` Atenção: ${latestSuccessRun.records_updated} atualizações e ${latestSuccessRun.records_terminated} desligamentos NÃO serão revertidos (sem versionamento).`
-                  : ''
-              } Esta ação não pode ser desfeita.`
+          rollbackConfirmRun
+            ? `Isso irá reverter o run de ${new Date(rollbackConfirmRun.created_at).toLocaleString('pt-BR')}:\n• ${rollbackConfirmRun.records_created || 0} inserções serão removidas\n• ${rollbackConfirmRun.records_updated || 0} atualizações serão restauradas ao estado anterior.\nEsta ação não pode ser desfeita.`
             : ''
         }
         confirmLabel={rollingBack ? 'Revertendo...' : 'Reverter'}
       />
+
+      {/* Alias dialog */}
+      <Dialog open={aliasDialogOpen} onOpenChange={setAliasDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingAlias ? 'Editar Alias' : 'Novo Alias'}</DialogTitle>
+            <DialogDescription>Mapeie um valor do Feedz para um registro interno.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Tipo</Label>
+              <Select value={aliasForm.alias_type} onValueChange={(v) => setAliasForm(f => ({ ...f, alias_type: v, internal_id: '', internal_label: '' }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cargo">Cargo</SelectItem>
+                  <SelectItem value="departamento">Departamento</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Valor Feedz (texto exato)</Label>
+              <Input value={aliasForm.feedz_value} onChange={e => setAliasForm(f => ({ ...f, feedz_value: e.target.value }))} placeholder="Ex: Desenvolvedor Full Stack" />
+            </div>
+            <div>
+              <Label>Registro Interno</Label>
+              <Select value={aliasForm.internal_id} onValueChange={(v) => {
+                const opts = getInternalOptions(aliasForm.alias_type);
+                const opt = opts.find(o => o.id === v);
+                setAliasForm(f => ({ ...f, internal_id: v, internal_label: opt?.label || '' }));
+              }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {getInternalOptions(aliasForm.alias_type).map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAliasDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={saveAlias} disabled={!aliasForm.feedz_value || !aliasForm.internal_id}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -539,77 +668,165 @@ function FeedzSyncSection() {
               <RefreshCw className="h-5 w-5 text-primary" />
               <CardTitle>Integração Feedz (TOTVS)</CardTitle>
             </div>
-            <Button onClick={handleSync} disabled={syncing}>
-              {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Modo:</Label>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs ${syncMode === 'strict' ? 'font-semibold' : 'text-muted-foreground'}`}>Estrito</span>
+                  <Switch
+                    checked={syncMode === 'permissive'}
+                    onCheckedChange={(checked) => setSyncMode(checked ? 'permissive' : 'strict')}
+                  />
+                  <span className={`text-xs ${syncMode === 'permissive' ? 'font-semibold' : 'text-muted-foreground'}`}>Permissivo</span>
+                </div>
+              </div>
+              <Button onClick={handleSync} disabled={syncing}>
+                {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
+              </Button>
+            </div>
           </div>
           <CardDescription>
-            Sincroniza colaboradores do Feedz com o cadastro de RH. Cargos e equipes são criados automaticamente quando não existentes.
+            Sincroniza colaboradores do Feedz com o cadastro de RH.
+            {syncMode === 'strict' ? ' Modo Estrito: cargos/departamentos sem mapeamento geram pendência.' : ' Modo Permissivo: cargos/departamentos são criados automaticamente.'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <h4 className="text-sm font-medium mb-3">Últimas sincronizações</h4>
-          {loadingRuns ? (
-            <div className="text-center py-4 text-muted-foreground text-sm">Carregando...</div>
-          ) : runs.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground text-sm">Nenhuma sincronização realizada.</div>
-          ) : (
-            <div className="border rounded-md overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs">Data</TableHead>
-                    <TableHead className="text-xs">Processados</TableHead>
-                     <TableHead className="text-xs">Criados</TableHead>
-                     <TableHead className="text-xs">Atualizados</TableHead>
-                     <TableHead className="text-xs">Desligados</TableHead>
-                     <TableHead className="text-xs">Pendentes</TableHead>
-                     <TableHead className="text-xs">Conflitos</TableHead>
-                     <TableHead className="text-xs">Erro</TableHead>
-                     <TableHead className="text-xs">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {runs.map((r: any, idx: number) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="flex items-center gap-1.5">
-                        {statusIcon(r.status)}
-                        <span className="text-xs">{statusLabel(r.status)}</span>
-                      </TableCell>
-                      <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('pt-BR')}</TableCell>
-                      <TableCell className="text-xs">{r.records_processed}</TableCell>
-                      <TableCell className="text-xs">{r.records_created}</TableCell>
-                      <TableCell className="text-xs">{r.records_updated}</TableCell>
-                      <TableCell className="text-xs">{r.records_terminated}</TableCell>
-                      <TableCell className="text-xs">{r.records_pending || 0}</TableCell>
-                      <TableCell className="text-xs">{r.records_conflicts || 0}</TableCell>
-                      <TableCell className="text-xs text-destructive truncate max-w-[200px]">{r.error_message || '—'}</TableCell>
-                      <TableCell>
-                        {idx === 0 && r.status === 'success' && r.records_created > 0 ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRollbackConfirmOpen(true)}
-                            disabled={rollingBack}
-                          >
-                            {rollingBack ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Undo2 className="h-3 w-3 mr-1" />}
-                            Rollback
-                          </Button>
-                        ) : null}
-                      </TableCell>
+        <CardContent className="space-y-6">
+          {/* Runs table */}
+          <div>
+            <h4 className="text-sm font-medium mb-3">Últimas sincronizações</h4>
+            {loadingRuns ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">Carregando...</div>
+            ) : runs.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">Nenhuma sincronização realizada.</div>
+            ) : (
+              <div className="border rounded-md overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                      <TableHead className="text-xs">Proc.</TableHead>
+                      <TableHead className="text-xs">Criados</TableHead>
+                      <TableHead className="text-xs">Atual.</TableHead>
+                      <TableHead className="text-xs">Desl.</TableHead>
+                      <TableHead className="text-xs">Pend.</TableHead>
+                      <TableHead className="text-xs">Confl.</TableHead>
+                      <TableHead className="text-xs">Modo</TableHead>
+                      <TableHead className="text-xs">Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {runs.map((r: any) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="flex items-center gap-1.5">
+                          {statusIcon(r.status)}
+                          <span className="text-xs">{statusLabel(r.status)}</span>
+                        </TableCell>
+                        <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-xs">{r.records_processed}</TableCell>
+                        <TableCell className="text-xs">{r.records_created}</TableCell>
+                        <TableCell className="text-xs">{r.records_updated}</TableCell>
+                        <TableCell className="text-xs">{r.records_terminated}</TableCell>
+                        <TableCell className="text-xs">{r.records_pending || 0}</TableCell>
+                        <TableCell className="text-xs">{r.records_conflicts || 0}</TableCell>
+                        <TableCell className="text-xs">
+                          <Badge variant="outline" className="text-[10px]">{r.sync_mode || 'legacy'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleExportReport(r)}
+                              disabled={exportingRun === r.id}
+                              title="Exportar relatório"
+                            >
+                              {exportingRun === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileSpreadsheet className="h-3 w-3" />}
+                            </Button>
+                            {r.status === 'success' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRollbackConfirmRun(r)}
+                                disabled={!!rollingBack}
+                                title="Rollback"
+                              >
+                                {rollingBack === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/configuracoes/feedz-reconciliacao')}>
+                <Users className="h-4 w-4 mr-2" />
+                Reconciliação Feedz
+              </Button>
             </div>
-          )}
-          <div className="flex justify-end pt-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/configuracoes/feedz-reconciliacao')}>
-              <Users className="h-4 w-4 mr-2" />
-              Reconciliação Feedz
-            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Alias Management */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-medium">Mapeamento de Aliases (Cargo / Departamento)</h4>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={aliasFilter} onValueChange={(v: any) => setAliasFilter(v)}>
+                  <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="cargo">Cargo</SelectItem>
+                    <SelectItem value="departamento">Departamento</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={openNewAlias}>
+                  <Plus className="h-3 w-3 mr-1" /> Novo Alias
+                </Button>
+              </div>
+            </div>
+            {filteredAliases.length === 0 ? (
+              <div className="text-center py-3 text-muted-foreground text-xs">Nenhum alias cadastrado.</div>
+            ) : (
+              <div className="border rounded-md overflow-auto max-h-[250px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Tipo</TableHead>
+                      <TableHead className="text-xs">Valor Feedz</TableHead>
+                      <TableHead className="text-xs">Interno</TableHead>
+                      <TableHead className="text-xs">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAliases.map((a: any) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs">
+                          <Badge variant="secondary" className="text-[10px]">{a.alias_type}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">{a.feedz_value}</TableCell>
+                        <TableCell className="text-xs">{a.internal_label}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openEditAlias(a)}><Pencil className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => deleteAlias(a.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
