@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -27,42 +26,30 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } =
-      await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userErr } = await anonClient.auth.getUser();
+    if (userErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
-    // Service role client for bypassing RLS
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
     // Check c-level role
-    const { data: roleCheck } = await admin
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("role", "c-level")
-      .maybeSingle();
-
+    const { data: roleCheck } = await admin.rpc('has_role', { _user_id: userId, _role: 'c-level' });
     if (!roleCheck) {
       return new Response(
         JSON.stringify({ error: "Acesso restrito a C-Level" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const { runId } = await req.json();
+    const { runId, force } = await req.json();
     if (!runId) {
       return new Response(JSON.stringify({ error: "runId é obrigatório" }), {
         status: 400,
@@ -70,7 +57,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate the run exists and is the latest success
+    // Validate the run
     const { data: run } = await admin
       .from("feedz_sync_runs")
       .select("*")
@@ -87,47 +74,107 @@ Deno.serve(async (req) => {
     if (run.status !== "success") {
       return new Response(
         JSON.stringify({ error: "Apenas runs com status 'success' podem ser revertidos" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get create events for this run
-    const { data: events } = await admin
-      .from("feedz_sync_events")
-      .select("external_id")
-      .eq("sync_run_id", runId)
-      .eq("event_type", "create");
+    // Load sync items for this run
+    const { data: syncItems } = await admin
+      .from("feedz_sync_items")
+      .select("*")
+      .eq("sync_run_id", runId);
 
-    const externalIds = (events || [])
-      .map((e: any) => e.external_id)
-      .filter(Boolean);
+    const items = syncItems || [];
+
+    // If no sync_items (legacy run), fallback to old behavior using feedz_sync_events
+    if (items.length === 0) {
+      return await legacyRollback(admin, runId);
+    }
+
+    // Safety check: subsequent runs that touched same records
+    if (!force) {
+      const affectedPersonIds = items
+        .filter((i: any) => i.matched_hr_person_id)
+        .map((i: any) => i.matched_hr_person_id);
+
+      if (affectedPersonIds.length > 0) {
+        // Check for newer runs that touched same people
+        const { data: newerItems } = await admin
+          .from("feedz_sync_items")
+          .select("sync_run_id, matched_hr_person_id")
+          .in("matched_hr_person_id", affectedPersonIds)
+          .neq("sync_run_id", runId)
+          .in("action", ["UPDATE", "INSERT"]);
+
+        if (newerItems && newerItems.length > 0) {
+          // Check if any of those runs are newer
+          const newerRunIds = [...new Set(newerItems.map((i: any) => i.sync_run_id))];
+          const { data: newerRuns } = await admin
+            .from("feedz_sync_runs")
+            .select("id, started_at")
+            .in("id", newerRunIds)
+            .gt("started_at", run.started_at)
+            .eq("status", "success");
+
+          if (newerRuns && newerRuns.length > 0) {
+            return new Response(
+              JSON.stringify({
+                error: "Existem syncs posteriores que modificaram os mesmos registros. Use force=true para forçar.",
+                conflicting_runs: newerRuns.map((r: any) => r.id),
+                affected_records: newerItems.length,
+              }),
+              { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
 
     let removedCount = 0;
+    let restoredCount = 0;
 
-    if (externalIds.length > 0) {
-      // Find hr_people by external ids
-      const { data: people } = await admin
+    // Process INSERTs: delete the created records
+    const insertItems = items.filter((i: any) => i.action === "INSERT" && i.matched_hr_person_id);
+    if (insertItems.length > 0) {
+      const personIds = insertItems.map((i: any) => i.matched_hr_person_id);
+      // Delete timeline entries first (FK constraint)
+      await admin.from("hr_timeline").delete().in("person_id", personIds);
+      // Delete people
+      const { count } = await admin
         .from("hr_people")
-        .select("id")
-        .in("id_externo", externalIds);
+        .delete()
+        .in("id", personIds)
+        .select("id", { count: "exact", head: true });
+      removedCount = count || personIds.length;
+    }
 
-      const personIds = (people || []).map((p: any) => p.id);
+    // Process UPDATEs: restore snapshot_before
+    const updateItems = items.filter((i: any) => i.action === "UPDATE" && i.snapshot_before && i.matched_hr_person_id);
+    for (const item of updateItems) {
+      const snapshot = item.snapshot_before as Record<string, any>;
+      // Only restore the fields that were changed
+      const changedFields = (item.fields_changed_json as any[]) || [];
+      const restorePayload: Record<string, any> = {};
+      for (const change of changedFields) {
+        if (change.field && change.before !== undefined) {
+          restorePayload[change.field] = change.before;
+        }
+      }
+      // Also restore from snapshot for safety
+      if (Object.keys(restorePayload).length === 0 && snapshot) {
+        // Fallback: use full snapshot keys that differ
+        for (const key of Object.keys(snapshot)) {
+          restorePayload[key] = snapshot[key];
+        }
+      }
 
-      if (personIds.length > 0) {
-        // Delete timeline entries first (FK constraint)
-        await admin.from("hr_timeline").delete().in("person_id", personIds);
-
-        // Delete people
-        const { count } = await admin
+      if (Object.keys(restorePayload).length > 0) {
+        restorePayload.updated_at = new Date().toISOString();
+        const { error } = await admin
           .from("hr_people")
-          .delete()
-          .in("id", personIds)
-          .select("id", { count: "exact", head: true });
-
-        removedCount = count || personIds.length;
+          .update(restorePayload)
+          .eq("id", item.matched_hr_person_id);
+        if (!error) restoredCount++;
       }
     }
 
@@ -138,18 +185,57 @@ Deno.serve(async (req) => {
       .eq("id", runId);
 
     return new Response(
-      JSON.stringify({ success: true, removed: removedCount }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true, removed: removedCount, restored: restoredCount }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err) {
+  } catch (err: any) {
     return new Response(
       JSON.stringify({ error: err.message || "Erro interno" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
+// Legacy rollback for runs without feedz_sync_items
+async function legacyRollback(admin: any, runId: string) {
+  const { data: events } = await admin
+    .from("feedz_sync_events")
+    .select("external_id")
+    .eq("sync_run_id", runId)
+    .eq("event_type", "create");
+
+  const externalIds = (events || [])
+    .map((e: any) => e.external_id)
+    .filter(Boolean);
+
+  let removedCount = 0;
+
+  if (externalIds.length > 0) {
+    const { data: people } = await admin
+      .from("hr_people")
+      .select("id")
+      .in("id_externo", externalIds);
+
+    const personIds = (people || []).map((p: any) => p.id);
+
+    if (personIds.length > 0) {
+      await admin.from("hr_timeline").delete().in("person_id", personIds);
+      const { count } = await admin
+        .from("hr_people")
+        .delete()
+        .in("id", personIds)
+        .select("id", { count: "exact", head: true });
+      removedCount = count || personIds.length;
+    }
+  }
+
+  await admin
+    .from("feedz_sync_runs")
+    .update({ status: "rolled_back" })
+    .eq("id", runId);
+
+  return new Response(
+    JSON.stringify({ success: true, removed: removedCount, restored: 0 }),
+    { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } }
+  );
+}

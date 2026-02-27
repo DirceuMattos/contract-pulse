@@ -106,7 +106,8 @@ function colRef(idx: number): string {
   return ref;
 }
 
-export function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
+// Build a single sheet XML string
+function buildSheetXml(headers: unknown[], rows: unknown[][]): string {
   const toCell = (val: unknown, colIdx: number, rowIdx: number): string => {
     const ref = colRef(colIdx) + rowIdx;
     const str = String(val ?? '');
@@ -120,29 +121,11 @@ export function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
     .map((row, rIdx) => `<row r="${rIdx + 1}">${(row as unknown[]).map((cell, cIdx) => toCell(cell, cIdx, rIdx + 1)).join('')}</row>`)
     .join('');
 
-  const sheet = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`;
+}
 
-  const wb = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`;
-
-  // Root relationship: points to the workbook
-  const rootRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
-
-  // Workbook relationship: points to the worksheet
-  const wbRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
-
-  const contentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
-
-  // Build a simple ZIP manually (stored, no compression) using DataView
-  const enc = new TextEncoder();
-  const files: Array<{ name: string; data: Uint8Array }> = [
-    { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
-    { name: '_rels/.rels', data: enc.encode(rootRels) },
-    { name: 'xl/workbook.xml', data: enc.encode(wb) },
-    { name: 'xl/_rels/workbook.xml.rels', data: enc.encode(wbRels) },
-    { name: 'xl/worksheets/sheet1.xml', data: enc.encode(sheet) },
-  ];
-
-  // CRC-32 helper
+// ZIP builder helper (shared between single and multi-sheet)
+function buildZipBlob(files: Array<{ name: string; data: Uint8Array }>): Blob {
   const crcTable = (() => {
     const t = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
@@ -162,6 +145,7 @@ export function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
   function writeUint32LE(view: DataView, offset: number, val: number) { view.setUint32(offset, val, true); }
   function writeUint16LE(view: DataView, offset: number, val: number) { view.setUint16(offset, val, true); }
 
+  const enc = new TextEncoder();
   const localHeaders: Array<{ offset: number; name: Uint8Array; data: Uint8Array; crc: number }> = [];
   const parts: Uint8Array[] = [];
   let offset = 0;
@@ -227,6 +211,124 @@ export function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
   parts.push(eocd);
 
   return new Blob(parts as BlobPart[], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+export function buildXlsx(headers: unknown[], rows: unknown[][]): Blob {
+  const enc = new TextEncoder();
+  const sheet = buildSheetXml(headers, rows);
+  const wb = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const rootRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const wbRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+
+  return buildZipBlob([
+    { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
+    { name: '_rels/.rels', data: enc.encode(rootRels) },
+    { name: 'xl/workbook.xml', data: enc.encode(wb) },
+    { name: 'xl/_rels/workbook.xml.rels', data: enc.encode(wbRels) },
+    { name: 'xl/worksheets/sheet1.xml', data: enc.encode(sheet) },
+  ]);
+}
+
+// Multi-sheet XLSX builder
+export interface XlsxSheet {
+  name: string;
+  headers: unknown[];
+  rows: unknown[][];
+}
+
+export function buildMultiSheetXlsx(sheets: XlsxSheet[]): Blob {
+  const enc = new TextEncoder();
+
+  // Build sheet XML for each sheet
+  const sheetXmls = sheets.map(s => buildSheetXml(s.headers, s.rows));
+
+  // Workbook with multiple sheets
+  const sheetRefs = sheets.map((s, i) => `<sheet name="${escapeXml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
+  const wb = `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetRefs}</sheets></workbook>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+
+  const wbRelsEntries = sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('');
+  const wbRels = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${wbRelsEntries}</Relationships>`;
+
+  const overrides = sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${overrides}</Types>`;
+
+  const files: Array<{ name: string; data: Uint8Array }> = [
+    { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
+    { name: '_rels/.rels', data: enc.encode(rootRels) },
+    { name: 'xl/workbook.xml', data: enc.encode(wb) },
+    { name: 'xl/_rels/workbook.xml.rels', data: enc.encode(wbRels) },
+    ...sheetXmls.map((xml, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: enc.encode(xml) })),
+  ];
+
+  return buildZipBlob(files);
+}
+
+// ─── Feedz Sync Report XLSX Generator ────────────────────────────────────────
+export function buildFeedzSyncReport(run: any, items: any[]): Blob {
+  const inserts = items.filter(i => i.action === 'INSERT');
+  const updates = items.filter(i => i.action === 'UPDATE');
+  const pendings = items.filter(i => i.action === 'PENDING');
+  const conflicts = items.filter(i => i.action === 'CONFLICT');
+
+  // Sheet 1: Resumo
+  const summaryHeaders = ['Campo', 'Valor'];
+  const summaryRows = [
+    ['Run ID', run.id],
+    ['Data Início', run.started_at ? new Date(run.started_at).toLocaleString('pt-BR') : ''],
+    ['Data Fim', run.ended_at ? new Date(run.ended_at).toLocaleString('pt-BR') : ''],
+    ['Status', run.status],
+    ['Modo', run.sync_mode || 'strict'],
+    ['Processados', run.records_processed],
+    ['Criados', run.records_created],
+    ['Atualizados', run.records_updated],
+    ['Desligados', run.records_terminated],
+    ['Pendentes', run.records_pending || 0],
+    ['Conflitos', run.records_conflicts || 0],
+    ['Match por Feedz ID', run.matched_by_feedz_id || 0],
+    ['Match por Email', run.matched_by_email || 0],
+    ['Match por Telefone', run.matched_by_phone || 0],
+    ['Match por Nome+Score', run.matched_by_name_score || 0],
+  ];
+
+  // Sheet 2: Inserções
+  const insertHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'HR Person ID', 'Motivo'];
+  const insertRows = inserts.map(i => [
+    i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy,
+    i.matched_hr_person_id || '', i.reason_code || 'Novo registro',
+  ]);
+
+  // Sheet 3: Atualizações
+  const updateHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'HR Person ID', 'Campos Alterados'];
+  const updateRows = updates.map(i => {
+    const changes = (i.fields_changed_json || []) as any[];
+    const changesStr = changes.map((c: any) => `${c.field}: ${c.before ?? ''} → ${c.after ?? ''}`).join('; ');
+    return [i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy, i.matched_hr_person_id || '', changesStr];
+  });
+
+  // Sheet 4: Pendências
+  const pendingHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'Motivo', 'HR Person Sugerido'];
+  const pendingRows = pendings.map(i => [
+    i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy,
+    i.reason_code || '', i.matched_hr_person_id || '',
+  ]);
+
+  // Sheet 5: Conflitos
+  const conflictHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'Motivo', 'HR Person Conflitante'];
+  const conflictRows = conflicts.map(i => [
+    i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy,
+    i.reason_code || '', i.matched_hr_person_id || '',
+  ]);
+
+  return buildMultiSheetXlsx([
+    { name: 'Resumo', headers: summaryHeaders, rows: summaryRows },
+    { name: 'Insercoes', headers: insertHeaders, rows: insertRows },
+    { name: 'Atualizacoes', headers: updateHeaders, rows: updateRows },
+    { name: 'Pendencias', headers: pendingHeaders, rows: pendingRows },
+    { name: 'Conflitos', headers: conflictHeaders, rows: conflictRows },
+  ]);
 }
 
 function downloadBlob(blob: Blob, filename: string): void {

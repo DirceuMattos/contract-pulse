@@ -386,6 +386,39 @@ export type Database = {
           },
         ]
       }
+      feedz_alias_mappings: {
+        Row: {
+          alias_type: string
+          created_at: string
+          feedz_value: string
+          id: string
+          internal_id: string | null
+          internal_label: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          alias_type?: string
+          created_at?: string
+          feedz_value: string
+          id?: string
+          internal_id?: string | null
+          internal_label?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          alias_type?: string
+          created_at?: string
+          feedz_value?: string
+          id?: string
+          internal_id?: string | null
+          internal_label?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feedz_pending_matches: {
         Row: {
           created_at: string | null
@@ -484,12 +517,70 @@ export type Database = {
           },
         ]
       }
+      feedz_sync_items: {
+        Row: {
+          action: string
+          created_at: string
+          feedz_email: string | null
+          feedz_id: string | null
+          feedz_name: string | null
+          fields_changed_json: Json | null
+          id: string
+          match_strategy: string
+          matched_hr_person_id: string | null
+          reason_code: string | null
+          snapshot_before: Json | null
+          sync_run_id: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          feedz_email?: string | null
+          feedz_id?: string | null
+          feedz_name?: string | null
+          fields_changed_json?: Json | null
+          id?: string
+          match_strategy?: string
+          matched_hr_person_id?: string | null
+          reason_code?: string | null
+          snapshot_before?: Json | null
+          sync_run_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          feedz_email?: string | null
+          feedz_id?: string | null
+          feedz_name?: string | null
+          fields_changed_json?: Json | null
+          id?: string
+          match_strategy?: string
+          matched_hr_person_id?: string | null
+          reason_code?: string | null
+          snapshot_before?: Json | null
+          sync_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedz_sync_items_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "feedz_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedz_sync_runs: {
         Row: {
           created_at: string
           ended_at: string | null
           error_message: string | null
           id: string
+          initiated_by: string | null
+          matched_by_email: number
+          matched_by_feedz_id: number
+          matched_by_name_score: number
+          matched_by_phone: number
           records_conflicts: number | null
           records_created: number
           records_pending: number | null
@@ -498,12 +589,18 @@ export type Database = {
           records_updated: number
           started_at: string
           status: string
+          sync_mode: string
         }
         Insert: {
           created_at?: string
           ended_at?: string | null
           error_message?: string | null
           id?: string
+          initiated_by?: string | null
+          matched_by_email?: number
+          matched_by_feedz_id?: number
+          matched_by_name_score?: number
+          matched_by_phone?: number
           records_conflicts?: number | null
           records_created?: number
           records_pending?: number | null
@@ -512,12 +609,18 @@ export type Database = {
           records_updated?: number
           started_at?: string
           status?: string
+          sync_mode?: string
         }
         Update: {
           created_at?: string
           ended_at?: string | null
           error_message?: string | null
           id?: string
+          initiated_by?: string | null
+          matched_by_email?: number
+          matched_by_feedz_id?: number
+          matched_by_name_score?: number
+          matched_by_phone?: number
           records_conflicts?: number | null
           records_created?: number
           records_pending?: number | null
@@ -526,6 +629,7 @@ export type Database = {
           records_updated?: number
           started_at?: string
           status?: string
+          sync_mode?: string
         }
         Relationships: []
       }
@@ -607,6 +711,7 @@ export type Database = {
           nome_normalizado: string | null
           observacoes: string | null
           observacoes_desligamento: string | null
+          phone_norm: string | null
           projeto: string | null
           remuneracao_ii: number | null
           remuneracao_mensal: number
@@ -640,6 +745,7 @@ export type Database = {
           nome_normalizado?: string | null
           observacoes?: string | null
           observacoes_desligamento?: string | null
+          phone_norm?: string | null
           projeto?: string | null
           remuneracao_ii?: number | null
           remuneracao_mensal?: number
@@ -673,6 +779,7 @@ export type Database = {
           nome_normalizado?: string | null
           observacoes?: string | null
           observacoes_desligamento?: string | null
+          phone_norm?: string | null
           projeto?: string | null
           remuneracao_ii?: number | null
           remuneracao_mensal?: number
