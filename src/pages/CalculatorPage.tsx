@@ -55,7 +55,7 @@ export default function CalculatorPage() {
     <TooltipProvider>
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Calculadora de Contratos"
+        title="Simulador de Contratos"
         description="Simule contratos em negociação e projete resultados financeiros."
         animated={false}
         actions={
