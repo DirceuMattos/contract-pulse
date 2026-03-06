@@ -46,7 +46,7 @@ const navItems: { path: string; label: string; icon: any; moduleKey?: ModuleKey 
   { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
   { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
   { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
-  { path: '/integracoes', label: 'Integrações', icon: Plug },
+  
   { path: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ];
 

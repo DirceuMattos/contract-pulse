@@ -84,7 +84,7 @@ const App = () => (
                           <Route path="/rh/cargos" element={<JobTitlesPage />} />
                           <Route path="/rh/equipes" element={<TeamsPage />} />
                           <Route path="/configuracoes/feedz-reconciliacao" element={<FeedzReconciliationPage />} />
-                          <Route path="/integracoes" element={<DashboardPage />} />
+                          
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />

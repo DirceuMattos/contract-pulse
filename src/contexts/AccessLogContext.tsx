@@ -22,7 +22,7 @@ const ROUTE_MODULE_MAP: Record<string, string> = {
   '/usuarios': 'Usuarios',
   '/configuracoes': 'Configuracoes',
   '/importar-exportar': 'Importar/Exportar',
-  '/integracoes': 'Integracoes',
+  
   '/ajuda': 'Ajuda',
   '/usuarios/logs': 'Logs de Acesso',
 };
