@@ -171,7 +171,7 @@ export default function HRPeoplePage() {
     <div className="space-y-6">
       <PageHeader
         title="Recursos Humanos"
-        description="Cadastro mestre de pessoas CLT, PJ e Cooperado."
+        description="Cadastro mestre de pessoas CLT, PJ, Cooperado e Sócio."
         animated={false}
         actions={
           <div className="flex items-center gap-2">
@@ -225,6 +225,7 @@ export default function HRPeoplePage() {
                 <SelectItem value="clt">CLT</SelectItem>
                 <SelectItem value="pj">PJ</SelectItem>
                 <SelectItem value="cooperado">Cooperado</SelectItem>
+                <SelectItem value="socio">Sócio</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>

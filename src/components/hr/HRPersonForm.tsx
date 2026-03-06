@@ -15,7 +15,7 @@ import { useData } from '@/contexts/DataContext';
 
 const hrPersonSchema = z.object({
   nome: z.string().min(2, 'Nome é obrigatório'),
-  tipoVinculo: z.enum(['clt', 'pj', 'cooperado']),
+  tipoVinculo: z.enum(['clt', 'pj', 'cooperado', 'socio']),
   cargoId: z.string().optional(),
   teamId: z.string().optional(),
   remuneracaoMensal: z.number().min(0),
@@ -140,6 +140,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                     <SelectItem value="clt">CLT</SelectItem>
                     <SelectItem value="pj">PJ</SelectItem>
                     <SelectItem value="cooperado">Cooperado</SelectItem>
+                    <SelectItem value="socio">Sócio</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
