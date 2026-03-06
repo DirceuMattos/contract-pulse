@@ -356,7 +356,7 @@ export interface ContractHealth {
 }
 
 // HR Module Types
-export type HRTipoVinculo = 'clt' | 'pj' | 'cooperado';
+export type HRTipoVinculo = 'clt' | 'pj' | 'cooperado' | 'socio';
 export type HRSituacao = 'ativo' | 'inativo';
 export type HRTipoDesligamento = 'dispensado' | 'solicitou-dispensa' | 'transferido-grupo' | 'outro';
 export type HROcorrencia = 'reajuste' | 'bonificacao' | 'beneficio' | 'mudanca-cargo' | 'observacao' | 'desligamento' | 'outro';
