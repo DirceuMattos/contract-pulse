@@ -8,7 +8,7 @@ import {
   FileText,
   Settings,
   Upload,
-  Plug,
+  
   HelpCircle,
   ChevronLeft,
   ChevronRight,
