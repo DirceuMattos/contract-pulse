@@ -23,15 +23,9 @@ export function CurrencyInput({
 }: CurrencyInputProps) {
   const [displayValue, setDisplayValue] = React.useState('');
   const [isFocused, setIsFocused] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Format number for display (blur)
   const formatForDisplay = (num: number | undefined): string => {
-    if (num === undefined || num === null || isNaN(num)) return '';
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  // Format number for editing (focus)
-  const formatForEdit = (num: number | undefined): string => {
     if (num === undefined || num === null || isNaN(num)) return '';
     return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
@@ -42,17 +36,29 @@ export function CurrencyInput({
     }
   }, [value, isFocused]);
 
-  const handleFocus = () => {
+  const parseInputValue = (str: string): number | undefined => {
+    if (!str || str.trim() === '') return undefined;
+    const normalized = str.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    if (isNaN(num)) return undefined;
+    if (min !== undefined && num < min) return min;
+    return num;
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(true);
-    // Show raw number for editing
     if (value !== undefined && value !== null && !isNaN(value)) {
-      setDisplayValue(value.toString().replace('.', ','));
+      const editValue = value.toString().replace('.', ',');
+      setDisplayValue(editValue);
+      // Select all text after state update so user can type over
+      requestAnimationFrame(() => {
+        e.target.select();
+      });
     }
   };
 
   const handleBlur = () => {
     setIsFocused(false);
-    // Parse the current input
     const parsed = parseInputValue(displayValue);
     onChange(parsed);
     setDisplayValue(formatForDisplay(parsed));
@@ -60,19 +66,8 @@ export function CurrencyInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    // Allow digits, comma, dot, minus
     const cleaned = raw.replace(/[^0-9,.\-]/g, '');
     setDisplayValue(cleaned);
-  };
-
-  const parseInputValue = (str: string): number | undefined => {
-    if (!str || str.trim() === '') return undefined;
-    // Replace comma with dot for parsing, remove thousand separators
-    const normalized = str.replace(/\./g, '').replace(',', '.');
-    const num = parseFloat(normalized);
-    if (isNaN(num)) return undefined;
-    if (min !== undefined && num < min) return min;
-    return num;
   };
 
   return (
@@ -83,6 +78,7 @@ export function CurrencyInput({
         </span>
       )}
       <input
+        ref={inputRef}
         type="text"
         inputMode="decimal"
         className={cn(
