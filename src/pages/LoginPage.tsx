@@ -76,13 +76,13 @@ export default function LoginPage() {
           <div className="absolute top-1/2 left-1/3 w-48 h-48 rounded-full bg-white/5" />
         </div>
 
-        <div className="relative z-10">
-          <img src={logoBnp} alt="BNP Logo" className="w-[280px] h-auto object-contain mb-6" />
+        <div className="relative z-10 flex items-start justify-between">
+          <img src={logoBnp} alt="BNP Logo" className="w-[280px] h-auto object-contain" />
           <div className="flex items-center gap-3">
-            <img src={logoSystem} alt="BNPContractCore" className="w-14 h-14 object-contain" />
+            <img src={logoSystem} alt="BNPContractCore" className="w-16 h-16 object-contain" />
             <div>
-              <span className="text-xl font-bold text-white">BNPContract</span>
-              <span className="text-xl font-semibold text-emerald-400">Core</span>
+              <span className="text-2xl font-bold text-white">BNPContract</span>
+              <span className="text-2xl font-semibold text-emerald-400">Core</span>
             </div>
           </div>
         </div>
