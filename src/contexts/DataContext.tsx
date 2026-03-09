@@ -651,7 +651,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addSnapshot, getSnapshotsByContract,
       addOverheadItem, updateOverheadItem, deleteOverheadItem, getOverheadByContract,
       addHistoryEvent, updateHistoryEvent, deleteHistoryEvent, getHistoryEventsByContract,
-      addAttachment, deleteAttachment, getAttachmentsByContract,
+      addAttachment, updateAttachment, deleteAttachment, getAttachmentsByContract,
       addDescriptionConfig, updateDescriptionConfig, getActiveDescriptionConfigs,
       addJobTitle, updateJobTitle, deleteJobTitle, getActiveJobTitles,
       addTeam, updateTeam, deleteTeam, getActiveTeams,
