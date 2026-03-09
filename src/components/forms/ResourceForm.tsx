@@ -76,6 +76,7 @@ interface ResourceFormProps {
   resource?: Resource;
   contractId: string;
   settings: Settings;
+  existingHrPersonIds?: string[];
   onSubmit: (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
 }
@@ -104,7 +105,7 @@ const recorrenciaOptions = [
   { value: 'unico', label: 'Único (rateado)' },
 ];
 
-export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
+export function ResourceForm({ resource, contractId, settings, existingHrPersonIds = [], onSubmit, onCancel }: ResourceFormProps) {
   const { getActiveJobTitles, teams } = useData();
   const { hrPeople } = useHR();
   const { canViewHRCosts } = useAuth();
@@ -113,10 +114,13 @@ export function ResourceForm({ resource, contractId, settings, onSubmit, onCance
   const [selectedHrPersonId, setSelectedHrPersonId] = useState<string | undefined>(resource?.hrPersonId);
 
   // Active HR people for selection
-  const activeHrPeople = useMemo(() =>
-    hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome)),
-    [hrPeople]
-  );
+  const activeHrPeople = useMemo(() => {
+    const editingPersonId = resource?.hrPersonId;
+    return hrPeople
+      .filter(p => p.situacao === 'ativo')
+      .filter(p => !existingHrPersonIds.includes(p.id) || p.id === editingPersonId)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [hrPeople, existingHrPersonIds, resource?.hrPersonId]);
 
   // Resolve linked person info
   const linkedPerson = useMemo(() => {

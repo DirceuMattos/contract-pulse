@@ -94,6 +94,12 @@ export default function ContractResourcesPage() {
     [rawResources, peopleMap]
   );
 
+  // Collect existing HR person IDs for duplicate prevention
+  const existingHrPersonIds = useMemo(() =>
+    rawResources.filter(r => r.hrPersonId).map(r => r.hrPersonId!),
+    [rawResources]
+  );
+
   if (!contract) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -124,6 +130,10 @@ export default function ContractResourcesPage() {
   };
 
   const handleAddResource = (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (data.hrPersonId && existingHrPersonIds.includes(data.hrPersonId)) {
+      toast.error('Este profissional já está alocado neste contrato');
+      return;
+    }
     addResource(data);
     setFormOpen(false);
     toast.success('Recurso adicionado ao contrato');
@@ -636,6 +646,7 @@ export default function ContractResourcesPage() {
             resource={editingResource || undefined}
             contractId={contract.id}
             settings={settings}
+            existingHrPersonIds={existingHrPersonIds}
             onSubmit={editingResource ? handleEditResource : handleAddResource}
             onCancel={() => { setFormOpen(false); setEditingResource(null); }}
           />
