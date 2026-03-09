@@ -83,7 +83,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
                   <img src={logoBnp} alt="BNP Logo" className="w-16 h-auto object-contain" />
-                  <img src={logoSystem} alt="BNPContractCore" className="w-7 h-7 object-contain" />
+                  <img src={logoSystem} alt="BNPContractCore" className="w-10 h-10 object-contain" />
                   <div>
                     <span className="font-bold text-sidebar-foreground text-sm">BNP</span>
                     <span className="text-sidebar-primary font-semibold text-sm">Contratos</span>
