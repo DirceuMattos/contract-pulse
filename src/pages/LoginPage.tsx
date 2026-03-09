@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import logoBnp from "@/assets/logo-bnp.png";
-import logoSystem from "@/assets/logo-system.png";
+import logoSystem from "@/assets/logo-system-v5.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +79,7 @@ export default function LoginPage() {
         <div className="relative z-10">
           <img src={logoBnp} alt="BNP Logo" className="w-[280px] h-auto object-contain mb-6" />
           <div className="flex items-center gap-3">
-            <img src={logoSystem} alt="BNPContractCore" className="w-10 h-10 object-contain" />
+            <img src={logoSystem} alt="BNPContractCore" className="w-14 h-14 object-contain" />
             <div>
               <span className="text-xl font-bold text-white">BNPContract</span>
               <span className="text-xl font-semibold text-emerald-400">Core</span>
@@ -127,7 +127,7 @@ export default function LoginPage() {
           <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
             <img src={logoBnp} alt="BNP Logo" className="w-24 h-auto object-contain" />
             <div className="flex items-center gap-2">
-              <img src={logoSystem} alt="BNPContractCore" className="w-8 h-8 object-contain" />
+              <img src={logoSystem} alt="BNPContractCore" className="w-12 h-12 object-contain" />
               <div>
                 <span className="text-lg font-bold text-foreground">BNPContract</span>
                 <span className="text-lg font-semibold text-accent">Core</span>
