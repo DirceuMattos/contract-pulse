@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { getBlob } from '@/lib/indexedDBStorage';
+import { supabase } from '@/integrations/supabase/client';
 import { DocumentAttachment } from '@/types';
 import AttachmentUploadDialog from './AttachmentUploadDialog';
 import AttachmentConfigDialog from './AttachmentConfigDialog';
