@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, User, Building, Box, Pencil, Trash2,
   DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle,
-  Info, Layers, Link2, Search,
+  Info, Layers, Link2, Search, Copy,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
@@ -35,6 +35,7 @@ import { buildLookups, resolveResource, resolveResourceForCalc } from '@/lib/res
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { CopyResourcesDialog } from '@/components/contracts/CopyResourcesDialog';
 
 const healthLabels: Record<HealthStatus, string> = {
   saudavel: 'Saudável', atencao: 'Atenção', critico: 'Crítico',
@@ -77,6 +78,8 @@ export default function ContractResourcesPage() {
   const [linkResourceId, setLinkResourceId] = useState<string | null>(null);
   const [linkHrPersonId, setLinkHrPersonId] = useState<string>('');
   const [searchName, setSearchName] = useState('');
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
@@ -195,6 +198,62 @@ export default function ContractResourcesPage() {
 
   const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome));
 
+  const handleImportResources = async (sourceContractId: string) => {
+    if (!id) return;
+    setImporting(true);
+    try {
+      const sourceResources = getResourcesByContract(sourceContractId);
+      const hadExistingResources = rawResources.length > 0;
+      let imported = 0;
+      let skipped = 0;
+
+      for (const sr of sourceResources) {
+        if (sr.hrPersonId && existingHrPersonIds.includes(sr.hrPersonId)) {
+          skipped++;
+          continue;
+        }
+        await addResource({
+          contractId: id,
+          nome: sr.nome,
+          tipo: sr.tipo,
+          cargo: sr.cargo,
+          senioridade: sr.senioridade,
+          custoBase: sr.custoBase,
+          percentualDedicacao: sr.percentualDedicacao,
+          dataInicio: sr.dataInicio,
+          dataFim: sr.dataFim,
+          encargosOverride: sr.encargosOverride,
+          impostosOverride: sr.impostosOverride,
+          observacoes: sr.observacoes,
+          hrPersonId: sr.hrPersonId,
+          categoria: sr.categoria,
+          recorrencia: sr.recorrencia,
+          tipoValor: sr.tipoValor,
+          rateioMeses: sr.rateioMeses,
+          duracaoMeses: sr.duracaoMeses,
+        });
+        imported++;
+      }
+
+      setCopyDialogOpen(false);
+
+      if (imported === 0 && skipped > 0) {
+        toast.info(`Todos os ${skipped} recursos já estavam alocados neste contrato.`);
+      } else if (skipped > 0) {
+        toast.warning(`${imported} recurso${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''}. ${skipped} ignorado${skipped !== 1 ? 's' : ''} (já alocado${skipped !== 1 ? 's' : ''}). Revise a alocação para evitar superfaturamento.`);
+      } else if (hadExistingResources) {
+        toast.warning(`${imported} recurso${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''}. Revise a alocação para evitar superfaturamento.`);
+      } else {
+        toast.success(`${imported} recurso${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''} com sucesso!`);
+      }
+    } catch (err) {
+      toast.error('Erro ao importar recursos.');
+      console.error(err);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <TooltipProvider>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -208,10 +267,16 @@ export default function ContractResourcesPage() {
           { label: 'Recursos' },
         ]}
         actions={canEdit ? (
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Adicionar Recurso
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCopyDialogOpen(true)} className="gap-2">
+              <Copy className="w-4 h-4" />
+              Importar de outro contrato
+            </Button>
+            <Button onClick={() => setFormOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Adicionar Recurso
+            </Button>
+          </div>
         ) : undefined}
       />
 
@@ -713,6 +778,14 @@ export default function ContractResourcesPage() {
         title="Remover overhead?"
         description="Esta ação não pode ser desfeita. O custo indireto será removido do contrato."
         confirmLabel="Remover"
+      />
+
+      <CopyResourcesDialog
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+        currentContractId={id!}
+        onImport={handleImportResources}
+        importing={importing}
       />
     </motion.div>
     </TooltipProvider>
