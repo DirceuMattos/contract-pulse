@@ -211,10 +211,16 @@ export default function ContractResourcesPage() {
           { label: 'Recursos' },
         ]}
         actions={canEdit ? (
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Adicionar Recurso
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCopyDialogOpen(true)} className="gap-2">
+              <Copy className="w-4 h-4" />
+              Importar de outro contrato
+            </Button>
+            <Button onClick={() => setFormOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Adicionar Recurso
+            </Button>
+          </div>
         ) : undefined}
       />
 
