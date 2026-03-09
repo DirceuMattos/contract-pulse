@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRImportDialog } from '@/components/hr/HRImportDialog';
+import { HRCorrectionsDialog, HRCorrectionRunsDialog } from '@/components/hr/HRCorrectionsDialog';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,6 +61,8 @@ export default function HRPeoplePage() {
   const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
+  const [correctionsOpen, setCorrectionsOpen] = useState(false);
+  const [correctionRunsOpen, setCorrectionRunsOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('nome');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -181,6 +184,14 @@ export default function HRPeoplePage() {
             </Button>
             {canEdit && (
               <>
+                <Button variant="outline" onClick={() => setCorrectionRunsOpen(true)}>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Histórico
+                </Button>
+                <Button variant="outline" onClick={() => setCorrectionsOpen(true)}>
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  Correções
+                </Button>
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4 mr-2" />
                   Importar
@@ -401,6 +412,20 @@ export default function HRPeoplePage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         canViewFinanceiro={canViewHRCosts}
+      />
+
+      {/* Corrections Dialog */}
+      <HRCorrectionsDialog
+        open={correctionsOpen}
+        onOpenChange={setCorrectionsOpen}
+        onComplete={() => window.location.reload()}
+      />
+
+      {/* Correction Runs History */}
+      <HRCorrectionRunsDialog
+        open={correctionRunsOpen}
+        onOpenChange={setCorrectionRunsOpen}
+        onRollbackComplete={() => window.location.reload()}
       />
     </div>
   );

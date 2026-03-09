@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.feedz-rollback]
 verify_jwt = false
+
+[functions.hr-apply-corrections]
+verify_jwt = false
+
+[functions.hr-rollback-corrections]
+verify_jwt = false

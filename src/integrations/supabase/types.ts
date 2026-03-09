@@ -689,6 +689,83 @@ export type Database = {
           },
         ]
       }
+      hr_correction_items: {
+        Row: {
+          created_at: string
+          fields_changed: Json
+          id: string
+          person_id: string
+          person_name: string
+          run_id: string
+          snapshot_before: Json
+        }
+        Insert: {
+          created_at?: string
+          fields_changed?: Json
+          id?: string
+          person_id: string
+          person_name?: string
+          run_id: string
+          snapshot_before?: Json
+        }
+        Update: {
+          created_at?: string
+          fields_changed?: Json
+          id?: string
+          person_id?: string
+          person_name?: string
+          run_id?: string
+          snapshot_before?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_correction_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "hr_correction_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_correction_runs: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          initiated_by: string | null
+          started_at: string
+          status: string
+          total_changed: number
+          total_no_diff: number
+          total_not_found: number
+          total_processed: number
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiated_by?: string | null
+          started_at?: string
+          status?: string
+          total_changed?: number
+          total_no_diff?: number
+          total_not_found?: number
+          total_processed?: number
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiated_by?: string | null
+          started_at?: string
+          status?: string
+          total_changed?: number
+          total_no_diff?: number
+          total_not_found?: number
+          total_processed?: number
+        }
+        Relationships: []
+      }
       hr_people: {
         Row: {
           beneficios: number
