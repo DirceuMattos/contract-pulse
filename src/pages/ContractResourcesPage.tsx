@@ -94,6 +94,12 @@ export default function ContractResourcesPage() {
     [rawResources, peopleMap]
   );
 
+  // Collect existing HR person IDs for duplicate prevention
+  const existingHrPersonIds = useMemo(() =>
+    rawResources.filter(r => r.hrPersonId).map(r => r.hrPersonId!),
+    [rawResources]
+  );
+
   if (!contract) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
