@@ -35,6 +35,7 @@ import { buildLookups, resolveResource, resolveResourceForCalc } from '@/lib/res
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { CopyResourcesDialog } from '@/components/contracts/CopyResourcesDialog';
 
 const healthLabels: Record<HealthStatus, string> = {
   saudavel: 'Saudável', atencao: 'Atenção', critico: 'Crítico',
