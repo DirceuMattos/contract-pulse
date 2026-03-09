@@ -20,6 +20,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
+import logoSystem from '@/assets/logo-system.png';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
