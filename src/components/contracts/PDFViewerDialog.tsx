@@ -21,7 +21,6 @@ export default function PDFViewerDialog({ open, onOpenChange, storageKey, fileNa
 
   useEffect(() => {
     if (!open) {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
       setObjectUrl(null);
       setLoading(true);
       setError(false);
