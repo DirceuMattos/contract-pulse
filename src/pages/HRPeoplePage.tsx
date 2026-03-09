@@ -48,7 +48,7 @@ export default function HRPeoplePage() {
   const { canEdit, canViewHRCosts } = useAuth();
 
   const [search, setSearch] = useState('');
-  const [filterSituacao, setFilterSituacao] = useState<'todos' | 'ativo' | 'inativo'>('ativo');
+  const [filterSituacao, setFilterSituacao] = useState<'todos' | 'ativo' | 'inativo'>('todos');
   const [filterTeam, setFilterTeam] = useState('');
   const [filterCargo, setFilterCargo] = useState('');
   const [filterVinculo, setFilterVinculo] = useState('');
