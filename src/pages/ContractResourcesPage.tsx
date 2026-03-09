@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, User, Building, Box, Pencil, Trash2,
   DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle,
-  Info, Layers, Link2, Search,
+  Info, Layers, Link2, Search, Copy,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
