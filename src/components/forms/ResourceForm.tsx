@@ -105,7 +105,7 @@ const recorrenciaOptions = [
   { value: 'unico', label: 'Único (rateado)' },
 ];
 
-export function ResourceForm({ resource, contractId, settings, onSubmit, onCancel }: ResourceFormProps) {
+export function ResourceForm({ resource, contractId, settings, existingHrPersonIds = [], onSubmit, onCancel }: ResourceFormProps) {
   const { getActiveJobTitles, teams } = useData();
   const { hrPeople } = useHR();
   const { canViewHRCosts } = useAuth();
