@@ -123,7 +123,17 @@ export default function ContractResourcesPage() {
     outro: (resourcesByType.outro || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
   };
 
+  // Collect existing HR person IDs for duplicate prevention
+  const existingHrPersonIds = useMemo(() =>
+    rawResources.filter(r => r.hrPersonId).map(r => r.hrPersonId!),
+    [rawResources]
+  );
+
   const handleAddResource = (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (data.hrPersonId && existingHrPersonIds.includes(data.hrPersonId)) {
+      toast.error('Este profissional já está alocado neste contrato');
+      return;
+    }
     addResource(data);
     setFormOpen(false);
     toast.success('Recurso adicionado ao contrato');
