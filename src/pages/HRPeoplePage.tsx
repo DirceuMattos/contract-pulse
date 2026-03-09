@@ -184,6 +184,14 @@ export default function HRPeoplePage() {
             </Button>
             {canEdit && (
               <>
+                <Button variant="outline" onClick={() => setCorrectionRunsOpen(true)}>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Histórico
+                </Button>
+                <Button variant="outline" onClick={() => setCorrectionsOpen(true)}>
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  Correções
+                </Button>
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4 mr-2" />
                   Importar
