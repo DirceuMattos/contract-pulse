@@ -76,6 +76,7 @@ interface ResourceFormProps {
   resource?: Resource;
   contractId: string;
   settings: Settings;
+  existingHrPersonIds?: string[];
   onSubmit: (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
 }
