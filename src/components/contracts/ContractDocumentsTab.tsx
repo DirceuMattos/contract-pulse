@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -22,12 +24,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { DocumentAttachment } from '@/types';
+import { getBlob } from '@/lib/indexedDBStorage';
 import AttachmentUploadDialog from './AttachmentUploadDialog';
 import AttachmentConfigDialog from './AttachmentConfigDialog';
 import PDFViewerDialog from './PDFViewerDialog';
 import {
   Paperclip, Plus, Settings2, Search, MoreVertical, Eye, Download,
-  Printer, Mail, Share2, Trash2, FileText,
+  Printer, Mail, Share2, Trash2, FileText, CloudUpload, AlertTriangle,
 } from 'lucide-react';
 
 interface ContractDocumentsTabProps {
@@ -35,8 +38,58 @@ interface ContractDocumentsTabProps {
   contractCode?: string;
 }
 
+/* ── Migration Banner Component ─────────────────────────────────────────── */
+function MigrationBanner({
+  legacyCount,
+  migrating,
+  progress,
+  migratedCount,
+  failedCount,
+  onStart,
+}: {
+  legacyCount: number;
+  migrating: boolean;
+  progress: number;
+  migratedCount: number;
+  failedCount: number;
+  onStart: () => void;
+}) {
+  if (legacyCount === 0) return null;
+
+  return (
+    <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+      <CloudUpload className="h-4 w-4 text-amber-600" />
+      <AlertTitle className="text-amber-800 dark:text-amber-300">
+        {migrating ? 'Migrando documentos...' : 'Documentos no armazenamento local'}
+      </AlertTitle>
+      <AlertDescription className="space-y-2">
+        {!migrating && (
+          <>
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              {legacyCount} documento(s) estão salvos apenas neste navegador.
+              Migre para a nuvem para acessá-los de qualquer lugar.
+            </p>
+            <Button size="sm" onClick={onStart} className="gap-2 mt-1">
+              <CloudUpload className="w-4 h-4" /> Migrar para a nuvem
+            </Button>
+          </>
+        )}
+        {migrating && (
+          <>
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {migratedCount} migrado(s){failedCount > 0 ? `, ${failedCount} não encontrado(s)` : ''}
+            </p>
+          </>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/* ── Main Component ─────────────────────────────────────────────────────── */
 export default function ContractDocumentsTab({ contractId, contractCode }: ContractDocumentsTabProps) {
-  const { getAttachmentsByContract, deleteAttachment, getContract } = useData();
+  const { getAttachmentsByContract, deleteAttachment, updateAttachment, getContract } = useData();
   const { canEdit, user } = useAuth();
   const { toast } = useToast();
   const contract = getContract(contractId);
@@ -50,7 +103,18 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
   const [pdfViewer, setPdfViewer] = useState<{ storageKey: string; fileName: string } | null>(null);
   const [officeDialog, setOfficeDialog] = useState<DocumentAttachment | null>(null);
 
+  // Migration state
+  const [migrating, setMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState(0);
+  const [migratedCount, setMigratedCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
+  const [unavailableKeys, setUnavailableKeys] = useState<Set<string>>(new Set());
+
   const allAttachments = getAttachmentsByContract(contractId);
+
+  const isLegacy = (a: DocumentAttachment) => a.storageKey.startsWith('att-');
+  const isMock = (a: DocumentAttachment) => a.storageKey.startsWith('mock-');
+  const legacyAttachments = allAttachments.filter(isLegacy);
 
   // Filters
   let filtered = allAttachments;
@@ -60,11 +124,8 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
   }
   if (filterType) filtered = filtered.filter(a => a.descriptionType === filterType);
   if (filterExt) filtered = filtered.filter(a => a.fileExtension === filterExt);
-
-  // Sort by most recent
   filtered = [...filtered].sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
 
-  // Unique types/extensions for chips
   const types = [...new Set(allAttachments.map(a => a.descriptionType))];
   const extensions = [...new Set(allAttachments.map(a => a.fileExtension.toUpperCase()))];
 
@@ -78,19 +139,80 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
     return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const isMock = (a: DocumentAttachment) => a.storageKey.startsWith('mock-');
-
   const getSignedUrl = async (storageKey: string): Promise<string | null> => {
     const { data, error } = await supabase.storage
       .from('contract-documents')
-      .createSignedUrl(storageKey, 300); // 5 min
+      .createSignedUrl(storageKey, 300);
     if (error || !data?.signedUrl) return null;
     return data.signedUrl;
   };
 
+  /* ── Migration Logic ────────────────────────────────────────────────── */
+  const handleMigration = useCallback(async () => {
+    if (legacyAttachments.length === 0) return;
+    setMigrating(true);
+    setMigrationProgress(0);
+    setMigratedCount(0);
+    setFailedCount(0);
+
+    let migrated = 0;
+    let failed = 0;
+    const newUnavailable = new Set<string>();
+
+    for (let i = 0; i < legacyAttachments.length; i++) {
+      const att = legacyAttachments[i];
+      try {
+        const blob = await getBlob(att.storageKey);
+        if (!blob) {
+          failed++;
+          newUnavailable.add(att.storageKey);
+        } else {
+          const newKey = `${contractId}/${crypto.randomUUID()}.${att.fileExtension}`;
+          const { error: uploadError } = await supabase.storage
+            .from('contract-documents')
+            .upload(newKey, blob, { contentType: att.fileTypeMime, upsert: false });
+          if (uploadError) {
+            failed++;
+            newUnavailable.add(att.storageKey);
+          } else {
+            await updateAttachment(att.id, { storageKey: newKey });
+            migrated++;
+          }
+        }
+      } catch {
+        failed++;
+        newUnavailable.add(att.storageKey);
+      }
+      setMigrationProgress(Math.round(((i + 1) / legacyAttachments.length) * 100));
+      setMigratedCount(migrated);
+      setFailedCount(failed);
+    }
+
+    setUnavailableKeys(prev => new Set([...prev, ...newUnavailable]));
+    setMigrating(false);
+
+    if (migrated > 0) {
+      toast({ title: `${migrated} documento(s) migrado(s) com sucesso!` });
+    }
+    if (failed > 0) {
+      toast({
+        title: `${failed} documento(s) não encontrado(s)`,
+        description: 'Esses arquivos não estão disponíveis neste navegador e precisarão ser re-anexados.',
+        variant: 'destructive',
+      });
+    }
+  }, [legacyAttachments, contractId, updateAttachment, toast]);
+
+  /* ── File Actions ───────────────────────────────────────────────────── */
+  const isFileUnavailable = (a: DocumentAttachment) =>
+    isMock(a) || (isLegacy(a) && unavailableKeys.has(a.storageKey)) || isLegacy(a);
+
   const handleView = async (a: DocumentAttachment) => {
-    if (isMock(a)) {
-      toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
+    if (isMock(a) || isLegacy(a)) {
+      const msg = isLegacy(a)
+        ? 'Este documento precisa ser migrado para a nuvem antes de ser visualizado. Use o botão "Migrar para a nuvem" acima.'
+        : 'Este é um documento de demonstração sem arquivo real.';
+      toast({ title: 'Arquivo não disponível', description: msg, variant: 'destructive' });
       return;
     }
     if (a.fileExtension === 'pdf') {
@@ -101,8 +223,11 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
   };
 
   const handleDownload = async (a: DocumentAttachment) => {
-    if (isMock(a)) {
-      toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
+    if (isMock(a) || isLegacy(a)) {
+      const msg = isLegacy(a)
+        ? 'Este documento precisa ser migrado para a nuvem antes de ser baixado.'
+        : 'Este é um documento de demonstração sem arquivo real.';
+      toast({ title: 'Arquivo não disponível', description: msg, variant: 'destructive' });
       return;
     }
     const url = await getSignedUrl(a.storageKey);
@@ -123,8 +248,8 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
       toast({ title: 'Impressão disponível apenas para PDF nesta etapa' });
       return;
     }
-    if (isMock(a)) {
-      toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
+    if (isMock(a) || isLegacy(a)) {
+      toast({ title: 'Arquivo não disponível', variant: 'destructive' });
       return;
     }
     const url = await getSignedUrl(a.storageKey);
@@ -145,9 +270,7 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
     const code = contract?.codigo || contractId;
     const text = `Contrato ${code} — Documento: ${a.fileName}`;
     if (navigator.share) {
-      try {
-        await navigator.share({ title: `Documento - ${code}`, text });
-      } catch { /* user cancelled */ }
+      try { await navigator.share({ title: `Documento - ${code}`, text }); } catch { /* cancelled */ }
     } else {
       await navigator.clipboard.writeText(text);
       toast({ title: 'Copiado para a área de transferência' });
@@ -171,6 +294,16 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
         <h3 className="text-lg font-semibold">Documentos do contrato</h3>
         <p className="text-sm text-muted-foreground">Anexe e organize arquivos do contrato: contrato, aditivos, reajustes, notificações e outros.</p>
       </div>
+
+      {/* Migration Banner */}
+      <MigrationBanner
+        legacyCount={legacyAttachments.length}
+        migrating={migrating}
+        progress={migrationProgress}
+        migratedCount={migratedCount}
+        failedCount={failedCount}
+        onStart={handleMigration}
+      />
 
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-3">
@@ -200,22 +333,12 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
           </div>
           <div className="flex flex-wrap gap-2">
             {types.map(t => (
-              <Badge
-                key={t}
-                variant={filterType === t ? 'default' : 'outline'}
-                className="cursor-pointer"
-                onClick={() => setFilterType(filterType === t ? null : t)}
-              >
+              <Badge key={t} variant={filterType === t ? 'default' : 'outline'} className="cursor-pointer" onClick={() => setFilterType(filterType === t ? null : t)}>
                 {t}
               </Badge>
             ))}
             {extensions.map(e => (
-              <Badge
-                key={e}
-                variant={filterExt === e.toLowerCase() ? 'default' : 'secondary'}
-                className="cursor-pointer"
-                onClick={() => setFilterExt(filterExt === e.toLowerCase() ? null : e.toLowerCase())}
-              >
+              <Badge key={e} variant={filterExt === e.toLowerCase() ? 'default' : 'secondary'} className="cursor-pointer" onClick={() => setFilterExt(filterExt === e.toLowerCase() ? null : e.toLowerCase())}>
                 .{e}
               </Badge>
             ))}
@@ -238,55 +361,67 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(a => (
-                  <TableRow key={a.id}>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">{a.descriptionType}</Badge>
-                      {a.descriptionText && <span className="block text-xs text-muted-foreground mt-0.5">{a.descriptionText}</span>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-sm truncate max-w-48">{a.fileName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{formatSize(a.fileSizeBytes)}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{formatDate(a.uploadedAt)}</TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleView(a)}>
-                              <Eye className="w-4 h-4 mr-2" /> Visualizar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownload(a)}>
-                              <Download className="w-4 h-4 mr-2" /> Baixar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePrint(a)}>
-                              <Printer className="w-4 h-4 mr-2" /> Imprimir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEmail(a)}>
-                              <Mail className="w-4 h-4 mr-2" /> Enviar por e-mail
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleShare(a)}>
-                              <Share2 className="w-4 h-4 mr-2" /> Compartilhar
-                            </DropdownMenuItem>
-                            {canEdit && (
-                              <DropdownMenuItem onClick={() => setDeleteId(a.id)} className="text-destructive">
-                                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                {filtered.map(a => {
+                  const legacy = isLegacy(a);
+                  return (
+                    <TableRow key={a.id} className={legacy ? 'opacity-70' : ''}>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">{a.descriptionType}</Badge>
+                        {a.descriptionText && <span className="block text-xs text-muted-foreground mt-0.5">{a.descriptionText}</span>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {legacy ? (
+                            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                          ) : (
+                            <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <span className="text-sm truncate max-w-48">{a.fileName}</span>
+                          {legacy && (
+                            <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600 dark:text-amber-400 ml-1">
+                              local
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{formatSize(a.fileSizeBytes)}</TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{formatDate(a.uploadedAt)}</TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleView(a)}>
+                                <Eye className="w-4 h-4 mr-2" /> Visualizar
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                              <DropdownMenuItem onClick={() => handleDownload(a)}>
+                                <Download className="w-4 h-4 mr-2" /> Baixar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handlePrint(a)}>
+                                <Printer className="w-4 h-4 mr-2" /> Imprimir
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEmail(a)}>
+                                <Mail className="w-4 h-4 mr-2" /> Enviar por e-mail
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShare(a)}>
+                                <Share2 className="w-4 h-4 mr-2" /> Compartilhar
+                              </DropdownMenuItem>
+                              {canEdit && (
+                                <DropdownMenuItem onClick={() => setDeleteId(a.id)} className="text-destructive">
+                                  <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TooltipProvider>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -319,7 +454,6 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
         />
       )}
 
-      {/* Office preview dialog */}
       <Dialog open={!!officeDialog} onOpenChange={() => setOfficeDialog(null)}>
         <DialogContent>
           <DialogHeader>
@@ -337,13 +471,12 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação remove o arquivo do armazenamento local. Essa operação não pode ser desfeita.
+              Esta ação remove o arquivo do armazenamento. Essa operação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
