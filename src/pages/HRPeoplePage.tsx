@@ -413,6 +413,20 @@ export default function HRPeoplePage() {
         onOpenChange={setImportOpen}
         canViewFinanceiro={canViewHRCosts}
       />
+
+      {/* Corrections Dialog */}
+      <HRCorrectionsDialog
+        open={correctionsOpen}
+        onOpenChange={setCorrectionsOpen}
+        onComplete={() => window.location.reload()}
+      />
+
+      {/* Correction Runs History */}
+      <HRCorrectionRunsDialog
+        open={correctionRunsOpen}
+        onOpenChange={setCorrectionRunsOpen}
+        onRollbackComplete={() => window.location.reload()}
+      />
     </div>
   );
 }
