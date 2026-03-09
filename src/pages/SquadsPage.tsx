@@ -331,19 +331,32 @@ export default function SquadsPage() {
 
   // --- Render helpers (Project view) ---
 
-  const renderTeamBar = (td: SquadTeamData) => (
-    <div key={td.teamName} className="flex items-center gap-2 text-sm">
-      <span className="w-32 truncate font-medium text-foreground">
-        {td.teamName}
-        {viewMode === 'compact' && perspective === 'project' && <span className="text-muted-foreground ml-1">({td.resources.length})</span>}
-      </span>
-      <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-        <div className="h-full bg-primary/70 rounded-full transition-all" style={{ width: `${Math.min(td.percent, 100)}%` }} />
+  const renderTeamBar = (td: SquadTeamData, cd: ContractSquadData) => {
+    const totalResources = cd.teams.reduce((s, t) => s + t.resources.length, 0);
+    const resourcePercent = totalResources > 0 ? (td.resources.length / totalResources) * 100 : 0;
+
+    return (
+      <div key={td.teamName} className="flex items-center gap-2 text-sm">
+        <span className="w-32 truncate font-medium text-foreground">
+          {td.teamName}
+        </span>
+        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+          <div className="h-full bg-primary/70 rounded-full transition-all" style={{ width: `${Math.min(viewMode === 'compact' ? resourcePercent : td.percent, 100)}%` }} />
+        </div>
+        {viewMode === 'compact' ? (
+          <>
+            <span className="w-20 text-right text-muted-foreground tabular-nums">{td.resources.length} rec.</span>
+            <span className="w-14 text-right text-muted-foreground tabular-nums">{resourcePercent.toFixed(0)}%</span>
+          </>
+        ) : (
+          <>
+            <span className="w-20 text-right text-muted-foreground tabular-nums">{td.resources.length} rec.</span>
+            <span className="w-14 text-right text-muted-foreground tabular-nums">{td.percent.toFixed(0)}%</span>
+          </>
+        )}
       </div>
-      <span className="w-20 text-right text-muted-foreground tabular-nums">{td.fte.toFixed(1)} FTE</span>
-      <span className="w-14 text-right text-muted-foreground tabular-nums">{td.percent.toFixed(0)}%</span>
-    </div>
-  );
+    );
+  };
 
   const renderDetailedTeams = (cd: ContractSquadData) => {
     const allValues = cd.teams.map((_, i) => `team-${i}`);
@@ -354,7 +367,7 @@ export default function SquadsPage() {
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">{td.teamName}</Badge>
-                <span className="text-xs text-muted-foreground">{td.fte.toFixed(1)} FTE · {td.resources.length} RH</span>
+                <span className="text-xs text-muted-foreground">{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
@@ -394,14 +407,15 @@ export default function SquadsPage() {
     );
   };
 
-  const renderContractCard = (cd: ContractSquadData) => {
+  const renderContractCard = (cd: ContractSquadData, cardIndex: number) => {
     const hb = healthConfig[cd.healthStatus as keyof typeof healthConfig];
-    const cardBorder = healthCardStyles[cd.healthStatus] || '';
-    const headerBg = healthHeaderStyles[cd.healthStatus] || '';
+    const cardColor = cardColorPalette[cardIndex % cardColorPalette.length];
+    const sortedCardTeams = sortTeamsByFixedOrder(cd.teams);
+    const cardData = { ...cd, teams: sortedCardTeams };
 
     return (
-      <Card key={cd.contractId} className={`overflow-hidden ${cardBorder}`}>
-        <CardHeader className={`pb-3 ${headerBg}`}>
+      <Card key={cd.contractId} className={`overflow-hidden border-l-4 ${cardColor}`}>
+        <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -415,15 +429,23 @@ export default function SquadsPage() {
               {hb && <Badge variant="outline" className={`text-[10px] ${hb.badgeClass}`}>{hb.label}</Badge>}
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
-            <span className="tabular-nums font-medium">Total alocado: {cd.totalFTE.toFixed(2)} FTE</span>
-            <span>RH: {cd.hrCount}</span>
-          </div>
         </CardHeader>
-        <CardContent className="pt-4 space-y-2">
-          {cd.teams.map(renderTeamBar)}
-          {viewMode === 'detailed' && renderDetailedTeams(cd)}
-          <div className="flex items-center gap-2 pt-3 border-t mt-3">
+        <CardContent className="pt-0 space-y-2">
+          {cardData.teams.map(td => renderTeamBar(td, cardData))}
+          {viewMode === 'detailed' && renderDetailedTeams(cardData)}
+
+          {/* FTE Summary at the end */}
+          <div className="border-t pt-3 mt-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">FTE Total: {cd.totalFTE.toFixed(2)}</span>
+              <span>RH: {cd.hrCount}</span>
+              {cardData.teams.map(td => (
+                <span key={td.teamName} className="tabular-nums">{td.teamName}: {td.fte.toFixed(1)}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
             <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`, { state: { from: '/squads' } })}>
               <FileText className="w-3 h-3 mr-1" /> Ver contrato
             </Button>
