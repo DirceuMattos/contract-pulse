@@ -61,6 +61,8 @@ export default function HRPeoplePage() {
   const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
+  const [correctionsOpen, setCorrectionsOpen] = useState(false);
+  const [correctionRunsOpen, setCorrectionRunsOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('nome');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
