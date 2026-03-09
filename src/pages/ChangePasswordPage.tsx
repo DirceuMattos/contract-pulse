@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, ArrowRight } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
-import logoSystem from '@/assets/logo-system.png';
+import logoSystem from '@/assets/logo-system-v5.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
