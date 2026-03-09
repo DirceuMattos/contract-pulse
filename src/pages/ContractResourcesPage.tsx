@@ -779,6 +779,14 @@ export default function ContractResourcesPage() {
         description="Esta ação não pode ser desfeita. O custo indireto será removido do contrato."
         confirmLabel="Remover"
       />
+
+      <CopyResourcesDialog
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+        currentContractId={id!}
+        onImport={handleImportResources}
+        importing={importing}
+      />
     </motion.div>
     </TooltipProvider>
   );
