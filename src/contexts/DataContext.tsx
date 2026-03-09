@@ -73,6 +73,7 @@ interface DataContextType {
   getHistoryEventsByContract: (contractId: string) => HistoryEvent[];
 
   addAttachment: (attachment: Omit<DocumentAttachment, 'id'>) => Promise<DocumentAttachment>;
+  updateAttachment: (id: string, data: Partial<DocumentAttachment>) => Promise<void>;
   deleteAttachment: (id: string) => Promise<void>;
   getAttachmentsByContract: (contractId: string) => DocumentAttachment[];
 
