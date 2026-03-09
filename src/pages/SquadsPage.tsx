@@ -267,7 +267,8 @@ export default function SquadsPage() {
 
   const contractOptions = useMemo(() => {
     const active = contracts.filter(c => c.status === 'operacao' || c.status === 'implantacao');
-    return clientFilter !== 'all' ? active.filter(c => c.clientId === clientFilter) : active;
+    const filtered = clientFilter !== 'all' ? active.filter(c => c.clientId === clientFilter) : active;
+    return filtered.sort((a, b) => (a.nome || a.codigo).localeCompare(b.nome || b.codigo));
   }, [contracts, clientFilter]);
 
   const toggleTeamFilter = (teamId: string) => {
@@ -587,7 +588,7 @@ export default function SquadsPage() {
                 <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {contractOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.codigo}</SelectItem>)}
+                  {contractOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.nome || c.codigo}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
