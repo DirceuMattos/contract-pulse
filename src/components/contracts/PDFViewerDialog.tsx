@@ -42,11 +42,7 @@ export default function PDFViewerDialog({ open, onOpenChange, storageKey, fileNa
       setLoading(false);
     };
 
-    loadBlob();
-
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    loadUrl();
   }, [open, storageKey]);
 
   const handlePrint = () => {

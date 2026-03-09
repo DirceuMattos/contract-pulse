@@ -127,9 +127,8 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
       toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
       return;
     }
-    const blob = await getBlob(a.storageKey);
-    if (!blob) { toast({ title: 'Arquivo não disponível', variant: 'destructive' }); return; }
-    const url = URL.createObjectURL(blob);
+    const url = await getSignedUrl(a.storageKey);
+    if (!url) { toast({ title: 'Arquivo não disponível', variant: 'destructive' }); return; }
     const w = window.open(url, '_blank');
     if (w) w.addEventListener('load', () => w.print());
   };

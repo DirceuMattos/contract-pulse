@@ -92,10 +92,13 @@ export default function AttachmentUploadDialog({ open, onOpenChange, contractId 
 
     setSaving(true);
     try {
-      const storageKey = `att-${crypto.randomUUID()}`;
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const storageKey = `${contractId}/${crypto.randomUUID()}.${ext}`;
 
-      await saveBlob(storageKey, file);
+      const { error: uploadError } = await supabase.storage
+        .from('contract-documents')
+        .upload(storageKey, file, { contentType: file.type || 'application/octet-stream' });
+      if (uploadError) throw uploadError;
 
       const attachment = addAttachment({
         contractId,
