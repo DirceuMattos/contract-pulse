@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getBlob } from '@/lib/indexedDBStorage';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Printer, X } from 'lucide-react';
 
@@ -21,31 +21,27 @@ export default function PDFViewerDialog({ open, onOpenChange, storageKey, fileNa
 
   useEffect(() => {
     if (!open) {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
       setObjectUrl(null);
       setLoading(true);
       setError(false);
       return;
     }
 
-    const loadBlob = async () => {
+    const loadUrl = async () => {
       setLoading(true);
-      const blob = await getBlob(storageKey);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        setObjectUrl(url);
-      } else {
+      const { data, error: urlError } = await supabase.storage
+        .from('contract-documents')
+        .createSignedUrl(storageKey, 300);
+      if (urlError || !data?.signedUrl) {
         setError(true);
-        toast({ title: 'Arquivo não disponível', description: 'O arquivo não foi encontrado no armazenamento local.', variant: 'destructive' });
+        toast({ title: 'Arquivo não disponível', description: 'Não foi possível gerar o link do arquivo.', variant: 'destructive' });
+      } else {
+        setObjectUrl(data.signedUrl);
       }
       setLoading(false);
     };
 
-    loadBlob();
-
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    loadUrl();
   }, [open, storageKey]);
 
   const handlePrint = () => {

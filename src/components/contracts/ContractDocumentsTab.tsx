@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { getBlob } from '@/lib/indexedDBStorage';
+import { supabase } from '@/integrations/supabase/client';
 import { DocumentAttachment } from '@/types';
 import AttachmentUploadDialog from './AttachmentUploadDialog';
 import AttachmentConfigDialog from './AttachmentConfigDialog';
@@ -80,6 +80,14 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
 
   const isMock = (a: DocumentAttachment) => a.storageKey.startsWith('mock-');
 
+  const getSignedUrl = async (storageKey: string): Promise<string | null> => {
+    const { data, error } = await supabase.storage
+      .from('contract-documents')
+      .createSignedUrl(storageKey, 300); // 5 min
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  };
+
   const handleView = async (a: DocumentAttachment) => {
     if (isMock(a)) {
       toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
@@ -97,17 +105,16 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
       toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
       return;
     }
-    const blob = await getBlob(a.storageKey);
-    if (!blob) {
-      toast({ title: 'Arquivo não disponível', description: 'O arquivo não foi encontrado no armazenamento local.', variant: 'destructive' });
+    const url = await getSignedUrl(a.storageKey);
+    if (!url) {
+      toast({ title: 'Arquivo não disponível', description: 'Não foi possível gerar o link de download.', variant: 'destructive' });
       return;
     }
-    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = a.fileName;
+    link.target = '_blank';
     link.click();
-    URL.revokeObjectURL(url);
     toast({ title: 'Download iniciado' });
   };
 
@@ -120,9 +127,8 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
       toast({ title: 'Arquivo não disponível', description: 'Este é um documento de demonstração sem arquivo real.', variant: 'destructive' });
       return;
     }
-    const blob = await getBlob(a.storageKey);
-    if (!blob) { toast({ title: 'Arquivo não disponível', variant: 'destructive' }); return; }
-    const url = URL.createObjectURL(blob);
+    const url = await getSignedUrl(a.storageKey);
+    if (!url) { toast({ title: 'Arquivo não disponível', variant: 'destructive' }); return; }
     const w = window.open(url, '_blank');
     if (w) w.addEventListener('load', () => w.print());
   };

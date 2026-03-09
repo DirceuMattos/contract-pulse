@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
-import { saveBlob } from '@/lib/indexedDBStorage';
+import { supabase } from '@/integrations/supabase/client';
 import { Upload, FileText, X } from 'lucide-react';
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
@@ -92,10 +92,13 @@ export default function AttachmentUploadDialog({ open, onOpenChange, contractId 
 
     setSaving(true);
     try {
-      const storageKey = `att-${crypto.randomUUID()}`;
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const storageKey = `${contractId}/${crypto.randomUUID()}.${ext}`;
 
-      await saveBlob(storageKey, file);
+      const { error: uploadError } = await supabase.storage
+        .from('contract-documents')
+        .upload(storageKey, file, { contentType: file.type || 'application/octet-stream' });
+      if (uploadError) throw uploadError;
 
       const attachment = addAttachment({
         contractId,
