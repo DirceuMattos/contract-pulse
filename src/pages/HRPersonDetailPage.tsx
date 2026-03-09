@@ -370,7 +370,7 @@ export default function HRPersonDetailPage() {
                       <TableRow key={ev.id}>
                         <TableCell className="text-sm">{new Date(ev.eventDate + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell><Badge variant="outline">{ocorrenciaLabels[ev.ocorrencia] || ev.ocorrencia}</Badge></TableCell>
-                        <TableCell className="text-sm max-w-xs truncate">{ev.descricao}</TableCell>
+                        <TableCell className="text-xs max-w-xs whitespace-normal break-words leading-snug">{ev.descricao}</TableCell>
                         {canViewHRCosts && <TableCell className="text-sm">{ev.valor !== undefined ? formatCurrency(ev.valor) : '—'}</TableCell>}
                         {canViewHRCosts && <TableCell className="text-sm">{ev.remuneracaoApos !== undefined ? formatCurrency(ev.remuneracaoApos) : '—'}</TableCell>}
                         {canEdit && (
