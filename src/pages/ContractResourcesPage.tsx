@@ -337,12 +337,31 @@ export default function ContractResourcesPage() {
 
       {/* Resources List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Recursos Alocados</h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">Recursos Alocados</h2>
+          {resources.length > 5 && (
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
+        </div>
         
         {resources.length > 0 ? (
           <div className="space-y-3">
             <AnimatePresence>
-              {resources.map((resource) => {
+              {resources
+                .filter(r => {
+                  if (!searchName.trim()) return true;
+                  const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
+                  return resolved.nome.toLowerCase().includes(searchName.toLowerCase());
+                })
+                .map((resource) => {
                 const Icon = typeIcons[resource.tipo];
                 const custo = calculateResourceCost(resource, settings);
                 const resolved = resolveResource(resource, peopleMap, jobMap, teamMap);
