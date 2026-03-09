@@ -28,15 +28,16 @@ export default function PDFViewerDialog({ open, onOpenChange, storageKey, fileNa
       return;
     }
 
-    const loadBlob = async () => {
+    const loadUrl = async () => {
       setLoading(true);
-      const blob = await getBlob(storageKey);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        setObjectUrl(url);
-      } else {
+      const { data, error: urlError } = await supabase.storage
+        .from('contract-documents')
+        .createSignedUrl(storageKey, 300);
+      if (urlError || !data?.signedUrl) {
         setError(true);
-        toast({ title: 'Arquivo não disponível', description: 'O arquivo não foi encontrado no armazenamento local.', variant: 'destructive' });
+        toast({ title: 'Arquivo não disponível', description: 'Não foi possível gerar o link do arquivo.', variant: 'destructive' });
+      } else {
+        setObjectUrl(data.signedUrl);
       }
       setLoading(false);
     };
