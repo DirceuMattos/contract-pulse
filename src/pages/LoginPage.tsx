@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import logoBnp from "@/assets/logo-bnp.png";
+import logoSystem from "@/assets/logo-system.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,14 +77,14 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <img src={logoBnp} alt="BNP Logo" className="w-[300px] h-auto object-contain" />
+          <img src={logoBnp} alt="BNP Logo" className="w-[280px] h-auto object-contain mb-6" />
+          <div className="flex items-center gap-3">
+            <img src={logoSystem} alt="BNPContractCore" className="w-10 h-10 object-contain" />
             <div>
-              <span className="text-2xl font-bold text-white">BNPContract</span>
-              <span className="text-2xl font-semibold text-emerald-400">Core</span>
+              <span className="text-xl font-bold text-white">BNPContract</span>
+              <span className="text-xl font-semibold text-emerald-400">Core</span>
             </div>
           </div>
-          <p className="text-white/60 text-sm mt-2"></p>
         </div>
 
         <div className="relative z-10 space-y-8">
@@ -123,11 +124,14 @@ export default function LoginPage() {
         className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-background min-h-screen lg:min-h-0"
       >
         <div className="w-full max-w-md space-y-6 sm:space-y-8">
-          <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
-            <img src={logoBnp} alt="BNP Logo" className="w-12 h-auto object-contain" />
-            <div>
-              <span className="text-xl font-bold text-foreground">BNPContract</span>
-              <span className="text-xl font-semibold text-accent">Core</span>
+          <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
+            <img src={logoBnp} alt="BNP Logo" className="w-24 h-auto object-contain" />
+            <div className="flex items-center gap-2">
+              <img src={logoSystem} alt="BNPContractCore" className="w-8 h-8 object-contain" />
+              <div>
+                <span className="text-lg font-bold text-foreground">BNPContract</span>
+                <span className="text-lg font-semibold text-accent">Core</span>
+              </div>
             </div>
           </div>
 
