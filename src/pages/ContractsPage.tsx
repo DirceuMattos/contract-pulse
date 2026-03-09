@@ -350,7 +350,8 @@ export default function ContractsPage() {
       {/* Results count */}
       <motion.div variants={itemVariants}>
         <p className="text-sm text-muted-foreground">
-          {sortedContracts.length} contrato{sortedContracts.length !== 1 ? 's' : ''} encontrado{sortedContracts.length !== 1 ? 's' : ''}
+          <span className="text-lg font-bold text-foreground">{sortedContracts.length}</span>{' '}
+          contrato{sortedContracts.length !== 1 ? 's' : ''} encontrado{sortedContracts.length !== 1 ? 's' : ''}
         </p>
       </motion.div>
       
