@@ -78,6 +78,8 @@ export default function ContractResourcesPage() {
   const [linkResourceId, setLinkResourceId] = useState<string | null>(null);
   const [linkHrPersonId, setLinkHrPersonId] = useState<string>('');
   const [searchName, setSearchName] = useState('');
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
