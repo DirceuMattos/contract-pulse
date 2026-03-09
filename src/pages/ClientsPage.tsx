@@ -150,7 +150,8 @@ export default function ClientsPage() {
       {/* Results count */}
       <motion.div variants={itemVariants}>
         <p className="text-sm text-muted-foreground">
-          {filteredClients.length} cliente{filteredClients.length !== 1 ? 's' : ''} encontrado{filteredClients.length !== 1 ? 's' : ''}
+          <span className="text-lg font-bold text-foreground">{filteredClients.length}</span>{' '}
+          cliente{filteredClients.length !== 1 ? 's' : ''} encontrado{filteredClients.length !== 1 ? 's' : ''}
         </p>
       </motion.div>
       
