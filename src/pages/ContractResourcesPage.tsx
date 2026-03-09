@@ -198,6 +198,62 @@ export default function ContractResourcesPage() {
 
   const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome));
 
+  const handleImportResources = async (sourceContractId: string) => {
+    if (!id) return;
+    setImporting(true);
+    try {
+      const sourceResources = getResourcesByContract(sourceContractId);
+      const hadExistingResources = rawResources.length > 0;
+      let imported = 0;
+      let skipped = 0;
+
+      for (const sr of sourceResources) {
+        if (sr.hrPersonId && existingHrPersonIds.includes(sr.hrPersonId)) {
+          skipped++;
+          continue;
+        }
+        await addResource({
+          contractId: id,
+          nome: sr.nome,
+          tipo: sr.tipo,
+          cargo: sr.cargo,
+          senioridade: sr.senioridade,
+          custoBase: sr.custoBase,
+          percentualDedicacao: sr.percentualDedicacao,
+          dataInicio: sr.dataInicio,
+          dataFim: sr.dataFim,
+          encargosOverride: sr.encargosOverride,
+          impostosOverride: sr.impostosOverride,
+          observacoes: sr.observacoes,
+          hrPersonId: sr.hrPersonId,
+          categoria: sr.categoria,
+          recorrencia: sr.recorrencia,
+          tipoValor: sr.tipoValor,
+          rateioMeses: sr.rateioMeses,
+          duracaoMeses: sr.duracaoMeses,
+        });
+        imported++;
+      }
+
+      setCopyDialogOpen(false);
+
+      if (imported === 0 && skipped > 0) {
+        toast.info(`Todos os ${skipped} recursos já estavam alocados neste contrato.`);
+      } else if (skipped > 0) {
+        toast.warning(`${imported} recurso${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''}. ${skipped} ignorado${skipped !== 1 ? 's' : ''} (já alocado${skipped !== 1 ? 's' : ''}). Revise a alocação para evitar superfaturamento.`);
+      } else if (hadExistingResources) {
+        toast.warning(`${imported} recurso${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''}. Revise a alocação para evitar superfaturamento.`);
+      } else {
+        toast.success(`${imported} recurso${imported !== 1 ? 's' : ''} importado${imported !== 1 ? 's' : ''} com sucesso!`);
+      }
+    } catch (err) {
+      toast.error('Erro ao importar recursos.');
+      console.error(err);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <TooltipProvider>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
