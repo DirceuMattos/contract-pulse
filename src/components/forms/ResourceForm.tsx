@@ -114,10 +114,13 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
   const [selectedHrPersonId, setSelectedHrPersonId] = useState<string | undefined>(resource?.hrPersonId);
 
   // Active HR people for selection
-  const activeHrPeople = useMemo(() =>
-    hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome)),
-    [hrPeople]
-  );
+  const activeHrPeople = useMemo(() => {
+    const editingPersonId = resource?.hrPersonId;
+    return hrPeople
+      .filter(p => p.situacao === 'ativo')
+      .filter(p => !existingHrPersonIds.includes(p.id) || p.id === editingPersonId)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [hrPeople, existingHrPersonIds, resource?.hrPersonId]);
 
   // Resolve linked person info
   const linkedPerson = useMemo(() => {
