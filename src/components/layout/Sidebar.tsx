@@ -186,7 +186,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         )}
         {collapsed && (
           <div className="w-full flex justify-center">
-            <img src={logoSystem} alt="BNPContractCore" className="w-8 h-8 object-contain" />
+            <img src={logoSystem} alt="BNPContractCore" className="w-9 h-9 object-contain" />
           </div>
         )}
       </div>
