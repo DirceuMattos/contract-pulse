@@ -16,6 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { ResourceForm } from '@/components/forms/ResourceForm';
+import { Input } from '@/components/ui/input';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { toast } from 'sonner';
