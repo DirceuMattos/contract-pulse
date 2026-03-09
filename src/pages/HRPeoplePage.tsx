@@ -48,7 +48,7 @@ export default function HRPeoplePage() {
   const { canEdit, canViewHRCosts } = useAuth();
 
   const [search, setSearch] = useState('');
-  const [filterSituacao, setFilterSituacao] = useState<'todos' | 'ativo' | 'inativo'>('ativo');
+  const [filterSituacao, setFilterSituacao] = useState<'todos' | 'ativo' | 'inativo'>('todos');
   const [filterTeam, setFilterTeam] = useState('');
   const [filterCargo, setFilterCargo] = useState('');
   const [filterVinculo, setFilterVinculo] = useState('');
@@ -56,8 +56,8 @@ export default function HRPeoplePage() {
   const [filterMesAdmissao, setFilterMesAdmissao] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'ativo' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '';
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('ativo'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); };
+  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '';
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('nome');
