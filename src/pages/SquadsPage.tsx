@@ -62,19 +62,35 @@ interface ResourceViewData {
   }[];
 }
 
-// --- Health card styles ---
+// --- Card color palette (rotational) ---
 
-const healthCardStyles: Record<string, string> = {
-  saudavel: 'border-l-4 border-l-[hsl(var(--health-healthy))]',
-  atencao: 'border-l-4 border-l-[hsl(var(--health-attention))]',
-  critico: 'border-l-4 border-l-[hsl(var(--health-critical))]',
-};
+const cardColorPalette = [
+  'border-l-[hsl(210,80%,55%)]',   // azul
+  'border-l-[hsl(160,60%,45%)]',   // esmeralda
+  'border-l-[hsl(270,60%,60%)]',   // violeta
+  'border-l-[hsl(38,90%,55%)]',    // âmbar
+  'border-l-[hsl(340,70%,55%)]',   // rosa
+  'border-l-[hsl(185,60%,45%)]',   // ciano
+  'border-l-[hsl(25,80%,55%)]',    // laranja
+  'border-l-[hsl(140,50%,45%)]',   // verde
+];
 
-const healthHeaderStyles: Record<string, string> = {
-  saudavel: 'bg-[hsl(var(--health-healthy-bg))]',
-  atencao: 'bg-[hsl(var(--health-attention-bg))]',
-  critico: 'bg-[hsl(var(--health-critical-bg))]',
-};
+// --- Fixed team sort order ---
+
+const TEAM_SORT_ORDER = ['projetos', 'desenvolvimento', 'dados', 'ia', 'qualidade', 'suporte', 'sre'];
+
+function sortTeamsByFixedOrder(teamsArray: SquadTeamData[]): SquadTeamData[] {
+  return [...teamsArray].sort((a, b) => {
+    const aName = a.teamName.toLowerCase().trim();
+    const bName = b.teamName.toLowerCase().trim();
+    const aIdx = TEAM_SORT_ORDER.indexOf(aName);
+    const bIdx = TEAM_SORT_ORDER.indexOf(bName);
+    const aOrder = aIdx >= 0 ? aIdx : TEAM_SORT_ORDER.length;
+    const bOrder = bIdx >= 0 ? bIdx : TEAM_SORT_ORDER.length;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return aName.localeCompare(bName);
+  });
+}
 
 // --- Component ---
 
