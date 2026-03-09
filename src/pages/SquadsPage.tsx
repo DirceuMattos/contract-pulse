@@ -645,7 +645,7 @@ export default function SquadsPage() {
       {perspective === 'project' ? (
         squadsData.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {squadsData.map(renderContractCard)}
+            {squadsData.map((cd, i) => renderContractCard(cd, i))}
           </div>
         ) : (
           <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os squads." />
