@@ -646,6 +646,7 @@ export default function ContractResourcesPage() {
             resource={editingResource || undefined}
             contractId={contract.id}
             settings={settings}
+            existingHrPersonIds={existingHrPersonIds}
             onSubmit={editingResource ? handleEditResource : handleAddResource}
             onCancel={() => { setFormOpen(false); setEditingResource(null); }}
           />
