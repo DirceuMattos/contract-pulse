@@ -409,6 +409,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return att;
   }, [handleError]);
 
+  const updateAttachment = useCallback(async (id: string, data: Partial<DocumentAttachment>): Promise<void> => {
+    const dbData: Record<string, unknown> = {};
+    if (data.storageKey !== undefined) dbData.storage_key = data.storageKey;
+    if (data.fileName !== undefined) dbData.file_name = data.fileName;
+    if (data.descriptionType !== undefined) dbData.description_type = data.descriptionType;
+    if (data.descriptionText !== undefined) dbData.description_text = data.descriptionText;
+    if (data.notes !== undefined) dbData.notes = data.notes;
+    const { error } = await supabase.from('document_attachments').update(dbData).eq('id', id);
+    if (error) { handleError(error, 'Erro ao atualizar anexo.'); return; }
+    setAttachments(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+  }, [handleError]);
+
   const deleteAttachment = useCallback(async (id: string): Promise<void> => {
     const att = attachments.find(a => a.id === id);
     setAttachments(p => p.filter(a => a.id !== id));
