@@ -32,6 +32,9 @@ function generateId(): string {
 }
 
 export function SubprojectProvider({ children }: { children: ReactNode }) {
+  const [hasSubprojectsMap, setHasSubprojectsMap] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_HAS_SUBPROJECTS) || '{}'); } catch { return {}; }
+  });
   const [subprojects, setSubprojects] = useState<ContractSubproject[]>(() => {
     try { return JSON.parse(localStorage.getItem(LS_SUBPROJECTS) || '[]'); } catch { return []; }
   });
@@ -39,8 +42,14 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
     try { return JSON.parse(localStorage.getItem(LS_ALLOCATIONS) || '[]'); } catch { return []; }
   });
 
+  useEffect(() => { localStorage.setItem(LS_HAS_SUBPROJECTS, JSON.stringify(hasSubprojectsMap)); }, [hasSubprojectsMap]);
   useEffect(() => { localStorage.setItem(LS_SUBPROJECTS, JSON.stringify(subprojects)); }, [subprojects]);
   useEffect(() => { localStorage.setItem(LS_ALLOCATIONS, JSON.stringify(allocations)); }, [allocations]);
+
+  const hasSubprojectsFn = useCallback((contractId: string) => !!hasSubprojectsMap[contractId], [hasSubprojectsMap]);
+  const setHasSubprojectsFn = useCallback((contractId: string, value: boolean) => {
+    setHasSubprojectsMap(prev => ({ ...prev, [contractId]: value }));
+  }, []);
 
   const addSubproject = useCallback((data: Omit<ContractSubproject, 'id' | 'createdAt' | 'updatedAt'>): ContractSubproject => {
     const now = new Date().toISOString();
