@@ -6,6 +6,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle,
   Info, Layers, Link2, Search, Copy,
 } from 'lucide-react';
+import { SubprojectCostCards } from '@/components/contracts/SubprojectCostCards';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { useSubprojects } from '@/contexts/SubprojectContext';
