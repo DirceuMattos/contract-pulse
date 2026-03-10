@@ -96,6 +96,7 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
   return (
     <SubprojectContext.Provider value={{
       subprojects, allocations,
+      hasSubprojects: hasSubprojectsFn, setHasSubprojects: setHasSubprojectsFn,
       addSubproject, updateSubproject, deleteSubproject, getSubprojectsByContract,
       addAllocation, updateAllocation, deleteAllocation, getAllocationsBySubproject, getAllocationsByContract,
     }}>
