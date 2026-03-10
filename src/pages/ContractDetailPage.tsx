@@ -90,6 +90,7 @@ export default function ContractDetailPage() {
   const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { canAccessModule } = useModuleAccess();
+  const { hasSubprojects, getSubprojectsByContract } = useSubprojects();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
