@@ -505,6 +505,29 @@ export default function ContractDetailPage() {
             </Card>
           </div>
           
+          {/* Subprojects card */}
+          {id && hasSubprojects(id) && (
+            <Card className="border-l-4 border-l-primary">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Layers className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Subprojetos</p>
+                    <p className="text-sm text-muted-foreground">
+                      {getSubprojectsByContract(id).length} subprojeto(s) cadastrado(s)
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="mt-2 gap-1.5" onClick={() => navigate(`/squads?contract=${id}`)}>
+                  <Users className="w-4 h-4" />
+                  Gerenciar subprojetos e squads
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Tags */}
           {contract.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
