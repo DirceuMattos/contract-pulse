@@ -38,10 +38,10 @@ interface SidebarProps {
 
 const navItems: { path: string; label: string; icon: any; moduleKey?: ModuleKey }[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
+  { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
   { path: '/calculadora', label: 'Simulador de Contratos', icon: Calculator, moduleKey: 'CALCULATOR' },
   { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
   { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
-  { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
   { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
   { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
   { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
