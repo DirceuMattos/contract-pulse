@@ -67,6 +67,7 @@ export default function ContractResourcesPage() {
     jobTitles, teams,
   } = useData();
   const { hrPeople } = useHR();
+  const { hasSubprojects: hasSubprojectsFn, getAllocationsByContract } = useSubprojects();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
