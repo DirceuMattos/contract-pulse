@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useHR } from '@/contexts/HRContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ import { Resource, Team } from '@/types';
 import Papa from 'papaparse';
 import { buildXlsx, downloadCSV } from '@/lib/importExport';
 import { buildLookups, resolveResource } from '@/lib/resourceResolver';
+import { SubprojectManagementPanel } from '@/components/squads/SubprojectManagementPanel';
 
 // --- Types ---
 
@@ -44,6 +46,9 @@ interface ContractSquadData {
   totalFTE: number;
   hrCount: number;
   teams: SquadTeamData[];
+  // Subproject info (when rendering per-subproject)
+  subprojectId?: string;
+  subprojectName?: string;
 }
 
 interface ResourceViewData {
@@ -98,10 +103,14 @@ export default function SquadsPage() {
   const { clients, contracts, resources: _rawResources, settings, overheadItems, jobTitles, teams } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
+  const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const initialContractFilter = searchParams.get('contract') || 'all';
 
   const [clientFilter, setClientFilter] = useState<string>('all');
-  const [contractFilter, setContractFilter] = useState<string>('all');
+  const [contractFilter, setContractFilter] = useState<string>(initialContractFilter);
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
@@ -114,6 +123,15 @@ export default function SquadsPage() {
     () => buildLookups(hrPeople, jobTitles, teams),
     [hrPeople, jobTitles, teams]
   );
+
+  // Check if selected contract has subprojects
+  const selectedContractHasSubprojects = useMemo(() => {
+    if (contractFilter === 'all') return false;
+    return hasSubprojects(contractFilter);
+  }, [contractFilter, hasSubprojects]);
+
+  // Show management panel when a specific contract with subprojects is selected
+  const showSubprojectManagement = contractFilter !== 'all' && selectedContractHasSubprojects;
 
   // --- Consolidation ---
 
@@ -130,9 +148,124 @@ export default function SquadsPage() {
 
       const contractResources = resources.filter(r => r.contractId === contract.id);
       const hrResources = contractResources.filter(r => r.tipo === 'clt' || r.tipo === 'pj');
+
+      // If contract has subprojects, generate per-subproject cards
+      if (hasSubprojects(contract.id)) {
+        const subprojects = getSubprojectsByContract(contract.id);
+        const health = calculateContractHealth(contract, resources, settings, overheadItems);
+        const hc = healthConfig[health.status];
+
+        for (const sp of subprojects) {
+          if (sp.status === 'encerrado') continue;
+          const spAllocations = getAllocationsBySubproject(sp.id);
+          if (spAllocations.length === 0 && searchQuery) continue;
+
+          // Build resources from subproject allocations
+          const spResources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] = [];
+          for (const alloc of spAllocations) {
+            const person = hrPeople.find(p => p.id === alloc.hrPersonId);
+            if (!person) continue;
+            
+            const resolvedCargo = person.cargoId ? (jobTitles.find(j => j.id === person.cargoId)?.label || 'Sem cargo') : 'Sem cargo';
+            const nome = person.nome || 'Sem nome';
+            const isVacant = person.situacao === 'inativo';
+            
+            if (searchQuery && !nome.toLowerCase().includes(searchLower) && !resolvedCargo.toLowerCase().includes(searchLower) && !client.razaoSocial.toLowerCase().includes(searchLower)) continue;
+
+            // Create a synthetic resource for display
+            const syntheticResource: Resource = {
+              id: alloc.id,
+              contractId: contract.id,
+              nome: nome,
+              tipo: person.tipoVinculo === 'pj' ? 'pj' : 'clt',
+              cargo: resolvedCargo,
+              senioridade: null,
+              custoBase: 0,
+              percentualDedicacao: alloc.dedicationPercent,
+              dataInicio: person.dataAdmissao,
+              dataFim: null,
+              observacoes: alloc.notes || null,
+              hrPersonId: alloc.hrPersonId,
+              encargosOverride: null,
+              impostosOverride: null,
+              categoria: null,
+              tipoValor: null,
+              duracaoMeses: null,
+              rateioMeses: null,
+              recorrencia: null,
+              createdAt: alloc.createdAt,
+              updatedAt: alloc.updatedAt,
+            };
+
+            spResources.push({
+              resource: syntheticResource,
+              resolvedNome: nome,
+              resolvedCargo,
+              isBrokenLink: false,
+              isVacant,
+            });
+          }
+
+          if (spResources.length === 0 && searchQuery) continue;
+
+          // Group by team
+          const teamGroupMap = new Map<string, { team: Team | null; items: typeof spResources }>();
+          for (const item of spResources) {
+            const person = hrPeople.find(p => p.id === item.resource.hrPersonId);
+            let teamId = person?.teamId ?? undefined;
+            if (!teamId) {
+              const cargoLower = item.resolvedCargo.toLowerCase();
+              const matchedJT = jobTitles.find(jt => jt.label.toLowerCase() === cargoLower);
+              teamId = matchedJT?.teamId ?? undefined;
+            }
+            const team = teamId ? teams.find(t => t.id === teamId) : null;
+            const key = team ? team.id : '__none__';
+            if (!teamGroupMap.has(key)) teamGroupMap.set(key, { team: team || null, items: [] });
+            teamGroupMap.get(key)!.items.push(item);
+          }
+
+          const totalFTE = spResources.reduce((sum, { resource: r }) => sum + r.percentualDedicacao / 100, 0);
+
+          const teamsArray: SquadTeamData[] = [];
+          for (const t of sortedTeams) {
+            const entry = teamGroupMap.get(t.id);
+            if (!entry) continue;
+            const fte = entry.items.reduce((s, { resource: r }) => s + r.percentualDedicacao / 100, 0);
+            teamsArray.push({
+              team: t, teamName: t.name,
+              resources: entry.items.sort((a, b) => b.resource.percentualDedicacao - a.resource.percentualDedicacao),
+              fte, percent: totalFTE > 0 ? (fte / totalFTE) * 100 : 0,
+            });
+          }
+          const noTeam = teamGroupMap.get('__none__');
+          if (noTeam) {
+            const fte = noTeam.items.reduce((s, { resource: r }) => s + r.percentualDedicacao / 100, 0);
+            teamsArray.push({
+              team: null, teamName: 'Sem equipe',
+              resources: noTeam.items.sort((a, b) => b.resource.percentualDedicacao - a.resource.percentualDedicacao),
+              fte, percent: totalFTE > 0 ? (fte / totalFTE) * 100 : 0,
+            });
+          }
+
+          const finalTeams = teamFilter.length > 0
+            ? teamsArray.filter(td => teamFilter.includes(td.team?.id || '__none__'))
+            : teamsArray;
+
+          result.push({
+            contractId: contract.id, contractCodigo: contract.codigo, contractNome: contract.nome,
+            clientId: client.id, clientName: client.razaoSocial, segmento: contract.segmento,
+            healthStatus: health.status, healthLabel: hc.label, totalFTE, hrCount: spResources.length,
+            teams: finalTeams,
+            subprojectId: sp.id,
+            subprojectName: sp.name,
+          });
+        }
+        continue;
+      }
+
+      // Standard (non-subproject) card
       if (hrResources.length === 0) continue;
 
-      // Resolve each HR resource
       const resolvedHR = hrResources.map(r => {
         const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
         return { resource: r, resolved };
@@ -151,11 +284,9 @@ export default function SquadsPage() {
       const health = calculateContractHealth(contract, resources, settings, overheadItems);
       const hc = healthConfig[health.status];
 
-      // Group by team — using HR Master teamId when linked
       const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] }>();
       for (const { resource: hr, resolved } of filteredHR) {
         let teamId: string | undefined;
-        
         if (resolved.teamId) {
           teamId = resolved.teamId;
         } else {
@@ -163,7 +294,6 @@ export default function SquadsPage() {
           const matchedJT = jobTitles.find(jt => jt.label.toLowerCase() === cargoLower);
           teamId = matchedJT?.teamId ?? undefined;
         }
-        
         const team = teamId ? teams.find(t => t.id === teamId) : null;
         const key = team ? team.id : '__none__';
         if (!teamGroupMap.has(key)) teamGroupMap.set(key, { team: team || null, items: [] });
@@ -189,7 +319,6 @@ export default function SquadsPage() {
           fte, percent: totalFTE > 0 ? (fte / totalFTE) * 100 : 0,
         });
       }
-
       const noTeam = teamGroupMap.get('__none__');
       if (noTeam) {
         const fte = noTeam.items.reduce((s, { resource: r }) => s + r.percentualDedicacao / 100, 0);
@@ -213,7 +342,7 @@ export default function SquadsPage() {
       });
     }
     return result;
-  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap]);
+  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject]);
 
   // --- Resource-centric view data ---
 
@@ -225,7 +354,6 @@ export default function SquadsPage() {
     for (const cd of squadsData) {
       for (const td of cd.teams) {
         for (const { resource: r, resolvedNome, resolvedCargo } of td.resources) {
-          // Group by hrPersonId (unique) or fallback to name+cargo
           const key = r.hrPersonId
             ? `hr:${r.hrPersonId}`
             : `${resolvedNome.toLowerCase().trim()}||${resolvedCargo.toLowerCase().trim()}`;
@@ -246,7 +374,7 @@ export default function SquadsPage() {
           entry.allocations.push({
             contractId: cd.contractId,
             contractCodigo: cd.contractCodigo,
-            contractNome: cd.contractNome,
+            contractNome: cd.subprojectName ? `${cd.contractNome} → ${cd.subprojectName}` : cd.contractNome,
             clientName: cd.clientName,
             healthStatus: cd.healthStatus,
             percentualDedicacao: r.percentualDedicacao,
@@ -285,6 +413,7 @@ export default function SquadsPage() {
           rows.push({
             Cliente: cd.clientName,
             Contrato: cd.contractCodigo,
+            ...(cd.subprojectName ? { Subprojeto: cd.subprojectName } : {}),
             Equipe: td.teamName,
             'Nome RH': resolvedNome || 'Sem nome',
             'Cargo/Função': resolvedCargo || 'Sem cargo',
@@ -415,7 +544,7 @@ export default function SquadsPage() {
     const cardData = { ...cd, teams: sortedCardTeams };
 
     return (
-      <Card key={cd.contractId} className={`overflow-hidden border-l-4 ${cardColor}`}>
+      <Card key={cd.subprojectId || cd.contractId} className={`overflow-hidden border-l-4 ${cardColor}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
@@ -424,6 +553,12 @@ export default function SquadsPage() {
                 <span className="text-sm text-muted-foreground">· {cd.contractCodigo}</span>
               </div>
               <p className="text-sm text-muted-foreground">{cd.clientName}</p>
+              {cd.subprojectName && (
+                <div className="flex items-center gap-1.5">
+                  <FolderTree className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-sm font-medium text-primary">{cd.subprojectName}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className="text-[10px]">{cd.segmento === 'govtech' ? 'Gov' : 'Privado'}</Badge>
@@ -634,12 +769,17 @@ export default function SquadsPage() {
         </CardContent>
       </Card>
 
+      {/* Subproject Management Panel */}
+      {showSubprojectManagement && (
+        <SubprojectManagementPanel contractId={contractFilter} />
+      )}
+
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Contratos</p><p className="text-xl font-bold">{squadsData.length}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Contratos</p><p className="text-xl font-bold">{new Set(squadsData.map(c => c.contractId)).size}</p></CardContent></Card>
         <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">FTE Total</p><p className="text-xl font-bold">{squadsData.reduce((s, c) => s + c.totalFTE, 0).toFixed(1)}</p></CardContent></Card>
         <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">RH Alocados</p><p className="text-xl font-bold">{squadsData.reduce((s, c) => s + c.hrCount, 0)}</p></CardContent></Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">{perspective === 'resource' ? 'Pessoas Únicas' : 'Equipes Envolvidas'}</p><p className="text-xl font-bold">{perspective === 'resource' ? resourceViewData.length : new Set(squadsData.flatMap(c => c.teams.map(t => t.teamName))).size}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">{perspective === 'resource' ? 'Pessoas Únicas' : 'Squads'}</p><p className="text-xl font-bold">{perspective === 'resource' ? resourceViewData.length : squadsData.length}</p></CardContent></Card>
       </div>
 
       {/* Cards Grid */}
