@@ -168,7 +168,7 @@ export default function SquadsPage() {
             
             const resolvedCargo = person.cargoId ? (jobTitles.find(j => j.id === person.cargoId)?.label || 'Sem cargo') : 'Sem cargo';
             const nome = person.nome || 'Sem nome';
-            const isVacant = person.situacao === 'desligado';
+            const isVacant = person.situacao === 'inativo';
             
             if (searchQuery && !nome.toLowerCase().includes(searchLower) && !resolvedCargo.toLowerCase().includes(searchLower) && !client.razaoSocial.toLowerCase().includes(searchLower)) continue;
 
