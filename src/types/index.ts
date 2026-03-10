@@ -109,9 +109,33 @@ export interface Contract {
   responsavelClienteEmail?: string;
   responsavelClienteTelefone?: string;
   
+  hasSubprojects?: boolean;
   createdAt: string;
   updatedAt: string;
   ultimaAtualizacaoRecursos?: string;
+}
+
+// Subproject Types
+export type SubprojectStatus = 'ativo' | 'suspenso' | 'encerrado';
+
+export interface ContractSubproject {
+  id: string;
+  contractId: string;
+  name: string;
+  description?: string;
+  status: SubprojectStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubprojectAllocation {
+  id: string;
+  subprojectId: string;
+  hrPersonId: string;
+  dedicationPercent: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Resource Types
