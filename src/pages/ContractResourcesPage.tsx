@@ -116,6 +116,10 @@ export default function ContractResourcesPage() {
     );
   }
 
+  const contractHasSubprojects = id ? hasSubprojectsFn(id) : false;
+  const subprojectAllocations = id ? getAllocationsByContract(id) : [];
+  const totalSubprojectFTE = subprojectAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
+
   const health = calculateContractHealth(contract, resources, settings, overheadItems);
   const receitaMensal = getContractRevenue(contract);
   const contractOverhead = id ? getOverheadByContract(id) : [];
