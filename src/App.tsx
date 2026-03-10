@@ -47,6 +47,7 @@ const App = () => (
         <SystemUsersProvider>
           <DataProvider>
             <HRProvider>
+              <SubprojectProvider>
               <NotificationProvider>
                 <SimulationProvider>
                   <TooltipProvider>
