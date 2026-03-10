@@ -4,18 +4,23 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { ContractForm } from '@/components/forms/ContractForm';
 import { ContractFormData } from '@/lib/validators';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { MigrateToSubprojectsDialog } from '@/components/squads/MigrateToSubprojectsDialog';
 
 export default function ContractFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getContract, addContract, updateContract } = useData();
+  const { getContract, addContract, updateContract, getResourcesByContract } = useData();
   const { canEdit } = useAuth();
+  const { hasSubprojects: hasSubprojectsFn, setHasSubprojects } = useSubprojects();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [migrateDialogOpen, setMigrateDialogOpen] = useState(false);
+  const [pendingContractId, setPendingContractId] = useState<string | null>(null);
 
   const isEditing = !!id;
   const contract = id ? getContract(id) : undefined;
@@ -84,10 +89,27 @@ export default function ContractFormPage() {
         responsavelCliente: data.responsavelCliente,
         responsavelClienteEmail: data.responsavelClienteEmail,
         responsavelClienteTelefone: data.responsavelClienteTelefone,
+        hasSubprojects: data.hasSubprojects,
       };
 
       if (isEditing && contract) {
+        // Check if hasSubprojects was just turned on and contract has existing resources
+        const wasSubprojects = hasSubprojectsFn(contract.id);
+        const nowSubprojects = data.hasSubprojects;
+        
         updateContract(contract.id, contractData);
+        setHasSubprojects(contract.id, !!nowSubprojects);
+        
+        if (!wasSubprojects && nowSubprojects) {
+          const existingResources = getResourcesByContract(contract.id);
+          const hrResources = existingResources.filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId);
+          if (hrResources.length > 0) {
+            setPendingContractId(contract.id);
+            setMigrateDialogOpen(true);
+            return; // Don't navigate yet
+          }
+        }
+        
         toast({
           title: 'Contrato atualizado',
           description: 'As informações do contrato foram salvas com sucesso.',
@@ -95,6 +117,7 @@ export default function ContractFormPage() {
         navigate(`/contratos/${contract.id}`);
       } else {
         const newContract = await addContract(contractData);
+        setHasSubprojects(newContract.id, !!data.hasSubprojects);
         toast({
           title: 'Contrato criado',
           description: 'O novo contrato foi cadastrado com sucesso.',
@@ -146,11 +169,23 @@ export default function ContractFormPage() {
 
       {/* Form */}
       <ContractForm
-        contract={contract}
+        contract={contract ? { ...contract, hasSubprojects: hasSubprojectsFn(contract.id) } : undefined}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={isLoading}
       />
+
+      {pendingContractId && (
+        <MigrateToSubprojectsDialog
+          open={migrateDialogOpen}
+          onOpenChange={setMigrateDialogOpen}
+          contractId={pendingContractId}
+          onComplete={() => {
+            toast({ title: 'Contrato atualizado', description: 'As informações do contrato foram salvas com sucesso.' });
+            navigate(`/contratos/${pendingContractId}`);
+          }}
+        />
+      )}
     </motion.div>
   );
 }

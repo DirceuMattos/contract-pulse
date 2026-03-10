@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -59,6 +59,7 @@ import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 
@@ -89,6 +90,7 @@ export default function ContractDetailPage() {
   const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { canAccessModule } = useModuleAccess();
+  const { hasSubprojects, getSubprojectsByContract } = useSubprojects();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
@@ -502,6 +504,29 @@ export default function ContractDetailPage() {
               </CardContent>
             </Card>
           </div>
+          
+          {/* Subprojects card */}
+          {id && hasSubprojects(id) && (
+            <Card className="border-l-4 border-l-primary">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Layers className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Subprojetos</p>
+                    <p className="text-sm text-muted-foreground">
+                      {getSubprojectsByContract(id).length} subprojeto(s) cadastrado(s)
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="mt-2 gap-1.5" onClick={() => navigate(`/squads?contract=${id}`)}>
+                  <Users className="w-4 h-4" />
+                  Gerenciar subprojetos e squads
+                </Button>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Tags */}
           {contract.tags.length > 0 && (

@@ -10,6 +10,7 @@ import { DataProvider } from "@/contexts/DataContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { SystemUsersProvider } from "@/contexts/SystemUsersContext";
 import { SimulationProvider } from "@/contexts/SimulationContext";
+import { SubprojectProvider } from "@/contexts/SubprojectContext";
 import { HRProvider } from "@/contexts/HRContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import LoginPage from "@/pages/LoginPage";
@@ -46,6 +47,7 @@ const App = () => (
         <SystemUsersProvider>
           <DataProvider>
             <HRProvider>
+              <SubprojectProvider>
               <NotificationProvider>
                 <SimulationProvider>
                   <TooltipProvider>
@@ -94,6 +96,7 @@ const App = () => (
                   </TooltipProvider>
                 </SimulationProvider>
               </NotificationProvider>
+              </SubprojectProvider>
             </HRProvider>
           </DataProvider>
         </SystemUsersProvider>
