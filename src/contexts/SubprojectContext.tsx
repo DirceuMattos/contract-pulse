@@ -7,6 +7,9 @@ interface SubprojectContextType {
   subprojects: ContractSubproject[];
   allocations: SubprojectAllocation[];
 
+  hasSubprojects: (contractId: string) => boolean;
+  setHasSubprojects: (contractId: string, value: boolean) => void;
+
   addSubproject: (data: Omit<ContractSubproject, 'id' | 'createdAt' | 'updatedAt'>) => ContractSubproject;
   updateSubproject: (id: string, data: Partial<ContractSubproject>) => void;
   deleteSubproject: (id: string) => void;
