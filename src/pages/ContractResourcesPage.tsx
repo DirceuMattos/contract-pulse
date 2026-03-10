@@ -286,6 +286,24 @@ export default function ContractResourcesPage() {
         ) : undefined}
       />
 
+      {/* Subprojects Banner */}
+      {contractHasSubprojects && (
+        <Card className="border-l-4 border-l-primary bg-primary/5">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Info className="w-5 h-5 text-primary shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Este contrato usa alocação por subprojeto</p>
+                <p className="text-xs text-muted-foreground">Gerencie as pessoas no módulo SQUADS. FTE total dos subprojetos: {totalSubprojectFTE.toFixed(2)}</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/squads?contract=${id}`)}>
+              Ir para Squads
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className={cn(
