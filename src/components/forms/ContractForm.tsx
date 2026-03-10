@@ -325,6 +325,24 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                     </div>
                   )}
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="hasSubprojects"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 md:col-span-2">
+                      <div className="space-y-0.5">
+                        <FormLabel>Possui subprojetos / squads múltiplas?</FormLabel>
+                        <FormDescription>
+                          Use quando o mesmo contrato atender frentes distintas com squads separadas (ex.: PROAC Direto e Indireto).
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
             </AccordionContent>
           </AccordionItem>
