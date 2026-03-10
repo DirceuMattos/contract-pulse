@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useMemo } from 'react';
 import { ContractSubproject, SubprojectAllocation, SubprojectStatus } from '@/types';
+
+const LS_HAS_SUBPROJECTS = 'bnp_has_subprojects';
 
 interface SubprojectContextType {
   subprojects: ContractSubproject[];
