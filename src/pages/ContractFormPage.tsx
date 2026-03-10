@@ -93,7 +93,23 @@ export default function ContractFormPage() {
       };
 
       if (isEditing && contract) {
+        // Check if hasSubprojects was just turned on and contract has existing resources
+        const wasSubprojects = hasSubprojectsFn(contract.id);
+        const nowSubprojects = data.hasSubprojects;
+        
         updateContract(contract.id, contractData);
+        setHasSubprojects(contract.id, !!nowSubprojects);
+        
+        if (!wasSubprojects && nowSubprojects) {
+          const existingResources = getResourcesByContract(contract.id);
+          const hrResources = existingResources.filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId);
+          if (hrResources.length > 0) {
+            setPendingContractId(contract.id);
+            setMigrateDialogOpen(true);
+            return; // Don't navigate yet
+          }
+        }
+        
         toast({
           title: 'Contrato atualizado',
           description: 'As informações do contrato foram salvas com sucesso.',
@@ -101,6 +117,7 @@ export default function ContractFormPage() {
         navigate(`/contratos/${contract.id}`);
       } else {
         const newContract = await addContract(contractData);
+        setHasSubprojects(newContract.id, !!data.hasSubprojects);
         toast({
           title: 'Contrato criado',
           description: 'O novo contrato foi cadastrado com sucesso.',
