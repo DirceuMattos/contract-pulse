@@ -91,6 +91,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       responsavelCliente: contract?.responsavelCliente || '',
       responsavelClienteEmail: contract?.responsavelClienteEmail || '',
       responsavelClienteTelefone: contract?.responsavelClienteTelefone || '',
+      hasSubprojects: contract?.hasSubprojects || false,
     },
   });
 

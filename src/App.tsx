@@ -96,6 +96,7 @@ const App = () => (
                   </TooltipProvider>
                 </SimulationProvider>
               </NotificationProvider>
+              </SubprojectProvider>
             </HRProvider>
           </DataProvider>
         </SystemUsersProvider>
