@@ -14,10 +14,13 @@ import { MigrateToSubprojectsDialog } from '@/components/squads/MigrateToSubproj
 export default function ContractFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getContract, addContract, updateContract } = useData();
+  const { getContract, addContract, updateContract, getResourcesByContract } = useData();
   const { canEdit } = useAuth();
+  const { hasSubprojects: hasSubprojectsFn, setHasSubprojects } = useSubprojects();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [migrateDialogOpen, setMigrateDialogOpen] = useState(false);
+  const [pendingContractId, setPendingContractId] = useState<string | null>(null);
 
   const isEditing = !!id;
   const contract = id ? getContract(id) : undefined;
