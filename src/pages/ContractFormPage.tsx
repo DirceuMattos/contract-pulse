@@ -4,10 +4,12 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { ContractForm } from '@/components/forms/ContractForm';
 import { ContractFormData } from '@/lib/validators';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { MigrateToSubprojectsDialog } from '@/components/squads/MigrateToSubprojectsDialog';
 
 export default function ContractFormPage() {
   const { id } = useParams<{ id: string }>();
