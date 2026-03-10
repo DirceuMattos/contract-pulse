@@ -59,6 +59,7 @@ import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 
