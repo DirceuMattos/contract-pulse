@@ -169,11 +169,23 @@ export default function ContractFormPage() {
 
       {/* Form */}
       <ContractForm
-        contract={contract}
+        contract={contract ? { ...contract, hasSubprojects: hasSubprojectsFn(contract.id) } : undefined}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={isLoading}
       />
+
+      {pendingContractId && (
+        <MigrateToSubprojectsDialog
+          open={migrateDialogOpen}
+          onOpenChange={setMigrateDialogOpen}
+          contractId={pendingContractId}
+          onComplete={() => {
+            toast({ title: 'Contrato atualizado', description: 'As informações do contrato foram salvas com sucesso.' });
+            navigate(`/contratos/${pendingContractId}`);
+          }}
+        />
+      )}
     </motion.div>
   );
 }
