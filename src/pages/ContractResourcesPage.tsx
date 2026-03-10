@@ -6,6 +6,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle,
   Info, Layers, Link2, Search, Copy,
 } from 'lucide-react';
+import { SubprojectCostCards } from '@/components/contracts/SubprojectCostCards';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { useSubprojects } from '@/contexts/SubprojectContext';
@@ -433,6 +434,17 @@ export default function ContractResourcesPage() {
             );
           })}
         </div>
+      )}
+
+      {/* Subproject Cost Breakdown */}
+      {contractHasSubprojects && canViewValues && id && (
+        <SubprojectCostCards
+          contractId={id}
+          settings={settings}
+          custoMensalTotal={health.custoMensal}
+          canViewHRCosts={canViewHRCosts}
+          peopleMap={peopleMap}
+        />
       )}
 
       {/* Resources List */}
