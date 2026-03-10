@@ -177,7 +177,7 @@ export default function SquadsPage() {
               id: alloc.id,
               contractId: contract.id,
               nome: nome,
-              tipo: person.tipoVinculo === 'PJ' ? 'pj' : 'clt',
+              tipo: person.tipoVinculo === 'pj' ? 'pj' : 'clt',
               cargo: resolvedCargo,
               senioridade: null,
               custoBase: 0,
