@@ -138,7 +138,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                     {canEdit && (
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAllocDialogSpId(sp.id)}>
                         <Plus className="w-3 h-3" />
-                        Adicionar Pessoa
+                        Adicionar Recurso
                       </Button>
                     )}
                   </div>

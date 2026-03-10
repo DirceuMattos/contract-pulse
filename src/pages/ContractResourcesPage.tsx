@@ -435,6 +435,17 @@ export default function ContractResourcesPage() {
         </div>
       )}
 
+      {/* Subproject Cost Breakdown */}
+      {contractHasSubprojects && canViewValues && id && (
+        <SubprojectCostCards
+          contractId={id}
+          settings={settings}
+          custoMensalTotal={health.custoMensal}
+          canViewHRCosts={canViewHRCosts}
+          peopleMap={peopleMap}
+        />
+      )}
+
       {/* Resources List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
