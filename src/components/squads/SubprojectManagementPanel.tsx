@@ -187,6 +187,15 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         title="Remover Alocação"
         description="A pessoa será removida deste subprojeto."
       />
+
+      {editingAlloc && (
+        <EditAllocationDialog
+          open={!!editingAlloc}
+          onOpenChange={(open) => { if (!open) setEditingAlloc(null); }}
+          allocation={editingAlloc.alloc}
+          personName={editingAlloc.personName}
+        />
+      )}
     </div>
   );
 }
