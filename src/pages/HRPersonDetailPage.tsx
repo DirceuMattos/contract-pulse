@@ -105,7 +105,70 @@ export default function HRPersonDetailPage() {
   const activeHrPeople = useHR().hrPeople.filter(p => p.situacao === 'ativo' && p.id !== person.id).sort((a, b) => a.nome.localeCompare(b.nome));
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // Auto-detect changes and log to timeline
+    const changes: string[] = [];
+    const today = new Date().toISOString().split('T')[0];
+
+    const vinculoLabels: Record<string, string> = { clt: 'CLT', pj: 'PJ', cooperado: 'Cooperado', socio: 'Sócio' };
+    const situacaoLabels: Record<string, string> = { ativo: 'Ativo', inativo: 'Inativo' };
+
+    if (person.tipoVinculo !== data.tipoVinculo) {
+      changes.push(`Tipo de vínculo alterado de ${vinculoLabels[person.tipoVinculo] || person.tipoVinculo} para ${vinculoLabels[data.tipoVinculo] || data.tipoVinculo}`);
+    }
+    if (person.situacao !== data.situacao) {
+      changes.push(`Situação alterada de ${situacaoLabels[person.situacao] || person.situacao} para ${situacaoLabels[data.situacao] || data.situacao}`);
+    }
+
+    const oldCargoId = person.cargoId || '';
+    const newCargoId = data.cargoId || '';
+    if (oldCargoId !== newCargoId) {
+      const oldCargoLabel = jobTitles.find(jt => jt.id === oldCargoId)?.label || 'Sem cargo';
+      const newCargoLabel = jobTitles.find(jt => jt.id === newCargoId)?.label || 'Sem cargo';
+      changes.push(`Cargo alterado de ${oldCargoLabel} para ${newCargoLabel}`);
+      // Auto-fill cargoAntigo with previous cargo label
+      if (oldCargoId && oldCargoId !== 'none') {
+        data = { ...data, cargoAntigo: oldCargoLabel };
+      }
+    }
+
+    const oldTeamId = person.teamId || '';
+    const newTeamId = data.teamId || '';
+    if (oldTeamId !== newTeamId) {
+      const oldTeamName = teams.find(t => t.id === oldTeamId)?.name || 'Sem departamento';
+      const newTeamName = teams.find(t => t.id === newTeamId)?.name || 'Sem departamento';
+      changes.push(`Departamento alterado de ${oldTeamName} para ${newTeamName}`);
+    }
+
+    if ((person.localAtuacao || '') !== (data.localAtuacao || '')) {
+      changes.push(`Local de atuação alterado de "${person.localAtuacao || '—'}" para "${data.localAtuacao || '—'}"`);
+    }
+    if ((person.nivel || '') !== (data.nivel || '')) {
+      changes.push(`Nível alterado de "${person.nivel || '—'}" para "${data.nivel || '—'}"`);
+    }
+    if ((person.trilha || '') !== (data.trilha || '')) {
+      changes.push(`Trilha alterada de "${person.trilha || '—'}" para "${data.trilha || '—'}"`);
+    }
+    if (person.remuneracaoMensal !== data.remuneracaoMensal) {
+      changes.push(`Remuneração mensal alterada de ${formatCurrency(person.remuneracaoMensal)} para ${formatCurrency(data.remuneracaoMensal)}`);
+    }
+    if (person.beneficios !== data.beneficios) {
+      changes.push(`Benefícios alterado de ${formatCurrency(person.beneficios)} para ${formatCurrency(data.beneficios)}`);
+    }
+
+    // Save person first
     await updatePerson(person.id, data);
+
+    // If there were tracked changes, auto-create timeline event
+    if (changes.length > 0) {
+      await addTimelineEvent({
+        personId: person.id,
+        eventDate: today,
+        ocorrencia: 'observacao',
+        descricao: changes.join('; '),
+        atualizarRemuneracao: false,
+      });
+    }
+
     toast.success('Dados atualizados!');
     setEditPersonOpen(false);
   };

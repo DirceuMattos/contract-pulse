@@ -7,11 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { HRPerson } from '@/types';
 import { useData } from '@/contexts/DataContext';
+
+const BENEFICIO_OPTIONS = [
+  'Auxílio Creche',
+  'Auxílio Certificação',
+  'Auxílio Universidade',
+  'Bolsa de Estudos',
+  'Convênio Médico',
+  'Vale Alimentação',
+  'Vale Refeição',
+  'Vale Transporte',
+  'Plano Odontológico',
+  'Outro',
+];
 
 const hrPersonSchema = z.object({
   nome: z.string().min(2, 'Nome é obrigatório'),
@@ -20,13 +34,14 @@ const hrPersonSchema = z.object({
   teamId: z.string().optional(),
   remuneracaoMensal: z.number().min(0),
   beneficios: z.number().min(0),
+  beneficioNome: z.string().optional(),
+  beneficioSomaRemuneracao: z.boolean().optional(),
   remuneracaoII: z.number().min(0).optional(),
   localAtuacao: z.string().optional(),
   dataAdmissao: z.string().min(1, 'Data de admissão é obrigatória'),
   situacao: z.enum(['ativo', 'inativo']),
   observacoes: z.string().optional(),
   comiteGestor: z.string().optional(),
-  // Novos campos
   nivel: z.string().optional(),
   trilha: z.string().optional(),
   projeto: z.string().optional(),
@@ -35,7 +50,6 @@ const hrPersonSchema = z.object({
   celular: z.string().optional(),
   idExterno: z.string().optional(),
   centroCusto: z.string().optional(),
-  // Desligamento
   dataDesligamento: z.string().optional(),
   motivoDesligamento: z.string().optional(),
   observacoesDesligamento: z.string().optional(),
@@ -65,6 +79,8 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       teamId: person?.teamId || '',
       remuneracaoMensal: person?.remuneracaoMensal || 0,
       beneficios: person?.beneficios || 0,
+      beneficioNome: person?.beneficioNome || '',
+      beneficioSomaRemuneracao: person?.beneficioSomaRemuneracao || false,
       remuneracaoII: person?.remuneracaoII || 0,
       localAtuacao: person?.localAtuacao || '',
       dataAdmissao: person?.dataAdmissao || new Date().toISOString().split('T')[0],
@@ -87,6 +103,16 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
   });
 
   const situacaoAtual = form.watch('situacao');
+  const beneficioSoma = form.watch('beneficioSomaRemuneracao');
+  const remuneracaoMensal = form.watch('remuneracaoMensal');
+  const beneficios = form.watch('beneficios');
+
+  // Auto-calculate remuneracaoII when flag is active
+  React.useEffect(() => {
+    if (beneficioSoma) {
+      form.setValue('remuneracaoII', (remuneracaoMensal || 0) + (beneficios || 0));
+    }
+  }, [beneficioSoma, remuneracaoMensal, beneficios, form]);
 
   const handleSubmit = (data: HRPersonFormData) => {
     onSubmit({
@@ -96,7 +122,9 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       teamId: data.teamId && data.teamId !== 'none' ? data.teamId : undefined,
       remuneracaoMensal: data.remuneracaoMensal,
       beneficios: data.beneficios,
-      remuneracaoII: data.remuneracaoII || undefined,
+      beneficioNome: data.beneficioNome || undefined,
+      beneficioSomaRemuneracao: data.beneficioSomaRemuneracao || false,
+      remuneracaoII: data.beneficioSomaRemuneracao ? (data.remuneracaoMensal + data.beneficios) : (data.remuneracaoII || undefined),
       localAtuacao: data.localAtuacao || undefined,
       dataAdmissao: data.dataAdmissao,
       situacao: data.situacao,
@@ -270,21 +298,71 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="beneficios" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Benefícios (R$)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" min="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+              </div>
+
+              {/* Benefício row: valor | nome | flag soma */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="md:col-span-4">
+                  <FormField control={form.control} name="beneficios" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Benefícios (R$)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" min="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="md:col-span-5">
+                  <FormField control={form.control} name="beneficioNome" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Benefício</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione o benefício" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {BENEFICIO_OPTIONS.map(opt => (
+                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="md:col-span-3">
+                  <FormField control={form.control} name="beneficioSomaRemuneracao" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Somar à Remuneração Total</FormLabel>
+                      <div className="flex items-center gap-2 h-10">
+                        <FormControl>
+                          <Switch checked={field.value || false} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <span className="text-xs text-muted-foreground">{field.value ? 'Sim' : 'Não'}</span>
+                      </div>
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="remuneracaoII" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Remuneração II — VA / Ajuste (R$)</FormLabel>
+                    <FormLabel>Remuneração Total (Remuneração Mensal + Benefícios)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" min="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        {...field}
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        disabled={beneficioSoma}
+                        className={beneficioSoma ? 'bg-muted' : ''}
+                      />
                     </FormControl>
+                    {beneficioSoma && (
+                      <p className="text-xs text-muted-foreground">Calculado automaticamente: Remuneração + Benefícios</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )} />
