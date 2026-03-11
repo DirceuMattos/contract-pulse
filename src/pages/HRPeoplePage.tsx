@@ -195,7 +195,7 @@ export default function HRPeoplePage() {
     <div className="space-y-6">
       <PageHeader
         title="Recursos Humanos"
-        description="Cadastro mestre de pessoas CLT, PJ, Cooperado e Sócio."
+        description="Cadastro mestre de pessoas CLT, PJ, Cooperado, Sócio e Estagiário."
         animated={false}
         actions={
           <div className="flex items-center gap-2">
@@ -258,6 +258,7 @@ export default function HRPeoplePage() {
                 <SelectItem value="pj">PJ</SelectItem>
                 <SelectItem value="cooperado">Cooperado</SelectItem>
                 <SelectItem value="socio">Sócio</SelectItem>
+                <SelectItem value="estagio">Estagiário</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>
@@ -351,9 +352,10 @@ export default function HRPeoplePage() {
                             <Badge className={`text-xs ${
                               p.tipoVinculo === 'clt' ? 'bg-emerald-600 text-white hover:bg-emerald-700' :
                               p.tipoVinculo === 'pj' ? 'bg-amber-500 text-white hover:bg-amber-600' :
+                              p.tipoVinculo === 'estagio' ? 'bg-sky-500 text-white hover:bg-sky-600' :
                               'bg-purple-500 text-white hover:bg-purple-600'
                             }`}>
-                              {p.tipoVinculo.toUpperCase()}
+                              {p.tipoVinculo === 'estagio' ? 'ESTAGIÁRIO' : p.tipoVinculo.toUpperCase()}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground py-2 max-w-[140px] truncate">{getCargoLabel(p.cargoId) || '—'}</TableCell>

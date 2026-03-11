@@ -109,7 +109,7 @@ export default function HRPersonDetailPage() {
     const changes: string[] = [];
     const today = new Date().toISOString().split('T')[0];
 
-    const vinculoLabels: Record<string, string> = { clt: 'CLT', pj: 'PJ', cooperado: 'Cooperado', socio: 'Sócio' };
+    const vinculoLabels: Record<string, string> = { clt: 'CLT', pj: 'PJ', cooperado: 'Cooperado', socio: 'Sócio', estagio: 'Estagiário' };
     const situacaoLabels: Record<string, string> = { ativo: 'Ativo', inativo: 'Inativo' };
 
     if (person.tipoVinculo !== data.tipoVinculo) {
