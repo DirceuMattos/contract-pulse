@@ -194,7 +194,7 @@ export default function SquadsPage() {
               dataInicio: person.dataAdmissao,
               dataFim: null,
               observacoes: alloc.notes || null,
-              hrPersonId: alloc.hrPersonId,
+              hrPersonId: alloc.hrPersonId || null,
               encargosOverride: null,
               impostosOverride: null,
               categoria: null,
