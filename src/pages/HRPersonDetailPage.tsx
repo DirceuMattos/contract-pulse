@@ -385,20 +385,34 @@ export default function HRPersonDetailPage() {
                     <p className="text-2xl font-bold text-primary">{formatCurrency(person.remuneracaoMensal)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Benefícios</p>
+                    <p className="text-sm text-muted-foreground mb-1">Total Benefícios</p>
                     <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
                     <p className="text-sm text-muted-foreground mb-1">Remuneração Total (Remuneração Mensal + Benefícios)</p>
                     <p className="text-2xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios)}</p>
                   </div>
-                  {person.beneficioNome && (
-                    <div className="rounded-lg border p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-1">Tipo de Benefício</p>
-                      <p className="text-lg font-semibold">{person.beneficioNome}</p>
-                    </div>
-                  )}
                 </div>
+
+                {/* Benefits list */}
+                {person.beneficiosLista && person.beneficiosLista.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-muted-foreground">Benefícios Detalhados</p>
+                    <div className="rounded-lg border divide-y">
+                      {person.beneficiosLista.map((ben, idx) => (
+                        <div key={idx} className="flex items-center justify-between px-4 py-2 text-sm">
+                          <span>{ben.nome || 'Sem nome'}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium">{formatCurrency(ben.valor)}</span>
+                            {ben.somaRemuneracao && (
+                              <Badge variant="outline" className="text-xs">Soma na Rem. Total</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

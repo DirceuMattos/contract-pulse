@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Plus, Trash2 } from 'lucide-react';
 import { formatPhoneInput } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { HRPerson } from '@/types';
+import { Label } from '@/components/ui/label';
+import { HRPerson, BeneficioItem } from '@/types';
 import { useData } from '@/contexts/DataContext';
 
 const BENEFICIO_OPTIONS = [
@@ -70,6 +71,13 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
   const activeJobTitles = getActiveJobTitles();
   const activeTeams = getActiveTeams();
 
+  // Multi-benefit state
+  const [beneficiosLista, setBeneficiosLista] = useState<BeneficioItem[]>(
+    person?.beneficiosLista && person.beneficiosLista.length > 0
+      ? person.beneficiosLista
+      : []
+  );
+
   const form = useForm<HRPersonFormData>({
     resolver: zodResolver(hrPersonSchema),
     defaultValues: {
@@ -103,28 +111,38 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
   });
 
   const situacaoAtual = form.watch('situacao');
-  const beneficioSoma = form.watch('beneficioSomaRemuneracao');
   const remuneracaoMensal = form.watch('remuneracaoMensal');
-  const beneficios = form.watch('beneficios');
 
-  // Auto-calculate remuneracaoII when flag is active
-  React.useEffect(() => {
-    if (beneficioSoma) {
-      form.setValue('remuneracaoII', (remuneracaoMensal || 0) + (beneficios || 0));
-    }
-  }, [beneficioSoma, remuneracaoMensal, beneficios, form]);
+  // Compute totals from benefits list
+  const totalBeneficios = beneficiosLista.reduce((sum, b) => sum + (b.valor || 0), 0);
+  const totalBeneficiosSoma = beneficiosLista.filter(b => b.somaRemuneracao).reduce((sum, b) => sum + (b.valor || 0), 0);
+  const remuneracaoTotal = (remuneracaoMensal || 0) + totalBeneficiosSoma;
+
+  const addBeneficio = () => {
+    setBeneficiosLista(prev => [...prev, { nome: '', valor: 0, somaRemuneracao: false }]);
+  };
+
+  const removeBeneficio = (index: number) => {
+    setBeneficiosLista(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateBeneficio = (index: number, field: keyof BeneficioItem, value: any) => {
+    setBeneficiosLista(prev => prev.map((b, i) => i === index ? { ...b, [field]: value } : b));
+  };
 
   const handleSubmit = (data: HRPersonFormData) => {
+    const hasSoma = beneficiosLista.some(b => b.somaRemuneracao);
     onSubmit({
       nome: data.nome,
       tipoVinculo: data.tipoVinculo,
       cargoId: data.cargoId && data.cargoId !== 'none' ? data.cargoId : undefined,
       teamId: data.teamId && data.teamId !== 'none' ? data.teamId : undefined,
       remuneracaoMensal: data.remuneracaoMensal,
-      beneficios: data.beneficios,
-      beneficioNome: data.beneficioNome || undefined,
-      beneficioSomaRemuneracao: data.beneficioSomaRemuneracao || false,
-      remuneracaoII: data.beneficioSomaRemuneracao ? (data.remuneracaoMensal + data.beneficios) : (data.remuneracaoII || undefined),
+      beneficios: totalBeneficios,
+      beneficioNome: beneficiosLista.map(b => b.nome).filter(Boolean).join(', ') || undefined,
+      beneficioSomaRemuneracao: hasSoma,
+      beneficiosLista,
+      remuneracaoII: hasSoma ? remuneracaoTotal : (data.remuneracaoII || undefined),
       localAtuacao: data.localAtuacao || undefined,
       dataAdmissao: data.dataAdmissao,
       situacao: data.situacao,
@@ -300,78 +318,96 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                 )} />
               </div>
 
-              {/* Benefício row: valor | nome | flag soma */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <div className="md:col-span-4">
-                  <FormField control={form.control} name="beneficios" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Benefícios (R$)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+              {/* Multi-benefit section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Benefícios</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addBeneficio}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Adicionar Benefício
+                  </Button>
                 </div>
-                <div className="md:col-span-5">
-                  <FormField control={form.control} name="beneficioNome" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Benefício</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione o benefício" /></SelectTrigger></FormControl>
+
+                {beneficiosLista.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-2">Nenhum benefício cadastrado. Clique em "Adicionar Benefício" para incluir.</p>
+                )}
+
+                {beneficiosLista.map((ben, idx) => (
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 rounded-lg border bg-muted/30">
+                    <div className="md:col-span-4">
+                      <Label className="text-xs">Valor (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={ben.valor}
+                        onChange={e => updateBeneficio(idx, 'valor', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="md:col-span-4">
+                      <Label className="text-xs">Tipo de Benefício</Label>
+                      <Select value={ben.nome || 'none'} onValueChange={v => updateBeneficio(idx, 'nome', v === 'none' ? '' : v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Nenhum</SelectItem>
+                          <SelectItem value="none">Selecione</SelectItem>
                           {BENEFICIO_OPTIONS.map(opt => (
                             <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <div className="md:col-span-3">
-                  <FormField control={form.control} name="beneficioSomaRemuneracao" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Somar à Remuneração Total</FormLabel>
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label className="text-xs">Somar à Rem. Total</Label>
                       <div className="flex items-center gap-2 h-10">
-                        <FormControl>
-                          <Switch checked={field.value || false} onCheckedChange={field.onChange} />
-                        </FormControl>
-                        <span className="text-xs text-muted-foreground">{field.value ? 'Sim' : 'Não'}</span>
+                        <Switch checked={ben.somaRemuneracao} onCheckedChange={v => updateBeneficio(idx, 'somaRemuneracao', v)} />
+                        <span className="text-xs text-muted-foreground">{ben.somaRemuneracao ? 'Sim' : 'Não'}</span>
                       </div>
-                    </FormItem>
-                  )} />
-                </div>
+                    </div>
+                    <div className="md:col-span-1 flex justify-end">
+                      <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => removeBeneficio(idx)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                {beneficiosLista.length > 0 && (
+                  <div className="flex items-center gap-4 text-sm pt-1">
+                    <span className="text-muted-foreground">Total Benefícios: <strong className="text-foreground">{totalBeneficios.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="remuneracaoII" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Remuneração Total (Remuneração Mensal + Benefícios)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        {...field}
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                        disabled={beneficioSoma}
-                        className={beneficioSoma ? 'bg-muted' : ''}
-                      />
-                    </FormControl>
-                    {beneficioSoma && (
-                      <p className="text-xs text-muted-foreground">Calculado automaticamente: Remuneração + Benefícios</p>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <FormField control={form.control} name="remuneracaoII" render={({ field }) => {
+                  const hasSoma = beneficiosLista.some(b => b.somaRemuneracao);
+                  return (
+                    <FormItem>
+                      <FormLabel>Remuneração Total (Remuneração Mensal + Benefícios)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={hasSoma ? remuneracaoTotal : (field.value || 0)}
+                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                          disabled={hasSoma}
+                          className={hasSoma ? 'bg-muted' : ''}
+                        />
+                      </FormControl>
+                      {hasSoma && (
+                        <p className="text-xs text-muted-foreground">Calculado automaticamente: Remuneração + Benefícios marcados para soma</p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} />
               </div>
             </div>
           </>
         )}
 
-        {/* Atualização mensal */}
+        {/* Destaque para Comitê Gestor em */}
         <Separator />
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Destaque para Comitê Gestor em</h3>
