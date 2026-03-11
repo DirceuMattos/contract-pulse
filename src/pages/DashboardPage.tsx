@@ -497,7 +497,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
                 <Target className="w-4 h-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  {kpis.receitaTotal ? formatPercentage(((kpis.margemTotal || 0) / kpis.receitaTotal) * 100) : '0%'} do faturamento
+                  {kpis.receitaLiquidaTotal ? formatPercentage(((kpis.margemTotal || 0) / kpis.receitaLiquidaTotal) * 100) : '0%'} da receita líquida
                 </span>
               </div>
             </CardContent>
