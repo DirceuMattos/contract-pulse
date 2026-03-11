@@ -398,7 +398,6 @@ export default function HRPersonDetailPage() {
                       <p className="text-lg font-semibold">{person.beneficioNome}</p>
                     </div>
                   )}
-                  </div>
                 </div>
               </CardContent>
             </Card>
