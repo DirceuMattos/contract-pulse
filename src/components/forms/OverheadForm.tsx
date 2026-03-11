@@ -265,7 +265,7 @@ export function OverheadForm({ item, contractId, baseCalculo, onSubmit, onCancel
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     {modo === 'percentual'
-                      ? `${percentual}% × ${formatCurrency(baseCalculo)} (base de execução)`
+                      ? `${percentual}% × ${formatCurrency(baseCalculo)} (receita mensal do contrato)`
                       : 'Valor fixo mensal definido'}
                   </TooltipContent>
                 </Tooltip>

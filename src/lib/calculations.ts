@@ -95,7 +95,7 @@ export function calculateContractHealth(
   const percentualImpostos = contract.percentualImpostosFaturamento ?? settings.percentualImpostosFaturamento;
   const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
   const custoRecursos = calculateContractCost(contract.id, resources, settings);
-  const overheadCost = calculateOverheadCost(contract.id, resources, overheadItems, settings);
+  const overheadCost = calculateOverheadCost(contract, overheadItems);
   const custoMensal = custoRecursos + overheadCost.total;
   const margemMensal = receitaLiquida - custoMensal;
   const margemPercentual = receitaLiquida > 0 ? (margemMensal / receitaLiquida) * 100 : 0;

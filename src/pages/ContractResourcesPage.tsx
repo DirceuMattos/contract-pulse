@@ -791,7 +791,7 @@ export default function ContractResourcesPage() {
           <OverheadForm
             item={editingOverhead || undefined}
             contractId={contract.id}
-            baseCalculo={health.custoMensal - overheadCost.total}
+            baseCalculo={health.receitaBruta}
             onSubmit={editingOverhead ? handleEditOverhead : handleAddOverhead}
             onCancel={() => { setOverheadFormOpen(false); setEditingOverhead(null); }}
           />
