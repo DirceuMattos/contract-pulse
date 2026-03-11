@@ -389,8 +389,15 @@ export default function HRPersonDetailPage() {
                     <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Remuneração Total (mensal + Benefícios)</p>
+                    <p className="text-sm text-muted-foreground mb-1">Remuneração Total (Remuneração Mensal + Benefícios)</p>
                     <p className="text-2xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios)}</p>
+                  </div>
+                  {person.beneficioNome && (
+                    <div className="rounded-lg border p-4 text-center">
+                      <p className="text-sm text-muted-foreground mb-1">Tipo de Benefício</p>
+                      <p className="text-lg font-semibold">{person.beneficioNome}</p>
+                    </div>
+                  )}
                   </div>
                 </div>
               </CardContent>
