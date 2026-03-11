@@ -319,21 +319,21 @@ export function calculateSimulationResults(simulation: ContractSimulation, taxPe
 }
 
 // ── Generate scenarios ──
-export function generateScenarios(simulation: ContractSimulation): SimulationScenario[] {
-  const base = calculateSimulationResults(simulation);
+export function generateScenarios(simulation: ContractSimulation, taxPercent: number = 16.33): SimulationScenario[] {
+  const base = calculateSimulationResults(simulation, taxPercent);
 
   const makeScenario = (label: string, custoMultiplier: number): SimulationScenario => {
     const custoAjustado = (base.custoMensal - base.overheadMensal) * custoMultiplier;
     const overheadAjustado = base.overheadMensal * custoMultiplier;
     const custoTotal = custoAjustado + overheadAjustado;
-    const resultado = base.receitaMensal - custoTotal;
-    const margem = base.receitaMensal > 0 ? (resultado / base.receitaMensal) * 100 : 0;
+    const resultado = base.receitaLiquida - custoTotal;
+    const margem = base.receitaLiquida > 0 ? (resultado / base.receitaLiquida) * 100 : 0;
     let health: HealthStatus = 'saudavel';
     if (margem < 0) health = 'critico';
     else if (margem < 15) health = 'atencao';
     return {
       label,
-      receitaMensal: base.receitaMensal,
+      receitaMensal: base.receitaBruta,
       custoMensal: custoTotal,
       overheadMensal: overheadAjustado,
       resultadoMensal: resultado,

@@ -756,7 +756,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                           onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                         />
                       </FormControl>
-                      <FormDescription>Se vazio, usa o valor global das configurações</FormDescription>
+                      <FormDescription>Se vazio, usa o valor global das configurações ({settings.percentualImpostosFaturamento}%)</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
