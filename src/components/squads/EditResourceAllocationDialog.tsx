@@ -28,7 +28,7 @@ interface EditResourceAllocationDialogProps {
 }
 
 export function EditResourceAllocationDialog({ open, onOpenChange, allocation, personName }: EditResourceAllocationDialogProps) {
-  const { contracts, updateResource } = useData();
+  const { contracts, updateResource, deleteResource } = useData();
   const { hasSubprojects, getSubprojectsByContract, updateAllocation, deleteAllocation, addAllocation } = useSubprojects();
 
   const [dedication, setDedication] = useState(allocation.percentualDedicacao);
@@ -157,7 +157,7 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
           </div>
 
           <div className="space-y-1.5">
-            <Label>Mover para outro contrato</Label>
+            <Label>Mover para outro projeto</Label>
             <Select value={targetContractId} onValueChange={(v) => { setTargetContractId(v); setTargetSubprojectId(''); }}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="Manter no mesmo contrato" />
@@ -187,7 +187,26 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
             </div>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button
+            variant="destructive"
+            className="sm:mr-auto"
+            onClick={async () => {
+              try {
+                if (allocation.isSubprojectAllocation) {
+                  deleteAllocation(allocation.resourceId);
+                } else {
+                  await deleteResource(allocation.resourceId);
+                }
+                toast.success('Recurso retirado do projeto');
+                onOpenChange(false);
+              } catch {
+                toast.error('Erro ao retirar recurso');
+              }
+            }}
+          >
+            Retirar do Projeto
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSave}>
             {isMoving ? 'Mover e Salvar' : 'Salvar'}
