@@ -569,6 +569,7 @@ export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
     centroCusto: (row.centro_custo as string | null) ?? undefined,
     beneficioNome: (row.beneficio_nome as string | null) ?? undefined,
     beneficioSomaRemuneracao: (row.beneficio_soma_remuneracao as boolean | null) ?? undefined,
+    beneficiosLista: Array.isArray(row.beneficios_lista) ? row.beneficios_lista as any[] : [],
     source: (row.source as string | null) ?? undefined,
     syncStatus: (row.sync_status as string | null) ?? undefined,
     lastSyncedAt: (row.last_synced_at as string | null) ?? undefined,
