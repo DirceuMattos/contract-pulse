@@ -290,8 +290,11 @@ export function suggestPricing(simulation: ContractSimulation): {
 }
 
 // ── Calculate results (now uses suggested pricing as revenue) ──
-export function calculateSimulationResults(simulation: ContractSimulation): {
+export function calculateSimulationResults(simulation: ContractSimulation, taxPercent: number = 16.33): {
+  receitaBruta: number;
   receitaMensal: number;
+  receitaLiquida: number;
+  percentualImpostos: number;
   custoMensal: number;
   overheadMensal: number;
   resultadoMensal: number;
@@ -299,18 +302,20 @@ export function calculateSimulationResults(simulation: ContractSimulation): {
   healthStatus: HealthStatus;
 } {
   const pricing = suggestPricing(simulation);
-  const receitaMensal = pricing.suggestedMonthlyValue;
+  const receitaBruta = pricing.suggestedMonthlyValue;
+  const percentualImpostos = taxPercent;
+  const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
 
   const { custoMensal, overheadMensal } = computeCosts(simulation);
 
-  const resultadoMensal = receitaMensal - custoMensal;
-  const margemPercent = receitaMensal > 0 ? (resultadoMensal / receitaMensal) * 100 : 0;
+  const resultadoMensal = receitaLiquida - custoMensal;
+  const margemPercent = receitaLiquida > 0 ? (resultadoMensal / receitaLiquida) * 100 : 0;
 
   let healthStatus: HealthStatus = 'saudavel';
   if (margemPercent < 0) healthStatus = 'critico';
   else if (margemPercent < 15) healthStatus = 'atencao';
 
-  return { receitaMensal, custoMensal, overheadMensal, resultadoMensal, margemPercent, healthStatus };
+  return { receitaBruta, receitaMensal: receitaBruta, receitaLiquida, percentualImpostos, custoMensal, overheadMensal, resultadoMensal, margemPercent, healthStatus };
 }
 
 // ── Generate scenarios ──
