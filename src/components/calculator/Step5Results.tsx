@@ -155,13 +155,27 @@ export function Step5Results({ data, onChange }: Props) {
       </Card>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <Card className="card-kpi">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Receita mensal</span>
+            <span className="text-xs text-muted-foreground">Receita bruta</span>
           </div>
-          <p className="text-lg font-bold text-foreground">{formatCurrency(results.receitaMensal)}</p>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(results.receitaBruta)}</p>
+        </Card>
+        <Card className="card-kpi">
+          <div className="flex items-center gap-2 mb-1">
+            <Receipt className="w-4 h-4 text-health-attention" />
+            <span className="text-xs text-muted-foreground">Impostos ({results.percentualImpostos.toFixed(1)}%)</span>
+          </div>
+          <p className="text-lg font-bold text-health-attention">-{formatCurrency(results.receitaBruta - results.receitaLiquida)}</p>
+        </Card>
+        <Card className="card-kpi">
+          <div className="flex items-center gap-2 mb-1">
+            <DollarSign className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground">Receita líquida</span>
+          </div>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(results.receitaLiquida)}</p>
         </Card>
         <Card className="card-kpi">
           <div className="flex items-center gap-2 mb-1">
@@ -169,13 +183,6 @@ export function Step5Results({ data, onChange }: Props) {
             <span className="text-xs text-muted-foreground">Custo mensal</span>
           </div>
           <p className="text-lg font-bold text-foreground">{formatCurrency(results.custoMensal)}</p>
-        </Card>
-        <Card className="card-kpi">
-          <div className="flex items-center gap-2 mb-1">
-            <Activity className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Overhead</span>
-          </div>
-          <p className="text-lg font-bold text-foreground">{formatCurrency(results.overheadMensal)}</p>
         </Card>
         <Card className="card-kpi">
           <div className="flex items-center gap-2 mb-1">
