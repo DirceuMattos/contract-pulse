@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree } from 'lucide-react';
+import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
@@ -23,7 +23,8 @@ import Papa from 'papaparse';
 import { buildXlsx, downloadCSV } from '@/lib/importExport';
 import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 import { SubprojectManagementPanel } from '@/components/squads/SubprojectManagementPanel';
-
+import { EditResourceAllocationDialog, ResourceAllocationInfo } from '@/components/squads/EditResourceAllocationDialog';
+import { useAuth } from '@/contexts/AuthContext';
 // --- Types ---
 
 interface SquadTeamData {
@@ -58,12 +59,17 @@ interface ResourceViewData {
   teamName: string;
   totalDedicacao: number;
   allocations: {
+    resourceId: string;
     contractId: string;
     contractCodigo: string;
     contractNome: string;
     clientName: string;
     healthStatus: string;
     percentualDedicacao: number;
+    hrPersonId: string | null;
+    isSubprojectAllocation: boolean;
+    subprojectId?: string;
+    subprojectName?: string;
   }[];
 }
 
@@ -104,6 +110,7 @@ export default function SquadsPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
+  const { canEdit } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -115,6 +122,7 @@ export default function SquadsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
+  const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
@@ -372,12 +380,17 @@ export default function SquadsPage() {
           const entry = resourceMap.get(key)!;
           entry.totalDedicacao += r.percentualDedicacao;
           entry.allocations.push({
+            resourceId: r.id,
             contractId: cd.contractId,
             contractCodigo: cd.contractCodigo,
             contractNome: cd.subprojectName ? `${cd.contractNome} → ${cd.subprojectName}` : cd.contractNome,
             clientName: cd.clientName,
             healthStatus: cd.healthStatus,
             percentualDedicacao: r.percentualDedicacao,
+            hrPersonId: r.hrPersonId || null,
+            isSubprojectAllocation: !!cd.subprojectId,
+            subprojectId: cd.subprojectId,
+            subprojectName: cd.subprojectName,
           });
         }
       }
@@ -626,12 +639,35 @@ export default function SquadsPage() {
               const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
               return (
                 <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <span className="font-medium truncate block">{alloc.contractNome || alloc.contractCodigo}</span>
                     <span className="text-xs text-muted-foreground truncate block">{alloc.clientName}</span>
                   </div>
                   {hb && <Badge variant="outline" className={`text-[9px] shrink-0 ${hb.badgeClass}`}>{hb.label}</Badge>}
-                  <span className="ml-auto tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
+                  <span className="tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => setEditingResourceAlloc({
+                        alloc: {
+                          resourceId: alloc.resourceId,
+                          contractId: alloc.contractId,
+                          contractNome: alloc.contractNome,
+                          clientName: alloc.clientName,
+                          percentualDedicacao: alloc.percentualDedicacao,
+                          hrPersonId: alloc.hrPersonId,
+                          isSubprojectAllocation: alloc.isSubprojectAllocation,
+                          subprojectId: alloc.subprojectId,
+                          subprojectName: alloc.subprojectName,
+                        },
+                        personName: rd.nome,
+                      })}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -799,6 +835,15 @@ export default function SquadsPage() {
         ) : (
           <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os recursos." />
         )
+      )}
+
+      {editingResourceAlloc && (
+        <EditResourceAllocationDialog
+          open={!!editingResourceAlloc}
+          onOpenChange={(open) => { if (!open) setEditingResourceAlloc(null); }}
+          allocation={editingResourceAlloc.alloc}
+          personName={editingResourceAlloc.personName}
+        />
       )}
     </div>
   );
