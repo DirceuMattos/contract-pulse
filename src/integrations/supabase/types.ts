@@ -216,6 +216,7 @@ export type Database = {
           objeto: string
           observacoes_financeiras: string | null
           percentual_fixo: number | null
+          percentual_impostos_faturamento: number | null
           periodicidade_renovacao: string | null
           renewal_base_date: string | null
           renewal_term_months: number | null
@@ -258,6 +259,7 @@ export type Database = {
           objeto?: string
           observacoes_financeiras?: string | null
           percentual_fixo?: number | null
+          percentual_impostos_faturamento?: number | null
           periodicidade_renovacao?: string | null
           renewal_base_date?: string | null
           renewal_term_months?: number | null
@@ -300,6 +302,7 @@ export type Database = {
           objeto?: string
           observacoes_financeiras?: string | null
           percentual_fixo?: number | null
+          percentual_impostos_faturamento?: number | null
           periodicidade_renovacao?: string | null
           renewal_base_date?: string | null
           renewal_term_months?: number | null
