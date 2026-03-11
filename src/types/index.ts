@@ -414,6 +414,7 @@ export interface HRPerson {
   centroCusto?: string;
   beneficioNome?: string;
   beneficioSomaRemuneracao?: boolean;
+  beneficiosLista?: BeneficioItem[];
   source?: string;
   syncStatus?: string;
   lastSyncedAt?: string;
