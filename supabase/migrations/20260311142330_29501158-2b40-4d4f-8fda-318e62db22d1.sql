@@ -1,0 +1,1 @@
+ALTER TABLE public.contracts ADD COLUMN percentual_impostos_faturamento numeric DEFAULT NULL;

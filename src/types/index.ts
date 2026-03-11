@@ -92,6 +92,7 @@ export interface Contract {
   modeloReceita: RevenueModel;
   valorMensalReferencia?: number;
   valorTotalContrato?: number;
+  percentualImpostosFaturamento?: number;
   moeda: 'BRL' | 'USD';
   observacoesFinanceiras?: string;
   
@@ -283,6 +284,7 @@ export interface DashboardKPIs {
   contratosAtencao: number;
   contratosCritico: number;
   receitaTotal?: number;
+  receitaLiquidaTotal?: number;
   custoTotal?: number;
   margemTotal?: number;
 }
@@ -372,7 +374,10 @@ export interface AccessLogSession {
 // Computed Types
 export interface ContractHealth {
   contractId: string;
+  receitaBruta: number;
   receitaMensal: number;
+  receitaLiquida: number;
+  percentualImpostos: number;
   custoMensal: number;
   margemMensal: number;
   margemPercentual: number;

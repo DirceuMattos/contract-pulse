@@ -79,6 +79,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       modeloReceita: contract?.modeloReceita || undefined,
       valorMensalReferencia: contract?.valorMensalReferencia,
       valorTotalContrato: contract?.valorTotalContrato,
+      percentualImpostosFaturamento: contract?.percentualImpostosFaturamento,
       moeda: contract?.moeda || 'BRL',
       observacoesFinanceiras: contract?.observacoesFinanceiras || '',
       objeto: contract?.objeto || '',
@@ -738,6 +739,28 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                     )}
                   />
                 )}
+
+                <FormField
+                  control={form.control}
+                  name="percentualImpostosFaturamento"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Impostos sobre Faturamento (%)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Padrão global (configurações)"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>Se vazio, usa o valor global das configurações</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="md:col-span-2">
                   <FormField

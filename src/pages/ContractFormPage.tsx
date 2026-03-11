@@ -77,6 +77,7 @@ export default function ContractFormPage() {
         modeloReceita: data.modeloReceita,
         valorMensalReferencia: data.valorMensalReferencia,
         valorTotalContrato: data.valorTotalContrato,
+        percentualImpostosFaturamento: data.percentualImpostosFaturamento,
         moeda: data.moeda,
         observacoesFinanceiras: data.observacoesFinanceiras,
         objeto: data.objeto,

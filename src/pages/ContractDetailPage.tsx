@@ -249,8 +249,16 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Receita</p>
-                    <p className="font-medium">{formatCurrency(health.receitaMensal)}</p>
+                    <p className="text-xs text-muted-foreground">Receita Bruta</p>
+                    <p className="font-medium">{formatCurrency(health.receitaBruta)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Impostos ({health.percentualImpostos.toFixed(1)}%)</p>
+                    <p className="font-medium text-health-attention">-{formatCurrency(health.receitaBruta - health.receitaLiquida)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Receita Líquida</p>
+                    <p className="font-medium">{formatCurrency(health.receitaLiquida)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Custo</p>

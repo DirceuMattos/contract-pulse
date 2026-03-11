@@ -110,6 +110,7 @@ export function contractFromDb(row: Record<string, unknown>): Contract {
     responsavelCliente: (row.responsavel_cliente as string | null) ?? undefined,
     responsavelClienteEmail: (row.responsavel_cliente_email as string | null) ?? undefined,
     responsavelClienteTelefone: (row.responsavel_cliente_telefone as string | null) ?? undefined,
+    percentualImpostosFaturamento: (row.percentual_impostos_faturamento as number | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     ultimaAtualizacaoRecursos: (row.ultima_atualizacao_recursos as string | null) ?? undefined,
@@ -154,6 +155,7 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     responsavel_cliente: contract.responsavelCliente ?? null,
     responsavel_cliente_email: contract.responsavelClienteEmail ?? null,
     responsavel_cliente_telefone: contract.responsavelClienteTelefone ?? null,
+    percentual_impostos_faturamento: contract.percentualImpostosFaturamento ?? null,
     ultima_atualizacao_recursos: contract.ultimaAtualizacaoRecursos ?? null,
   };
 }

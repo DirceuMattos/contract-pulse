@@ -435,10 +435,10 @@ export default function DashboardPage() {
           <Card className="card-kpi">
             <CardContent className="p-0">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Receita Mensal</p>
+              <div>
+                  <p className="text-sm text-muted-foreground">Receita Mensal Líquida</p>
                   <p className="text-3xl font-bold text-foreground mt-1">
-                    {formatCurrency(kpis.receitaTotal || 0)}
+                    {formatCurrency(kpis.receitaLiquidaTotal || 0)}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -446,9 +446,9 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                <TrendingUp className="w-4 h-4 text-health-healthy" />
+                <TrendingUp className="w-4 h-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  Custo: {formatCurrency(kpis.custoTotal || 0)}
+                  Bruta: {formatCurrency(kpis.receitaTotal || 0)} | Custo: {formatCurrency(kpis.custoTotal || 0)}
                 </span>
               </div>
             </CardContent>
@@ -497,7 +497,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
                 <Target className="w-4 h-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  {kpis.receitaTotal ? formatPercentage(((kpis.margemTotal || 0) / kpis.receitaTotal) * 100) : '0%'} do faturamento
+                  {kpis.receitaLiquidaTotal ? formatPercentage(((kpis.margemTotal || 0) / kpis.receitaLiquidaTotal) * 100) : '0%'} da receita líquida
                 </span>
               </div>
             </CardContent>
