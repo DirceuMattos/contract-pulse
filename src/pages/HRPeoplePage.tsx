@@ -44,7 +44,7 @@ type SortField = 'nome' | 'tipoVinculo' | 'cargo' | 'team' | 'localAtuacao' | 'd
 
 export default function HRPeoplePage() {
   const navigate = useNavigate();
-  const { hrPeople, addPerson, updatePerson } = useHR();
+  const { hrPeople, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles } = useData();
   const { canEdit, canViewHRCosts } = useAuth();
 
@@ -151,7 +151,15 @@ export default function HRPeoplePage() {
 
   const handleAdd = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      await addPerson(data);
+      const created = await addPerson(data);
+      // Register admission event in timeline
+      await addTimelineEvent({
+        personId: created.id,
+        eventDate: data.dataAdmissao,
+        ocorrencia: 'observacao',
+        descricao: `Admissão registrada — ${data.tipoVinculo?.toUpperCase() || 'CLT'}`,
+        atualizarRemuneracao: false,
+      });
       toast.success('Pessoa adicionada com sucesso!');
       setDialogOpen(false);
       setEditingPerson(undefined);
