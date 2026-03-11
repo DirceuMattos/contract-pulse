@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
-import { ContractSubproject, SubprojectAllocation, HRPerson } from '@/types';
+import { ContractSubproject, SubprojectAllocation } from '@/types';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useHR } from '@/contexts/HRContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,19 +44,23 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = new Map(hrPeople.map(p => [p.id, p]));
 
-  const handleDeleteSp = () => {
+  const handleDeleteSp = async () => {
     if (deletingId) {
-      deleteSubproject(deletingId);
+      try {
+        await deleteSubproject(deletingId);
+        toast.success('Subprojeto removido');
+      } catch { toast.error('Erro ao remover subprojeto'); }
       setDeletingId(null);
-      toast.success('Subprojeto removido');
     }
   };
 
-  const handleDeleteAlloc = () => {
+  const handleDeleteAlloc = async () => {
     if (deletingAllocId) {
-      deleteAllocation(deletingAllocId);
+      try {
+        await deleteAllocation(deletingAllocId);
+        toast.success('Alocação removida');
+      } catch { toast.error('Erro ao remover alocação'); }
       setDeletingAllocId(null);
-      toast.success('Alocação removida');
     }
   };
 
@@ -84,7 +88,8 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         <div className="space-y-4">
           {subprojects.map(sp => {
             const allocations = getAllocationsBySubproject(sp.id);
-            const totalFTE = allocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
+            const hrAllocations = allocations.filter(a => a.hrPersonId);
+            const totalFTE = hrAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
 
             return (
               <Card key={sp.id}>
@@ -111,9 +116,9 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-1">
-                    {allocations.length > 0 ? (
-                      allocations.map(alloc => {
-                        const person = hrMap.get(alloc.hrPersonId);
+                    {hrAllocations.length > 0 ? (
+                      hrAllocations.map(alloc => {
+                        const person = alloc.hrPersonId ? hrMap.get(alloc.hrPersonId) : undefined;
                         return (
                           <div key={alloc.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
                             <span className="font-medium">{person?.nome || 'Pessoa não encontrada'}</span>
@@ -140,7 +145,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t">
                     <span className="text-xs text-muted-foreground">
-                      {allocations.length} pessoa{allocations.length !== 1 ? 's' : ''} • FTE: {totalFTE.toFixed(2)}
+                      {hrAllocations.length} pessoa{hrAllocations.length !== 1 ? 's' : ''} • FTE: {totalFTE.toFixed(2)}
                     </span>
                     {canEdit && (
                       <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAllocDialogSpId(sp.id)}>

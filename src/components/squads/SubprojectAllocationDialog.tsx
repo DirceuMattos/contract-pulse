@@ -20,11 +20,12 @@ interface SubprojectAllocationDialogProps {
 }
 
 export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId }: SubprojectAllocationDialogProps) {
-  const { addAllocation, getAllocationsBySubproject, getAllocationsByContract } = useSubprojects();
+  const { addAllocation, getAllocationsByContract } = useSubprojects();
   const { hrPeople } = useHR();
   const [selectedPersonId, setSelectedPersonId] = useState('');
   const [dedication, setDedication] = useState(100);
   const [search, setSearch] = useState('');
+  const [saving, setSaving] = useState(false);
 
   React.useEffect(() => {
     if (open) {
@@ -36,7 +37,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
 
   const existingAllocPersonIds = useMemo(() => {
     const allocs = getAllocationsByContract(contractId);
-    return new Set(allocs.map(a => a.hrPersonId));
+    return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
   }, [getAllocationsByContract, contractId]);
 
   const availablePeople = useMemo(() => {
@@ -48,7 +49,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [hrPeople, existingAllocPersonIds, search]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedPersonId) {
       toast.error('Selecione uma pessoa');
       return;
@@ -57,9 +58,16 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
       toast.error('Dedicação deve ser entre 1% e 100%');
       return;
     }
-    addAllocation({ subprojectId, hrPersonId: selectedPersonId, dedicationPercent: dedication });
-    toast.success('Pessoa alocada ao subprojeto');
-    onOpenChange(false);
+    setSaving(true);
+    try {
+      await addAllocation({ subprojectId, hrPersonId: selectedPersonId, dedicationPercent: dedication });
+      toast.success('Pessoa alocada ao subprojeto');
+      onOpenChange(false);
+    } catch (e) {
+      toast.error('Erro ao alocar pessoa');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -101,7 +109,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit}>Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={saving}>Adicionar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

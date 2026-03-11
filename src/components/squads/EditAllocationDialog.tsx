@@ -17,19 +17,27 @@ interface EditAllocationDialogProps {
 export function EditAllocationDialog({ open, onOpenChange, allocation, personName }: EditAllocationDialogProps) {
   const { updateAllocation } = useSubprojects();
   const [dedication, setDedication] = useState(allocation.dedicationPercent);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDedication(allocation.dedicationPercent);
   }, [allocation]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (dedication < 1 || dedication > 100) {
       toast.error('A dedicação deve estar entre 1% e 100%');
       return;
     }
-    updateAllocation(allocation.id, { dedicationPercent: dedication });
-    toast.success('Dedicação atualizada');
-    onOpenChange(false);
+    setSaving(true);
+    try {
+      await updateAllocation(allocation.id, { dedicationPercent: dedication });
+      toast.success('Dedicação atualizada');
+      onOpenChange(false);
+    } catch (e) {
+      toast.error('Erro ao atualizar dedicação');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -57,7 +65,7 @@ export function EditAllocationDialog({ open, onOpenChange, allocation, personNam
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave}>Salvar</Button>
+          <Button onClick={handleSave} disabled={saving}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
