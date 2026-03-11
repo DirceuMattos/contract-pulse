@@ -25,6 +25,7 @@ export function SubprojectFormDialog({ open, onOpenChange, contractId, subprojec
   const [name, setName] = useState(subproject?.name || '');
   const [description, setDescription] = useState(subproject?.description || '');
   const [status, setStatus] = useState<SubprojectStatus>(subproject?.status || 'ativo');
+  const [saving, setSaving] = useState(false);
 
   React.useEffect(() => {
     if (open) {
@@ -34,20 +35,26 @@ export function SubprojectFormDialog({ open, onOpenChange, contractId, subprojec
     }
   }, [open, subproject]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name.trim()) {
       toast.error('Nome é obrigatório');
       return;
     }
-
-    if (subproject) {
-      updateSubproject(subproject.id, { name: name.trim(), description: description.trim() || undefined, status });
-      toast.success('Subprojeto atualizado');
-    } else {
-      addSubproject({ contractId, name: name.trim(), description: description.trim() || undefined, status });
-      toast.success('Subprojeto criado');
+    setSaving(true);
+    try {
+      if (subproject) {
+        await updateSubproject(subproject.id, { name: name.trim(), description: description.trim() || undefined, status });
+        toast.success('Subprojeto atualizado');
+      } else {
+        await addSubproject({ contractId, name: name.trim(), description: description.trim() || undefined, status });
+        toast.success('Subprojeto criado');
+      }
+      onOpenChange(false);
+    } catch (e) {
+      toast.error('Erro ao salvar subprojeto');
+    } finally {
+      setSaving(false);
     }
-    onOpenChange(false);
   };
 
   return (
@@ -79,7 +86,7 @@ export function SubprojectFormDialog({ open, onOpenChange, contractId, subprojec
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit}>{subproject ? 'Salvar' : 'Criar'}</Button>
+          <Button onClick={handleSubmit} disabled={saving}>{subproject ? 'Salvar' : 'Criar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

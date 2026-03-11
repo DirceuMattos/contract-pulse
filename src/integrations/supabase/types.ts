@@ -196,6 +196,44 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_subprojects: {
+        Row: {
+          contract_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["subproject_status"]
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["subproject_status"]
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["subproject_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_subprojects_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           alerta_reajuste_dias: number
@@ -1411,6 +1449,71 @@ export type Database = {
           },
         ]
       }
+      subproject_allocations: {
+        Row: {
+          created_at: string
+          dedication_percent: number
+          hr_person_id: string | null
+          id: string
+          notes: string | null
+          overhead_item_id: string | null
+          resource_id: string | null
+          subproject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dedication_percent?: number
+          hr_person_id?: string | null
+          id?: string
+          notes?: string | null
+          overhead_item_id?: string | null
+          resource_id?: string | null
+          subproject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dedication_percent?: number
+          hr_person_id?: string | null
+          id?: string
+          notes?: string | null
+          overhead_item_id?: string | null
+          resource_id?: string | null
+          subproject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subproject_allocations_hr_person_id_fkey"
+            columns: ["hr_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subproject_allocations_overhead_item_id_fkey"
+            columns: ["overhead_item_id"]
+            isOneToOne: false
+            referencedRelation: "overhead_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subproject_allocations_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subproject_allocations_subproject_id_fkey"
+            columns: ["subproject_id"]
+            isOneToOne: false
+            referencedRelation: "contract_subprojects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string
@@ -1577,6 +1680,7 @@ export type Database = {
       simulation_contract_type: "gov" | "private"
       simulation_pricing_model: "mensal" | "total"
       simulation_status: "draft" | "archived"
+      subproject_status: "ativo" | "suspenso" | "encerrado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1772,6 +1876,7 @@ export const Constants = {
       simulation_contract_type: ["gov", "private"],
       simulation_pricing_model: ["mensal", "total"],
       simulation_status: ["draft", "archived"],
+      subproject_status: ["ativo", "suspenso", "encerrado"],
     },
   },
 } as const

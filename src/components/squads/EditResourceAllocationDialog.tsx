@@ -64,15 +64,13 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
 
     try {
       if (!isMoving) {
-        // Just update dedication
         if (allocation.isSubprojectAllocation) {
-          updateAllocation(allocation.resourceId, { dedicationPercent: dedication });
+          await updateAllocation(allocation.resourceId, { dedicationPercent: dedication });
         } else {
           await updateResource(allocation.resourceId, { percentualDedicacao: dedication });
         }
         toast.success('Dedicação atualizada');
       } else {
-        // Moving to another contract
         if (targetHasSubprojects) {
           if (!targetSubprojectId) {
             toast.error('Selecione o subprojeto de destino');
@@ -82,34 +80,24 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
             toast.error('Não é possível mover recurso sem vínculo de RH para subprojeto');
             return;
           }
-          // Create new allocation in target subproject
-          addAllocation({
+          await addAllocation({
             subprojectId: targetSubprojectId,
             hrPersonId: allocation.hrPersonId,
             dedicationPercent: dedication,
             notes: null,
           });
-          // Remove old
           if (allocation.isSubprojectAllocation) {
-            deleteAllocation(allocation.resourceId);
+            await deleteAllocation(allocation.resourceId);
           } else {
-            // For non-subproject resources, we update the contract_id
-            // But since target has subprojects, we need to remove the old resource approach
-            // and use subproject allocation instead
-            // Delete the old resource-level entry is not ideal, so just update contract
             await updateResource(allocation.resourceId, { contractId: targetContractId, percentualDedicacao: dedication });
           }
         } else {
-          // Target contract doesn't have subprojects — move resource directly
           if (allocation.isSubprojectAllocation) {
-            // Need to create a proper resource in the target contract
             if (!allocation.hrPersonId) {
               toast.error('Não é possível mover recurso sem vínculo de RH');
               return;
             }
-            // We can't easily create a full resource from allocation alone
-            // So we delete the allocation and let the user add the resource manually
-            deleteAllocation(allocation.resourceId);
+            await deleteAllocation(allocation.resourceId);
             toast.info('Alocação removida do subprojeto de origem. Adicione o recurso manualmente no contrato de destino.');
             onOpenChange(false);
             return;
@@ -124,7 +112,6 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
       toast.error('Erro ao salvar alteração');
     }
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">

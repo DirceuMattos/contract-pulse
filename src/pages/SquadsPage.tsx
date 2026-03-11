@@ -171,6 +171,7 @@ export default function SquadsPage() {
           // Build resources from subproject allocations
           const spResources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] = [];
           for (const alloc of spAllocations) {
+            if (!alloc.hrPersonId) continue;
             const person = hrPeople.find(p => p.id === alloc.hrPersonId);
             if (!person) continue;
             
@@ -193,7 +194,7 @@ export default function SquadsPage() {
               dataInicio: person.dataAdmissao,
               dataFim: null,
               observacoes: alloc.notes || null,
-              hrPersonId: alloc.hrPersonId,
+              hrPersonId: alloc.hrPersonId || null,
               encargosOverride: null,
               impostosOverride: null,
               categoria: null,
