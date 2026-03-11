@@ -39,6 +39,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [allocDialogSpId, setAllocDialogSpId] = useState<string | null>(null);
   const [deletingAllocId, setDeletingAllocId] = useState<string | null>(null);
+  const [editingAlloc, setEditingAlloc] = useState<{ alloc: SubprojectAllocation; personName: string } | null>(null);
 
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = new Map(hrPeople.map(p => [p.id, p]));
