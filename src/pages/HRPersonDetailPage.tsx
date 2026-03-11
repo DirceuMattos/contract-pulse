@@ -158,13 +158,13 @@ export default function HRPersonDetailPage() {
     // Save person first
     await updatePerson(person.id, data);
 
-    // If there were tracked changes, auto-create timeline event
-    if (changes.length > 0) {
+    // Create one timeline event per change
+    for (const change of changes) {
       await addTimelineEvent({
         personId: person.id,
         eventDate: today,
         ocorrencia: 'observacao',
-        descricao: changes.join('; '),
+        descricao: change,
         atualizarRemuneracao: false,
       });
     }
