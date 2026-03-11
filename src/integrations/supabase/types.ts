@@ -768,6 +768,8 @@ export type Database = {
       }
       hr_people: {
         Row: {
+          beneficio_nome: string | null
+          beneficio_soma_remuneracao: boolean | null
           beneficios: number
           cargo_antigo: string | null
           cargo_id: string | null
@@ -802,6 +804,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          beneficio_nome?: string | null
+          beneficio_soma_remuneracao?: boolean | null
           beneficios?: number
           cargo_antigo?: string | null
           cargo_id?: string | null
@@ -836,6 +840,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          beneficio_nome?: string | null
+          beneficio_soma_remuneracao?: boolean | null
           beneficios?: number
           cargo_antigo?: string | null
           cargo_id?: string | null
