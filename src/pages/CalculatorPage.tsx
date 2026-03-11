@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useSimulations } from '@/contexts/SimulationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { calculateSimulationResults } from '@/lib/simulationEngine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
