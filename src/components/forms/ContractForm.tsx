@@ -49,7 +49,7 @@ const indicesReajuste = ['IPCA', 'IGPM', 'INPC', 'IPCA-E', 'Outro'];
 const periodicidades = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bienal'];
 
 export function ContractForm({ contract, onSubmit, onCancel, isLoading }: ContractFormProps) {
-  const { clients } = useData();
+  const { clients, settings } = useData();
   const [tagInput, setTagInput] = useState('');
   
   const form = useForm<ContractFormData>({
