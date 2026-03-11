@@ -92,6 +92,7 @@ export interface Contract {
   modeloReceita: RevenueModel;
   valorMensalReferencia?: number;
   valorTotalContrato?: number;
+  percentualImpostosFaturamento?: number;
   moeda: 'BRL' | 'USD';
   observacoesFinanceiras?: string;
   
