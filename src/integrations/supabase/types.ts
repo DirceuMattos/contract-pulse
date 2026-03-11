@@ -771,6 +771,7 @@ export type Database = {
           beneficio_nome: string | null
           beneficio_soma_remuneracao: boolean | null
           beneficios: number
+          beneficios_lista: Json | null
           cargo_antigo: string | null
           cargo_id: string | null
           celular: string | null
@@ -807,6 +808,7 @@ export type Database = {
           beneficio_nome?: string | null
           beneficio_soma_remuneracao?: boolean | null
           beneficios?: number
+          beneficios_lista?: Json | null
           cargo_antigo?: string | null
           cargo_id?: string | null
           celular?: string | null
@@ -843,6 +845,7 @@ export type Database = {
           beneficio_nome?: string | null
           beneficio_soma_remuneracao?: boolean | null
           beneficios?: number
+          beneficios_lista?: Json | null
           cargo_antigo?: string | null
           cargo_id?: string | null
           celular?: string | null

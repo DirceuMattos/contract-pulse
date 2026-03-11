@@ -1,0 +1,1 @@
+ALTER TABLE hr_people ADD COLUMN beneficios_lista jsonb DEFAULT '[]'::jsonb;
