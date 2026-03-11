@@ -639,12 +639,35 @@ export default function SquadsPage() {
               const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
               return (
                 <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <span className="font-medium truncate block">{alloc.contractNome || alloc.contractCodigo}</span>
                     <span className="text-xs text-muted-foreground truncate block">{alloc.clientName}</span>
                   </div>
                   {hb && <Badge variant="outline" className={`text-[9px] shrink-0 ${hb.badgeClass}`}>{hb.label}</Badge>}
-                  <span className="ml-auto tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
+                  <span className="tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => setEditingResourceAlloc({
+                        alloc: {
+                          resourceId: alloc.resourceId,
+                          contractId: alloc.contractId,
+                          contractNome: alloc.contractNome,
+                          clientName: alloc.clientName,
+                          percentualDedicacao: alloc.percentualDedicacao,
+                          hrPersonId: alloc.hrPersonId,
+                          isSubprojectAllocation: alloc.isSubprojectAllocation,
+                          subprojectId: alloc.subprojectId,
+                          subprojectName: alloc.subprojectName,
+                        },
+                        personName: rd.nome,
+                      })}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  )}
                 </div>
               );
             })}
