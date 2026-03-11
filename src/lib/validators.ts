@@ -144,6 +144,7 @@ export const contractFormSchema = z.object({
   }),
   valorMensalReferencia: z.number().min(0).optional(),
   valorTotalContrato: z.number().min(0).optional(),
+  percentualImpostosFaturamento: z.number().min(0).max(100).optional(),
   moeda: z.enum(['BRL', 'USD']).default('BRL'),
   observacoesFinanceiras: z.string().max(2000).optional(),
 

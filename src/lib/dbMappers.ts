@@ -155,6 +155,7 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     responsavel_cliente: contract.responsavelCliente ?? null,
     responsavel_cliente_email: contract.responsavelClienteEmail ?? null,
     responsavel_cliente_telefone: contract.responsavelClienteTelefone ?? null,
+    percentual_impostos_faturamento: contract.percentualImpostosFaturamento ?? null,
     ultima_atualizacao_recursos: contract.ultimaAtualizacaoRecursos ?? null,
   };
 }

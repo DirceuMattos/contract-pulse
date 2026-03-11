@@ -373,7 +373,10 @@ export interface AccessLogSession {
 // Computed Types
 export interface ContractHealth {
   contractId: string;
+  receitaBruta: number;
   receitaMensal: number;
+  receitaLiquida: number;
+  percentualImpostos: number;
   custoMensal: number;
   margemMensal: number;
   margemPercentual: number;

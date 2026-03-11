@@ -145,9 +145,10 @@ export function calculateDashboardKPIs(
   };
   
   if (includeValues) {
-    kpis.receitaTotal = healthData.reduce((sum, h) => sum + h.receitaMensal, 0);
+    kpis.receitaTotal = healthData.reduce((sum, h) => sum + h.receitaBruta, 0);
+    kpis.receitaLiquidaTotal = healthData.reduce((sum, h) => sum + h.receitaLiquida, 0);
     kpis.custoTotal = healthData.reduce((sum, h) => sum + h.custoMensal, 0);
-    kpis.margemTotal = kpis.receitaTotal - kpis.custoTotal;
+    kpis.margemTotal = (kpis.receitaLiquidaTotal) - kpis.custoTotal;
   }
   
   return kpis;
