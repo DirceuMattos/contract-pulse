@@ -171,6 +171,7 @@ export default function SquadsPage() {
           // Build resources from subproject allocations
           const spResources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] = [];
           for (const alloc of spAllocations) {
+            if (!alloc.hrPersonId) continue;
             const person = hrPeople.find(p => p.id === alloc.hrPersonId);
             if (!person) continue;
             
