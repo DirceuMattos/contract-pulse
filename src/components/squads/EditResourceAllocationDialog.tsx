@@ -28,7 +28,7 @@ interface EditResourceAllocationDialogProps {
 }
 
 export function EditResourceAllocationDialog({ open, onOpenChange, allocation, personName }: EditResourceAllocationDialogProps) {
-  const { contracts, updateResource } = useData();
+  const { contracts, updateResource, deleteResource } = useData();
   const { hasSubprojects, getSubprojectsByContract, updateAllocation, deleteAllocation, addAllocation } = useSubprojects();
 
   const [dedication, setDedication] = useState(allocation.percentualDedicacao);
