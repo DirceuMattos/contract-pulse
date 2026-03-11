@@ -187,6 +187,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                     <SelectItem value="pj">PJ</SelectItem>
                     <SelectItem value="cooperado">Cooperado</SelectItem>
                     <SelectItem value="socio">Sócio</SelectItem>
+                    <SelectItem value="estagio">Estagiário</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
