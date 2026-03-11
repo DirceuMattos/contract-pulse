@@ -258,6 +258,7 @@ export default function HRPeoplePage() {
                 <SelectItem value="pj">PJ</SelectItem>
                 <SelectItem value="cooperado">Cooperado</SelectItem>
                 <SelectItem value="socio">Sócio</SelectItem>
+                <SelectItem value="estagio">Estagiário</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>
