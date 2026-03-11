@@ -290,8 +290,11 @@ export function suggestPricing(simulation: ContractSimulation): {
 }
 
 // ── Calculate results (now uses suggested pricing as revenue) ──
-export function calculateSimulationResults(simulation: ContractSimulation): {
+export function calculateSimulationResults(simulation: ContractSimulation, taxPercent: number = 16.33): {
+  receitaBruta: number;
   receitaMensal: number;
+  receitaLiquida: number;
+  percentualImpostos: number;
   custoMensal: number;
   overheadMensal: number;
   resultadoMensal: number;
@@ -299,36 +302,38 @@ export function calculateSimulationResults(simulation: ContractSimulation): {
   healthStatus: HealthStatus;
 } {
   const pricing = suggestPricing(simulation);
-  const receitaMensal = pricing.suggestedMonthlyValue;
+  const receitaBruta = pricing.suggestedMonthlyValue;
+  const percentualImpostos = taxPercent;
+  const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
 
   const { custoMensal, overheadMensal } = computeCosts(simulation);
 
-  const resultadoMensal = receitaMensal - custoMensal;
-  const margemPercent = receitaMensal > 0 ? (resultadoMensal / receitaMensal) * 100 : 0;
+  const resultadoMensal = receitaLiquida - custoMensal;
+  const margemPercent = receitaLiquida > 0 ? (resultadoMensal / receitaLiquida) * 100 : 0;
 
   let healthStatus: HealthStatus = 'saudavel';
   if (margemPercent < 0) healthStatus = 'critico';
   else if (margemPercent < 15) healthStatus = 'atencao';
 
-  return { receitaMensal, custoMensal, overheadMensal, resultadoMensal, margemPercent, healthStatus };
+  return { receitaBruta, receitaMensal: receitaBruta, receitaLiquida, percentualImpostos, custoMensal, overheadMensal, resultadoMensal, margemPercent, healthStatus };
 }
 
 // ── Generate scenarios ──
-export function generateScenarios(simulation: ContractSimulation): SimulationScenario[] {
-  const base = calculateSimulationResults(simulation);
+export function generateScenarios(simulation: ContractSimulation, taxPercent: number = 16.33): SimulationScenario[] {
+  const base = calculateSimulationResults(simulation, taxPercent);
 
   const makeScenario = (label: string, custoMultiplier: number): SimulationScenario => {
     const custoAjustado = (base.custoMensal - base.overheadMensal) * custoMultiplier;
     const overheadAjustado = base.overheadMensal * custoMultiplier;
     const custoTotal = custoAjustado + overheadAjustado;
-    const resultado = base.receitaMensal - custoTotal;
-    const margem = base.receitaMensal > 0 ? (resultado / base.receitaMensal) * 100 : 0;
+    const resultado = base.receitaLiquida - custoTotal;
+    const margem = base.receitaLiquida > 0 ? (resultado / base.receitaLiquida) * 100 : 0;
     let health: HealthStatus = 'saudavel';
     if (margem < 0) health = 'critico';
     else if (margem < 15) health = 'atencao';
     return {
       label,
-      receitaMensal: base.receitaMensal,
+      receitaMensal: base.receitaBruta,
       custoMensal: custoTotal,
       overheadMensal: overheadAjustado,
       resultadoMensal: resultado,

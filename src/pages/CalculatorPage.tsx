@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useSimulations } from '@/contexts/SimulationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { calculateSimulationResults } from '@/lib/simulationEngine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ function healthBorderClass(s: HealthStatus) {
 
 export default function CalculatorPage() {
   const { user } = useAuth();
+  const { settings } = useData();
   const { simulations, deleteSimulation, duplicateSimulation, updateSimulation } = useSimulations();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -100,7 +102,7 @@ export default function CalculatorPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(sim => {
-            const results = calculateSimulationResults(sim);
+            const results = calculateSimulationResults(sim, settings.percentualImpostosFaturamento);
             const hc = healthConfig[results.healthStatus];
             const margemColor = results.margemPercent >= 15 ? 'text-health-healthy' : results.margemPercent >= 0 ? 'text-health-attention' : 'text-health-critical';
             return (

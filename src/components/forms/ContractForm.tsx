@@ -49,7 +49,7 @@ const indicesReajuste = ['IPCA', 'IGPM', 'INPC', 'IPCA-E', 'Outro'];
 const periodicidades = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bienal'];
 
 export function ContractForm({ contract, onSubmit, onCancel, isLoading }: ContractFormProps) {
-  const { clients } = useData();
+  const { clients, settings } = useData();
   const [tagInput, setTagInput] = useState('');
   
   const form = useForm<ContractFormData>({
@@ -756,7 +756,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                           onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                         />
                       </FormControl>
-                      <FormDescription>Se vazio, usa o valor global das configurações</FormDescription>
+                      <FormDescription>Se vazio, usa o valor global das configurações ({settings.percentualImpostosFaturamento}%)</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
