@@ -1,0 +1,1 @@
+ALTER TABLE hr_people ADD COLUMN beneficio_nome text, ADD COLUMN beneficio_soma_remuneracao boolean DEFAULT false;
