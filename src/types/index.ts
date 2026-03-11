@@ -284,6 +284,7 @@ export interface DashboardKPIs {
   contratosAtencao: number;
   contratosCritico: number;
   receitaTotal?: number;
+  receitaLiquidaTotal?: number;
   custoTotal?: number;
   margemTotal?: number;
 }
