@@ -157,7 +157,7 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
           </div>
 
           <div className="space-y-1.5">
-            <Label>Mover para outro contrato</Label>
+            <Label>Mover para outro projeto</Label>
             <Select value={targetContractId} onValueChange={(v) => { setTargetContractId(v); setTargetSubprojectId(''); }}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="Manter no mesmo contrato" />
