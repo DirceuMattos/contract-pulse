@@ -111,7 +111,7 @@ export default function ContractDetailPage() {
   
   const health = calculateContractHealth(contract, contractResources, settings, overheadItems);
   const contractOverheadItems = id ? getOverheadByContract(id) : [];
-  const overheadCost = calculateOverheadCost(contract.id, contractResources, contractOverheadItems, settings);
+  const overheadCost = calculateOverheadCost(contract, contractOverheadItems);
   const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
