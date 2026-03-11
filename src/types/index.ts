@@ -412,6 +412,8 @@ export interface HRPerson {
   celular?: string;
   idExterno?: string;
   centroCusto?: string;
+  beneficioNome?: string;
+  beneficioSomaRemuneracao?: boolean;
   source?: string;
   syncStatus?: string;
   lastSyncedAt?: string;
