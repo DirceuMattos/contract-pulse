@@ -102,7 +102,7 @@ export default function CalculatorPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(sim => {
-            const results = calculateSimulationResults(sim);
+            const results = calculateSimulationResults(sim, settings.percentualImpostosFaturamento);
             const hc = healthConfig[results.healthStatus];
             const margemColor = results.margemPercent >= 15 ? 'text-health-healthy' : results.margemPercent >= 0 ? 'text-health-attention' : 'text-health-critical';
             return (
