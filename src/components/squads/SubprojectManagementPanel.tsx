@@ -11,6 +11,7 @@ import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { toast } from 'sonner';
 import { SubprojectFormDialog } from './SubprojectFormDialog';
 import { SubprojectAllocationDialog } from './SubprojectAllocationDialog';
+import { EditAllocationDialog } from './EditAllocationDialog';
 
 interface SubprojectManagementPanelProps {
   contractId: string;
@@ -38,6 +39,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [allocDialogSpId, setAllocDialogSpId] = useState<string | null>(null);
   const [deletingAllocId, setDeletingAllocId] = useState<string | null>(null);
+  const [editingAlloc, setEditingAlloc] = useState<{ alloc: SubprojectAllocation; personName: string } | null>(null);
 
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = new Map(hrPeople.map(p => [p.id, p]));
@@ -119,9 +121,14 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                             <span className="text-muted-foreground">{person ? (person.cargoId ? 'Cargo vinculado' : 'Sem cargo') : ''}</span>
                             <span className="ml-auto tabular-nums font-medium">{alloc.dedicationPercent}%</span>
                             {canEdit && (
-                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
+                              <>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingAlloc({ alloc, personName: person?.nome || 'Pessoa não encontrada' })}>
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         );
@@ -180,6 +187,15 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         title="Remover Alocação"
         description="A pessoa será removida deste subprojeto."
       />
+
+      {editingAlloc && (
+        <EditAllocationDialog
+          open={!!editingAlloc}
+          onOpenChange={(open) => { if (!open) setEditingAlloc(null); }}
+          allocation={editingAlloc.alloc}
+          personName={editingAlloc.personName}
+        />
+      )}
     </div>
   );
 }
