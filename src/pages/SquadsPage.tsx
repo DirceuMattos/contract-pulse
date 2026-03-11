@@ -110,6 +110,7 @@ export default function SquadsPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
+  const { canEdit } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
