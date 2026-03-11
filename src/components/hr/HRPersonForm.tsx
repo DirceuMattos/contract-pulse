@@ -374,7 +374,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
         {/* Atualização mensal */}
         <Separator />
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Atualização Mensal</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Destaque para Comitê Gestor em</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="comiteGestor" render={({ field }) => (
               <FormItem>
