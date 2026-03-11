@@ -96,17 +96,22 @@ export function calculateContractHealth(
   settings: Settings,
   overheadItems: OverheadItem[] = []
 ): ContractHealth {
-  const receitaMensal = getContractRevenue(contract);
+  const receitaBruta = getContractRevenue(contract);
+  const percentualImpostos = contract.percentualImpostosFaturamento ?? settings.percentualImpostosFaturamento;
+  const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
   const custoRecursos = calculateContractCost(contract.id, resources, settings);
   const overheadCost = calculateOverheadCost(contract.id, resources, overheadItems, settings);
   const custoMensal = custoRecursos + overheadCost.total;
-  const margemMensal = receitaMensal - custoMensal;
-  const margemPercentual = receitaMensal > 0 ? (margemMensal / receitaMensal) * 100 : 0;
+  const margemMensal = receitaLiquida - custoMensal;
+  const margemPercentual = receitaLiquida > 0 ? (margemMensal / receitaLiquida) * 100 : 0;
   const status = getHealthStatus(margemPercentual, settings);
   
   return {
     contractId: contract.id,
-    receitaMensal,
+    receitaBruta,
+    receitaMensal: receitaBruta,
+    receitaLiquida,
+    percentualImpostos,
     custoMensal,
     margemMensal,
     margemPercentual,
