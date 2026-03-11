@@ -836,6 +836,15 @@ export default function SquadsPage() {
           <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os recursos." />
         )
       )}
+
+      {editingResourceAlloc && (
+        <EditResourceAllocationDialog
+          open={!!editingResourceAlloc}
+          onOpenChange={(open) => { if (!open) setEditingResourceAlloc(null); }}
+          allocation={editingResourceAlloc.alloc}
+          personName={editingResourceAlloc.personName}
+        />
+      )}
     </div>
   );
 }
