@@ -28,6 +28,7 @@ function healthBorderClass(s: HealthStatus) {
 
 export default function CalculatorPage() {
   const { user } = useAuth();
+  const { settings } = useData();
   const { simulations, deleteSimulation, duplicateSimulation, updateSimulation } = useSimulations();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
