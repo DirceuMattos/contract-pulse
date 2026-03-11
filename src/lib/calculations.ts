@@ -66,20 +66,15 @@ export function getHealthStatus(
 }
 
 export function calculateOverheadCost(
-  contractId: string,
-  resources: Resource[],
+  contract: Contract,
   overheadItems: OverheadItem[],
-  settings: Settings
 ): { total: number; breakdown: { item: OverheadItem; cost: number }[] } {
-  const contractResources = resources.filter(r => r.contractId === contractId);
-  const baseCost = contractResources.reduce((total, resource) => {
-    return total + calculateResourceCost(resource, settings);
-  }, 0);
+  const receitaMensal = getContractRevenue(contract);
 
-  const contractOverhead = overheadItems.filter(o => o.contractId === contractId);
+  const contractOverhead = overheadItems.filter(o => o.contractId === contract.id);
   const breakdown = contractOverhead.map(item => {
     const cost = item.modo === 'percentual'
-      ? (item.percentual || 0) / 100 * baseCost
+      ? (item.percentual || 0) / 100 * receitaMensal
       : (item.valorFixoMensal || 0);
     return { item, cost };
   });
