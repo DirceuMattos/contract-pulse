@@ -6,12 +6,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Sparkles, Info, Calendar, Target, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Sparkles, Info, Calendar, Target, AlertCircle, Receipt } from 'lucide-react';
 import { suggestPricing, calculateSimulationResults, generateScenarios } from '@/lib/simulationEngine';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import type { ContractSimulation, HealthStatus } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import { useData } from '@/contexts/DataContext';
 
 interface Props {
   data: ContractSimulation;
@@ -41,9 +42,11 @@ const SCENARIO_COLORS: Record<string, string> = {
 };
 
 export function Step5Results({ data, onChange }: Props) {
+  const { settings } = useData();
+  const taxPercent = settings.percentualImpostosFaturamento;
   const pricing = suggestPricing(data);
-  const results = calculateSimulationResults(data);
-  const scenarios = generateScenarios(data);
+  const results = calculateSimulationResults(data, taxPercent);
+  const scenarios = generateScenarios(data, taxPercent);
 
   const [insightText, setInsightText] = useState(data.consultantAnalysis ?? '');
   const [insightLoading, setInsightLoading] = useState(false);
