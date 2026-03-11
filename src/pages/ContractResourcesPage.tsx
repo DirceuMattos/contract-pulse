@@ -124,7 +124,7 @@ export default function ContractResourcesPage() {
   const health = calculateContractHealth(contract, resources, settings, overheadItems);
   const receitaMensal = getContractRevenue(contract);
   const contractOverhead = id ? getOverheadByContract(id) : [];
-  const overheadCost = calculateOverheadCost(contract.id, resources, contractOverhead, settings);
+  const overheadCost = calculateOverheadCost(contract, contractOverhead);
 
   const resourcesByType = resources.reduce((acc, resource) => {
     const type = resource.tipo;
@@ -791,7 +791,7 @@ export default function ContractResourcesPage() {
           <OverheadForm
             item={editingOverhead || undefined}
             contractId={contract.id}
-            baseCalculo={health.custoMensal - overheadCost.total}
+            baseCalculo={health.receitaBruta}
             onSubmit={editingOverhead ? handleEditOverhead : handleAddOverhead}
             onCancel={() => { setOverheadFormOpen(false); setEditingOverhead(null); }}
           />
