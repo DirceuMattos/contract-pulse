@@ -132,9 +132,11 @@ export interface ContractSubproject {
 export interface SubprojectAllocation {
   id: string;
   subprojectId: string;
-  hrPersonId: string;
+  hrPersonId?: string | null;
+  resourceId?: string | null;
+  overheadItemId?: string | null;
   dedicationPercent: number;
-  notes?: string;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
