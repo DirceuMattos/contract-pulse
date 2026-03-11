@@ -205,7 +205,7 @@ export function OverheadForm({ item, contractId, baseCalculo, onSubmit, onCancel
                         <Info className="w-3.5 h-3.5 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        Base atual: {formatCurrency(baseCalculo)} (RH + Outros diretos).
+                        Base atual: {formatCurrency(baseCalculo)} (Receita mensal do contrato).
                       </TooltipContent>
                     </Tooltip>
                   </FormLabel>
