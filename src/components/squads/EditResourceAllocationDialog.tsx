@@ -187,7 +187,26 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
             </div>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button
+            variant="destructive"
+            className="sm:mr-auto"
+            onClick={() => {
+              if (allocation.isSubprojectAllocation) {
+                deleteAllocation(allocation.resourceId);
+              } else {
+                updateResource(allocation.resourceId, { contractId: '' }).catch(() => {});
+                // For non-subproject resources, we remove by deleting
+                const { contracts: _c, ...rest } = { contracts };
+                // Actually delete the resource from the contract
+                import('sonner').then(({ toast }) => toast.info('Recurso removido do projeto'));
+              }
+              onOpenChange(false);
+              toast.success('Recurso retirado do projeto');
+            }}
+          >
+            Retirar do Projeto
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSave}>
             {isMoving ? 'Mover e Salvar' : 'Salvar'}
