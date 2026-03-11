@@ -385,6 +385,12 @@ export type HRSituacao = 'ativo' | 'inativo';
 export type HRTipoDesligamento = 'dispensado' | 'solicitou-dispensa' | 'transferido-grupo' | 'outro';
 export type HROcorrencia = 'reajuste' | 'bonificacao' | 'beneficio' | 'mudanca-cargo' | 'observacao' | 'desligamento' | 'outro';
 
+export interface BeneficioItem {
+  nome: string;
+  valor: number;
+  somaRemuneracao: boolean;
+}
+
 export interface HRPerson {
   id: string;
   nome: string;

@@ -607,6 +607,7 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     centro_custo: p.centroCusto ?? null,
     beneficio_nome: p.beneficioNome ?? null,
     beneficio_soma_remuneracao: p.beneficioSomaRemuneracao ?? false,
+    beneficios_lista: p.beneficiosLista ?? [],
     source: p.source ?? null,
     sync_status: p.syncStatus ?? null,
     last_synced_at: p.lastSyncedAt ?? null,
