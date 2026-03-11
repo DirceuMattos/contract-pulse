@@ -14,7 +14,7 @@ import { MigrateToSubprojectsDialog } from '@/components/squads/MigrateToSubproj
 export default function ContractFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getContract, addContract, updateContract, getResourcesByContract } = useData();
+  const { getContract, addContract, updateContract } = useData();
   const { canEdit } = useAuth();
   const { hasSubprojects: hasSubprojectsFn, setHasSubprojects } = useSubprojects();
   const { toast } = useToast();
