@@ -59,12 +59,17 @@ interface ResourceViewData {
   teamName: string;
   totalDedicacao: number;
   allocations: {
+    resourceId: string;
     contractId: string;
     contractCodigo: string;
     contractNome: string;
     clientName: string;
     healthStatus: string;
     percentualDedicacao: number;
+    hrPersonId: string | null;
+    isSubprojectAllocation: boolean;
+    subprojectId?: string;
+    subprojectName?: string;
   }[];
 }
 
