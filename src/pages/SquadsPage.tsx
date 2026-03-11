@@ -378,12 +378,17 @@ export default function SquadsPage() {
           const entry = resourceMap.get(key)!;
           entry.totalDedicacao += r.percentualDedicacao;
           entry.allocations.push({
+            resourceId: r.id,
             contractId: cd.contractId,
             contractCodigo: cd.contractCodigo,
             contractNome: cd.subprojectName ? `${cd.contractNome} → ${cd.subprojectName}` : cd.contractNome,
             clientName: cd.clientName,
             healthStatus: cd.healthStatus,
             percentualDedicacao: r.percentualDedicacao,
+            hrPersonId: r.hrPersonId || null,
+            isSubprojectAllocation: !!cd.subprojectId,
+            subprojectId: cd.subprojectId,
+            subprojectName: cd.subprojectName,
           });
         }
       }
