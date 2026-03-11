@@ -1,160 +1,66 @@
 
 
-## Plan: Feedz Sync V2 — Report, Match Hardening, Aliases & Enhanced Rollback
+## Alterações no Módulo de Recursos Humanos
 
-This is a large incremental upgrade to the Feedz integration. The plan preserves all existing functionality and adds layers of safety, auditability, and control.
+### 1. Auto-registro na Linha do Tempo ao editar pessoa
 
----
+**Arquivo:** `src/pages/HRPersonDetailPage.tsx` — `handleSavePerson`
 
-### Database Changes (Migration)
+Antes de chamar `updatePerson`, comparar os valores antigos (`person`) com os novos (`data`) nos campos monitorados. Para cada campo alterado, gerar automaticamente um `addTimelineEvent` com ocorrência `'observacao'` (ou tipo específico quando aplicável) e descrição detalhada.
 
-**1. New table `feedz_sync_items`** (replaces reliance on `feedz_sync_events` for audit detail)
+Campos monitorados e lógica:
+| Campo | Comparação | Descrição gerada |
+|---|---|---|
+| `tipoVinculo` | `person.tipoVinculo !== data.tipoVinculo` | "Tipo de vínculo alterado de CLT para PJ" |
+| `situacao` | `person.situacao !== data.situacao` | "Situação alterada de Ativo para Inativo" |
+| `cargoId` | `person.cargoId !== data.cargoId` | "Cargo alterado de X para Y" (resolver labels via jobTitles) |
+| `teamId` | `person.teamId !== data.teamId` | "Departamento alterado de X para Y" |
+| `localAtuacao` | `person.localAtuacao !== data.localAtuacao` | "Local de atuação alterado de X para Y" |
+| `nivel` | `person.nivel !== data.nivel` | "Nível alterado de X para Y" |
+| `trilha` | `person.trilha !== data.trilha` | "Trilha alterada de X para Y" |
+| `remuneracaoMensal` | `person.remuneracaoMensal !== data.remuneracaoMensal` | "Remuneração mensal alterada de R$ X para R$ Y" |
+| `beneficios` | `person.beneficios !== data.beneficios` | "Benefícios alterado de R$ X para R$ Y" |
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| sync_run_id | uuid FK | |
-| feedz_id | text | external employee id |
-| feedz_email | text | |
-| feedz_name | text | |
-| match_strategy | text | `FEEDZ_ID`, `EMAIL`, `PHONE`, `NAME_SCORE`, `NONE` |
-| matched_hr_person_id | uuid nullable | |
-| action | text | `INSERT`, `UPDATE`, `SKIP`, `PENDING`, `CONFLICT` |
-| reason_code | text nullable | `NO_MATCH`, `EMAIL_CONFLICT`, `LOW_SCORE`, `MISSING_KEY`, etc. |
-| fields_changed_json | jsonb | `[{field, before, after}]` for updates |
-| snapshot_before | jsonb nullable | full record before update (for rollback) |
-| created_at | timestamptz | |
+**Cargo especial:** quando `cargoId` muda, além do evento na timeline, o campo `cargoAntigo` é automaticamente preenchido com o label do cargo anterior (requisito 3).
 
-RLS: same pattern as `feedz_sync_events` (c-level insert, all select).
+Todas as alterações detectadas são consolidadas em um único evento de timeline (ou um por campo, a depender da preferência — recomendo um único evento com todas as mudanças listadas para não poluir a timeline).
 
-**2. New table `feedz_alias_mappings`**
+### 2. Campo Benefício com nome e flag de soma
 
-| Column | Type |
-|--------|------|
-| id | uuid PK |
-| alias_type | text (`cargo` or `departamento`) |
-| feedz_value | text (exact Feedz string) |
-| internal_id | uuid nullable (job_title or team id) |
-| internal_label | text (canonical name) |
-| is_active | boolean default true |
-| created_at, updated_at | timestamptz |
+**Tipo (`src/types/index.ts` — `HRPerson`):**
+- Adicionar `beneficioNome?: string` — nome/tipo do benefício (ex: "Auxílio Creche")
+- Adicionar `beneficioSomaRemuneracao?: boolean` — flag para somar ao campo Remuneração Total
 
-RLS: c-level full CRUD, all select.
+**Schema (`src/components/hr/HRPersonForm.tsx`):**
+- Adicionar campos `beneficioNome` (select com opções livres) e `beneficioSomaRemuneracao` (switch/checkbox)
+- Layout: Benefícios (R$) na linha abaixo de Remuneração Mensal, com os 3 campos lado a lado: valor | nome do benefício (select) | flag soma
 
-**3. New columns on `feedz_sync_runs`**
+**Opções do select de benefício:** Auxílio Creche, Auxílio Certificação, Auxílio Universidade, Bolsa de Estudos, Convênio Médico, Vale Alimentação, Vale Refeição, Vale Transporte, Plano Odontológico, Outro.
 
-- `matched_by_feedz_id` integer default 0
-- `matched_by_email` integer default 0
-- `matched_by_phone` integer default 0
-- `matched_by_name_score` integer default 0
-- `initiated_by` uuid nullable
-- `sync_mode` text default 'strict' (strict | permissive)
+**DB mapper (`src/lib/dbMappers.ts`):** Mapear os novos campos `beneficio_nome` e `beneficio_soma_remuneracao` no banco.
 
-**4. Add `phone_norm` column to `hr_people`** (text, nullable) for phone-based matching.
+**Migração SQL:** Adicionar colunas `beneficio_nome text`, `beneficio_soma_remuneracao boolean default false` à tabela `hr_people`.
 
-**5. Unique constraint on `hr_people.id_externo`** (partial — WHERE id_externo IS NOT NULL).
+### 3. Atualização automática de Cargo Anterior
 
----
+Já coberto no item 1: quando `cargoId` muda, `cargoAntigo` recebe o label do cargo anterior automaticamente via `handleSavePerson`.
 
-### Edge Function: `feedz-sync` (Rewrite Core Logic)
+### 4. Renomear label do campo Remuneração II
 
-Preserve structure, enhance matching pipeline:
+**Arquivos:** `src/components/hr/HRPersonForm.tsx` e `src/pages/HRPersonDetailPage.tsx`
+- De: "Remuneração II — VA / Ajuste (R$)"
+- Para: "Remuneração Total (Remuneração Mensal + Benefícios)"
 
-1. **Normalization layer** (before any matching):
-   - `email_norm = trim(lowercase(email))`, strip invisible chars
-   - `phone_norm = digits only`, prepend `55` if 10-11 digits
-   - `name_norm` = existing `normalizeName()`
+**Lógica de cálculo:** Quando `beneficioSomaRemuneracao === true`, o valor exibido/calculado neste campo será `remuneracaoMensal + beneficios` automaticamente. No formulário, se a flag estiver ativa, o campo se torna read-only e calculado.
 
-2. **Match cascade** (updated order):
-   - Step 1: `feedz_id` (id_externo) — strong match
-   - Step 2: `email_norm` — strong fallback. If email matches but id_externo diverges → CONFLICT
-   - Step 3: `phone_norm` — moderate fallback (new)
-   - Step 4: `name_norm + score` — weak fallback, threshold ≥ 1.2 for auto-match
+### Arquivos a criar/editar
 
-3. **Anti-insert rule** (critical change):
-   - Only INSERT if: feedz_id present AND email present AND no existing record with same email AND no probable name match (score ≥ 1.0)
-   - Otherwise → PENDING
-
-4. **Alias resolution** for cargo/depto:
-   - Load `feedz_alias_mappings` at start
-   - Before resolving cargo/team, check alias table first
-   - In strict mode: if no alias and no exact match → PENDING (don't auto-create)
-   - In permissive mode: auto-create as before
-
-5. **Per-item audit** (`feedz_sync_items`):
-   - For every Feedz record processed, insert a row with match_strategy, action, reason_code
-   - For UPDATEs: store `snapshot_before` (full hr_people row before update) and `fields_changed_json` with before/after per field
-   - For INSERTs: store the created hr_person_id
-
-6. **Counters**: track `matched_by_*` counters and save to `feedz_sync_runs`.
-
----
-
-### Edge Function: `feedz-rollback` (Enhanced)
-
-1. Accept `runId` parameter (any run, not just latest).
-2. Load all `feedz_sync_items` for that run.
-3. For items with `action = 'INSERT'`: delete the hr_person (and timeline entries).
-4. For items with `action = 'UPDATE'` and `snapshot_before` present: restore the previous field values from snapshot.
-5. **Safety check**: if a subsequent sync run (newer) modified the same hr_person_id, warn/block unless force flag is set.
-6. Mark run as `rolled_back`.
-
----
-
-### Frontend: Export Report per Run
-
-Add "Exportar Relatório" button per run in `SettingsPage.tsx` (FeedzSyncSection).
-
-On click:
-1. Fetch all `feedz_sync_items` for that `run_id`
-2. Generate XLSX using existing native XLSX builder in `importExport.ts` with 5 sheets:
-   - **Resumo**: run totals
-   - **Inserções**: items where action=INSERT
-   - **Atualizações**: items where action=UPDATE, with before/after columns
-   - **Pendências**: action=PENDING with suggested matches
-   - **Conflitos**: action=CONFLICT
-
----
-
-### Frontend: Alias Management UI
-
-Add a new section in `SettingsPage.tsx` (or a sub-page) for managing `feedz_alias_mappings`:
-- Table listing aliases (type, feedz_value, internal_label)
-- Add/Edit/Delete dialog
-- Filter by type (cargo/departamento)
-
-Add a strict/permissive toggle that saves to `feedz_sync_runs.sync_mode` (or a settings-level config).
-
----
-
-### Frontend: Enhanced Rollback UI
-
-In the runs table:
-- Show "Rollback" button for any `success` run (not just the latest)
-- Dialog shows what will be reverted (X inserts deleted, Y updates restored)
-- Warn if subsequent syncs touched same records
-
----
-
-### Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| Migration SQL | Create `feedz_sync_items`, `feedz_alias_mappings`, alter `feedz_sync_runs`, alter `hr_people` |
-| `supabase/functions/feedz-sync/index.ts` | Major rewrite of matching + audit logic |
-| `supabase/functions/feedz-rollback/index.ts` | Add UPDATE rollback + per-run support |
-| `src/pages/SettingsPage.tsx` | Export button, alias management, enhanced rollback UI, strict/permissive toggle |
-| `src/pages/FeedzReconciliationPage.tsx` | Minor updates to use new `feedz_sync_items` data |
-| `src/lib/importExport.ts` | Add sync report XLSX generation function |
-
----
-
-### Implementation Order
-
-1. Database migration (new tables + columns)
-2. Edge function `feedz-sync` rewrite (matching hardening + audit items)
-3. Edge function `feedz-rollback` enhancement (update rollback + any run)
-4. Frontend: export report generation
-5. Frontend: alias management UI + strict/permissive toggle
-6. Frontend: enhanced rollback UI per run
+| Arquivo | Ação |
+|---|---|
+| `src/types/index.ts` | Adicionar `beneficioNome`, `beneficioSomaRemuneracao` ao `HRPerson` |
+| `src/components/hr/HRPersonForm.tsx` | Reestruturar seção financeira, adicionar campos, renomear label |
+| `src/pages/HRPersonDetailPage.tsx` | Auto-timeline em `handleSavePerson`, renomear label financeiro, auto cargo anterior |
+| `src/lib/dbMappers.ts` | Mapear novos campos |
+| `src/contexts/HRContext.tsx` | Sem mudança estrutural (usa `updatePerson` existente) |
+| **Migração SQL** | `ALTER TABLE hr_people ADD COLUMN beneficio_nome text, ADD COLUMN beneficio_soma_remuneracao boolean DEFAULT false` |
 
