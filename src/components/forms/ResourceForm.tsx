@@ -191,6 +191,16 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
   
   const custoCalculado = calculateResourceCost(previewResource, settings);
 
+  const mapNivelToSenioridade = (nivel?: string): Seniority | undefined => {
+    if (!nivel) return undefined;
+    const lower = nivel.toLowerCase();
+    if (lower.includes('junior') || lower.includes('júnior') || lower.startsWith('n1')) return 'junior';
+    if (lower.includes('pleno') || lower.startsWith('n2')) return 'pleno';
+    if (lower.includes('senior') || lower.includes('sênior') || lower.startsWith('n3')) return 'senior';
+    if (lower.includes('especialista') || lower.startsWith('n4') || lower.startsWith('n5')) return 'especialista';
+    return undefined;
+  };
+
   const handleSelectHrPerson = (personId: string) => {
 
     const person = hrPeople.find(p => p.id === personId);
@@ -207,6 +217,10 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
     // Auto-fill cargo from job title
     const job = person.cargoId ? activeJobTitles.find(jt => jt.id === person.cargoId) : null;
     if (job) form.setValue('cargo', job.label);
+    
+    // Auto-fill senioridade from nivel
+    const senioridade = mapNivelToSenioridade(person.nivel);
+    if (senioridade) form.setValue('senioridade', senioridade);
     
     // Auto-fill custo from remuneracao (only if allowed)
     if (canViewHRCosts) {
