@@ -30,7 +30,7 @@ const BENEFICIO_OPTIONS = [
 
 const hrPersonSchema = z.object({
   nome: z.string().min(2, 'Nome é obrigatório'),
-  tipoVinculo: z.enum(['clt', 'pj', 'cooperado', 'socio']),
+  tipoVinculo: z.enum(['clt', 'pj', 'cooperado', 'socio', 'estagio']),
   cargoId: z.string().optional(),
   teamId: z.string().optional(),
   remuneracaoMensal: z.number().min(0),
