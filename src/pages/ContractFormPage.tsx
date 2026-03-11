@@ -94,7 +94,6 @@ export default function ContractFormPage() {
       };
 
       if (isEditing && contract) {
-        // Check if hasSubprojects was just turned on and contract has existing resources
         const wasSubprojects = hasSubprojectsFn(contract.id);
         const nowSubprojects = data.hasSubprojects;
         
@@ -102,13 +101,9 @@ export default function ContractFormPage() {
         setHasSubprojects(contract.id, !!nowSubprojects);
         
         if (!wasSubprojects && nowSubprojects) {
-          const existingResources = getResourcesByContract(contract.id);
-          const hrResources = existingResources.filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId);
-          if (hrResources.length > 0) {
-            setPendingContractId(contract.id);
-            setMigrateDialogOpen(true);
-            return; // Don't navigate yet
-          }
+          setPendingContractId(contract.id);
+          setMigrateDialogOpen(true);
+          return;
         }
         
         toast({
