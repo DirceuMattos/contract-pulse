@@ -79,6 +79,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       modeloReceita: contract?.modeloReceita || undefined,
       valorMensalReferencia: contract?.valorMensalReferencia,
       valorTotalContrato: contract?.valorTotalContrato,
+      percentualImpostosFaturamento: contract?.percentualImpostosFaturamento,
       moeda: contract?.moeda || 'BRL',
       observacoesFinanceiras: contract?.observacoesFinanceiras || '',
       objeto: contract?.objeto || '',
