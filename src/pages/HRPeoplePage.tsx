@@ -195,7 +195,7 @@ export default function HRPeoplePage() {
     <div className="space-y-6">
       <PageHeader
         title="Recursos Humanos"
-        description="Cadastro mestre de pessoas CLT, PJ, Cooperado e Sócio."
+        description="Cadastro mestre de pessoas CLT, PJ, Cooperado, Sócio e Estagiário."
         animated={false}
         actions={
           <div className="flex items-center gap-2">
