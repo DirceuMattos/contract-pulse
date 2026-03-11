@@ -11,6 +11,7 @@ import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { toast } from 'sonner';
 import { SubprojectFormDialog } from './SubprojectFormDialog';
 import { SubprojectAllocationDialog } from './SubprojectAllocationDialog';
+import { EditAllocationDialog } from './EditAllocationDialog';
 
 interface SubprojectManagementPanelProps {
   contractId: string;
