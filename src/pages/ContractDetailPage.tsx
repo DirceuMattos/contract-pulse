@@ -22,6 +22,8 @@ import {
   Info,
   ChevronDown,
   Layers,
+  Box,
+  Settings2,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
