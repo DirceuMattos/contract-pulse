@@ -83,6 +83,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
     resolver: zodResolver(hrPersonSchema),
     defaultValues: {
       nome: person?.nome || '',
+      matricula: person?.matricula || '',
       tipoVinculo: person?.tipoVinculo || 'clt',
       cargoId: person?.cargoId || '',
       teamId: person?.teamId || '',
