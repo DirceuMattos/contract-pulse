@@ -50,47 +50,6 @@ function normalizePhone(phone: string | null | undefined): string | null {
   return digits
 }
 
-// ─── MATCH SCORE ─────────────────────────────────────────────────────────────
-function computeMatchScore(
-  feedzNorm: string, localNorm: string,
-  feedzDept: string | null, localTeamName: string | null,
-  feedzJob: string | null, localJobLabel: string | null,
-  feedzAdmission: string | null, localAdmission: string | null,
-): number {
-  let score = 0
-
-  // Name scoring: exact match = 1.0, containment = 0.85, shared tokens = proportional
-  if (feedzNorm === localNorm) {
-    score += 1.0
-  } else {
-    const feedzTokens = feedzNorm.split(' ').filter(t => t.length > 1)
-    const localTokens = localNorm.split(' ').filter(t => t.length > 1)
-
-    // One name contains the other entirely (e.g., "filipe borges" inside "filipe borges pereira")
-    if (feedzNorm.includes(localNorm) || localNorm.includes(feedzNorm)) {
-      const shorter = Math.min(feedzTokens.length, localTokens.length)
-      if (shorter >= 2) {
-        score += 0.85
-      } else {
-        score += 0.5
-      }
-    } else {
-      // Token overlap: count shared tokens
-      const shared = feedzTokens.filter(t => localTokens.includes(t)).length
-      const maxTokens = Math.max(feedzTokens.length, localTokens.length, 1)
-      const tokenScore = (shared / maxTokens) * 0.8
-      if (shared >= 2) score += tokenScore
-    }
-  }
-
-  if (feedzDept && localTeamName && normalizeName(feedzDept) === normalizeName(localTeamName)) score += 0.2
-  if (feedzJob && localJobLabel && normalizeName(feedzJob) === normalizeName(localJobLabel)) score += 0.2
-  if (feedzAdmission && localAdmission) {
-    if (feedzAdmission.substring(0, 10) === localAdmission.substring(0, 10)) score += 0.2
-  }
-  return score
-}
-
 async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee[]> {
   const baseUrl = 'https://app.feedz.com.br/v2/integracao/employees'
   const statuses = ['Ativo', 'Desligado', 'Desativado']
@@ -195,25 +154,11 @@ Deno.serve(async (req) => {
     const allPeople: any[] = existingPeople || []
     const allAliases: any[] = aliases || []
 
-    // Build lookup maps
-    const idExternoMap = new Map<string, any>()
-    const emailMap = new Map<string, any>()
-    const phoneNormMap = new Map<string, any>()
-
+    // Build lookup map by matricula (primary key for matching)
+    const matriculaMap = new Map<string, any>()
     for (const p of allPeople) {
-      if (p.id_externo) idExternoMap.set(p.id_externo, p)
-      const en = normalizeEmail(p.email)
-      if (en) emailMap.set(en, p)
-      const pn = normalizePhone(p.celular)
-      if (pn) phoneNormMap.set(pn, p)
+      if (p.matricula) matriculaMap.set(p.matricula, p)
     }
-
-    const peopleWithNorm = allPeople.map(p => ({
-      ...p,
-      _normName: normalizeName(p.nome || ''),
-      _teamName: (existingTeams || []).find((t: any) => t.id === p.team_id)?.name || null,
-      _jobLabel: (existingJobs || []).find((j: any) => j.id === p.cargo_id)?.label || null,
-    }))
 
     const jobMap = new Map<string, any>()
     for (const j of (existingJobs || [])) jobMap.set(j.label.toLowerCase(), j)
@@ -245,6 +190,9 @@ Deno.serve(async (req) => {
       const feedzJob = person.job_description?.title || null
       const feedzAdmission = person.admission_at || null
 
+      // ─── MATRICULA: use employeeId as matricula ─────────────────────
+      const matricula = externalId
+
       // ─── RESOLVE CARGO (with alias) ───────────────────────────────────
       let cargoId: string | null = null
       if (feedzJob) {
@@ -261,7 +209,6 @@ Deno.serve(async (req) => {
             }).select().single()
             if (newJob) { cargoId = newJob.id; jobMap.set(feedzJob.toLowerCase(), newJob) }
           }
-          // strict mode + no match + no alias → cargoId stays null (will be flagged)
         }
       }
 
@@ -302,6 +249,7 @@ Deno.serve(async (req) => {
         trilha: null,
         remuneracao_mensal: remuneracao,
         id_externo: externalId,
+        matricula: matricula,
         source: 'feedz',
         sync_status: 'synced',
         last_synced_at: new Date().toISOString(),
@@ -309,174 +257,42 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }
 
-      // ─── MATCH CASCADE ────────────────────────────────────────────────
-      let existing: any = null
-      let matchStrategy = 'NONE'
-
-      // Step 1: feedz_id (id_externo)
-      existing = idExternoMap.get(externalId)
-      if (existing) {
-        matchStrategy = 'FEEDZ_ID'
-        matchedByFeedzId++
+      // ─── MATCH BY MATRICULA (sole strategy) ──────────────────────────
+      if (!matricula) {
+        // No matricula → PENDING
+        pending++
+        syncItems.push({
+          sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
+          feedz_name: feedzName, match_strategy: 'NONE',
+          action: 'PENDING', reason_code: 'NO_MATRICULA',
+          fields_changed_json: [],
+        })
+        pendingMatches.push({
+          sync_run_id: runId, external_id: externalId, feedz_name: feedzName,
+          feedz_email: feedzEmailRaw, feedz_department: feedzDept,
+          feedz_job_title: feedzJob, feedz_admission_date: feedzAdmission,
+          feedz_status: person.status || null, feedz_remuneration: remuneracao,
+          match_type: 'pending',
+        })
+        await db.from('feedz_sync_events').insert({
+          sync_run_id: runId, external_id: externalId, event_type: 'pending',
+          summary: `Sem matrícula: ${feedzName}`,
+        })
+        continue
       }
 
-      // Step 2: email_norm
-      if (!existing && feedzEmailNorm) {
-        const emailMatch = emailMap.get(feedzEmailNorm)
-        if (emailMatch) {
-          if (!emailMatch.id_externo) {
-            existing = emailMatch
-            matchStrategy = 'EMAIL'
-            matchedByEmail++
-          } else if (emailMatch.id_externo !== externalId) {
-            // CONFLICT: email matches but id_externo diverges
-            conflicts++
-            syncItems.push({
-              sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-              feedz_name: feedzName, match_strategy: 'EMAIL', matched_hr_person_id: emailMatch.id,
-              action: 'CONFLICT', reason_code: 'EMAIL_CONFLICT',
-              fields_changed_json: [],
-            })
-            pendingMatches.push({
-              sync_run_id: runId, external_id: externalId, feedz_name: feedzName,
-              feedz_email: feedzEmailRaw, feedz_department: feedzDept,
-              feedz_job_title: feedzJob, feedz_admission_date: feedzAdmission,
-              feedz_status: person.status || null, feedz_remuneration: remuneracao,
-              match_type: 'conflict', suggested_person_ids: [emailMatch.id],
-              suggested_scores: [1.0],
-            })
-            await db.from('feedz_sync_events').insert({
-              sync_run_id: runId, external_id: externalId, event_type: 'conflict',
-              summary: `Conflito: email ${feedzEmailNorm} bate com ${emailMatch.nome} mas id_externo diverge (${emailMatch.id_externo} vs ${externalId})`,
-            })
-            continue
-          } else {
-            existing = emailMatch
-            matchStrategy = 'EMAIL'
-            matchedByEmail++
-          }
-        }
-      }
-
-      // Step 3: phone_norm
-      if (!existing && feedzPhoneNorm) {
-        const phoneMatch = phoneNormMap.get(feedzPhoneNorm)
-        if (phoneMatch) {
-          existing = phoneMatch
-          matchStrategy = 'PHONE'
-          matchedByPhone++
-        }
-      }
-
-      // Step 4: name_norm + score (broadened candidate detection)
-      if (!existing && feedzNorm) {
-        const feedzTokens = feedzNorm.split(' ').filter(t => t.length > 1)
-        const candidates: { person: any; score: number }[] = []
-        for (const p of peopleWithNorm) {
-          if (!p._normName) continue
-          const localTokens = p._normName.split(' ').filter((t: string) => t.length > 1)
-          // Check: exact match, containment, or significant token overlap (≥2 shared tokens)
-          const isSubstring = p._normName === feedzNorm || p._normName.includes(feedzNorm) || feedzNorm.includes(p._normName)
-          const sharedTokens = feedzTokens.filter(t => localTokens.includes(t)).length
-          if (isSubstring || sharedTokens >= 2) {
-            const score = computeMatchScore(
-              feedzNorm, p._normName, feedzDept, p._teamName,
-              feedzJob, p._jobLabel, feedzAdmission, p.data_admissao,
-            )
-            if (score > 0) candidates.push({ person: p, score })
-          }
-        }
-        candidates.sort((a, b) => b.score - a.score)
-
-        if (candidates.length > 0 && candidates[0].score >= 1.2) {
-          existing = candidates[0].person
-          matchStrategy = 'NAME_SCORE'
-          matchedByNameScore++
-        } else if (candidates.length > 0 && candidates[0].score >= 0.5) {
-          // PENDING — not confident enough
-          pending++
-          const top3 = candidates.slice(0, 3)
-          syncItems.push({
-            sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-            feedz_name: feedzName, match_strategy: 'NAME_SCORE',
-            matched_hr_person_id: top3[0].person.id,
-            action: 'PENDING', reason_code: 'LOW_SCORE',
-            fields_changed_json: [],
-          })
-          pendingMatches.push({
-            sync_run_id: runId, external_id: externalId, feedz_name: feedzName,
-            feedz_email: feedzEmailRaw, feedz_department: feedzDept,
-            feedz_job_title: feedzJob, feedz_admission_date: feedzAdmission,
-            feedz_status: person.status || null, feedz_remuneration: remuneracao,
-            match_type: 'pending', suggested_person_ids: top3.map(c => c.person.id),
-            suggested_scores: top3.map(c => Math.round(c.score * 100) / 100),
-          })
-          await db.from('feedz_sync_events').insert({
-            sync_run_id: runId, external_id: externalId, event_type: 'pending',
-            summary: `Pendente: ${feedzName} — melhor score ${candidates[0].score.toFixed(2)} com ${candidates[0].person.nome}`,
-          })
-          continue
-        }
-      }
+      const existing = matriculaMap.get(matricula)
 
       if (!existing) {
-        // ─── ANTI-INSERT RULE ───────────────────────────────────────────
-        const hasFeedzId = !!externalId
-        const hasEmail = !!feedzEmailNorm
-        const emailAlreadyExists = feedzEmailNorm ? emailMap.has(feedzEmailNorm) : false
-
-        // Check for probable name match (broadened: containment + token overlap)
-        let probableNameMatch = false
-        const feedzTokens = feedzNorm.split(' ').filter(t => t.length > 1)
-        for (const p of peopleWithNorm) {
-          if (!p._normName) continue
-          const localTokens = p._normName.split(' ').filter((t: string) => t.length > 1)
-          const isSubstring = p._normName === feedzNorm || p._normName.includes(feedzNorm) || feedzNorm.includes(p._normName)
-          const sharedTokens = feedzTokens.filter(t => localTokens.includes(t)).length
-          if (isSubstring || sharedTokens >= 2) {
-            const score = computeMatchScore(feedzNorm, p._normName, feedzDept, p._teamName, feedzJob, p._jobLabel, feedzAdmission, p.data_admissao)
-            if (score >= 0.5) { probableNameMatch = true; break }
-          }
-        }
-
-        if (!hasFeedzId || !hasEmail || emailAlreadyExists || probableNameMatch) {
-          // Block insert → PENDING
-          pending++
-          let reasonCode = 'NO_MATCH'
-          if (!hasFeedzId) reasonCode = 'MISSING_KEY'
-          else if (!hasEmail) reasonCode = 'MISSING_KEY'
-          else if (emailAlreadyExists) reasonCode = 'EMAIL_CONFLICT'
-          else if (probableNameMatch) reasonCode = 'LOW_SCORE'
-
-          syncItems.push({
-            sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-            feedz_name: feedzName, match_strategy: 'NONE',
-            action: 'PENDING', reason_code: reasonCode,
-            fields_changed_json: [],
-          })
-          pendingMatches.push({
-            sync_run_id: runId, external_id: externalId, feedz_name: feedzName,
-            feedz_email: feedzEmailRaw, feedz_department: feedzDept,
-            feedz_job_title: feedzJob, feedz_admission_date: feedzAdmission,
-            feedz_status: person.status || null, feedz_remuneration: remuneracao,
-            match_type: 'pending',
-          })
-          await db.from('feedz_sync_events').insert({
-            sync_run_id: runId, external_id: externalId, event_type: 'pending',
-            summary: `Bloqueado (anti-insert): ${feedzName} — ${reasonCode}`,
-          })
-          continue
-        }
-
-        // Safe to INSERT
+        // ─── INSERT NEW ───────────────────────────────────────────────
         const { data: insertedPerson, error: insertErr } = await db.from('hr_people').insert(dbPayload).select('id').single()
         if (!insertErr && insertedPerson) {
           created++
-          idExternoMap.set(externalId, { ...dbPayload, id: insertedPerson.id })
-          if (feedzEmailNorm) emailMap.set(feedzEmailNorm, { ...dbPayload, id: insertedPerson.id })
+          matchedByFeedzId++
+          matriculaMap.set(matricula, { ...dbPayload, id: insertedPerson.id })
           syncItems.push({
             sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-            feedz_name: feedzName, match_strategy: 'NONE',
+            feedz_name: feedzName, match_strategy: 'MATRICULA',
             matched_hr_person_id: insertedPerson.id,
             action: 'INSERT', reason_code: null,
             fields_changed_json: Object.keys(dbPayload).map(k => ({ field: k, before: null, after: dbPayload[k] })),
@@ -484,7 +300,7 @@ Deno.serve(async (req) => {
           await db.from('feedz_sync_events').insert({
             sync_run_id: runId, external_id: externalId, event_type: 'create',
             fields_changed: Object.keys(dbPayload),
-            summary: `Criado: ${feedzName}`,
+            summary: `Criado (matrícula ${matricula}): ${feedzName}`,
           })
         } else {
           console.error(`[feedz-sync] Insert error for ${feedzName}: ${insertErr?.message}`)
@@ -492,8 +308,8 @@ Deno.serve(async (req) => {
             pending++
             syncItems.push({
               sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-              feedz_name: feedzName, match_strategy: 'NONE',
-              action: 'PENDING', reason_code: 'FEEDZ_ID_CONFLICT',
+              feedz_name: feedzName, match_strategy: 'MATRICULA',
+              action: 'PENDING', reason_code: 'MATRICULA_CONFLICT',
               fields_changed_json: [],
             })
             pendingMatches.push({
@@ -506,8 +322,8 @@ Deno.serve(async (req) => {
           }
         }
       } else {
-        // ─── UPDATE EXISTING ──────────────────────────────────────────────
-        // Build snapshot_before
+        // ─── UPDATE EXISTING ──────────────────────────────────────────
+        matchedByFeedzId++
         const snapshotBefore: Record<string, any> = {}
         const fieldsChanged: { field: string; before: any; after: any }[] = []
 
@@ -555,7 +371,7 @@ Deno.serve(async (req) => {
             updated++
             syncItems.push({
               sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-              feedz_name: feedzName, match_strategy: matchStrategy,
+              feedz_name: feedzName, match_strategy: 'MATRICULA',
               matched_hr_person_id: existing.id,
               action: 'UPDATE', reason_code: null,
               fields_changed_json: fieldsChanged,
@@ -565,7 +381,7 @@ Deno.serve(async (req) => {
               sync_run_id: runId, external_id: externalId,
               event_type: situacao === 'inativo' && existing.situacao === 'ativo' ? 'terminate' : 'update',
               fields_changed: changedFieldNames,
-              summary: `Atualizado (${matchStrategy}): ${feedzName} (${changedFieldNames.join(', ')})`,
+              summary: `Atualizado (MATRICULA): ${feedzName} (${changedFieldNames.join(', ')})`,
             })
 
             // Timeline for cargo change
@@ -600,7 +416,7 @@ Deno.serve(async (req) => {
           // No changes — SKIP
           syncItems.push({
             sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
-            feedz_name: feedzName, match_strategy: matchStrategy,
+            feedz_name: feedzName, match_strategy: 'MATRICULA',
             matched_hr_person_id: existing.id,
             action: 'SKIP', reason_code: null,
             fields_changed_json: [],
