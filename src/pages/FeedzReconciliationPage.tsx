@@ -36,6 +36,7 @@ interface HRPersonSimple {
   nome: string;
   email: string | null;
   id_externo: string | null;
+  matricula: string | null;
   situacao: string;
   data_admissao: string;
 }
