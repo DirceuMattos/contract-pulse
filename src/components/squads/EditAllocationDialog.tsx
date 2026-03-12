@@ -11,10 +11,11 @@ interface EditAllocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   allocation: SubprojectAllocation;
-  personName: string;
+  itemName: string;
+  itemTypeLabel?: string;
 }
 
-export function EditAllocationDialog({ open, onOpenChange, allocation, personName }: EditAllocationDialogProps) {
+export function EditAllocationDialog({ open, onOpenChange, allocation, itemName, itemTypeLabel = 'Recurso' }: EditAllocationDialogProps) {
   const { updateAllocation } = useSubprojects();
   const [dedication, setDedication] = useState(allocation.dedicationPercent);
   const [saving, setSaving] = useState(false);
@@ -48,8 +49,8 @@ export function EditAllocationDialog({ open, onOpenChange, allocation, personNam
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div>
-            <Label className="text-muted-foreground text-xs">Recurso</Label>
-            <p className="font-medium">{personName}</p>
+            <Label className="text-muted-foreground text-xs">{itemTypeLabel}</Label>
+            <p className="font-medium">{itemName}</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="dedication">Dedicação (%)</Label>

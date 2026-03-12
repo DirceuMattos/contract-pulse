@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useHR } from '@/contexts/HRContext';
+import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,46 +13,83 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
+export type AllocationType = 'hr' | 'resource' | 'overhead';
+
 interface SubprojectAllocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subprojectId: string;
   contractId: string;
+  allocationType: AllocationType;
 }
 
-export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId }: SubprojectAllocationDialogProps) {
+const typeLabels: Record<AllocationType, string> = {
+  hr: 'Pessoa ao Subprojeto',
+  resource: 'Recurso ao Subprojeto',
+  overhead: 'Overhead ao Subprojeto',
+};
+
+export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId, allocationType }: SubprojectAllocationDialogProps) {
   const { addAllocation, getAllocationsByContract } = useSubprojects();
   const { hrPeople } = useHR();
-  const [selectedPersonId, setSelectedPersonId] = useState('');
+  const { resources, overheadItems } = useData();
+  const [selectedId, setSelectedId] = useState('');
   const [dedication, setDedication] = useState(100);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
 
   React.useEffect(() => {
     if (open) {
-      setSelectedPersonId('');
+      setSelectedId('');
       setDedication(100);
       setSearch('');
     }
   }, [open]);
 
-  const existingAllocPersonIds = useMemo(() => {
+  const existingIds = useMemo(() => {
     const allocs = getAllocationsByContract(contractId);
-    return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
-  }, [getAllocationsByContract, contractId]);
+    if (allocationType === 'hr') {
+      return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
+    } else if (allocationType === 'resource') {
+      return new Set(allocs.filter(a => a.resourceId).map(a => a.resourceId!));
+    } else {
+      return new Set(allocs.filter(a => a.overheadItemId).map(a => a.overheadItemId!));
+    }
+  }, [getAllocationsByContract, contractId, allocationType]);
 
-  const availablePeople = useMemo(() => {
-    const active = hrPeople.filter(p => p.situacao === 'ativo');
+  const availableItems = useMemo(() => {
     const searchLower = search.toLowerCase();
-    return active
-      .filter(p => !existingAllocPersonIds.has(p.id))
-      .filter(p => !search || p.nome.toLowerCase().includes(searchLower))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [hrPeople, existingAllocPersonIds, search]);
+
+    if (allocationType === 'hr') {
+      return hrPeople
+        .filter(p => p.situacao === 'ativo')
+        .filter(p => !existingIds.has(p.id))
+        .filter(p => !search || p.nome.toLowerCase().includes(searchLower))
+        .sort((a, b) => a.nome.localeCompare(b.nome))
+        .map(p => ({ id: p.id, label: p.nome }));
+    }
+
+    if (allocationType === 'resource') {
+      return resources
+        .filter(r => r.contractId === contractId && r.tipo === 'outro')
+        .filter(r => !existingIds.has(r.id))
+        .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
+        .sort((a, b) => a.nome.localeCompare(b.nome))
+        .map(r => ({ id: r.id, label: `${r.nome}${r.categoria ? ` (${r.categoria})` : ''}` }));
+    }
+
+    // overhead
+    return overheadItems
+      .filter(o => o.contractId === contractId)
+      .filter(o => !existingIds.has(o.id))
+      .filter(o => !search || o.nome.toLowerCase().includes(searchLower))
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+      .map(o => ({ id: o.id, label: `${o.nome} (${o.categoria})` }));
+  }, [hrPeople, resources, overheadItems, existingIds, search, allocationType, contractId]);
 
   const handleSubmit = async () => {
-    if (!selectedPersonId) {
-      toast.error('Selecione uma pessoa');
+    if (!selectedId) {
+      toast.error('Selecione um item');
       return;
     }
     if (dedication <= 0 || dedication > 100) {
@@ -60,11 +98,16 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     }
     setSaving(true);
     try {
-      await addAllocation({ subprojectId, hrPersonId: selectedPersonId, dedicationPercent: dedication });
-      toast.success('Pessoa alocada ao subprojeto');
+      const payload: any = { subprojectId, dedicationPercent: dedication };
+      if (allocationType === 'hr') payload.hrPersonId = selectedId;
+      else if (allocationType === 'resource') payload.resourceId = selectedId;
+      else payload.overheadItemId = selectedId;
+
+      await addAllocation(payload);
+      toast.success('Item alocado ao subprojeto');
       onOpenChange(false);
     } catch (e) {
-      toast.error('Erro ao alocar pessoa');
+      toast.error('Erro ao alocar item');
     } finally {
       setSaving(false);
     }
@@ -74,23 +117,23 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adicionar Pessoa ao Subprojeto</DialogTitle>
+          <DialogTitle>Adicionar {typeLabels[allocationType]}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Buscar pessoa</Label>
+            <Label>Buscar</Label>
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filtrar por nome..." />
           </div>
           <div>
-            <Label>Pessoa *</Label>
-            <Select value={selectedPersonId} onValueChange={setSelectedPersonId}>
+            <Label>{allocationType === 'hr' ? 'Pessoa' : allocationType === 'resource' ? 'Recurso' : 'Overhead'} *</Label>
+            <Select value={selectedId} onValueChange={setSelectedId}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {availablePeople.length === 0 ? (
-                  <SelectItem value="__none" disabled>Nenhuma pessoa disponível</SelectItem>
+                {availableItems.length === 0 ? (
+                  <SelectItem value="__none" disabled>Nenhum item disponível</SelectItem>
                 ) : (
-                  availablePeople.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                  availableItems.map(item => (
+                    <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
                   ))
                 )}
               </SelectContent>

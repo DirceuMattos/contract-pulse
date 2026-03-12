@@ -444,6 +444,9 @@ export default function ContractResourcesPage() {
           custoMensalTotal={health.custoMensal}
           canViewHRCosts={canViewHRCosts}
           peopleMap={peopleMap}
+          resourcesMap={new Map(resources.filter(r => r.contractId === id).map(r => [r.id, r]))}
+          overheadItemsMap={new Map(overheadItems.filter(o => o.contractId === id).map(o => [o.id, o]))}
+          receitaMensal={health.receitaMensal}
         />
       )}
 
