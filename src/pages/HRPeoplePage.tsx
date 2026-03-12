@@ -94,7 +94,7 @@ export default function HRPeoplePage() {
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
-      const matchSearch = !q || p.nome.toLowerCase().includes(q) || (p.observacoes || '').toLowerCase().includes(q);
+      const matchSearch = !q || p.nome.toLowerCase().includes(q) || (p.observacoes || '').toLowerCase().includes(q) || (p.matricula || '').toLowerCase().includes(q);
       const matchSituacao = filterSituacao === 'todos' || p.situacao === filterSituacao;
       const matchTeam = !filterTeam || p.teamId === filterTeam;
       const matchCargo = !filterCargo || p.cargoId === filterCargo;
@@ -233,7 +233,7 @@ export default function HRPeoplePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nome ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+              <Input placeholder="Buscar por nome, matrícula ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <Select value={filterSituacao} onValueChange={(v: any) => setFilterSituacao(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -329,6 +329,7 @@ export default function HRPeoplePage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('nome')}>Nome <SortIcon field="nome" /></TableHead>
+                      <TableHead className="text-xs">Matrícula</TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tipoVinculo')}>Vínculo <SortIcon field="tipoVinculo" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('cargo')}>Cargo <SortIcon field="cargo" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('team')}>Dept. <SortIcon field="team" /></TableHead>
@@ -348,6 +349,7 @@ export default function HRPeoplePage() {
                       return (
                         <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2">{p.matricula || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge className={`text-xs ${
                               p.tipoVinculo === 'clt' ? 'bg-emerald-600 text-white hover:bg-emerald-700' :

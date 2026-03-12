@@ -36,6 +36,7 @@ interface HRPersonSimple {
   nome: string;
   email: string | null;
   id_externo: string | null;
+  matricula: string | null;
   situacao: string;
   data_admissao: string;
 }
@@ -73,7 +74,7 @@ export default function FeedzReconciliationPage() {
     const [pendingRes, conflictRes, peopleRes] = await Promise.all([
       pendingQuery,
       conflictQuery,
-      supabase.from('hr_people').select('id, nome, email, id_externo, situacao, data_admissao'),
+      supabase.from('hr_people').select('id, nome, email, id_externo, matricula, situacao, data_admissao'),
     ]);
 
     const allP = (peopleRes.data || []) as unknown as HRPersonSimple[];

@@ -30,6 +30,7 @@ const BENEFICIO_OPTIONS = [
 
 const hrPersonSchema = z.object({
   nome: z.string().min(2, 'Nome é obrigatório'),
+  matricula: z.string().trim().optional(),
   tipoVinculo: z.enum(['clt', 'pj', 'cooperado', 'socio', 'estagio']),
   cargoId: z.string().optional(),
   teamId: z.string().optional(),
@@ -82,6 +83,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
     resolver: zodResolver(hrPersonSchema),
     defaultValues: {
       nome: person?.nome || '',
+      matricula: person?.matricula || '',
       tipoVinculo: person?.tipoVinculo || 'clt',
       cargoId: person?.cargoId || '',
       teamId: person?.teamId || '',
@@ -134,6 +136,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
     const hasSoma = beneficiosLista.some(b => b.somaRemuneracao);
     onSubmit({
       nome: data.nome,
+      matricula: data.matricula || undefined,
       tipoVinculo: data.tipoVinculo,
       cargoId: data.cargoId && data.cargoId !== 'none' ? data.cargoId : undefined,
       teamId: data.teamId && data.teamId !== 'none' ? data.teamId : undefined,
@@ -174,6 +177,16 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
               <FormItem className="md:col-span-2">
                 <FormLabel>Nome *</FormLabel>
                 <FormControl><Input placeholder="Nome completo" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="matricula" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Matrícula</FormLabel>
+                <FormControl><Input placeholder="Ex: 12345" {...field} /></FormControl>
+                {!field.value && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Sem matrícula — não será sincronizado automaticamente</p>
+                )}
                 <FormMessage />
               </FormItem>
             )} />
