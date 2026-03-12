@@ -22,6 +22,8 @@ import {
   Info,
   ChevronDown,
   Layers,
+  Box,
+  Settings2,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
@@ -54,7 +56,7 @@ import {
   getDaysSince,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
-import { HealthStatus, Resource } from '@/types';
+import { HealthStatus, Resource, OverheadItem } from '@/types';
 import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
@@ -389,7 +391,7 @@ export default function ContractDetailPage() {
       <Tabs defaultValue="resumo" className="space-y-6">
         <TabsList>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="recursos">Recursos ({contractResources.length})</TabsTrigger>
+          <TabsTrigger value="recursos">Recursos ({contractResources.length + contractOverheadItems.length})</TabsTrigger>
           <TabsTrigger value="escopo">Escopo</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
           {canAccessModule('HISTORY') && <TabsTrigger value="historico">Histórico</TabsTrigger>}
@@ -549,66 +551,18 @@ export default function ContractDetailPage() {
           )}
         </TabsContent>
         
-        <TabsContent value="recursos" className="space-y-4">
-          {contractResources.length > 0 ? (
-            <div className="space-y-3">
-              {contractResources.map(resource => {
-                const cost = calculateResourceCost(resource, settings);
-                return (
-                  <Card key={resource.id} className="card-elevated">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            'w-10 h-10 rounded-lg flex items-center justify-center',
-                            resource.tipo === 'clt' && 'bg-primary/10 text-primary',
-                            resource.tipo === 'pj' && 'bg-chart-4/10 text-chart-4',
-                            resource.tipo === 'outro' && 'bg-muted text-muted-foreground',
-                          )}>
-                            <User className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{resource.nome}</p>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {resource.cargo && <span>{resource.cargo}</span>}
-                              {resource.senioridade && (
-                                <Badge variant="secondary" className="text-xs capitalize">
-                                  {resource.senioridade}
-                                </Badge>
-                              )}
-                              <span>{resource.percentualDedicacao}% dedicação</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <Badge className={cn(
-                            'mb-1',
-                            resource.tipo === 'clt' && 'bg-primary/10 text-primary',
-                            resource.tipo === 'pj' && 'bg-chart-4/10 text-chart-4',
-                            resource.tipo === 'outro' && 'bg-muted text-muted-foreground',
-                          )}>
-                            {resource.tipo.toUpperCase()}
-                          </Badge>
-                          {canViewValues && (
-                            (resource.tipo === 'clt' || resource.tipo === 'pj') && !canViewHRCosts ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <p className="text-sm font-medium text-muted-foreground">---</p>
-                                </TooltipTrigger>
-                                <TooltipContent>Valores de RH restritos ao perfil C-Level</TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              <p className="text-sm font-medium">{formatCurrency(cost)}/mês</p>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+        <TabsContent value="recursos" className="space-y-6">
+          {/* Manage button */}
+          {canEdit && (
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => navigate(`/contratos/${id}/recursos`, { state: location.state })} className="gap-2">
+                <Settings2 className="w-4 h-4" />
+                Gerenciar Recursos
+              </Button>
             </div>
-          ) : (
+          )}
+
+          {contractResources.length === 0 && contractOverheadItems.length === 0 ? (
             <Card className="card-elevated">
               <CardContent className="py-12 text-center">
                 <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -622,6 +576,175 @@ export default function ContractDetailPage() {
                 )}
               </CardContent>
             </Card>
+          ) : (
+            <>
+              {/* Recursos Humanos (CLT/PJ) */}
+              {(() => {
+                const hrResources = contractResources.filter(r => r.tipo === 'clt' || r.tipo === 'pj');
+                if (hrResources.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Users className="w-4 h-4" />
+                      Recursos Humanos ({hrResources.length})
+                    </div>
+                    {hrResources.map(resource => {
+                      const cost = calculateResourceCost(resource, settings);
+                      return (
+                        <Card key={resource.id} className="card-elevated">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  'w-10 h-10 rounded-lg flex items-center justify-center',
+                                  resource.tipo === 'clt' && 'bg-primary/10 text-primary',
+                                  resource.tipo === 'pj' && 'bg-chart-4/10 text-chart-4',
+                                )}>
+                                  <User className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{resource.nome}</p>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    {resource.cargo && <span>{resource.cargo}</span>}
+                                    {resource.senioridade && (
+                                      <Badge variant="secondary" className="text-xs capitalize">
+                                        {resource.senioridade}
+                                      </Badge>
+                                    )}
+                                    <span>{resource.percentualDedicacao}% dedicação</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge className={cn(
+                                  'mb-1',
+                                  resource.tipo === 'clt' && 'bg-primary/10 text-primary',
+                                  resource.tipo === 'pj' && 'bg-chart-4/10 text-chart-4',
+                                )}>
+                                  {resource.tipo.toUpperCase()}
+                                </Badge>
+                                {canViewValues && (
+                                  !canViewHRCosts ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <p className="text-sm font-medium text-muted-foreground">---</p>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Valores de RH restritos ao perfil C-Level</TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <p className="text-sm font-medium">{formatCurrency(cost)}/mês</p>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Outros Recursos */}
+              {(() => {
+                const otherResources = contractResources.filter(r => r.tipo === 'outro');
+                if (otherResources.length === 0) return null;
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Box className="w-4 h-4" />
+                      Outros Recursos ({otherResources.length})
+                    </div>
+                    {otherResources.map(resource => {
+                      const cost = calculateResourceCost(resource, settings);
+                      return (
+                        <Card key={resource.id} className="card-elevated">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                                  <Box className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{resource.nome}</p>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    {resource.categoria && (
+                                      <Badge variant="secondary" className="text-xs capitalize">
+                                        {resource.categoria}
+                                      </Badge>
+                                    )}
+                                    <span>{resource.percentualDedicacao}% dedicação</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="mb-1 bg-muted text-muted-foreground">OUTRO</Badge>
+                                {canViewValues && (
+                                  <p className="text-sm font-medium">{formatCurrency(cost)}/mês</p>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Custos Indiretos (Overhead) */}
+              {contractOverheadItems.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    <Layers className="w-4 h-4" />
+                    Custos Indiretos — Overhead ({contractOverheadItems.length})
+                  </div>
+                  {contractOverheadItems.map(item => {
+                    const categoryLabels: Record<string, string> = {
+                      infraestrutura: 'Infraestrutura',
+                      administrativo: 'Administrativo',
+                      governanca: 'Governança',
+                    };
+                    return (
+                      <Card key={item.id} className="card-elevated">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-lg bg-accent/50 flex items-center justify-center text-accent-foreground">
+                                <Layers className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{item.nome}</p>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {categoryLabels[item.categoria] || item.categoria}
+                                  </Badge>
+                                  <span>
+                                    {item.modo === 'percentual'
+                                      ? `${item.percentual ?? 0}% sobre base`
+                                      : `Fixo mensal`}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Badge className="mb-1 bg-accent/50 text-accent-foreground">OVERHEAD</Badge>
+                              {canViewValues && (
+                                <p className="text-sm font-medium">
+                                  {item.modo === 'fixo'
+                                    ? `${formatCurrency(item.valorFixoMensal ?? 0)}/mês`
+                                    : `${item.percentual ?? 0}%`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
         
