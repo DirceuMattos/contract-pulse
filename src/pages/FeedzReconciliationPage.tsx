@@ -74,7 +74,7 @@ export default function FeedzReconciliationPage() {
     const [pendingRes, conflictRes, peopleRes] = await Promise.all([
       pendingQuery,
       conflictQuery,
-      supabase.from('hr_people').select('id, nome, email, id_externo, situacao, data_admissao'),
+      supabase.from('hr_people').select('id, nome, email, id_externo, matricula, situacao, data_admissao'),
     ]);
 
     const allP = (peopleRes.data || []) as unknown as HRPersonSimple[];
