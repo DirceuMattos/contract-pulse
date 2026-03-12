@@ -349,6 +349,7 @@ export default function HRPeoplePage() {
                       return (
                         <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-2">{p.matricula || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge className={`text-xs ${
                               p.tipoVinculo === 'clt' ? 'bg-emerald-600 text-white hover:bg-emerald-700' :

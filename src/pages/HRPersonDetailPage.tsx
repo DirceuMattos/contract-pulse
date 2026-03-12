@@ -318,6 +318,7 @@ export default function HRPersonDetailPage() {
               <CardHeader><CardTitle className="text-base">Dados Pessoais</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <Row label="Nome" value={person.nome} />
+                {person.matricula && <Row label="Matrícula" value={person.matricula} />}
                 <Row label="Vínculo" value={<Badge variant={person.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{person.tipoVinculo.toUpperCase()}</Badge>} />
                 <Row label="Situação" value={<Badge className={person.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
                 <Row label="Cargo" value={cargoLabel || '—'} />
