@@ -171,7 +171,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Identificação */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Identificação</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Dados Profissionais</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="nome" render={({ field }) => (
               <FormItem className="md:col-span-2">
@@ -182,7 +182,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
             )} />
             <FormField control={form.control} name="matricula" render={({ field }) => (
               <FormItem>
-                <FormLabel>Matrícula</FormLabel>
+                <FormLabel>Matrícula Feedz</FormLabel>
                 <FormControl><Input placeholder="Ex: 12345" {...field} /></FormControl>
                 {!field.value && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">Sem matrícula — não será sincronizado automaticamente</p>
