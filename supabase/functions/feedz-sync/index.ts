@@ -84,6 +84,20 @@ async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee
   throw new Error('Unexpected Feedz API response format')
 }
 
+// ─── DUPLICATE DETECTION ─────────────────────────────────────────────────────
+function detectFeedzDuplicates(employees: FeedzEmployee[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const e of employees) {
+    const key = String(e.employeeId)
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  const duplicates = new Map<string, number>()
+  for (const [key, count] of counts) {
+    if (count > 1) duplicates.set(key, count)
+  }
+  return duplicates
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -140,10 +154,28 @@ Deno.serve(async (req) => {
 
   const runId = syncRun.id
   let processed = 0, created = 0, updated = 0, terminated = 0, pending = 0, conflicts = 0
-  let matchedByFeedzId = 0, matchedByEmail = 0, matchedByPhone = 0, matchedByNameScore = 0
 
   try {
     const feedzData = await fetchAllFeedzEmployees(feedzToken)
+
+    // ─── DUPLICATE DETECTION (block run if Feedz has duplicate employeeIds) ──
+    const duplicates = detectFeedzDuplicates(feedzData)
+    if (duplicates.size > 0) {
+      const dupList = Array.from(duplicates.entries())
+        .map(([id, count]) => `matrícula ${id} (${count}x)`)
+        .join(', ')
+      const errorMsg = `Feedz retornou matrículas duplicadas: ${dupList}. Sincronização bloqueada.`
+      console.error(`[feedz-sync] ${errorMsg}`)
+      await db.from('feedz_sync_runs').update({
+        status: 'error',
+        ended_at: new Date().toISOString(),
+        error_message: errorMsg,
+      }).eq('id', runId)
+      return new Response(JSON.stringify({ error: errorMsg }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Load existing data
     const { data: existingPeople } = await db.from('hr_people').select('*')
@@ -288,7 +320,6 @@ Deno.serve(async (req) => {
         const { data: insertedPerson, error: insertErr } = await db.from('hr_people').insert(dbPayload).select('id').single()
         if (!insertErr && insertedPerson) {
           created++
-          matchedByFeedzId++
           matriculaMap.set(matricula, { ...dbPayload, id: insertedPerson.id })
           syncItems.push({
             sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
@@ -301,6 +332,15 @@ Deno.serve(async (req) => {
             sync_run_id: runId, external_id: externalId, event_type: 'create',
             fields_changed: Object.keys(dbPayload),
             summary: `Criado (matrícula ${matricula}): ${feedzName}`,
+          })
+
+          // ─── TIMELINE: Admissão (Feedz) ─────────────────────────────
+          await db.from('hr_timeline').insert({
+            person_id: insertedPerson.id,
+            event_date: dbPayload.data_admissao,
+            ocorrencia: 'admissao',
+            descricao: `Admissão sincronizada via Feedz (matrícula ${matricula})`,
+            atualizar_remuneracao: false,
           })
         } else {
           console.error(`[feedz-sync] Insert error for ${feedzName}: ${insertErr?.message}`)
@@ -323,7 +363,6 @@ Deno.serve(async (req) => {
         }
       } else {
         // ─── UPDATE EXISTING ──────────────────────────────────────────
-        matchedByFeedzId++
         const snapshotBefore: Record<string, any> = {}
         const fieldsChanged: { field: string; before: any; after: any }[] = []
 
@@ -346,7 +385,9 @@ Deno.serve(async (req) => {
           checkField('id_externo', existing.id_externo, dbPayload.id_externo)
         }
 
-        // Handle termination
+        const changedFieldNames = fieldsChanged.map(f => f.field)
+
+        // Handle termination (ativo → inativo)
         if (existing.situacao === 'ativo' && situacao === 'inativo') {
           dbPayload.data_desligamento = new Date().toISOString().split('T')[0]
           dbPayload.tipo_desligamento = 'outro'
@@ -363,7 +404,20 @@ Deno.serve(async (req) => {
           terminated++
         }
 
-        const changedFieldNames = fieldsChanged.map(f => f.field)
+        // Handle reactivation (inativo → ativo)
+        if (existing.situacao === 'inativo' && situacao === 'ativo') {
+          dbPayload.data_desligamento = null
+          dbPayload.tipo_desligamento = null
+          dbPayload.motivo_desligamento = null
+
+          await db.from('hr_timeline').insert({
+            person_id: existing.id,
+            event_date: new Date().toISOString().split('T')[0],
+            ocorrencia: 'reativacao',
+            descricao: `Reativação sincronizada via Feedz (matrícula ${matricula})`,
+            atualizar_remuneracao: false,
+          })
+        }
 
         if (fieldsChanged.length > 0 || !existing.last_synced_at) {
           const { error: updateErr } = await db.from('hr_people').update(dbPayload).eq('id', existing.id)
@@ -411,6 +465,17 @@ Deno.serve(async (req) => {
                 atualizar_remuneracao: false,
               })
             }
+
+            // Timeline for vínculo change
+            if (changedFieldNames.includes('tipo_vinculo')) {
+              await db.from('hr_timeline').insert({
+                person_id: existing.id,
+                event_date: new Date().toISOString().split('T')[0],
+                ocorrencia: 'mudanca-vinculo',
+                descricao: `Vínculo alterado via Feedz: ${existing.tipo_vinculo} → ${dbPayload.tipo_vinculo}`,
+                atualizar_remuneracao: false,
+              })
+            }
           }
         } else {
           // No changes — SKIP
@@ -446,15 +511,14 @@ Deno.serve(async (req) => {
       records_terminated: terminated,
       records_pending: pending,
       records_conflicts: conflicts,
-      matched_by_feedz_id: matchedByFeedzId,
-      matched_by_email: matchedByEmail,
-      matched_by_phone: matchedByPhone,
-      matched_by_name_score: matchedByNameScore,
+      matched_by_feedz_id: processed - pending,
+      matched_by_email: 0,
+      matched_by_phone: 0,
+      matched_by_name_score: 0,
     }).eq('id', runId)
 
     return new Response(JSON.stringify({
       success: true, runId, processed, created, updated, terminated, pending, conflicts,
-      matchedByFeedzId, matchedByEmail, matchedByPhone, matchedByNameScore,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (err: any) {
