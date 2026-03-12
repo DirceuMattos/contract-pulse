@@ -50,6 +50,24 @@ function normalizePhone(phone: string | null | undefined): string | null {
   return digits
 }
 
+// ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
+function computePayloadHash(data: Record<string, any>): string {
+  const keys = ['nome', 'tipo_vinculo', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'remuneracao_mensal', 'data_admissao']
+  const obj: Record<string, string> = {}
+  for (const k of keys) {
+    obj[k] = String(data[k] ?? '')
+  }
+  // Simple hash: deterministic JSON string
+  const str = JSON.stringify(obj)
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + chr
+    hash |= 0
+  }
+  return hash.toString(36)
+}
+
 async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee[]> {
   const baseUrl = 'https://app.feedz.com.br/v2/integracao/employees'
   const statuses = ['Ativo', 'Desligado', 'Desativado']
@@ -206,8 +224,23 @@ Deno.serve(async (req) => {
       else if (a.alias_type === 'departamento') deptoAliasMap.set(a.feedz_value.toLowerCase(), a)
     }
 
+    // Load last sync items per matricula for payload hash comparison
+    const { data: lastSyncItems } = await db.from('feedz_sync_items')
+      .select('feedz_id, payload_hash')
+      .not('payload_hash', 'is', null)
+      .in('action', ['UPDATE', 'INSERT', 'SKIP'])
+      .order('created_at', { ascending: false })
+    const lastHashMap = new Map<string, string>()
+    for (const item of (lastSyncItems || [])) {
+      if (item.feedz_id && item.payload_hash && !lastHashMap.has(item.feedz_id)) {
+        lastHashMap.set(item.feedz_id, item.payload_hash)
+      }
+    }
+
     const pendingMatches: any[] = []
     const syncItems: any[] = []
+    // Intra-run dedup set
+    const processedMatriculas = new Set<string>()
 
     for (const person of feedzData) {
       processed++
@@ -215,7 +248,6 @@ Deno.serve(async (req) => {
       const feedzName = person.full_name || person.name || ''
       const feedzNorm = normalizeName(feedzName)
       const feedzEmailRaw = person.email || null
-      const feedzEmailNorm = normalizeEmail(feedzEmailRaw)
       const feedzPhoneRaw = person.cellphone || person.phone || null
       const feedzPhoneNorm = normalizePhone(feedzPhoneRaw)
       const feedzDept = person.department_data?.name || (typeof person.department === 'string' ? person.department : null)
@@ -224,6 +256,13 @@ Deno.serve(async (req) => {
 
       // ─── MATRICULA: use employeeId as matricula ─────────────────────
       const matricula = externalId
+
+      // ─── INTRA-RUN DEDUP ─────────────────────────────────────────────
+      if (processedMatriculas.has(matricula)) {
+        console.log(`[feedz-sync] Duplicate feedz row in run, skipping matrícula ${matricula}`)
+        continue
+      }
+      processedMatriculas.add(matricula)
 
       // ─── RESOLVE CARGO (with alias) ───────────────────────────────────
       let cargoId: string | null = null
@@ -289,6 +328,9 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }
 
+      // Compute payload hash for idempotency
+      const payloadHash = computePayloadHash(dbPayload)
+
       // ─── MATCH BY MATRICULA (sole strategy) ──────────────────────────
       if (!matricula) {
         // No matricula → PENDING
@@ -297,7 +339,7 @@ Deno.serve(async (req) => {
           sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
           feedz_name: feedzName, match_strategy: 'NONE',
           action: 'PENDING', reason_code: 'NO_MATRICULA',
-          fields_changed_json: [],
+          fields_changed_json: [], payload_hash: payloadHash,
         })
         pendingMatches.push({
           sync_run_id: runId, external_id: externalId, feedz_name: feedzName,
@@ -327,6 +369,7 @@ Deno.serve(async (req) => {
             matched_hr_person_id: insertedPerson.id,
             action: 'INSERT', reason_code: null,
             fields_changed_json: Object.keys(dbPayload).map(k => ({ field: k, before: null, after: dbPayload[k] })),
+            payload_hash: payloadHash,
           })
           await db.from('feedz_sync_events').insert({
             sync_run_id: runId, external_id: externalId, event_type: 'create',
@@ -334,13 +377,15 @@ Deno.serve(async (req) => {
             summary: `Criado (matrícula ${matricula}): ${feedzName}`,
           })
 
-          // ─── TIMELINE: Admissão (Feedz) ─────────────────────────────
+          // ─── TIMELINE: Admissão (Feedz) with source tracking ────────
           await db.from('hr_timeline').insert({
             person_id: insertedPerson.id,
             event_date: dbPayload.data_admissao,
             ocorrencia: 'admissao',
             descricao: `Admissão sincronizada via Feedz (matrícula ${matricula})`,
             atualizar_remuneracao: false,
+            source: 'feedz',
+            sync_run_id: runId,
           })
         } else {
           console.error(`[feedz-sync] Insert error for ${feedzName}: ${insertErr?.message}`)
@@ -350,7 +395,7 @@ Deno.serve(async (req) => {
               sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
               feedz_name: feedzName, match_strategy: 'MATRICULA',
               action: 'PENDING', reason_code: 'MATRICULA_CONFLICT',
-              fields_changed_json: [],
+              fields_changed_json: [], payload_hash: payloadHash,
             })
             pendingMatches.push({
               sync_run_id: runId, external_id: externalId, feedz_name: feedzName,
@@ -362,6 +407,22 @@ Deno.serve(async (req) => {
           }
         }
       } else {
+        // ─── IDEMPOTENCY CHECK ──────────────────────────────────────────
+        const lastHash = lastHashMap.get(externalId)
+        if (lastHash && lastHash === payloadHash && existing.last_synced_at) {
+          // No real change — SKIP
+          syncItems.push({
+            sync_run_id: runId, feedz_id: externalId, feedz_email: feedzEmailRaw,
+            feedz_name: feedzName, match_strategy: 'MATRICULA',
+            matched_hr_person_id: existing.id,
+            action: 'SKIP', reason_code: 'HASH_UNCHANGED',
+            fields_changed_json: [], payload_hash: payloadHash,
+          })
+          // Still update last_synced_at
+          await db.from('hr_people').update({ last_synced_at: new Date().toISOString() }).eq('id', existing.id)
+          continue
+        }
+
         // ─── UPDATE EXISTING ──────────────────────────────────────────
         const snapshotBefore: Record<string, any> = {}
         const fieldsChanged: { field: string; before: any; after: any }[] = []
@@ -400,6 +461,8 @@ Deno.serve(async (req) => {
             ocorrencia: 'desligamento',
             descricao: 'Desligamento sincronizado via Feedz.',
             atualizar_remuneracao: false,
+            source: 'feedz',
+            sync_run_id: runId,
           })
           terminated++
         }
@@ -416,6 +479,8 @@ Deno.serve(async (req) => {
             ocorrencia: 'reativacao',
             descricao: `Reativação sincronizada via Feedz (matrícula ${matricula})`,
             atualizar_remuneracao: false,
+            source: 'feedz',
+            sync_run_id: runId,
           })
         }
 
@@ -430,6 +495,7 @@ Deno.serve(async (req) => {
               action: 'UPDATE', reason_code: null,
               fields_changed_json: fieldsChanged,
               snapshot_before: snapshotBefore,
+              payload_hash: payloadHash,
             })
             await db.from('feedz_sync_events').insert({
               sync_run_id: runId, external_id: externalId,
@@ -449,6 +515,8 @@ Deno.serve(async (req) => {
                 ocorrencia: 'mudanca-cargo',
                 descricao: `Cargo alterado via Feedz: ${oldLabel} → ${newLabel}`,
                 atualizar_remuneracao: false,
+                source: 'feedz',
+                sync_run_id: runId,
               })
             }
 
@@ -463,6 +531,8 @@ Deno.serve(async (req) => {
                 valor: Number(dbPayload.remuneracao_mensal) - oldRemun,
                 remuneracao_apos: Number(dbPayload.remuneracao_mensal),
                 atualizar_remuneracao: false,
+                source: 'feedz',
+                sync_run_id: runId,
               })
             }
 
@@ -474,6 +544,8 @@ Deno.serve(async (req) => {
                 ocorrencia: 'mudanca-vinculo',
                 descricao: `Vínculo alterado via Feedz: ${existing.tipo_vinculo} → ${dbPayload.tipo_vinculo}`,
                 atualizar_remuneracao: false,
+                source: 'feedz',
+                sync_run_id: runId,
               })
             }
           }
@@ -484,7 +556,7 @@ Deno.serve(async (req) => {
             feedz_name: feedzName, match_strategy: 'MATRICULA',
             matched_hr_person_id: existing.id,
             action: 'SKIP', reason_code: null,
-            fields_changed_json: [],
+            fields_changed_json: [], payload_hash: payloadHash,
           })
         }
       }

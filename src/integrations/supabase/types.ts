@@ -569,7 +569,10 @@ export type Database = {
           id: string
           match_strategy: string
           matched_hr_person_id: string | null
+          payload_hash: string | null
           reason_code: string | null
+          reverted_at: string | null
+          reverted_by: string | null
           snapshot_before: Json | null
           sync_run_id: string
         }
@@ -583,7 +586,10 @@ export type Database = {
           id?: string
           match_strategy?: string
           matched_hr_person_id?: string | null
+          payload_hash?: string | null
           reason_code?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           snapshot_before?: Json | null
           sync_run_id: string
         }
@@ -597,7 +603,10 @@ export type Database = {
           id?: string
           match_strategy?: string
           matched_hr_person_id?: string | null
+          payload_hash?: string | null
           reason_code?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           snapshot_before?: Json | null
           sync_run_id?: string
         }
@@ -950,6 +959,8 @@ export type Database = {
           ocorrencia: string
           person_id: string
           remuneracao_apos: number | null
+          source: string | null
+          sync_run_id: string | null
           updated_at: string
           valor: number | null
         }
@@ -963,6 +974,8 @@ export type Database = {
           ocorrencia?: string
           person_id: string
           remuneracao_apos?: number | null
+          source?: string | null
+          sync_run_id?: string | null
           updated_at?: string
           valor?: number | null
         }
@@ -976,6 +989,8 @@ export type Database = {
           ocorrencia?: string
           person_id?: string
           remuneracao_apos?: number | null
+          source?: string | null
+          sync_run_id?: string | null
           updated_at?: string
           valor?: number | null
         }

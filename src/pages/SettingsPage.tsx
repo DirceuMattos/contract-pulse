@@ -739,6 +739,14 @@ function FeedzSyncSection() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => navigate(`/configuracoes/feedz-reconciliacao?runId=${r.id}`)}
+                              title="Abrir detalhes"
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleExportReport(r)}
                               disabled={exportingRun === r.id}
                               title="Exportar relatório"
