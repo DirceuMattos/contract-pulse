@@ -171,7 +171,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Identificação */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Identificação</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Dados Profissionais</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="nome" render={({ field }) => (
               <FormItem className="md:col-span-2">
