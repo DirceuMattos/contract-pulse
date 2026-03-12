@@ -329,6 +329,7 @@ export default function HRPeoplePage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('nome')}>Nome <SortIcon field="nome" /></TableHead>
+                      <TableHead className="text-xs">Matrícula</TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tipoVinculo')}>Vínculo <SortIcon field="tipoVinculo" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('cargo')}>Cargo <SortIcon field="cargo" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('team')}>Dept. <SortIcon field="team" /></TableHead>
