@@ -333,7 +333,7 @@ export default function HRPersonDetailPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Contato & Vínculos</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Dados Complementares</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {person.email && <Row label="E-mail" value={person.email} />}
                 {person.celular && <Row label="Celular" value={person.celular} />}
