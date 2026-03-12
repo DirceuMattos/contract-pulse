@@ -94,7 +94,7 @@ export default function HRPeoplePage() {
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
-      const matchSearch = !q || p.nome.toLowerCase().includes(q) || (p.observacoes || '').toLowerCase().includes(q);
+      const matchSearch = !q || p.nome.toLowerCase().includes(q) || (p.observacoes || '').toLowerCase().includes(q) || (p.matricula || '').toLowerCase().includes(q);
       const matchSituacao = filterSituacao === 'todos' || p.situacao === filterSituacao;
       const matchTeam = !filterTeam || p.teamId === filterTeam;
       const matchCargo = !filterCargo || p.cargoId === filterCargo;
