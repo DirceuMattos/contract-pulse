@@ -136,6 +136,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
     const hasSoma = beneficiosLista.some(b => b.somaRemuneracao);
     onSubmit({
       nome: data.nome,
+      matricula: data.matricula || undefined,
       tipoVinculo: data.tipoVinculo,
       cargoId: data.cargoId && data.cargoId !== 'none' ? data.cargoId : undefined,
       teamId: data.teamId && data.teamId !== 'none' ? data.teamId : undefined,
