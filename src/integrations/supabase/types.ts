@@ -826,6 +826,7 @@ export type Database = {
           id_externo: string | null
           last_synced_at: string | null
           local_atuacao: string | null
+          matricula: string | null
           motivo_desligamento: string | null
           nivel: string | null
           nome: string
@@ -863,6 +864,7 @@ export type Database = {
           id_externo?: string | null
           last_synced_at?: string | null
           local_atuacao?: string | null
+          matricula?: string | null
           motivo_desligamento?: string | null
           nivel?: string | null
           nome?: string
@@ -900,6 +902,7 @@ export type Database = {
           id_externo?: string | null
           last_synced_at?: string | null
           local_atuacao?: string | null
+          matricula?: string | null
           motivo_desligamento?: string | null
           nivel?: string | null
           nome?: string
