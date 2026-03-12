@@ -315,36 +315,38 @@ export default function HRPersonDetailPage() {
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">Dados Pessoais</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Dados Profissionais</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <Row label="Nome" value={person.nome} />
-                {person.matricula && <Row label="Matrícula" value={person.matricula} />}
-                <Row label="Vínculo" value={<Badge variant={person.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{person.tipoVinculo.toUpperCase()}</Badge>} />
                 <Row label="Situação" value={<Badge className={person.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
+                <Row label="Vínculo" value={<Badge variant={person.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{person.tipoVinculo.toUpperCase()}</Badge>} />
                 <Row label="Cargo" value={cargoLabel || '—'} />
-                {person.cargoAntigo && <Row label="Cargo Anterior" value={person.cargoAntigo} />}
-                <Row label="Departamento" value={teamName || '—'} />
-                <Row label="Local de Atuação" value={person.localAtuacao || '—'} />
                 {person.nivel && <Row label="Nível" value={person.nivel} />}
-                {person.trilha && <Row label="Trilha" value={person.trilha} />}
-                {person.projeto && <Row label="Projeto" value={person.projeto} />}
-                {person.centroCusto && <Row label="Centro de Custo" value={person.centroCusto} />}
+                {person.cargoAntigo && <Row label="Cargo Anterior" value={person.cargoAntigo} />}
                 {person.idExterno && <Row label="ID Externo" value={person.idExterno} />}
+                {person.matricula && <Row label="Matrícula Feedz" value={person.matricula} />}
               </CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Dados Complementares</CardTitle></CardHeader>
               <CardContent className="space-y-3">
+                <Row label="Departamento" value={teamName || '—'} />
+                <Row label="Local de Atuação" value={person.localAtuacao || '—'} />
+                {person.trilha && <Row label="Trilha" value={person.trilha} />}
                 {person.email && <Row label="E-mail" value={person.email} />}
-                {person.celular && <Row label="Celular" value={person.celular} />}
-                <Row label="Data de Admissão" value={new Date(person.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')} />
-                <Row label={isFrozen ? "Tempo de Casa (final)" : "Tempo de Casa"} value={
-                  <div className="flex items-center gap-2">
-                    <span>{tempoCasa}</span>
-                    <Badge variant="outline" className="text-xs">{tempoCasaMeses}m</Badge>
-                    {isFrozen && <Badge variant="secondary" className="text-xs">Congelado</Badge>}
-                  </div>
-                } />
+
+                <div className="mt-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Admissão</p>
+                  <Row label="Data de Admissão" value={new Date(person.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')} />
+                  <Row label={isFrozen ? "Tempo de Casa (final)" : "Tempo de Casa"} value={
+                    <div className="flex items-center gap-2">
+                      <span>{tempoCasa}</span>
+                      <Badge variant="outline" className="text-xs">{tempoCasaMeses}m</Badge>
+                      {isFrozen && <Badge variant="secondary" className="text-xs">Congelado</Badge>}
+                    </div>
+                  } />
+                </div>
+
                 {person.situacao === 'inativo' && person.dataDesligamento && (
                   <Row label="Data de Desligamento" value={new Date(person.dataDesligamento + 'T12:00:00').toLocaleDateString('pt-BR')} />
                 )}
