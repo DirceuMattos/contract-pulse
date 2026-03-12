@@ -233,7 +233,7 @@ export default function HRPeoplePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nome ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+              <Input placeholder="Buscar por nome, matrícula ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <Select value={filterSituacao} onValueChange={(v: any) => setFilterSituacao(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
