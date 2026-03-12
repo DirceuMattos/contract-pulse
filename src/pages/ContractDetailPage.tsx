@@ -54,7 +54,7 @@ import {
   getDaysSince,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
-import { HealthStatus, Resource } from '@/types';
+import { HealthStatus, Resource, OverheadItem } from '@/types';
 import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
