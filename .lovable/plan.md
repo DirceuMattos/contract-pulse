@@ -1,160 +1,103 @@
 
 
-## Plan: Feedz Sync V2 — Report, Match Hardening, Aliases & Enhanced Rollback
+## Plano: FEEDZ SYNC V6 — Anti-Duplicidade, Conciliação Criados/Alterados, Rollback por Registro
 
-This is a large incremental upgrade to the Feedz integration. The plan preserves all existing functionality and adds layers of safety, auditability, and control.
+### Análise do Estado Atual
 
----
+A edge function `feedz-sync` **já usa matrícula como estratégia única**. Detecção de duplicatas Feedz, `feedz_sync_items` com snapshots, e rollback por run já existem. O que falta:
 
-### Database Changes (Migration)
-
-**1. New table `feedz_sync_items`** (replaces reliance on `feedz_sync_events` for audit detail)
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| sync_run_id | uuid FK | |
-| feedz_id | text | external employee id |
-| feedz_email | text | |
-| feedz_name | text | |
-| match_strategy | text | `FEEDZ_ID`, `EMAIL`, `PHONE`, `NAME_SCORE`, `NONE` |
-| matched_hr_person_id | uuid nullable | |
-| action | text | `INSERT`, `UPDATE`, `SKIP`, `PENDING`, `CONFLICT` |
-| reason_code | text nullable | `NO_MATCH`, `EMAIL_CONFLICT`, `LOW_SCORE`, `MISSING_KEY`, etc. |
-| fields_changed_json | jsonb | `[{field, before, after}]` for updates |
-| snapshot_before | jsonb nullable | full record before update (for rollback) |
-| created_at | timestamptz | |
-
-RLS: same pattern as `feedz_sync_events` (c-level insert, all select).
-
-**2. New table `feedz_alias_mappings`**
-
-| Column | Type |
-|--------|------|
-| id | uuid PK |
-| alias_type | text (`cargo` or `departamento`) |
-| feedz_value | text (exact Feedz string) |
-| internal_id | uuid nullable (job_title or team id) |
-| internal_label | text (canonical name) |
-| is_active | boolean default true |
-| created_at, updated_at | timestamptz |
-
-RLS: c-level full CRUD, all select.
-
-**3. New columns on `feedz_sync_runs`**
-
-- `matched_by_feedz_id` integer default 0
-- `matched_by_email` integer default 0
-- `matched_by_phone` integer default 0
-- `matched_by_name_score` integer default 0
-- `initiated_by` uuid nullable
-- `sync_mode` text default 'strict' (strict | permissive)
-
-**4. Add `phone_norm` column to `hr_people`** (text, nullable) for phone-based matching.
-
-**5. Unique constraint on `hr_people.id_externo`** (partial — WHERE id_externo IS NOT NULL).
+1. **Idempotência por payload_hash** (evitar "alterados" falsos)
+2. **UI de Conciliação por run** com abas Criados/Alterados e rollback por registro
+3. **Rollback por registro** (hoje só por run inteiro)
+4. **Inativação lógica** em vez de exclusão física para registros criados
+5. **Rastreabilidade de timeline** (source + run_id nos eventos para rollback preciso)
 
 ---
 
-### Edge Function: `feedz-sync` (Rewrite Core Logic)
+### 1. Migração de Banco
 
-Preserve structure, enhance matching pipeline:
-
-1. **Normalization layer** (before any matching):
-   - `email_norm = trim(lowercase(email))`, strip invisible chars
-   - `phone_norm = digits only`, prepend `55` if 10-11 digits
-   - `name_norm` = existing `normalizeName()`
-
-2. **Match cascade** (updated order):
-   - Step 1: `feedz_id` (id_externo) — strong match
-   - Step 2: `email_norm` — strong fallback. If email matches but id_externo diverges → CONFLICT
-   - Step 3: `phone_norm` — moderate fallback (new)
-   - Step 4: `name_norm + score` — weak fallback, threshold ≥ 1.2 for auto-match
-
-3. **Anti-insert rule** (critical change):
-   - Only INSERT if: feedz_id present AND email present AND no existing record with same email AND no probable name match (score ≥ 1.0)
-   - Otherwise → PENDING
-
-4. **Alias resolution** for cargo/depto:
-   - Load `feedz_alias_mappings` at start
-   - Before resolving cargo/team, check alias table first
-   - In strict mode: if no alias and no exact match → PENDING (don't auto-create)
-   - In permissive mode: auto-create as before
-
-5. **Per-item audit** (`feedz_sync_items`):
-   - For every Feedz record processed, insert a row with match_strategy, action, reason_code
-   - For UPDATEs: store `snapshot_before` (full hr_people row before update) and `fields_changed_json` with before/after per field
-   - For INSERTs: store the created hr_person_id
-
-6. **Counters**: track `matched_by_*` counters and save to `feedz_sync_runs`.
+- Adicionar coluna `payload_hash` (text, nullable) em `feedz_sync_items`
+- Adicionar coluna `reverted_at` (timestamptz, nullable) em `feedz_sync_items` — marca registros revertidos individualmente
+- Adicionar coluna `reverted_by` (uuid, nullable) em `feedz_sync_items`
+- Adicionar colunas `source` (text, default null) e `sync_run_id` (uuid, nullable) em `hr_timeline` — para rastrear eventos criados pelo Feedz e poder revertê-los
+- Garantir unique constraint estrito em `hr_people.matricula` (WHERE matricula IS NOT NULL) — já existe parcialmente, validar
 
 ---
 
-### Edge Function: `feedz-rollback` (Enhanced)
+### 2. Edge Function `feedz-sync` — Idempotência
 
-1. Accept `runId` parameter (any run, not just latest).
-2. Load all `feedz_sync_items` for that run.
-3. For items with `action = 'INSERT'`: delete the hr_person (and timeline entries).
-4. For items with `action = 'UPDATE'` and `snapshot_before` present: restore the previous field values from snapshot.
-5. **Safety check**: if a subsequent sync run (newer) modified the same hr_person_id, warn/block unless force flag is set.
-6. Mark run as `rolled_back`.
-
----
-
-### Frontend: Export Report per Run
-
-Add "Exportar Relatório" button per run in `SettingsPage.tsx` (FeedzSyncSection).
-
-On click:
-1. Fetch all `feedz_sync_items` for that `run_id`
-2. Generate XLSX using existing native XLSX builder in `importExport.ts` with 5 sheets:
-   - **Resumo**: run totals
-   - **Inserções**: items where action=INSERT
-   - **Atualizações**: items where action=UPDATE, with before/after columns
-   - **Pendências**: action=PENDING with suggested matches
-   - **Conflitos**: action=CONFLICT
+- Calcular hash simples (JSON.stringify dos campos relevantes ordenados) por matrícula
+- Antes de marcar como UPDATE: buscar último `feedz_sync_items` para aquela matrícula e comparar hash
+- Se hash igual → SKIP (não gerar "alterado" fantasma)
+- Armazenar `payload_hash` no `feedz_sync_items`
+- Em cada `hr_timeline.insert` gerado pelo sync, incluir `source: 'feedz'` e `sync_run_id: runId`
+- Usar set em memória `processedMatriculas` para ignorar duplicatas intra-run
 
 ---
 
-### Frontend: Alias Management UI
+### 3. Edge Function `feedz-rollback` — Rollback por Registro
 
-Add a new section in `SettingsPage.tsx` (or a sub-page) for managing `feedz_alias_mappings`:
-- Table listing aliases (type, feedz_value, internal_label)
-- Add/Edit/Delete dialog
-- Filter by type (cargo/departamento)
+Criar novo endpoint ou adaptar o existente para aceitar:
+- `{ runId }` → rollback do run inteiro (comportamento atual)
+- `{ itemId }` → rollback de um único `feedz_sync_item`
 
-Add a strict/permissive toggle that saves to `feedz_sync_runs.sync_mode` (or a settings-level config).
-
----
-
-### Frontend: Enhanced Rollback UI
-
-In the runs table:
-- Show "Rollback" button for any `success` run (not just the latest)
-- Dialog shows what will be reverted (X inserts deleted, Y updates restored)
-- Warn if subsequent syncs touched same records
+Para rollback de um item:
+- **INSERT**: inativar (`situacao='inativo'`, nota "Revertido do sync run X") em vez de deletar fisicamente. Apenas deletar se não houver alocações em `subproject_allocations` ou `resources`.
+- **UPDATE**: restaurar `snapshot_before` (campos alterados)
+- **Timeline**: remover/marcar como revertidos os eventos `hr_timeline` com `source='feedz'` e `sync_run_id` correspondente
+- Marcar `feedz_sync_items.reverted_at` e `reverted_by`
 
 ---
 
-### Files to Create/Modify
+### 4. Frontend: Nova Tela de Conciliação por Run
 
-| File | Action |
-|------|--------|
-| Migration SQL | Create `feedz_sync_items`, `feedz_alias_mappings`, alter `feedz_sync_runs`, alter `hr_people` |
-| `supabase/functions/feedz-sync/index.ts` | Major rewrite of matching + audit logic |
-| `supabase/functions/feedz-rollback/index.ts` | Add UPDATE rollback + per-run support |
-| `src/pages/SettingsPage.tsx` | Export button, alias management, enhanced rollback UI, strict/permissive toggle |
-| `src/pages/FeedzReconciliationPage.tsx` | Minor updates to use new `feedz_sync_items` data |
-| `src/lib/importExport.ts` | Add sync report XLSX generation function |
+Refatorar `FeedzReconciliationPage.tsx` para incluir **duas visões**:
+
+**Vista 1 — Lista de Runs** (tabela igual à de Settings, mas com botão "Abrir")
+
+**Vista 2 — Detalhe do Run** (ao clicar "Abrir"):
+- Abas: **Criados** | **Alterados** | **Bloqueados**
+- Cada aba mostra tabela com:
+  - `synced_at` (data/hora)
+  - Matrícula
+  - Nome
+  - Resumo de campos (chips/badges)
+  - Botão "Ver detalhes" (expande before/after)
+  - Botão "Reverter" (com modal de confirmação)
+  - Badge "Revertido" se já revertido
+- Busca por nome/matrícula
+- Filtro por campo alterado
+
+**Modal de rollback individual**:
+- Resumo do que será revertido
+- Checkbox de confirmação
+- Botão destrutivo "Reverter"
+- Toast de sucesso + badge "Revertido" na linha
 
 ---
 
-### Implementation Order
+### 5. Atualizar SettingsPage
 
-1. Database migration (new tables + columns)
-2. Edge function `feedz-sync` rewrite (matching hardening + audit items)
-3. Edge function `feedz-rollback` enhancement (update rollback + any run)
-4. Frontend: export report generation
-5. Frontend: alias management UI + strict/permissive toggle
-6. Frontend: enhanced rollback UI per run
+- Na tabela de runs, adicionar botão "Abrir" que navega para `/configuracoes/feedz-reconciliacao?runId=X`
+- Manter botões existentes (export XLSX, rollback do run inteiro)
+
+---
+
+### Arquivos a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| Migração SQL | `payload_hash`, `reverted_at`, `reverted_by` em `feedz_sync_items`; `source`, `sync_run_id` em `hr_timeline` |
+| `supabase/functions/feedz-sync/index.ts` | Payload hash, idempotência intra-run, `source`/`sync_run_id` em timeline |
+| `supabase/functions/feedz-rollback/index.ts` | Suporte a rollback por `itemId`, inativação lógica, rollback de timeline |
+| `src/pages/FeedzReconciliationPage.tsx` | Reescrita: lista de runs + detalhe com abas Criados/Alterados/Bloqueados + rollback por registro |
+| `src/pages/SettingsPage.tsx` | Botão "Abrir" por run |
+
+### Ordem de Implementação
+
+1. Migração de banco
+2. Edge function `feedz-sync` (hash + timeline source)
+3. Edge function `feedz-rollback` (per-item + inativação lógica)
+4. Frontend: Conciliação por run com rollback individual
+5. SettingsPage: botão "Abrir"
 
