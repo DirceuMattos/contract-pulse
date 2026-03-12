@@ -180,6 +180,16 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                 <FormMessage />
               </FormItem>
             )} />
+            <FormField control={form.control} name="matricula" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Matrícula</FormLabel>
+                <FormControl><Input placeholder="Ex: 12345" {...field} /></FormControl>
+                {!field.value && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Sem matrícula — não será sincronizado automaticamente</p>
+                )}
+                <FormMessage />
+              </FormItem>
+            )} />
             <FormField control={form.control} name="tipoVinculo" render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo de Vínculo *</FormLabel>

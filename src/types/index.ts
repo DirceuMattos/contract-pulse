@@ -431,6 +431,7 @@ export interface HRPerson {
   source?: string;
   syncStatus?: string;
   lastSyncedAt?: string;
+  matricula?: string;
   nomeNormalizado?: string;
   createdAt: string;
   updatedAt: string;

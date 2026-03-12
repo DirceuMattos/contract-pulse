@@ -614,6 +614,7 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     source: p.source ?? null,
     sync_status: p.syncStatus ?? null,
     last_synced_at: p.lastSyncedAt ?? null,
+    matricula: p.matricula ?? null,
     nome_normalizado: p.nomeNormalizado ?? null,
   };
 }
