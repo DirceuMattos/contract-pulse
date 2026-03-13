@@ -710,6 +710,10 @@ function FeedzSyncSection() {
                   <span className={`text-xs ${syncMode === 'permissive' ? 'font-semibold' : 'text-muted-foreground'}`}>Permissivo</span>
                 </div>
               </div>
+              <Button variant="outline" onClick={handleUpdateTerminationDates} disabled={updatingDates || syncing}>
+                {updatingDates ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calendar className="h-4 w-4 mr-2" />}
+                {updatingDates ? 'Atualizando...' : 'Atualizar Datas Deslig.'}
+              </Button>
               <Button onClick={handleSync} disabled={syncing}>
                 {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
