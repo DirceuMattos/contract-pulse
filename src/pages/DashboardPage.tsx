@@ -294,7 +294,7 @@ export default function DashboardPage() {
               variant="outline"
               role="combobox"
               aria-expanded={clientOpen}
-              className="justify-between min-w-[250px] text-left font-normal"
+              className="justify-between w-full sm:min-w-[250px] text-left font-normal"
             >
               <span className="truncate">{selectedClientLabel}</span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
