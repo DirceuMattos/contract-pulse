@@ -487,7 +487,7 @@ function FeedzSyncSection() {
       });
       if (error) throw new Error(typeof error === 'object' && error.message ? error.message : String(error));
       if (data?.error) throw new Error(data.error);
-      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados, ${data?.pending || 0} pendentes.`);
+      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados, ${data?.inconsistencies || 0} inconsistências.`);
       loadRuns();
     } catch (err: any) {
       toast.error(`Erro na sincronização: ${err.message || 'Erro desconhecido'}`);
@@ -711,8 +711,7 @@ function FeedzSyncSection() {
                       <TableHead className="text-xs">Criados</TableHead>
                       <TableHead className="text-xs">Atual.</TableHead>
                       <TableHead className="text-xs">Desl.</TableHead>
-                      <TableHead className="text-xs">Pend.</TableHead>
-                      <TableHead className="text-xs">Confl.</TableHead>
+                      <TableHead className="text-xs">Incons.</TableHead>
                       <TableHead className="text-xs">Modo</TableHead>
                       <TableHead className="text-xs">Ações</TableHead>
                     </TableRow>
@@ -729,8 +728,7 @@ function FeedzSyncSection() {
                         <TableCell className="text-xs">{r.records_created}</TableCell>
                         <TableCell className="text-xs">{r.records_updated}</TableCell>
                         <TableCell className="text-xs">{r.records_terminated}</TableCell>
-                        <TableCell className="text-xs">{r.records_pending || 0}</TableCell>
-                        <TableCell className="text-xs">{r.records_conflicts || 0}</TableCell>
+                        <TableCell className="text-xs">{r.inconsistency_count || 0}</TableCell>
                         <TableCell className="text-xs">
                           <Badge variant="outline" className="text-[10px]">{r.sync_mode || 'legacy'}</Badge>
                         </TableCell>

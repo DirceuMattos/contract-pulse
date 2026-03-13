@@ -520,6 +520,62 @@ export type Database = {
         }
         Relationships: []
       }
+      feedz_sync_change: {
+        Row: {
+          action: string
+          after_snapshot: Json | null
+          before_snapshot: Json | null
+          changed_fields: Json | null
+          created_at: string
+          hr_people_id: string | null
+          id: string
+          matricula: string | null
+          payload_hash: string | null
+          reverted_at: string | null
+          reverted_by: string | null
+          run_id: string
+          synced_at: string
+        }
+        Insert: {
+          action?: string
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          changed_fields?: Json | null
+          created_at?: string
+          hr_people_id?: string | null
+          id?: string
+          matricula?: string | null
+          payload_hash?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          run_id: string
+          synced_at?: string
+        }
+        Update: {
+          action?: string
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          changed_fields?: Json | null
+          created_at?: string
+          hr_people_id?: string | null
+          id?: string
+          matricula?: string | null
+          payload_hash?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          run_id?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedz_sync_change_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "feedz_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedz_sync_events: {
         Row: {
           created_at: string
@@ -552,6 +608,44 @@ export type Database = {
           {
             foreignKeyName: "feedz_sync_events_sync_run_id_fkey"
             columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "feedz_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedz_sync_inconsistency: {
+        Row: {
+          created_at: string
+          feedz_payload: Json
+          id: string
+          matricula: string | null
+          reason_code: string
+          reason_detail: string
+          run_id: string
+        }
+        Insert: {
+          created_at?: string
+          feedz_payload?: Json
+          id?: string
+          matricula?: string | null
+          reason_code: string
+          reason_detail?: string
+          run_id: string
+        }
+        Update: {
+          created_at?: string
+          feedz_payload?: Json
+          id?: string
+          matricula?: string | null
+          reason_code?: string
+          reason_detail?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedz_sync_inconsistency_run_id_fkey"
+            columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "feedz_sync_runs"
             referencedColumns: ["id"]
@@ -626,6 +720,7 @@ export type Database = {
           ended_at: string | null
           error_message: string | null
           id: string
+          inconsistency_count: number
           initiated_by: string | null
           matched_by_email: number
           matched_by_feedz_id: number
@@ -646,6 +741,7 @@ export type Database = {
           ended_at?: string | null
           error_message?: string | null
           id?: string
+          inconsistency_count?: number
           initiated_by?: string | null
           matched_by_email?: number
           matched_by_feedz_id?: number
@@ -666,6 +762,7 @@ export type Database = {
           ended_at?: string | null
           error_message?: string | null
           id?: string
+          inconsistency_count?: number
           initiated_by?: string | null
           matched_by_email?: number
           matched_by_feedz_id?: number
