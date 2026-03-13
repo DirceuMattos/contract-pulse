@@ -25,6 +25,16 @@ interface FeedzEmployee {
   registration?: string // Company internal matricula (UNIQUE per company)
 }
 
+interface TurnoverRecord {
+  profileId?: number
+  employeeId?: number
+  registration?: string
+  last_day_working?: string
+  reason?: string
+  type?: string
+  dismissal_at?: string
+}
+
 // ─── NORMALIZATION ───────────────────────────────────────────────────────────
 function normalizeName(name: string): string {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -87,6 +97,65 @@ async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee
   throw new Error('Unexpected Feedz API response format')
 }
 
+// ─── FEEDZ TURNOVER API ─────────────────────────────────────────────────────
+// Fetches turnover data to get real dismissal dates when the employees endpoint
+// doesn't provide dismissal_at. Returns a map of registration → last_day_working.
+async function fetchTurnoverMap(feedzToken: string): Promise<Map<string, { date: string; reason: string; type: string }>> {
+  const map = new Map<string, { date: string; reason: string; type: string }>()
+
+  try {
+    const url = 'https://app.feedz.com.br/v2/integracao/employees/turnover'
+    console.log(`[feedz-sync] Fetching turnover: ${url}`)
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${feedzToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'BNP-Contratos/1.0',
+      },
+    })
+
+    if (!response.ok) {
+      console.warn(`[feedz-sync] Turnover endpoint returned ${response.status}, skipping enrichment`)
+      return map
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      console.warn(`[feedz-sync] Turnover endpoint returned non-JSON, skipping`)
+      return map
+    }
+
+    const data = await response.json()
+    const records: TurnoverRecord[] = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : [])
+
+    for (const rec of records) {
+      const reg = String(rec.registration || '').trim()
+      if (!reg) continue
+
+      const rawDate = rec.last_day_working || rec.dismissal_at || null
+      if (!rawDate) continue
+
+      const d = new Date(rawDate)
+      if (isNaN(d.getTime())) continue
+
+      map.set(reg, {
+        date: d.toISOString().split('T')[0],
+        reason: rec.reason || '',
+        type: rec.type || '',
+      })
+    }
+
+    console.log(`[feedz-sync] Turnover data loaded: ${map.size} records with dates`)
+  } catch (err: any) {
+    console.warn(`[feedz-sync] Failed to fetch turnover data: ${err.message}. Continuing with fallback.`)
+  }
+
+  return map
+}
+
 // ─── NORMALIZE FEEDZ STATUS ──────────────────────────────────────────────────
 function normalizeFeedzStatus(status: string | undefined): 'ativo' | 'inativo' {
   const s = (status || '').toLowerCase().trim()
@@ -104,8 +173,6 @@ function extractTerminationDate(person: FeedzEmployee): string | null {
 }
 
 // ─── EXTRACT MATRICULA ──────────────────────────────────────────────────────
-// The Feedz API 'registration' field is the company's internal matricula.
-// 'employeeId' is the Feedz internal ID (stored as hr_people.id_externo).
 function extractMatricula(person: FeedzEmployee): string {
   return String(person.registration || '').trim()
 }
@@ -163,10 +230,13 @@ Deno.serve(async (req) => {
   let processed = 0, createdCount = 0, updatedCount = 0, terminatedCount = 0, inconsistencyCount = 0
 
   try {
-    const feedzData = await fetchAllFeedzEmployees(feedzToken)
+    // Fetch employees and turnover data in parallel
+    const [feedzData, turnoverMap] = await Promise.all([
+      fetchAllFeedzEmployees(feedzToken),
+      fetchTurnoverMap(feedzToken),
+    ])
 
     // ─── DETECT DUPLICATE MATRICULAS IN FEEDZ ──────────────────────────
-    // Use 'registration' as the real internal matricula
     const matriculaCounts = new Map<string, number>()
     for (const e of feedzData) {
       const m = extractMatricula(e)
@@ -185,7 +255,7 @@ Deno.serve(async (req) => {
 
     const allPeople: any[] = existingPeople || []
 
-    // Build matricula → hr_people[] map (should be 1:1 with UNIQUE, but check for >1)
+    // Build matricula → hr_people[] map
     const matriculaMap = new Map<string, any[]>()
     for (const p of allPeople) {
       if (p.matricula) {
@@ -229,7 +299,6 @@ Deno.serve(async (req) => {
 
     for (const person of feedzData) {
       processed++
-      // CRITICAL: Use person.registration (company internal matricula), NOT person.employeeId
       const matricula = extractMatricula(person)
       const feedzEmployeeId = String(person.employeeId || '').trim()
       const feedzName = person.full_name || person.name || ''
@@ -240,7 +309,7 @@ Deno.serve(async (req) => {
       const feedzJob = person.job_description?.title || null
       const feedzAdmission = person.admission_at || null
       const feedzStatus = normalizeFeedzStatus(person.status)
-      const terminationDate = extractTerminationDate(person)
+      let terminationDate = extractTerminationDate(person)
       const rawRemuneracao = person.remuneration ? parseFloat(person.remuneration) : null
       const remuneracaoValid = rawRemuneracao !== null && !isNaN(rawRemuneracao) && rawRemuneracao > 0
 
@@ -257,7 +326,7 @@ Deno.serve(async (req) => {
 
       // ─── RULE 2: Duplicate matricula in Feedz ──────────────────────────
       if (duplicateMatriculas.has(matricula)) {
-        if (processedMatriculas.has(matricula)) continue // skip subsequent dupes
+        if (processedMatriculas.has(matricula)) continue
         inconsistencyCount++
         syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'DUPLICATE_MATRICULA_FEEDZ', reason_detail: `Matrícula ${matricula} aparece ${matriculaCounts.get(matricula)}x no Feedz`, feedz_payload: minPayload })
         syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
@@ -268,6 +337,17 @@ Deno.serve(async (req) => {
       // Intra-run dedup
       if (processedMatriculas.has(matricula)) continue
       processedMatriculas.add(matricula)
+
+      // ─── ENRICH TERMINATION DATE FROM TURNOVER ─────────────────────────
+      // If status is inactive but no dismissal date from employees endpoint,
+      // try to get the real date from turnover data
+      if (feedzStatus === 'inativo' && !terminationDate) {
+        const turnoverInfo = turnoverMap.get(matricula)
+        if (turnoverInfo) {
+          terminationDate = turnoverInfo.date
+          console.log(`[feedz-sync] Enriched termination date for matricula=${matricula} from turnover: ${terminationDate}`)
+        }
+      }
 
       // ─── RESOLVE CARGO ─────────────────────────────────────────────────
       let cargoId: string | null = null
@@ -307,7 +387,6 @@ Deno.serve(async (req) => {
       const matches = matriculaMap.get(matricula) || []
 
       if (matches.length > 1) {
-        // Multiple matches — should not happen with UNIQUE but safety net
         inconsistencyCount++
         syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'MULTIPLE_MATCHES_IN_SYSTEM', reason_detail: `Matrícula ${matricula} tem ${matches.length} registros no sistema`, feedz_payload: minPayload })
         syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
@@ -321,6 +400,7 @@ Deno.serve(async (req) => {
         // NOT FOUND in system
         if (feedzStatus === 'ativo' && !terminationDate) {
           // ─── CASE A: CREATE ────────────────────────────────────────────
+          // tipo_vinculo defaults to 'clt' — NOT available from Feedz employees API
           const dbPayload: Record<string, any> = {
             nome: feedzName, tipo_vinculo: 'clt', situacao: 'ativo',
             cargo_id: cargoId, team_id: teamId,
@@ -338,13 +418,15 @@ Deno.serve(async (req) => {
             createdCount++
             syncChanges.push({
               run_id: runId, matricula, hr_people_id: inserted.id, action: 'created',
-              synced_at: now, after_snapshot: dbPayload, payload_hash: payloadHash,
+              synced_at: now,
+              after_snapshot: { ...dbPayload, _audit_tipo_vinculo: 'valor_padrao_clt_nao_disponivel_feedz' },
+              payload_hash: payloadHash,
             })
 
             // Timeline: Admissão
             await db.from('hr_timeline').insert({
               person_id: inserted.id, event_date: dbPayload.data_admissao,
-              ocorrencia: 'admissao', descricao: `Admissão sincronizada via Feedz (matrícula ${matricula})`,
+              ocorrencia: 'admissao', descricao: `Admissão sincronizada via Feedz (matrícula ${matricula}). tipo_vinculo=clt (padrão — campo indisponível na API Feedz).`,
               atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
             })
           } else {
@@ -393,7 +475,6 @@ Deno.serve(async (req) => {
           // Idempotency check
           const lastHash = lastHashMap.get(matricula)
           if (lastHash && lastHash === payloadHash && existing.last_synced_at) {
-            // No change — skip
             await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
             continue
           }
@@ -410,7 +491,6 @@ Deno.serve(async (req) => {
           }
 
           if (fieldsChanged.length === 0 && existing.last_synced_at) {
-            // No actual changes
             await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
             continue
           }
@@ -444,29 +524,47 @@ Deno.serve(async (req) => {
               })
             }
 
-            if (fieldsChanged.some(f => f.field === 'remuneracao_mensal')) {
+            if (fieldsChanged.some(f => f.field === 'remuneracao_mensal') && remuneracaoValid && rawRemuneracao !== null) {
               const oldR = Number(existing.remuneracao_mensal)
               await db.from('hr_timeline').insert({
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
-                ocorrencia: 'reajuste', descricao: `Remuneração alterada via Feedz: R$ ${oldR.toFixed(2)} → R$ ${remuneracao.toFixed(2)}`,
-                valor: remuneracao - oldR, remuneracao_apos: remuneracao,
+                ocorrencia: 'reajuste', descricao: `Remuneração alterada via Feedz: R$ ${oldR.toFixed(2)} → R$ ${rawRemuneracao.toFixed(2)}`,
+                valor: rawRemuneracao - oldR, remuneracao_apos: rawRemuneracao,
                 atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
               })
             }
 
             // tipo_vinculo is no longer synced from Feedz — removed to prevent data corruption
           }
-        } else if (feedzStatus === 'inativo' && terminationDate) {
-          // ─── CASE B: TERMINATE ─────────────────────────────────────────
+        } else if (feedzStatus === 'inativo') {
+          // ─── CASE B: TERMINATE (with or without date) ──────────────────
+          // Use terminationDate if available, otherwise fallback to today
+          const effectiveDate = terminationDate || new Date().toISOString().split('T')[0]
+          const dateSource = terminationDate ? 'feedz' : 'fallback'
+
+          // Build turnover reason if available
+          const turnoverInfo = turnoverMap.get(matricula)
+          const motivoDesligamento = turnoverInfo?.reason
+            ? `Desligamento via Feedz: ${turnoverInfo.reason}`
+            : terminationDate
+              ? 'Desligamento via Feedz'
+              : 'Desligamento via Feedz (data não informada — fallback)'
+
+          // Skip if already terminated with same date
+          if (existing.situacao === 'inativo' && existing.data_desligamento === effectiveDate) {
+            await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
+            continue
+          }
+
           const snapshotBefore: Record<string, any> = {}
           const termFields = ['situacao', 'data_desligamento', 'tipo_desligamento', 'motivo_desligamento', 'last_synced_at', 'sync_status']
           for (const k of termFields) snapshotBefore[k] = existing[k]
 
           const dbPayload: Record<string, any> = {
             situacao: 'inativo',
-            data_desligamento: terminationDate,
-            tipo_desligamento: 'outro',
-            motivo_desligamento: 'Desligamento via Feedz',
+            data_desligamento: effectiveDate,
+            tipo_desligamento: turnoverInfo?.type || 'outro',
+            motivo_desligamento: motivoDesligamento,
             last_synced_at: now,
             sync_status: 'synced',
             updated_at: now,
@@ -479,12 +577,6 @@ Deno.serve(async (req) => {
             .filter(k => String(existing[k] ?? '') !== String(dbPayload[k] ?? ''))
             .map(k => ({ field: k, before: existing[k], after: dbPayload[k] }))
 
-          // Skip if already terminated with same date
-          if (existing.situacao === 'inativo' && existing.data_desligamento === terminationDate) {
-            await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
-            continue
-          }
-
           const { error: updateErr } = await db.from('hr_people').update(dbPayload).eq('id', existing.id)
           if (!updateErr) {
             terminatedCount++
@@ -492,12 +584,14 @@ Deno.serve(async (req) => {
             syncChanges.push({
               run_id: runId, matricula, hr_people_id: existing.id, action: 'terminated',
               synced_at: now, changed_fields: fieldsChanged, before_snapshot: snapshotBefore,
-              after_snapshot: afterSnapshot, payload_hash: payloadHash,
+              after_snapshot: { ...afterSnapshot, _audit_date_source: dateSource },
+              payload_hash: payloadHash,
             })
 
             await db.from('hr_timeline').insert({
-              person_id: existing.id, event_date: terminationDate,
-              ocorrencia: 'desligamento', descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Data: ${terminationDate}`,
+              person_id: existing.id, event_date: effectiveDate,
+              ocorrencia: 'desligamento',
+              descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data: ${effectiveDate} (fonte: ${dateSource}).${turnoverInfo?.reason ? ` Motivo: ${turnoverInfo.reason}` : ''}`,
               atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
             })
           }
@@ -506,54 +600,6 @@ Deno.serve(async (req) => {
           inconsistencyCount++
           syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'TERMINATION_DATE_WITH_ACTIVE_STATUS', reason_detail: `Status ativo mas data desligamento=${terminationDate}`, feedz_payload: minPayload })
           syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
-        } else if (feedzStatus === 'inativo' && !terminationDate) {
-          // ─── CASE B2: TERMINATE WITHOUT DATE (fallback) ────────────────
-          // Inactivate even without a date — use today as fallback
-          const fallbackDate = new Date().toISOString().split('T')[0]
-
-          // Skip if already inativo
-          if (existing.situacao === 'inativo') {
-            await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
-            continue
-          }
-
-          const snapshotBefore: Record<string, any> = {}
-          const termFields = ['situacao', 'data_desligamento', 'tipo_desligamento', 'motivo_desligamento', 'last_synced_at', 'sync_status']
-          for (const k of termFields) snapshotBefore[k] = existing[k]
-
-          const dbPayload: Record<string, any> = {
-            situacao: 'inativo',
-            data_desligamento: fallbackDate,
-            tipo_desligamento: 'outro',
-            motivo_desligamento: 'Desligamento via Feedz (data não informada — fallback)',
-            last_synced_at: now,
-            sync_status: 'synced',
-            updated_at: now,
-          }
-
-          const afterSnapshot = { ...snapshotBefore }
-          for (const k of Object.keys(dbPayload)) afterSnapshot[k] = dbPayload[k]
-
-          const fieldsChanged = termFields
-            .filter(k => String(existing[k] ?? '') !== String(dbPayload[k] ?? ''))
-            .map(k => ({ field: k, before: existing[k], after: dbPayload[k] }))
-
-          const { error: updateErr } = await db.from('hr_people').update(dbPayload).eq('id', existing.id)
-          if (!updateErr) {
-            terminatedCount++
-            const payloadHash = computePayloadHash({ ...existing, ...dbPayload })
-            syncChanges.push({
-              run_id: runId, matricula, hr_people_id: existing.id, action: 'terminated',
-              synced_at: now, changed_fields: fieldsChanged, before_snapshot: snapshotBefore,
-              after_snapshot: afterSnapshot, payload_hash: payloadHash,
-            })
-
-            await db.from('hr_timeline').insert({
-              person_id: existing.id, event_date: fallbackDate,
-              ocorrencia: 'desligamento', descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data não informada pelo Feedz — usado fallback ${fallbackDate}.`,
-              atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
-            })
-          }
         } else {
           // Catch-all inconsistency
           inconsistencyCount++
