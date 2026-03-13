@@ -463,6 +463,7 @@ function FeedzSyncSection() {
   const [loadingRuns, setLoadingRuns] = useState(true);
   const [syncMode, setSyncMode] = useState<'strict' | 'permissive'>('strict');
   const [exportingRun, setExportingRun] = useState<string | null>(null);
+  const [updatingDates, setUpdatingDates] = useState(false);
 
   // Alias management
   const [aliases, setAliases] = useState<any[]>([]);
