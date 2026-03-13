@@ -365,15 +365,20 @@ Deno.serve(async (req) => {
       } else {
         // FOUND in system (1 match)
         if (feedzStatus === 'ativo' && !terminationDate) {
-          // ─── CASE C: UPDATE ────────────────────────────────────────────
+          // ─── CASE C: UPDATE (lifecycle-safe) ─────────────────────────
+          // Do NOT overwrite tipo_vinculo or remuneracao unless Feedz provides valid data
           const dbPayload: Record<string, any> = {
-            nome: feedzName, tipo_vinculo: 'clt', situacao: 'ativo',
+            nome: feedzName, situacao: 'ativo',
             cargo_id: cargoId, team_id: teamId,
             data_admissao: feedzAdmission || existing.data_admissao,
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
-            remuneracao_mensal: remuneracao, matricula,
+            matricula,
             id_externo: feedzEmployeeId, source: 'feedz', sync_status: 'synced',
             last_synced_at: now, nome_normalizado: normalizeName(feedzName), updated_at: now,
+          }
+          // Only update remuneracao if Feedz sends a valid positive number
+          if (remuneracaoValid) {
+            dbPayload.remuneracao_mensal = rawRemuneracao
           }
 
           // Handle reactivation (inativo → ativo)
