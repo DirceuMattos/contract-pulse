@@ -333,7 +333,7 @@ export default function DashboardPage() {
               variant="outline"
               role="combobox"
               aria-expanded={contractOpen}
-              className="justify-between min-w-[300px] text-left font-normal"
+              className="justify-between w-full sm:min-w-[300px] text-left font-normal"
             >
               <span className="truncate">{selectedContractLabel}</span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
