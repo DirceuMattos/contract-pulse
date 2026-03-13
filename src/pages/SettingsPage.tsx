@@ -511,7 +511,29 @@ function FeedzSyncSection() {
     }
   };
 
-  const handleRollback = async (run: any) => {
+  const handleUpdateTerminationDates = async () => {
+    setUpdatingDates(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('feedz-update-termination-dates');
+      if (error) throw new Error(typeof error === 'object' && error.message ? error.message : String(error));
+      if (data?.error) throw new Error(data.error);
+      const updated = data?.totalUpdated || 0;
+      const processed = data?.totalProcessed || 0;
+      if (updated === 0) {
+        toast.info(`Nenhuma data de desligamento precisou ser atualizada (${processed} inativos verificados).`);
+      } else {
+        toast.success(`${updated} data(s) de desligamento atualizada(s) de ${processed} inativos verificados.`);
+        // Log details
+        if (data?.details?.length) {
+          console.table(data.details);
+        }
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao atualizar datas: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setUpdatingDates(false);
+    }
+  };
     setRollingBack(run.id);
     try {
       const { data, error } = await supabase.functions.invoke('feedz-rollback', {
