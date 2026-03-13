@@ -534,6 +534,8 @@ function FeedzSyncSection() {
       setUpdatingDates(false);
     }
   };
+
+  const handleRollback = async (run: any) => {
     setRollingBack(run.id);
     try {
       const { data, error } = await supabase.functions.invoke('feedz-rollback', {
