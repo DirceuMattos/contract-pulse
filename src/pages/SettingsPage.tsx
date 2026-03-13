@@ -711,8 +711,7 @@ function FeedzSyncSection() {
                       <TableHead className="text-xs">Criados</TableHead>
                       <TableHead className="text-xs">Atual.</TableHead>
                       <TableHead className="text-xs">Desl.</TableHead>
-                      <TableHead className="text-xs">Pend.</TableHead>
-                      <TableHead className="text-xs">Confl.</TableHead>
+                      <TableHead className="text-xs">Incons.</TableHead>
                       <TableHead className="text-xs">Modo</TableHead>
                       <TableHead className="text-xs">Ações</TableHead>
                     </TableRow>
