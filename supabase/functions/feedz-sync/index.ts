@@ -26,13 +26,12 @@ interface FeedzEmployee {
 }
 
 interface TurnoverRecord {
-  profileId?: number
-  employeeId?: number
-  registration?: string
-  last_day_working?: string
+  id?: number
   reason?: string
-  type?: string
-  dismissal_at?: string
+  type?: number
+  department?: string
+  last_day_working?: string
+  profile?: { id: number; name: string; email: string; status: number }
 }
 
 // ─── NORMALIZATION ───────────────────────────────────────────────────────────
