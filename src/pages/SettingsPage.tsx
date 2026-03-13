@@ -463,6 +463,7 @@ function FeedzSyncSection() {
   const [loadingRuns, setLoadingRuns] = useState(true);
   const [syncMode, setSyncMode] = useState<'strict' | 'permissive'>('strict');
   const [exportingRun, setExportingRun] = useState<string | null>(null);
+  const [updatingDates, setUpdatingDates] = useState(false);
 
   // Alias management
   const [aliases, setAliases] = useState<any[]>([]);
@@ -507,6 +508,30 @@ function FeedzSyncSection() {
       toast.error(`Erro na sincronização: ${err.message || 'Erro desconhecido'}`);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleUpdateTerminationDates = async () => {
+    setUpdatingDates(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('feedz-update-termination-dates');
+      if (error) throw new Error(typeof error === 'object' && error.message ? error.message : String(error));
+      if (data?.error) throw new Error(data.error);
+      const updated = data?.totalUpdated || 0;
+      const processed = data?.totalProcessed || 0;
+      if (updated === 0) {
+        toast.info(`Nenhuma data de desligamento precisou ser atualizada (${processed} inativos verificados).`);
+      } else {
+        toast.success(`${updated} data(s) de desligamento atualizada(s) de ${processed} inativos verificados.`);
+        // Log details
+        if (data?.details?.length) {
+          console.table(data.details);
+        }
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao atualizar datas: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setUpdatingDates(false);
     }
   };
 
@@ -709,6 +734,10 @@ function FeedzSyncSection() {
                   <span className={`text-xs ${syncMode === 'permissive' ? 'font-semibold' : 'text-muted-foreground'}`}>Permissivo</span>
                 </div>
               </div>
+              <Button variant="outline" onClick={handleUpdateTerminationDates} disabled={updatingDates || syncing}>
+                {updatingDates ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calendar className="h-4 w-4 mr-2" />}
+                {updatingDates ? 'Atualizando...' : 'Atualizar Datas Deslig.'}
+              </Button>
               <Button onClick={handleSync} disabled={syncing}>
                 {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
