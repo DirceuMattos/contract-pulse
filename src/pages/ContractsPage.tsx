@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -14,10 +14,14 @@ import {
   Users,
   Filter,
   X,
+  Download,
+  ArrowUpDown,
+  AlertTriangle,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlerts } from '@/hooks/useAlerts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,29 +41,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatDate, formatCurrency, formatPercentage, calculateContractHealth } from '@/lib/calculations';
 import { HealthStatus } from '@/types';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { toast } from 'sonner';
+import { buildXlsx, downloadCSV } from '@/lib/importExport';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -93,14 +87,27 @@ const statusLabels = {
   encerrado: 'Encerrado',
 };
 
+type SortOption = 'health' | 'valor-desc' | 'margem-desc' | 'margem-asc';
+
+const sortLabels: Record<SortOption, string> = {
+  health: 'Saúde',
+  'valor-desc': 'Valor mensal ↓',
+  'margem-desc': 'Margem % ↓',
+  'margem-asc': 'Margem % ↑',
+};
+
+type AlertFilter = 'vencimento' | 'reajuste' | 'margem';
+
 export default function ContractsPage() {
   const navigate = useNavigate();
   const { contracts, clients, resources: _rawResources, settings, deleteContract, overheadItems } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
+  const { getAlertsForContract } = useAlerts();
   
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('health');
   
   // Filters
   const [filters, setFilters] = useState({
@@ -108,19 +115,21 @@ export default function ContractsPage() {
     tipo: 'all',
     status: 'all',
     health: [] as HealthStatus[],
+    alerts: [] as AlertFilter[],
   });
   
   const [filtersOpen, setFiltersOpen] = useState(false);
   
   // Calculate health for each contract
-  const contractsWithHealth = contracts.map(contract => {
+  const contractsWithHealth = useMemo(() => contracts.map(contract => {
     const health = calculateContractHealth(contract, resources, settings, overheadItems);
     const client = clients.find(c => c.id === contract.clientId);
-    return { contract, health, client };
-  });
+    const alerts = getAlertsForContract(contract.id);
+    return { contract, health, client, alerts };
+  }), [contracts, resources, settings, overheadItems, clients, getAlertsForContract]);
   
   // Apply filters
-  const filteredContracts = contractsWithHealth.filter(({ contract, health }) => {
+  const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts }) => {
     const matchesSearch = 
       contract.nome.toLowerCase().includes(search.toLowerCase()) ||
       contract.codigo.toLowerCase().includes(search.toLowerCase());
@@ -130,20 +139,47 @@ export default function ContractsPage() {
     const matchesStatus = filters.status === 'all' || contract.status === filters.status;
     const matchesHealth = filters.health.length === 0 || filters.health.includes(health.status);
     
-    return matchesSearch && matchesSegmento && matchesTipo && matchesStatus && matchesHealth;
+    // Alert filters
+    let matchesAlerts = true;
+    if (filters.alerts.length > 0) {
+      const hasVencimento = alerts.some(a => a.alertCategory === 'prazo');
+      const hasReajuste = alerts.some(a => a.alertCategory === 'reajuste');
+      const hasMargem = alerts.some(a => a.alertCategory === 'financeiro');
+      matchesAlerts = filters.alerts.some(af => 
+        (af === 'vencimento' && hasVencimento) ||
+        (af === 'reajuste' && hasReajuste) ||
+        (af === 'margem' && hasMargem)
+      );
+    }
+    
+    return matchesSearch && matchesSegmento && matchesTipo && matchesStatus && matchesHealth && matchesAlerts;
   });
   
-  // Sort by health (critical first, then attention, then healthy)
-  const sortedContracts = [...filteredContracts].sort((a, b) => {
-    const healthOrder = { critico: 0, atencao: 1, saudavel: 2 };
-    return healthOrder[a.health.status] - healthOrder[b.health.status];
-  });
+  // Sort
+  const sortedContracts = useMemo(() => {
+    return [...filteredContracts].sort((a, b) => {
+      switch (sortBy) {
+        case 'valor-desc':
+          return (b.health.receitaMensal || 0) - (a.health.receitaMensal || 0);
+        case 'margem-desc':
+          return b.health.margemPercentual - a.health.margemPercentual;
+        case 'margem-asc':
+          return a.health.margemPercentual - b.health.margemPercentual;
+        case 'health':
+        default: {
+          const healthOrder = { critico: 0, atencao: 1, saudavel: 2 };
+          return healthOrder[a.health.status] - healthOrder[b.health.status];
+        }
+      }
+    });
+  }, [filteredContracts, sortBy]);
   
   const activeFiltersCount = 
     (filters.segmento !== 'all' ? 1 : 0) +
     (filters.tipo !== 'all' ? 1 : 0) +
     (filters.status !== 'all' ? 1 : 0) +
-    filters.health.length;
+    filters.health.length +
+    filters.alerts.length;
   
   const clearFilters = () => {
     setFilters({
@@ -151,6 +187,7 @@ export default function ContractsPage() {
       tipo: 'all',
       status: 'all',
       health: [],
+      alerts: [],
     });
   };
   
@@ -170,28 +207,123 @@ export default function ContractsPage() {
         : [...prev.health, status],
     }));
   };
+
+  const toggleAlertFilter = (alert: AlertFilter) => {
+    setFilters(prev => ({
+      ...prev,
+      alerts: prev.alerts.includes(alert)
+        ? prev.alerts.filter(a => a !== alert)
+        : [...prev.alerts, alert],
+    }));
+  };
+
+  const handleExport = (format: 'csv' | 'xlsx') => {
+    const headers = [
+      'Nome do Contrato',
+      'Nome do Cliente',
+      'Data Início',
+      'Data Fim',
+      'Data Base Reajuste',
+      'Margem Mensal (R$)',
+      'Margem (%)',
+      'Receita Bruta (R$)',
+      'Receita Líquida (R$)',
+      'Impostos (%)',
+      'Custo Total (R$)',
+      'Qtd CLT',
+      'Qtd PJ',
+      'Qtd Outros',
+    ];
+
+    const rows = sortedContracts.map(({ contract, health, client }) => {
+      const contractResources = resources.filter(r => r.contractId === contract.id);
+      const qtdCLT = contractResources.filter(r => r.tipo === 'clt').length;
+      const qtdPJ = contractResources.filter(r => r.tipo === 'pj').length;
+      const qtdOutros = contractResources.filter(r => r.tipo === 'outro').length;
+      const impostos = contract.percentualImpostosFaturamento ?? settings.percentualImpostosFaturamento;
+      
+      return [
+        contract.nome,
+        client?.nomeFantasia || client?.razaoSocial || '',
+        contract.dataInicio,
+        contract.dataFim || 'Indeterminado',
+        contract.dataBaseReajuste,
+        health.margemMensal.toFixed(2),
+        health.margemPercentual.toFixed(2),
+        health.receitaMensal.toFixed(2),
+        health.receitaLiquida?.toFixed(2) ?? health.receitaMensal.toFixed(2),
+        impostos.toString(),
+        health.custoMensal.toFixed(2),
+        qtdCLT.toString(),
+        qtdPJ.toString(),
+        qtdOutros.toString(),
+      ];
+    });
+
+    if (format === 'csv') {
+      const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'contratos.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const blob = buildXlsx(headers, rows);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'contratos.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    toast.success(`Exportação ${format.toUpperCase()} concluída`);
+  };
   
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
     >
       {/* Page Header */}
       <PageHeader
         title="Contratos"
         description="Gerencie seus contratos e acompanhe a saúde financeira"
-        actions={canEdit ? (
-          <Button onClick={() => navigate('/contratos/novo')} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Contrato
-          </Button>
-        ) : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('xlsx')}>
+                  Exportar XLSX
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('csv')}>
+                  Exportar CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {canEdit && (
+              <Button onClick={() => navigate('/contratos/novo')} className="gap-2">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Novo Contrato</span>
+                <span className="sm:hidden">Novo</span>
+              </Button>
+            )}
+          </div>
+        }
       />
       
       {/* Filters */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -202,102 +334,140 @@ export default function ContractsPage() {
           />
         </div>
         
-        <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="w-4 h-4" />
-              Filtros
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-sm">Filtros</h4>
+        <div className="flex gap-2">
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="w-[150px] sm:w-[170px]">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(sortLabels).map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filtros</span>
                 {activeFiltersCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto py-1 px-2 text-xs">
-                    Limpar
-                  </Button>
+                  <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+                    {activeFiltersCount}
+                  </Badge>
                 )}
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Segmento</Label>
-                <Select value={filters.segmento} onValueChange={(v) => setFilters(prev => ({ ...prev, segmento: v }))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="govtech">Govtech</SelectItem>
-                    <SelectItem value="privado">Privado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Tipo</Label>
-                <Select value={filters.tipo} onValueChange={(v) => setFilters(prev => ({ ...prev, tipo: v }))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="sistema">Sistema</SelectItem>
-                    <SelectItem value="infraestrutura">Infraestrutura</SelectItem>
-                    <SelectItem value="hibrido">Híbrido</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Status Operacional</Label>
-                <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="operacao">Em Operação</SelectItem>
-                    <SelectItem value="implantacao">Em Implantação</SelectItem>
-                    <SelectItem value="suspenso">Suspenso</SelectItem>
-                    <SelectItem value="encerrado">Encerrado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Saúde Financeira</Label>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm">Filtros</h4>
+                  {activeFiltersCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto py-1 px-2 text-xs">
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+                
                 <div className="space-y-2">
-                  {(['saudavel', 'atencao', 'critico'] as HealthStatus[]).map(status => (
-                    <div key={status} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`health-${status}`}
-                        checked={filters.health.includes(status)}
-                        onCheckedChange={() => toggleHealthFilter(status)}
-                      />
-                      <label 
-                        htmlFor={`health-${status}`}
-                        className={cn(
-                          'text-sm cursor-pointer',
-                          status === 'saudavel' && 'text-health-healthy',
-                          status === 'atencao' && 'text-health-attention',
-                          status === 'critico' && 'text-health-critical',
-                        )}
-                      >
-                        {healthLabels[status]}
-                      </label>
-                    </div>
-                  ))}
+                  <Label className="text-xs text-muted-foreground">Segmento</Label>
+                  <Select value={filters.segmento} onValueChange={(v) => setFilters(prev => ({ ...prev, segmento: v }))}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="govtech">Govtech</SelectItem>
+                      <SelectItem value="privado">Privado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <Select value={filters.tipo} onValueChange={(v) => setFilters(prev => ({ ...prev, tipo: v }))}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="sistema">Sistema</SelectItem>
+                      <SelectItem value="infraestrutura">Infraestrutura</SelectItem>
+                      <SelectItem value="hibrido">Híbrido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Status Operacional</Label>
+                  <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="operacao">Em Operação</SelectItem>
+                      <SelectItem value="implantacao">Em Implantação</SelectItem>
+                      <SelectItem value="suspenso">Suspenso</SelectItem>
+                      <SelectItem value="encerrado">Encerrado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Saúde Financeira</Label>
+                  <div className="space-y-2">
+                    {(['saudavel', 'atencao', 'critico'] as HealthStatus[]).map(status => (
+                      <div key={status} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`health-${status}`}
+                          checked={filters.health.includes(status)}
+                          onCheckedChange={() => toggleHealthFilter(status)}
+                        />
+                        <label 
+                          htmlFor={`health-${status}`}
+                          className={cn(
+                            'text-sm cursor-pointer',
+                            status === 'saudavel' && 'text-health-healthy',
+                            status === 'atencao' && 'text-health-attention',
+                            status === 'critico' && 'text-health-critical',
+                          )}
+                        >
+                          {healthLabels[status]}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Alertas
+                  </Label>
+                  <div className="space-y-2">
+                    {([
+                      { key: 'vencimento' as AlertFilter, label: 'Vencimento próximo' },
+                      { key: 'reajuste' as AlertFilter, label: 'Reajuste próximo' },
+                      { key: 'margem' as AlertFilter, label: 'Margem crítica / Déficit' },
+                    ]).map(({ key, label }) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`alert-${key}`}
+                          checked={filters.alerts.includes(key)}
+                          onCheckedChange={() => toggleAlertFilter(key)}
+                        />
+                        <label htmlFor={`alert-${key}`} className="text-sm cursor-pointer">
+                          {label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
       </motion.div>
       
       {/* Active filters */}
@@ -344,6 +514,15 @@ export default function ContractsPage() {
               </button>
             </Badge>
           ))}
+          {filters.alerts.map(alert => (
+            <Badge key={alert} variant="secondary" className="gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              {alert === 'vencimento' ? 'Vencimento' : alert === 'reajuste' ? 'Reajuste' : 'Margem'}
+              <button onClick={() => toggleAlertFilter(alert)}>
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
         </motion.div>
       )}
       
@@ -358,11 +537,11 @@ export default function ContractsPage() {
       {/* Contracts List */}
       {sortedContracts.length > 0 ? (
         <motion.div variants={containerVariants} className="space-y-3">
-          {sortedContracts.map(({ contract, health, client }) => (
+          {sortedContracts.map(({ contract, health, client, alerts }) => (
             <motion.div key={contract.id} variants={itemVariants}>
               <Card className="card-elevated hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-4">
                     {/* Health indicator */}
                     <div className={cn(
                       'w-1.5 h-14 rounded-full shrink-0',
@@ -374,21 +553,24 @@ export default function ContractsPage() {
                     {/* Main info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-foreground truncate">{contract.nome}</h3>
-                        <Badge variant="secondary" className="text-xs shrink-0">
+                        <h3 className="font-semibold text-foreground truncate text-sm sm:text-base">{contract.nome}</h3>
+                        <Badge variant="secondary" className="text-xs shrink-0 hidden sm:inline-flex">
                           {contract.codigo}
                         </Badge>
+                        {alerts.length > 0 && (
+                          <AlertTriangle className="w-3.5 h-3.5 text-health-attention shrink-0" />
+                        )}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1 truncate">
                           <Users className="w-3.5 h-3.5 shrink-0" />
                           {client?.nomeFantasia || client?.razaoSocial}
                         </span>
-                        <span className="flex items-center gap-1 shrink-0">
+                        <span className="hidden sm:flex items-center gap-1 shrink-0">
                           <Calendar className="w-3.5 h-3.5" />
                           {contract.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}
                         </span>
-                        <span className="flex items-center gap-1 shrink-0">
+                        <span className="hidden md:flex items-center gap-1 shrink-0">
                           <User className="w-3.5 h-3.5" />
                           {contract.responsavelInterno}
                         </span>
@@ -396,7 +578,7 @@ export default function ContractsPage() {
                     </div>
                     
                     {/* Badges */}
-                    <div className="hidden md:flex items-center gap-2 shrink-0">
+                    <div className="hidden lg:flex items-center gap-2 shrink-0">
                       <Badge 
                         variant="secondary"
                         className={cn(
@@ -420,11 +602,11 @@ export default function ContractsPage() {
                     </div>
                     
                     {/* Health / Values */}
-                    <div className="text-right shrink-0 min-w-[100px]">
+                    <div className="text-right shrink-0 min-w-[80px] sm:min-w-[100px]">
                       {canViewValues ? (
                         <>
                           <p className={cn(
-                            'text-lg font-bold',
+                            'text-base sm:text-lg font-bold',
                             health.margemPercentual >= 15 && 'text-health-healthy',
                             health.margemPercentual >= 0 && health.margemPercentual < 15 && 'text-health-attention',
                             health.margemPercentual < 0 && 'text-health-critical',
