@@ -26,13 +26,12 @@ interface FeedzEmployee {
 }
 
 interface TurnoverRecord {
-  profileId?: number
-  employeeId?: number
-  registration?: string
-  last_day_working?: string
+  id?: number
   reason?: string
-  type?: string
-  dismissal_at?: string
+  type?: number
+  department?: string
+  last_day_working?: string
+  profile?: { id: number; name: string; email: string; status: number }
 }
 
 // ─── NORMALIZATION ───────────────────────────────────────────────────────────
@@ -98,57 +97,67 @@ async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee
 }
 
 // ─── FEEDZ TURNOVER API ─────────────────────────────────────────────────────
-// Fetches turnover data to get real dismissal dates when the employees endpoint
-// doesn't provide dismissal_at. Returns a map of registration → last_day_working.
-async function fetchTurnoverMap(feedzToken: string): Promise<Map<string, { date: string; reason: string; type: string }>> {
-  const map = new Map<string, { date: string; reason: string; type: string }>()
+// Fetches turnover data (paginated) to get real dismissal dates (last_day_working).
+// Returns a map of profile.id (employeeId) → { date, reason }.
+async function fetchTurnoverMap(feedzToken: string): Promise<Map<string, { date: string; reason: string }>> {
+  const map = new Map<string, { date: string; reason: string }>()
 
   try {
-    const url = 'https://app.feedz.com.br/v2/integracao/employees/turnover'
-    console.log(`[feedz-sync] Fetching turnover: ${url}`)
+    let url: string | null = 'https://app.feedz.com.br/v2/integracao/employees/turnover'
+    let pageCount = 0
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${feedzToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'BNP-Contratos/1.0',
-      },
-    })
+    while (url) {
+      pageCount++
+      console.log(`[feedz-sync] Fetching turnover page ${pageCount}: ${url}`)
 
-    if (!response.ok) {
-      console.warn(`[feedz-sync] Turnover endpoint returned ${response.status}, skipping enrichment`)
-      return map
-    }
-
-    const contentType = response.headers.get('content-type') || ''
-    if (!contentType.includes('application/json')) {
-      console.warn(`[feedz-sync] Turnover endpoint returned non-JSON, skipping`)
-      return map
-    }
-
-    const data = await response.json()
-    const records: TurnoverRecord[] = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : [])
-
-    for (const rec of records) {
-      const reg = String(rec.registration || '').trim()
-      if (!reg) continue
-
-      const rawDate = rec.last_day_working || rec.dismissal_at || null
-      if (!rawDate) continue
-
-      const d = new Date(rawDate)
-      if (isNaN(d.getTime())) continue
-
-      map.set(reg, {
-        date: d.toISOString().split('T')[0],
-        reason: rec.reason || '',
-        type: rec.type || '',
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${feedzToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'BNP-Contratos/1.0',
+        },
       })
+
+      if (!response.ok) {
+        console.warn(`[feedz-sync] Turnover endpoint returned ${response.status}, skipping enrichment`)
+        return map
+      }
+
+      const contentType = response.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        console.warn(`[feedz-sync] Turnover endpoint returned non-JSON, skipping`)
+        return map
+      }
+
+      const body = await response.json()
+      const records: TurnoverRecord[] = Array.isArray(body) ? body : (body.data && Array.isArray(body.data) ? body.data : [])
+
+      for (const rec of records) {
+        const profileId = rec.profile?.id
+        if (!profileId) continue
+
+        const rawDate = rec.last_day_working || null
+        if (!rawDate) continue
+
+        const d = new Date(rawDate)
+        if (isNaN(d.getTime())) continue
+
+        const key = String(profileId)
+        if (!map.has(key)) {
+          map.set(key, {
+            date: d.toISOString().split('T')[0],
+            reason: rec.reason || '',
+          })
+        }
+      }
+
+      // Pagination: follow next_page_url if present
+      url = body.next_page_url || null
     }
 
-    console.log(`[feedz-sync] Turnover data loaded: ${map.size} records with dates`)
+    console.log(`[feedz-sync] Turnover data loaded: ${map.size} records across ${pageCount} page(s)`)
   } catch (err: any) {
     console.warn(`[feedz-sync] Failed to fetch turnover data: ${err.message}. Continuing with fallback.`)
   }
@@ -340,12 +349,12 @@ Deno.serve(async (req) => {
 
       // ─── ENRICH TERMINATION DATE FROM TURNOVER ─────────────────────────
       // If status is inactive but no dismissal date from employees endpoint,
-      // try to get the real date from turnover data
-      if (feedzStatus === 'inativo' && !terminationDate) {
-        const turnoverInfo = turnoverMap.get(matricula)
+      // try to get the real date from turnover data using employeeId (= profile.id)
+      if (feedzStatus === 'inativo' && !terminationDate && feedzEmployeeId) {
+        const turnoverInfo = turnoverMap.get(feedzEmployeeId)
         if (turnoverInfo) {
           terminationDate = turnoverInfo.date
-          console.log(`[feedz-sync] Enriched termination date for matricula=${matricula} from turnover: ${terminationDate}`)
+          console.log(`[feedz-sync] Enriched termination date for matricula=${matricula} (employeeId=${feedzEmployeeId}) from turnover: ${terminationDate}`)
         }
       }
 
