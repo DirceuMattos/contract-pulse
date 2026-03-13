@@ -507,10 +507,53 @@ Deno.serve(async (req) => {
           syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'TERMINATION_DATE_WITH_ACTIVE_STATUS', reason_detail: `Status ativo mas data desligamento=${terminationDate}`, feedz_payload: minPayload })
           syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
         } else if (feedzStatus === 'inativo' && !terminationDate) {
-          // INCONSISTENCY: inactive without termination date
-          inconsistencyCount++
-          syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'NO_TERMINATION_DATE_WITH_INACTIVE_STATUS', reason_detail: `Status inativo/desligado sem data de desligamento`, feedz_payload: minPayload })
-          syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
+          // ─── CASE B2: TERMINATE WITHOUT DATE (fallback) ────────────────
+          // Inactivate even without a date — use today as fallback
+          const fallbackDate = new Date().toISOString().split('T')[0]
+
+          // Skip if already inativo
+          if (existing.situacao === 'inativo') {
+            await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
+            continue
+          }
+
+          const snapshotBefore: Record<string, any> = {}
+          const termFields = ['situacao', 'data_desligamento', 'tipo_desligamento', 'motivo_desligamento', 'last_synced_at', 'sync_status']
+          for (const k of termFields) snapshotBefore[k] = existing[k]
+
+          const dbPayload: Record<string, any> = {
+            situacao: 'inativo',
+            data_desligamento: fallbackDate,
+            tipo_desligamento: 'outro',
+            motivo_desligamento: 'Desligamento via Feedz (data não informada — fallback)',
+            last_synced_at: now,
+            sync_status: 'synced',
+            updated_at: now,
+          }
+
+          const afterSnapshot = { ...snapshotBefore }
+          for (const k of Object.keys(dbPayload)) afterSnapshot[k] = dbPayload[k]
+
+          const fieldsChanged = termFields
+            .filter(k => String(existing[k] ?? '') !== String(dbPayload[k] ?? ''))
+            .map(k => ({ field: k, before: existing[k], after: dbPayload[k] }))
+
+          const { error: updateErr } = await db.from('hr_people').update(dbPayload).eq('id', existing.id)
+          if (!updateErr) {
+            terminatedCount++
+            const payloadHash = computePayloadHash({ ...existing, ...dbPayload })
+            syncChanges.push({
+              run_id: runId, matricula, hr_people_id: existing.id, action: 'terminated',
+              synced_at: now, changed_fields: fieldsChanged, before_snapshot: snapshotBefore,
+              after_snapshot: afterSnapshot, payload_hash: payloadHash,
+            })
+
+            await db.from('hr_timeline').insert({
+              person_id: existing.id, event_date: fallbackDate,
+              ocorrencia: 'desligamento', descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data não informada pelo Feedz — usado fallback ${fallbackDate}.`,
+              atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
+            })
+          }
         } else {
           // Catch-all inconsistency
           inconsistencyCount++

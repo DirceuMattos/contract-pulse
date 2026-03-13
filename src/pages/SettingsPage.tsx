@@ -439,6 +439,20 @@ export default function SettingsPage() {
 }
 
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  // Delay revoke to ensure download starts
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
+}
+
 function FeedzSyncSection() {
   const navigate = useNavigate();
   const { jobTitles, teams } = useData();
