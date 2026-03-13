@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, FileText, Undo2, ChevronRight, CheckCircle, XCircle, AlertTriangle, Search, Eye } from 'lucide-react';
+import { ArrowLeft, Loader2, FileText, Undo2, ChevronRight, CheckCircle, XCircle, AlertTriangle, Search, Eye, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,27 +22,34 @@ interface SyncRun {
   records_created: number;
   records_updated: number;
   records_terminated: number;
-  records_pending: number | null;
-  records_conflicts: number | null;
+  inconsistency_count: number;
   sync_mode: string;
   error_message: string | null;
 }
 
-interface SyncItem {
+interface SyncChange {
   id: string;
-  sync_run_id: string;
-  feedz_id: string | null;
-  feedz_email: string | null;
-  feedz_name: string | null;
-  match_strategy: string;
-  matched_hr_person_id: string | null;
+  run_id: string;
+  matricula: string | null;
+  hr_people_id: string | null;
   action: string;
-  reason_code: string | null;
-  fields_changed_json: any;
-  snapshot_before: any;
+  synced_at: string;
+  changed_fields: any;
+  before_snapshot: any;
+  after_snapshot: any;
   payload_hash: string | null;
   reverted_at: string | null;
   reverted_by: string | null;
+  created_at: string;
+}
+
+interface SyncInconsistency {
+  id: string;
+  run_id: string;
+  matricula: string | null;
+  reason_code: string;
+  reason_detail: string;
+  feedz_payload: any;
   created_at: string;
 }
 
@@ -54,17 +61,14 @@ export default function FeedzReconciliationPage() {
   const [runs, setRuns] = useState<SyncRun[]>([]);
   const [loadingRuns, setLoadingRuns] = useState(true);
 
-  // Detail view state
-  const [items, setItems] = useState<SyncItem[]>([]);
+  const [changes, setChanges] = useState<SyncChange[]>([]);
+  const [inconsistencies, setInconsistencies] = useState<SyncInconsistency[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Rollback dialog
-  const [rollbackItem, setRollbackItem] = useState<SyncItem | null>(null);
+  const [rollbackItem, setRollbackItem] = useState<SyncChange | null>(null);
   const [rollbackConfirmed, setRollbackConfirmed] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
-
-  // Detail expand
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
   const loadRuns = useCallback(async () => {
@@ -79,32 +83,28 @@ export default function FeedzReconciliationPage() {
 
   const loadItems = useCallback(async (runId: string) => {
     setLoadingItems(true);
-    const { data } = await supabase
-      .from('feedz_sync_items')
-      .select('*')
-      .eq('sync_run_id', runId)
-      .order('created_at', { ascending: true });
-    setItems((data || []) as unknown as SyncItem[]);
+    const [changesRes, inconsRes] = await Promise.all([
+      (supabase.from as any)('feedz_sync_change').select('*').eq('run_id', runId).order('created_at', { ascending: true }),
+      (supabase.from as any)('feedz_sync_inconsistency').select('*').eq('run_id', runId).order('created_at', { ascending: true }),
+    ]);
+    setChanges((changesRes.data || []) as SyncChange[]);
+    setInconsistencies((inconsRes.data || []) as SyncInconsistency[]);
     setLoadingItems(false);
   }, []);
 
   useEffect(() => { loadRuns(); }, [loadRuns]);
 
   useEffect(() => {
-    if (selectedRunId) {
-      loadItems(selectedRunId);
-    } else {
-      setItems([]);
-    }
+    if (selectedRunId) loadItems(selectedRunId);
+    else { setChanges([]); setInconsistencies([]); }
   }, [selectedRunId, loadItems]);
 
-  const openRun = (runId: string) => {
-    setSearchParams({ runId });
-  };
+  const openRun = (runId: string) => setSearchParams({ runId });
 
   const backToList = () => {
     setSearchParams({});
-    setItems([]);
+    setChanges([]);
+    setInconsistencies([]);
     setSearchQuery('');
     setExpandedItemId(null);
   };
@@ -114,12 +114,11 @@ export default function FeedzReconciliationPage() {
     setRollingBack(true);
     try {
       const { data, error } = await supabase.functions.invoke('feedz-rollback', {
-        body: { itemId: rollbackItem.id },
+        body: { itemId: rollbackItem.id, runId: rollbackItem.run_id },
       });
       if (error) throw new Error(typeof error === 'object' && (error as any).message ? (error as any).message : String(error));
       if (data?.error) throw new Error(data.error);
       toast.success('Registro revertido com sucesso.');
-      // Refresh items
       if (selectedRunId) loadItems(selectedRunId);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
@@ -130,18 +129,47 @@ export default function FeedzReconciliationPage() {
     }
   };
 
-  // Filter items
-  const createdItems = items.filter(i => i.action === 'INSERT');
-  const updatedItems = items.filter(i => i.action === 'UPDATE');
-  const blockedItems = items.filter(i => i.action === 'PENDING' || i.action === 'CONFLICT' || i.action === 'BLOCKED');
+  const exportInconsistenciesCSV = () => {
+    if (inconsistencies.length === 0) return;
+    const headers = ['Matrícula', 'Código', 'Detalhe', 'Data'];
+    const rows = inconsistencies.map(i => [
+      i.matricula || '',
+      i.reason_code,
+      `"${(i.reason_detail || '').replace(/"/g, '""')}"`,
+      new Date(i.created_at).toLocaleString('pt-BR'),
+    ]);
+    const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inconsistencias-${selectedRunId?.substring(0, 8)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exportado.');
+  };
 
-  const filterBySearch = (list: SyncItem[]) => {
+  // Filter
+  const createdItems = changes.filter(i => i.action === 'created');
+  const updatedItems = changes.filter(i => i.action === 'updated');
+  const terminatedItems = changes.filter(i => i.action === 'terminated');
+
+  const filterBySearch = <T extends { matricula?: string | null }>(list: T[], nameField?: string): T[] => {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(i => {
+      const m = (i.matricula || '').toLowerCase();
+      const extra = nameField ? String((i as any)[nameField] || '').toLowerCase() : '';
+      return m.includes(q) || extra.includes(q);
+    });
+  };
+
+  const filterChanges = (list: SyncChange[]) => {
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(i =>
-      (i.feedz_name || '').toLowerCase().includes(q) ||
-      (i.feedz_id || '').toLowerCase().includes(q) ||
-      (i.feedz_email || '').toLowerCase().includes(q)
+      (i.matricula || '').toLowerCase().includes(q) ||
+      JSON.stringify(i.after_snapshot?.nome || i.before_snapshot?.nome || '').toLowerCase().includes(q)
     );
   };
 
@@ -154,54 +182,44 @@ export default function FeedzReconciliationPage() {
     return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
   };
 
-  const renderFieldChips = (item: SyncItem) => {
-    const changes = item.fields_changed_json as any[];
-    if (!changes || changes.length === 0) return <span className="text-muted-foreground">—</span>;
-    const fieldNames = changes.filter((c: any) => c.field).map((c: any) => c.field);
-    const display = fieldNames.slice(0, 3);
+  const getNameFromChange = (item: SyncChange) => {
+    return item.after_snapshot?.nome || item.before_snapshot?.nome || '—';
+  };
+
+  const renderFieldChips = (item: SyncChange) => {
+    const ch = (item.changed_fields as any[]) || [];
+    if (ch.length === 0) return <span className="text-muted-foreground">—</span>;
+    const names = ch.filter((c: any) => c.field).map((c: any) => c.field);
+    const display = names.slice(0, 3);
     return (
       <div className="flex flex-wrap gap-1">
-        {display.map((f: string) => (
-          <Badge key={f} variant="outline" className="text-[10px]">{f}</Badge>
-        ))}
-        {fieldNames.length > 3 && (
-          <Badge variant="secondary" className="text-[10px]">+{fieldNames.length - 3}</Badge>
-        )}
+        {display.map((f: string) => <Badge key={f} variant="outline" className="text-[10px]">{f}</Badge>)}
+        {names.length > 3 && <Badge variant="secondary" className="text-[10px]">+{names.length - 3}</Badge>}
       </div>
     );
   };
 
-  const renderItemRow = (item: SyncItem) => {
+  const renderChangeRow = (item: SyncChange, showRollback = true) => {
     const isReverted = !!item.reverted_at;
     const isExpanded = expandedItemId === item.id;
 
     return (
       <div key={item.id}>
         <TableRow className={isReverted ? 'opacity-60' : ''}>
-          <TableCell className="text-xs">{new Date(item.created_at).toLocaleString('pt-BR')}</TableCell>
-          <TableCell className="text-xs font-mono">{item.feedz_id || '—'}</TableCell>
-          <TableCell className="text-sm">{item.feedz_name || '—'}</TableCell>
+          <TableCell className="text-xs">{new Date(item.synced_at).toLocaleString('pt-BR')}</TableCell>
+          <TableCell className="text-xs font-mono">{item.matricula || '—'}</TableCell>
+          <TableCell className="text-sm">{getNameFromChange(item)}</TableCell>
           <TableCell>{renderFieldChips(item)}</TableCell>
           <TableCell>
             {isReverted ? (
               <Badge variant="secondary" className="text-[10px]">Revertido</Badge>
             ) : (
               <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                  title="Ver detalhes"
-                >
+                <Button variant="ghost" size="sm" onClick={() => setExpandedItemId(isExpanded ? null : item.id)} title="Ver detalhes">
                   <Eye className="h-3 w-3" />
                 </Button>
-                {(item.action === 'INSERT' || item.action === 'UPDATE') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setRollbackItem(item); setRollbackConfirmed(false); }}
-                    title="Reverter"
-                  >
+                {showRollback && (
+                  <Button variant="ghost" size="sm" onClick={() => { setRollbackItem(item); setRollbackConfirmed(false); }} title="Reverter">
                     <Undo2 className="h-3 w-3 text-destructive" />
                   </Button>
                 )}
@@ -220,7 +238,17 @@ export default function FeedzReconciliationPage() {
     );
   };
 
-  // ─── RUNS LIST VIEW ──────────────────────────────────────────────────────
+  const reasonCodeLabel: Record<string, string> = {
+    MISSING_MATRICULA: 'Matrícula ausente',
+    DUPLICATE_MATRICULA_FEEDZ: 'Matrícula duplicada no Feedz',
+    TERMINATION_DATE_WITH_ACTIVE_STATUS: 'Ativo com data de desligamento',
+    NO_TERMINATION_DATE_WITH_INACTIVE_STATUS: 'Inativo sem data de desligamento',
+    INVALID_STATUS_COMBINATION: 'Combinação de status inválida',
+    MULTIPLE_MATCHES_IN_SYSTEM: 'Múltiplos registros no sistema',
+    PARSE_ERROR: 'Erro de processamento',
+  };
+
+  // ─── RUNS LIST ──────────────────────────────────────────────────────────────
   if (!selectedRunId) {
     return (
       <div className="space-y-6">
@@ -260,7 +288,7 @@ export default function FeedzReconciliationPage() {
                       <TableHead className="text-xs">Criados</TableHead>
                       <TableHead className="text-xs">Alterados</TableHead>
                       <TableHead className="text-xs">Desligados</TableHead>
-                      <TableHead className="text-xs">Pendências</TableHead>
+                      <TableHead className="text-xs">Inconsistências</TableHead>
                       <TableHead className="text-xs">Modo</TableHead>
                       <TableHead className="text-xs">Ações</TableHead>
                     </TableRow>
@@ -277,7 +305,7 @@ export default function FeedzReconciliationPage() {
                         <TableCell className="text-xs">{r.records_created}</TableCell>
                         <TableCell className="text-xs">{r.records_updated}</TableCell>
                         <TableCell className="text-xs">{r.records_terminated}</TableCell>
-                        <TableCell className="text-xs">{(r.records_pending || 0) + (r.records_conflicts || 0)}</TableCell>
+                        <TableCell className="text-xs">{r.inconsistency_count || 0}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px]">{r.sync_mode || 'legacy'}</Badge>
                         </TableCell>
@@ -298,7 +326,7 @@ export default function FeedzReconciliationPage() {
     );
   }
 
-  // ─── RUN DETAIL VIEW ──────────────────────────────────────────────────────
+  // ─── RUN DETAIL ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <PageHeader
@@ -312,15 +340,9 @@ export default function FeedzReconciliationPage() {
         }
       />
 
-      {/* Search */}
       <div className="flex items-center gap-2 max-w-md">
         <Search className="h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome ou matrícula..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="h-9"
-        />
+        <Input placeholder="Buscar por nome ou matrícula..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-9" />
       </div>
 
       {loadingItems ? (
@@ -330,47 +352,91 @@ export default function FeedzReconciliationPage() {
       ) : (
         <Tabs defaultValue="created">
           <TabsList>
-            <TabsTrigger value="created">
-              Criados ({createdItems.length})
-            </TabsTrigger>
-            <TabsTrigger value="updated">
-              Alterados ({updatedItems.length})
-            </TabsTrigger>
-            <TabsTrigger value="blocked">
-              Bloqueados ({blockedItems.length})
+            <TabsTrigger value="created">Criados ({createdItems.length})</TabsTrigger>
+            <TabsTrigger value="updated">Alterados ({updatedItems.length})</TabsTrigger>
+            <TabsTrigger value="terminated">Desligados ({terminatedItems.length})</TabsTrigger>
+            <TabsTrigger value="inconsistencies">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Inconsistências ({inconsistencies.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="created">
-            <ItemsTable items={filterBySearch(createdItems)} renderRow={renderItemRow} emptyMessage="Nenhum registro criado neste run." />
+            <ChangesTable items={filterChanges(createdItems)} renderRow={(i) => renderChangeRow(i)} emptyMessage="Nenhum registro criado neste run." />
           </TabsContent>
 
           <TabsContent value="updated">
-            <ItemsTable items={filterBySearch(updatedItems)} renderRow={renderItemRow} emptyMessage="Nenhum registro alterado neste run." />
+            <ChangesTable items={filterChanges(updatedItems)} renderRow={(i) => renderChangeRow(i)} emptyMessage="Nenhum registro alterado neste run." />
           </TabsContent>
 
-          <TabsContent value="blocked">
-            <ItemsTable items={filterBySearch(blockedItems)} renderRow={renderItemRow} emptyMessage="Nenhum registro bloqueado neste run." />
+          <TabsContent value="terminated">
+            <ChangesTable items={filterChanges(terminatedItems)} renderRow={(i) => renderChangeRow(i)} emptyMessage="Nenhum desligamento neste run." />
+          </TabsContent>
+
+          <TabsContent value="inconsistencies">
+            <Card>
+              <CardContent className="pt-4">
+                {inconsistencies.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">Nenhuma inconsistência neste run.</p>
+                ) : (
+                  <>
+                    <div className="flex justify-end mb-3">
+                      <Button variant="outline" size="sm" onClick={exportInconsistenciesCSV}>
+                        <Download className="h-3 w-3 mr-1" /> Exportar CSV
+                      </Button>
+                    </div>
+                    <div className="border rounded-md overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Matrícula</TableHead>
+                            <TableHead className="text-xs">Código</TableHead>
+                            <TableHead className="text-xs">Detalhe</TableHead>
+                            <TableHead className="text-xs">Data</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filterBySearch(inconsistencies).map(inc => (
+                            <TableRow key={inc.id}>
+                              <TableCell className="text-xs font-mono">{inc.matricula || '—'}</TableCell>
+                              <TableCell>
+                                <Badge variant="destructive" className="text-[10px]">
+                                  {reasonCodeLabel[inc.reason_code] || inc.reason_code}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs max-w-[300px] break-words">{inc.reason_detail}</TableCell>
+                              <TableCell className="text-xs">{new Date(inc.created_at).toLocaleString('pt-BR')}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       )}
 
-      {/* Rollback confirmation dialog */}
+      {/* Rollback dialog */}
       <Dialog open={!!rollbackItem} onOpenChange={(open) => { if (!open) { setRollbackItem(null); setRollbackConfirmed(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reverter registro</DialogTitle>
             <DialogDescription>
-              {rollbackItem?.action === 'INSERT'
-                ? `O registro "${rollbackItem?.feedz_name}" (matrícula ${rollbackItem?.feedz_id}) será inativado ou removido do sistema.`
-                : `Os campos alterados de "${rollbackItem?.feedz_name}" serão restaurados ao estado anterior à sincronização.`
+              {rollbackItem?.action === 'created'
+                ? `O registro "${getNameFromChange(rollbackItem!)}" (matrícula ${rollbackItem?.matricula}) será inativado ou removido do sistema.`
+                : rollbackItem?.action === 'terminated'
+                  ? `O registro "${getNameFromChange(rollbackItem!)}" será reativado ao estado anterior ao desligamento.`
+                  : `Os campos alterados de "${getNameFromChange(rollbackItem!)}" serão restaurados ao estado anterior à sincronização.`
               }
             </DialogDescription>
           </DialogHeader>
 
-          {rollbackItem?.action === 'UPDATE' && rollbackItem?.fields_changed_json && (
+          {(rollbackItem?.action === 'updated' || rollbackItem?.action === 'terminated') && rollbackItem?.changed_fields && (
             <div className="text-xs space-y-1 max-h-40 overflow-auto border rounded p-2 bg-muted/30">
-              {(rollbackItem.fields_changed_json as any[]).map((c: any, i: number) => (
+              {((rollbackItem.changed_fields as any[]) || []).map((c: any, i: number) => (
                 <div key={i} className="flex gap-2">
                   <span className="font-medium">{c.field}:</span>
                   <span className="text-destructive line-through">{String(c.after ?? '—')}</span>
@@ -382,21 +448,13 @@ export default function FeedzReconciliationPage() {
           )}
 
           <div className="flex items-center gap-2">
-            <Checkbox
-              id="confirm-rollback"
-              checked={rollbackConfirmed}
-              onCheckedChange={(v) => setRollbackConfirmed(!!v)}
-            />
+            <Checkbox id="confirm-rollback" checked={rollbackConfirmed} onCheckedChange={(v) => setRollbackConfirmed(!!v)} />
             <label htmlFor="confirm-rollback" className="text-sm">Confirmo a reversão deste registro</label>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setRollbackItem(null); setRollbackConfirmed(false); }}>Cancelar</Button>
-            <Button
-              variant="destructive"
-              disabled={!rollbackConfirmed || rollingBack}
-              onClick={handleRollbackItem}
-            >
+            <Button variant="destructive" disabled={!rollbackConfirmed || rollingBack} onClick={handleRollbackItem}>
               {rollingBack ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Undo2 className="h-4 w-4 mr-2" />}
               Reverter
             </Button>
@@ -407,8 +465,8 @@ export default function FeedzReconciliationPage() {
   );
 }
 
-// ─── ITEMS TABLE COMPONENT ──────────────────────────────────────────────────
-function ItemsTable({ items, renderRow, emptyMessage }: { items: SyncItem[]; renderRow: (item: SyncItem) => React.ReactNode; emptyMessage: string }) {
+// ─── CHANGES TABLE ──────────────────────────────────────────────────────────
+function ChangesTable({ items, renderRow, emptyMessage }: { items: SyncChange[]; renderRow: (item: SyncChange) => React.ReactNode; emptyMessage: string }) {
   if (items.length === 0) {
     return (
       <Card>
@@ -444,9 +502,9 @@ function ItemsTable({ items, renderRow, emptyMessage }: { items: SyncItem[]; ren
 }
 
 // ─── FIELD CHANGES DETAIL ───────────────────────────────────────────────────
-function FieldChangesDetail({ item }: { item: SyncItem }) {
-  const changes = item.fields_changed_json as any[];
-  if (!changes || changes.length === 0) {
+function FieldChangesDetail({ item }: { item: SyncChange }) {
+  const changes = (item.changed_fields as any[]) || [];
+  if (changes.length === 0) {
     return <p className="text-xs text-muted-foreground">Sem detalhes de alteração.</p>;
   }
 
@@ -463,9 +521,6 @@ function FieldChangesDetail({ item }: { item: SyncItem }) {
           </div>
         ))}
       </div>
-      {item.reason_code && (
-        <p className="text-xs text-muted-foreground mt-2">Razão: <Badge variant="secondary" className="text-[10px]">{item.reason_code}</Badge></p>
-      )}
     </div>
   );
 }
