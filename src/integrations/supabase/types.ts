@@ -1732,7 +1732,15 @@ export type Database = {
     }
     Enums: {
       alert_severity: "atencao" | "critico" | "info"
-      app_role: "c-level" | "intermediario" | "leitor"
+      app_role:
+        | "c-level"
+        | "intermediario"
+        | "leitor"
+        | "comercial"
+        | "lider_tribo"
+        | "juridico"
+        | "rh"
+        | "administrativo"
       contract_segment: "govtech" | "privado"
       contract_status: "implantacao" | "operacao" | "suspenso" | "encerrado"
       contract_type: "sistema" | "infraestrutura" | "hibrido"
@@ -1924,7 +1932,16 @@ export const Constants = {
   public: {
     Enums: {
       alert_severity: ["atencao", "critico", "info"],
-      app_role: ["c-level", "intermediario", "leitor"],
+      app_role: [
+        "c-level",
+        "intermediario",
+        "leitor",
+        "comercial",
+        "lider_tribo",
+        "juridico",
+        "rh",
+        "administrativo",
+      ],
       contract_segment: ["govtech", "privado"],
       contract_status: ["implantacao", "operacao", "suspenso", "encerrado"],
       contract_type: ["sistema", "infraestrutura", "hibrido"],

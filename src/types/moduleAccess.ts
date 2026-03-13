@@ -41,14 +41,28 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
  * Returns default moduleAccess based on user role.
  * Role restrictions from MODULE_CATALOG take priority.
  */
+// Default modules enabled per role (modules not listed default to false for these roles)
+const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
+  comercial: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
+  lider_tribo: ['DASHBOARD', 'SQUADS'],
+  juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
+  rh: ['DASHBOARD', 'SQUADS', 'HR'],
+  administrativo: [], // all managed via flags
+};
+
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
   const access = {} as Record<ModuleKey, boolean>;
-  
+  const customDefaults = ROLE_DEFAULT_MODULES[role];
+
   for (const mod of MODULE_CATALOG) {
-    // If module has role restrictions and the role is not in the list, default to false
+    // Role-level restriction always takes priority
     if (mod.roleRestrictions.length > 0 && !mod.roleRestrictions.includes(role)) {
       access[mod.key] = false;
+    } else if (customDefaults !== undefined) {
+      // For roles with explicit default lists, only listed modules are enabled
+      access[mod.key] = customDefaults.includes(mod.key);
     } else {
+      // Legacy roles (c-level, intermediario, leitor): all allowed modules enabled
       access[mod.key] = true;
     }
   }

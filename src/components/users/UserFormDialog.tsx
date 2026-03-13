@@ -62,7 +62,7 @@ const userFormSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
   email: z.string().email('E-mail inválido').max(255),
   password: passwordSchema,
-  role: z.enum(['c-level', 'intermediario', 'leitor'] as const),
+  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo'] as const),
   active: z.boolean(),
 });
 
@@ -80,6 +80,11 @@ const roleDescriptions: Record<UserRole, string> = {
   'c-level': 'Acesso total com visualização de valores financeiros e gestão de usuários',
   'intermediario': 'Edição de dados operacionais sem visualização de valores',
   'leitor': 'Apenas visualização de dados sem valores financeiros',
+  'comercial': 'Visão de contratos, squads e dashboard sem valores financeiros',
+  'lider_tribo': 'Visão de squads e dashboard sem valores financeiros',
+  'juridico': 'Visão de contratos, squads e dashboard sem valores financeiros',
+  'rh': 'Visão de RH, squads e dashboard sem valores financeiros',
+  'administrativo': 'Acesso controlado por flags de módulo',
 };
 
 export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogProps) {
@@ -337,6 +342,11 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                       <SelectItem value="c-level">C-Level / Admin</SelectItem>
                       <SelectItem value="intermediario">Intermediário</SelectItem>
                       <SelectItem value="leitor">Leitor</SelectItem>
+                      <SelectItem value="comercial">Comercial</SelectItem>
+                      <SelectItem value="lider_tribo">Líder de Tribo</SelectItem>
+                      <SelectItem value="juridico">Jurídico</SelectItem>
+                      <SelectItem value="rh">RH</SelectItem>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
