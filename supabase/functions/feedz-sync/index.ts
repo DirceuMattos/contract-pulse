@@ -349,12 +349,12 @@ Deno.serve(async (req) => {
 
       // ─── ENRICH TERMINATION DATE FROM TURNOVER ─────────────────────────
       // If status is inactive but no dismissal date from employees endpoint,
-      // try to get the real date from turnover data
-      if (feedzStatus === 'inativo' && !terminationDate) {
-        const turnoverInfo = turnoverMap.get(matricula)
+      // try to get the real date from turnover data using employeeId (= profile.id)
+      if (feedzStatus === 'inativo' && !terminationDate && feedzEmployeeId) {
+        const turnoverInfo = turnoverMap.get(feedzEmployeeId)
         if (turnoverInfo) {
           terminationDate = turnoverInfo.date
-          console.log(`[feedz-sync] Enriched termination date for matricula=${matricula} from turnover: ${terminationDate}`)
+          console.log(`[feedz-sync] Enriched termination date for matricula=${matricula} (employeeId=${feedzEmployeeId}) from turnover: ${terminationDate}`)
         }
       }
 
