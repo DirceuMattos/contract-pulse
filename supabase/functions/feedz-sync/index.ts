@@ -41,7 +41,7 @@ function normalizePhone(phone: string | null | undefined): string | null {
 
 // ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
 function computePayloadHash(data: Record<string, any>): string {
-  const keys = ['nome', 'tipo_vinculo', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'remuneracao_mensal', 'data_admissao', 'data_desligamento']
+  const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento']
   const obj: Record<string, string> = {}
   for (const k of keys) obj[k] = String(data[k] ?? '')
   const str = JSON.stringify(obj)
@@ -241,7 +241,8 @@ Deno.serve(async (req) => {
       const feedzAdmission = person.admission_at || null
       const feedzStatus = normalizeFeedzStatus(person.status)
       const terminationDate = extractTerminationDate(person)
-      const remuneracao = person.remuneration ? parseFloat(person.remuneration) : 0
+      const rawRemuneracao = person.remuneration ? parseFloat(person.remuneration) : null
+      const remuneracaoValid = rawRemuneracao !== null && !isNaN(rawRemuneracao) && rawRemuneracao > 0
 
       const now = new Date().toISOString()
       const minPayload = { matricula, employeeId: feedzEmployeeId, nome: feedzName, email: feedzEmailRaw, status: person.status, department: feedzDept, job: feedzJob }
@@ -325,7 +326,7 @@ Deno.serve(async (req) => {
             cargo_id: cargoId, team_id: teamId,
             data_admissao: feedzAdmission || new Date().toISOString().split('T')[0],
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
-            remuneracao_mensal: remuneracao, matricula,
+            remuneracao_mensal: remuneracaoValid ? rawRemuneracao : 0, matricula,
             id_externo: feedzEmployeeId, source: 'feedz', sync_status: 'synced',
             last_synced_at: now, nome_normalizado: normalizeName(feedzName), updated_at: now,
           }
@@ -364,15 +365,20 @@ Deno.serve(async (req) => {
       } else {
         // FOUND in system (1 match)
         if (feedzStatus === 'ativo' && !terminationDate) {
-          // ─── CASE C: UPDATE ────────────────────────────────────────────
+          // ─── CASE C: UPDATE (lifecycle-safe) ─────────────────────────
+          // Do NOT overwrite tipo_vinculo or remuneracao unless Feedz provides valid data
           const dbPayload: Record<string, any> = {
-            nome: feedzName, tipo_vinculo: 'clt', situacao: 'ativo',
+            nome: feedzName, situacao: 'ativo',
             cargo_id: cargoId, team_id: teamId,
             data_admissao: feedzAdmission || existing.data_admissao,
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
-            remuneracao_mensal: remuneracao, matricula,
+            matricula,
             id_externo: feedzEmployeeId, source: 'feedz', sync_status: 'synced',
             last_synced_at: now, nome_normalizado: normalizeName(feedzName), updated_at: now,
+          }
+          // Only update remuneracao if Feedz sends a valid positive number
+          if (remuneracaoValid) {
+            dbPayload.remuneracao_mensal = rawRemuneracao
           }
 
           // Handle reactivation (inativo → ativo)
@@ -395,7 +401,7 @@ Deno.serve(async (req) => {
           // Compute changed fields
           const fieldsChanged: { field: string; before: any; after: any }[] = []
           const snapshotBefore: Record<string, any> = {}
-          const checkFields = ['nome', 'tipo_vinculo', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'remuneracao_mensal', 'data_admissao']
+          const checkFields = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', ...(remuneracaoValid ? ['remuneracao_mensal'] : [])]
           for (const key of checkFields) {
             snapshotBefore[key] = existing[key]
             if (String(existing[key] ?? '') !== String(dbPayload[key] ?? '')) {
@@ -448,13 +454,7 @@ Deno.serve(async (req) => {
               })
             }
 
-            if (fieldsChanged.some(f => f.field === 'tipo_vinculo')) {
-              await db.from('hr_timeline').insert({
-                person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
-                ocorrencia: 'mudanca-vinculo', descricao: `Vínculo alterado via Feedz: ${existing.tipo_vinculo} → ${dbPayload.tipo_vinculo}`,
-                atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
-              })
-            }
+            // tipo_vinculo is no longer synced from Feedz — removed to prevent data corruption
           }
         } else if (feedzStatus === 'inativo' && terminationDate) {
           // ─── CASE B: TERMINATE ─────────────────────────────────────────
@@ -507,10 +507,53 @@ Deno.serve(async (req) => {
           syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'TERMINATION_DATE_WITH_ACTIVE_STATUS', reason_detail: `Status ativo mas data desligamento=${terminationDate}`, feedz_payload: minPayload })
           syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
         } else if (feedzStatus === 'inativo' && !terminationDate) {
-          // INCONSISTENCY: inactive without termination date
-          inconsistencyCount++
-          syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'NO_TERMINATION_DATE_WITH_INACTIVE_STATUS', reason_detail: `Status inativo/desligado sem data de desligamento`, feedz_payload: minPayload })
-          syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
+          // ─── CASE B2: TERMINATE WITHOUT DATE (fallback) ────────────────
+          // Inactivate even without a date — use today as fallback
+          const fallbackDate = new Date().toISOString().split('T')[0]
+
+          // Skip if already inativo
+          if (existing.situacao === 'inativo') {
+            await db.from('hr_people').update({ last_synced_at: now }).eq('id', existing.id)
+            continue
+          }
+
+          const snapshotBefore: Record<string, any> = {}
+          const termFields = ['situacao', 'data_desligamento', 'tipo_desligamento', 'motivo_desligamento', 'last_synced_at', 'sync_status']
+          for (const k of termFields) snapshotBefore[k] = existing[k]
+
+          const dbPayload: Record<string, any> = {
+            situacao: 'inativo',
+            data_desligamento: fallbackDate,
+            tipo_desligamento: 'outro',
+            motivo_desligamento: 'Desligamento via Feedz (data não informada — fallback)',
+            last_synced_at: now,
+            sync_status: 'synced',
+            updated_at: now,
+          }
+
+          const afterSnapshot = { ...snapshotBefore }
+          for (const k of Object.keys(dbPayload)) afterSnapshot[k] = dbPayload[k]
+
+          const fieldsChanged = termFields
+            .filter(k => String(existing[k] ?? '') !== String(dbPayload[k] ?? ''))
+            .map(k => ({ field: k, before: existing[k], after: dbPayload[k] }))
+
+          const { error: updateErr } = await db.from('hr_people').update(dbPayload).eq('id', existing.id)
+          if (!updateErr) {
+            terminatedCount++
+            const payloadHash = computePayloadHash({ ...existing, ...dbPayload })
+            syncChanges.push({
+              run_id: runId, matricula, hr_people_id: existing.id, action: 'terminated',
+              synced_at: now, changed_fields: fieldsChanged, before_snapshot: snapshotBefore,
+              after_snapshot: afterSnapshot, payload_hash: payloadHash,
+            })
+
+            await db.from('hr_timeline').insert({
+              person_id: existing.id, event_date: fallbackDate,
+              ocorrencia: 'desligamento', descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data não informada pelo Feedz — usado fallback ${fallbackDate}.`,
+              atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
+            })
+          }
         } else {
           // Catch-all inconsistency
           inconsistencyCount++

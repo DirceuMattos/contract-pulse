@@ -338,14 +338,19 @@ export default function FeedzReconciliationPage() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => {
               if (!selectedRun) return;
-              const blob = buildFeedzSyncReportV2(selectedRun, changes, inconsistencies);
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `feedz-conciliacao-${selectedRunId?.substring(0, 8)}.xlsx`;
-              a.click();
-              URL.revokeObjectURL(url);
-              toast.success('Planilha exportada.');
+              try {
+                const blob = buildFeedzSyncReportV2(selectedRun, changes, inconsistencies);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `feedz-conciliacao-${selectedRunId?.substring(0, 8)}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+                toast.success('Planilha exportada.');
+              } catch (err: any) {
+                toast.error(`Erro ao gerar planilha: ${err.message}`);
+              }
             }}>
               <Download className="h-4 w-4 mr-2" /> Exportar XLSX
             </Button>

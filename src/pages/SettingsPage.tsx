@@ -439,6 +439,20 @@ export default function SettingsPage() {
 }
 
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  // Delay revoke to ensure download starts
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
+}
+
 function FeedzSyncSection() {
   const navigate = useNavigate();
   const { jobTitles, teams } = useData();
@@ -527,15 +541,12 @@ function FeedzSyncSection() {
       const changes = (changesRes.data || []) as any[];
       const inconsistencies = (inconsRes.data || []) as any[];
 
+      const filename = `feedz-sync-${new Date(run.created_at).toISOString().split('T')[0]}-${run.id.substring(0, 8)}.xlsx`;
+
       if (changes.length > 0 || inconsistencies.length > 0) {
         // V2 report
         const blob = buildFeedzSyncReportV2(run, changes, inconsistencies);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `feedz-sync-${new Date(run.created_at).toISOString().split('T')[0]}-${run.id.substring(0, 8)}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, filename);
         toast.success('Relatório exportado com sucesso!');
         return;
       }
@@ -551,12 +562,7 @@ function FeedzSyncSection() {
         return;
       }
       const blob = buildFeedzSyncReport(run, items);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `feedz-sync-${new Date(run.created_at).toISOString().split('T')[0]}-${run.id.substring(0, 8)}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, filename);
       toast.success('Relatório exportado com sucesso!');
     } catch (err: any) {
       toast.error(`Erro ao exportar: ${err.message}`);
