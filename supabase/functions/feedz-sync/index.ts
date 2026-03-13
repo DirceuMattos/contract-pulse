@@ -454,13 +454,7 @@ Deno.serve(async (req) => {
               })
             }
 
-            if (fieldsChanged.some(f => f.field === 'tipo_vinculo')) {
-              await db.from('hr_timeline').insert({
-                person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
-                ocorrencia: 'mudanca-vinculo', descricao: `Vínculo alterado via Feedz: ${existing.tipo_vinculo} → ${dbPayload.tipo_vinculo}`,
-                atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
-              })
-            }
+            // tipo_vinculo is no longer synced from Feedz — removed to prevent data corruption
           }
         } else if (feedzStatus === 'inativo' && terminationDate) {
           // ─── CASE B: TERMINATE ─────────────────────────────────────────
