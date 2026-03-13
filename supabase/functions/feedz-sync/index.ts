@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
             cargo_id: cargoId, team_id: teamId,
             data_admissao: feedzAdmission || new Date().toISOString().split('T')[0],
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
-            remuneracao_mensal: remuneracao, matricula,
+            remuneracao_mensal: remuneracaoValid ? rawRemuneracao : 0, matricula,
             id_externo: feedzEmployeeId, source: 'feedz', sync_status: 'synced',
             last_synced_at: now, nome_normalizado: normalizeName(feedzName), updated_at: now,
           }
