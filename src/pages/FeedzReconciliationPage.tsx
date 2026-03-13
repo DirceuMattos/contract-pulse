@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { buildFeedzSyncReportV2 } from '@/lib/importExport';
 
 interface SyncRun {
   id: string;
