@@ -120,7 +120,7 @@ export default function SquadsPage() {
   const [contractFilter, setContractFilter] = useState<string>(initialContractFilter);
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
 

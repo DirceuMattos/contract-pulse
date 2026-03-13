@@ -294,7 +294,7 @@ export default function DashboardPage() {
               variant="outline"
               role="combobox"
               aria-expanded={clientOpen}
-              className="justify-between min-w-[250px] text-left font-normal"
+              className="justify-between w-full sm:min-w-[250px] text-left font-normal"
             >
               <span className="truncate">{selectedClientLabel}</span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -333,7 +333,7 @@ export default function DashboardPage() {
               variant="outline"
               role="combobox"
               aria-expanded={contractOpen}
-              className="justify-between min-w-[300px] text-left font-normal"
+              className="justify-between w-full sm:min-w-[300px] text-left font-normal"
             >
               <span className="truncate">{selectedContractLabel}</span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -378,7 +378,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* KPI Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Contracts */}
         <Card className="card-kpi">
           <CardContent className="p-0">
