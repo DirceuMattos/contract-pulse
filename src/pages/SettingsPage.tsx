@@ -487,7 +487,7 @@ function FeedzSyncSection() {
       });
       if (error) throw new Error(typeof error === 'object' && error.message ? error.message : String(error));
       if (data?.error) throw new Error(data.error);
-      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados, ${data?.pending || 0} pendentes.`);
+      toast.success(`Sincronização concluída: ${data?.created || 0} criados, ${data?.updated || 0} atualizados, ${data?.terminated || 0} desligados, ${data?.inconsistencies || 0} inconsistências.`);
       loadRuns();
     } catch (err: any) {
       toast.error(`Erro na sincronização: ${err.message || 'Erro desconhecido'}`);
