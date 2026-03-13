@@ -21,7 +21,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { buildFeedzSyncReport } from '@/lib/importExport';
+import { buildFeedzSyncReport, buildFeedzSyncReportV2 } from '@/lib/importExport';
 
 const settingsSchema = z.object({
   percentualEncargosCLT: z.number().min(0).max(200),
