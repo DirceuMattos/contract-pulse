@@ -1,22 +1,63 @@
-## Plan: Feedz Sync Reconstruído — Matrícula Única + 3 Fluxos + Inconsistências + Rollback
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Correção: Buscar data de desligamento do endpoint Turnover corretamente
 
-1. **Migração de banco** — Criadas tabelas `feedz_sync_change` e `feedz_sync_inconsistency`, adicionado `inconsistency_count` em `feedz_sync_runs`, e constraint UNIQUE parcial em `hr_people.matricula`.
+### Problema identificado
 
-2. **Edge function `feedz-sync`** — Reescrita completa com 4 cenários estritos:
-   - **CREATE**: matrícula não encontrada + ativo + sem data desligamento
-   - **UPDATE**: matrícula encontrada + ativo + sem data desligamento (com idempotência por hash)
-   - **TERMINATE**: matrícula encontrada + inativo/desligado + com data desligamento
-   - **INCONSISTENCY**: qualquer outro caso (matrícula vazia, duplicada, status conflitante)
+O endpoint de Turnover da API Feedz **não retorna o campo `registration` (matrícula)**. A estrutura real do retorno é:
 
-3. **Edge function `feedz-rollback`** — Adaptada para `feedz_sync_change` com suporte a rollback de terminated (reativação).
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "reason": "Sem justa causa",
+      "type": 2,
+      "department": "teste",
+      "last_day_working": "2023-05-04 00:00:00",
+      "profile": {
+        "id": 8,
+        "name": "usuario teste",
+        "email": "usuario.teste@feedz.com.br",
+        "status": 0
+      }
+    }
+  ]
+}
+```
 
-4. **Frontend `FeedzReconciliationPage`** — 4 abas: Criados, Alterados, Desligados, Inconsistências. Export CSV para inconsistências. Rollback por registro.
+O código atual tenta `rec.registration` que sempre será vazio, logo o `turnoverMap` nunca é preenchido, e o fallback (data atual) é sempre usado para desligados sem `dismissal_at`.
 
-5. **SettingsPage** — Atualizada para exibir `inconsistency_count` em vez de pendências/conflitos.
+Além disso, o endpoint é **paginado** (20 por página) e o código só busca a primeira página.
 
-### Tabelas antigas preservadas
-`feedz_sync_items`, `feedz_pending_matches`, `feedz_sync_events` permanecem para dados históricos.
+### O que será feito
+
+**Arquivo**: `supabase/functions/feedz-sync/index.ts`
+
+1. **Corrigir `TurnoverRecord` interface** — Ajustar para refletir a estrutura real da API com `profile: { id, name, email }`.
+
+2. **Indexar por `profile.id`** (que corresponde ao `employeeId` do endpoint de employees) em vez de `registration`. O matching no loop principal usará `feedzEmployeeId` para buscar no turnoverMap.
+
+3. **Adicionar paginação** — Percorrer todas as páginas do endpoint de turnover (`?page=1`, `?page=2`, etc.) até `next_page_url` ser null.
+
+4. **Ajustar o lookup no loop principal** — Onde hoje faz `turnoverMap.get(matricula)`, passará a fazer `turnoverMap.get(feedzEmployeeId)` (o `employeeId` do colaborador).
+
+### Detalhes técnicos
+
+```typescript
+// Interface corrigida
+interface TurnoverRecord {
+  id: number
+  reason?: string
+  type?: number
+  department?: string
+  last_day_working?: string
+  profile?: { id: number; name: string; email: string; status: number }
+}
+
+// Map indexado por profile.id (string) → employeeId
+// Paginação: buscar enquanto next_page_url existir
+```
+
+O campo `last_day_working` do Turnover será usado como `data_desligamento` no sistema de contratos, conforme solicitado.
+
