@@ -342,6 +342,11 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                       <SelectItem value="c-level">C-Level / Admin</SelectItem>
                       <SelectItem value="intermediario">Intermediário</SelectItem>
                       <SelectItem value="leitor">Leitor</SelectItem>
+                      <SelectItem value="comercial">Comercial</SelectItem>
+                      <SelectItem value="lider_tribo">Líder de Tribo</SelectItem>
+                      <SelectItem value="juridico">Jurídico</SelectItem>
+                      <SelectItem value="rh">RH</SelectItem>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
