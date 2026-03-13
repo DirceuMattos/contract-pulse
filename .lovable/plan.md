@@ -1,22 +1,34 @@
-## Plan: Feedz Sync Reconstruído — Matrícula Única + 3 Fluxos + Inconsistências + Rollback
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Plano: Atualizar datas de desligamento via Turnover API (sem nova sincronização)
 
-1. **Migração de banco** — Criadas tabelas `feedz_sync_change` e `feedz_sync_inconsistency`, adicionado `inconsistency_count` em `feedz_sync_runs`, e constraint UNIQUE parcial em `hr_people.matricula`.
+Sim, e possivel. A ideia e criar uma edge function dedicada que faz apenas isso: consulta o endpoint de Turnover do Feedz, cruza com os registros inativos/desligados no banco, e atualiza somente o campo `data_desligamento` onde estiver faltando ou incorreto.
 
-2. **Edge function `feedz-sync`** — Reescrita completa com 4 cenários estritos:
-   - **CREATE**: matrícula não encontrada + ativo + sem data desligamento
-   - **UPDATE**: matrícula encontrada + ativo + sem data desligamento (com idempotência por hash)
-   - **TERMINATE**: matrícula encontrada + inativo/desligado + com data desligamento
-   - **INCONSISTENCY**: qualquer outro caso (matrícula vazia, duplicada, status conflitante)
+### O que sera feito
 
-3. **Edge function `feedz-rollback`** — Adaptada para `feedz_sync_change` com suporte a rollback de terminated (reativação).
+**Novo arquivo**: `supabase/functions/feedz-update-termination-dates/index.ts`
 
-4. **Frontend `FeedzReconciliationPage`** — 4 abas: Criados, Alterados, Desligados, Inconsistências. Export CSV para inconsistências. Rollback por registro.
+Uma edge function leve que:
+1. Chama `fetchTurnoverMap()` (mesma logica paginada ja implementada no feedz-sync)
+2. Busca todos os `hr_people` com `situacao = 'inativo'` que tenham `id_externo` preenchido (o employeeId do Feedz)
+3. Para cada pessoa inativa, verifica se existe entrada no turnoverMap pelo `id_externo`
+4. Se a data do turnover for diferente da `data_desligamento` atual (ou se estiver nula), atualiza o registro
+5. Retorna um relatorio JSON com: total processados, total atualizados, detalhes (nome, matricula, data antiga, data nova)
 
-5. **SettingsPage** — Atualizada para exibir `inconsistency_count` em vez de pendências/conflitos.
+**Ajuste em**: `src/pages/SettingsPage.tsx`
+- Adicionar um botao "Atualizar Datas de Desligamento" na seção Feedz que invoca essa function
 
-### Tabelas antigas preservadas
-`feedz_sync_items`, `feedz_pending_matches`, `feedz_sync_events` permanecem para dados históricos.
+### Logica de matching
+
+```text
+hr_people.id_externo  ←→  turnoverMap key (profile.id / employeeId)
+```
+
+Apenas atualiza `data_desligamento` — nenhum outro campo e tocado.
+
+### Seguranca
+
+- Requer autenticacao (JWT do usuario logado)
+- Usa service role key internamente para o UPDATE
+- Nao altera nenhum outro campo alem de `data_desligamento`
+
