@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { buildFeedzSyncReportV2 } from '@/lib/importExport';
 
 interface SyncRun {
   id: string;
@@ -334,9 +335,24 @@ export default function FeedzReconciliationPage() {
         description={selectedRun ? `${new Date(selectedRun.started_at).toLocaleString('pt-BR')} • ${selectedRun.records_processed} processados • Status: ${selectedRun.status}` : ''}
         animated={false}
         actions={
-          <Button variant="outline" onClick={backToList}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar à lista
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              if (!selectedRun) return;
+              const blob = buildFeedzSyncReportV2(selectedRun, changes, inconsistencies);
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `feedz-conciliacao-${selectedRunId?.substring(0, 8)}.xlsx`;
+              a.click();
+              URL.revokeObjectURL(url);
+              toast.success('Planilha exportada.');
+            }}>
+              <Download className="h-4 w-4 mr-2" /> Exportar XLSX
+            </Button>
+            <Button variant="outline" onClick={backToList}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar à lista
+            </Button>
+          </div>
         }
       />
 

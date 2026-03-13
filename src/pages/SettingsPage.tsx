@@ -21,7 +21,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { buildFeedzSyncReport } from '@/lib/importExport';
+import { buildFeedzSyncReport, buildFeedzSyncReportV2 } from '@/lib/importExport';
 
 const settingsSchema = z.object({
   percentualEncargosCLT: z.number().min(0).max(200),
@@ -518,14 +518,36 @@ function FeedzSyncSection() {
   const handleExportReport = async (run: any) => {
     setExportingRun(run.id);
     try {
+      // Try V2 tables first (feedz_sync_change + feedz_sync_inconsistency)
+      const [changesRes, inconsRes] = await Promise.all([
+        (supabase.from as any)('feedz_sync_change').select('*').eq('run_id', run.id).order('created_at', { ascending: true }),
+        (supabase.from as any)('feedz_sync_inconsistency').select('*').eq('run_id', run.id).order('created_at', { ascending: true }),
+      ]);
+
+      const changes = (changesRes.data || []) as any[];
+      const inconsistencies = (inconsRes.data || []) as any[];
+
+      if (changes.length > 0 || inconsistencies.length > 0) {
+        // V2 report
+        const blob = buildFeedzSyncReportV2(run, changes, inconsistencies);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `feedz-sync-${new Date(run.created_at).toISOString().split('T')[0]}-${run.id.substring(0, 8)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Relatório exportado com sucesso!');
+        return;
+      }
+
+      // Fallback to legacy V1 tables
       const { data: items, error } = await supabase
         .from('feedz_sync_items')
         .select('*')
         .eq('sync_run_id', run.id);
-      console.log('[FeedZ Report] Run:', run.id, 'Items fetched:', items?.length, 'Error:', error);
       if (error) throw error;
       if (!items || items.length === 0) {
-        toast.error('Nenhum item de auditoria encontrado para este run (run anterior ao V2).');
+        toast.error('Nenhum item de auditoria encontrado para este run.');
         return;
       }
       const blob = buildFeedzSyncReport(run, items);

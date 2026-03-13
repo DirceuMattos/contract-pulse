@@ -266,12 +266,11 @@ export function buildMultiSheetXlsx(sheets: XlsxSheet[]): Blob {
   return buildZipBlob(files);
 }
 
-// ─── Feedz Sync Report XLSX Generator ────────────────────────────────────────
-export function buildFeedzSyncReport(run: any, items: any[]): Blob {
-  const inserts = items.filter(i => i.action === 'INSERT');
-  const updates = items.filter(i => i.action === 'UPDATE');
-  const pendings = items.filter(i => i.action === 'PENDING');
-  const conflicts = items.filter(i => i.action === 'CONFLICT');
+// ─── Feedz Sync Report XLSX Generator (V2 — uses feedz_sync_change) ─────────
+export function buildFeedzSyncReportV2(run: any, changes: any[], inconsistencies: any[]): Blob {
+  const created = changes.filter(i => i.action === 'created');
+  const updated = changes.filter(i => i.action === 'updated');
+  const terminated = changes.filter(i => i.action === 'terminated');
 
   // Sheet 1: Resumo
   const summaryHeaders = ['Campo', 'Valor'];
@@ -281,26 +280,92 @@ export function buildFeedzSyncReport(run: any, items: any[]): Blob {
     ['Data Fim', run.ended_at ? new Date(run.ended_at).toLocaleString('pt-BR') : ''],
     ['Status', run.status],
     ['Modo', run.sync_mode || 'strict'],
+    ['Processados', String(run.records_processed)],
+    ['Criados', String(run.records_created)],
+    ['Alterados', String(run.records_updated)],
+    ['Desligados', String(run.records_terminated)],
+    ['Inconsistências', String(run.inconsistency_count || 0)],
+  ];
+
+  // Sheet 2: Criados
+  const createdHeaders = ['Matrícula Feedz', 'Nome RH', 'Ação', 'Data/Hora', 'Revertido'];
+  const createdRows = created.map(i => [
+    i.matricula || '',
+    i.after_snapshot?.nome || '',
+    'Criado',
+    i.synced_at ? new Date(i.synced_at).toLocaleString('pt-BR') : '',
+    i.reverted_at ? 'Sim' : 'Não',
+  ]);
+
+  // Sheet 3: Alterados
+  const updatedHeaders = ['Matrícula Feedz', 'Nome RH', 'Ação', 'Data/Hora', 'Campos Alterados', 'Revertido'];
+  const updatedRows = updated.map(i => {
+    const ch = (i.changed_fields as any[]) || [];
+    const changesStr = ch.map((c: any) => `${c.field}: ${c.before ?? ''} → ${c.after ?? ''}`).join('; ');
+    return [
+      i.matricula || '',
+      i.after_snapshot?.nome || i.before_snapshot?.nome || '',
+      'Alterado',
+      i.synced_at ? new Date(i.synced_at).toLocaleString('pt-BR') : '',
+      changesStr,
+      i.reverted_at ? 'Sim' : 'Não',
+    ];
+  });
+
+  // Sheet 4: Desligados
+  const terminatedHeaders = ['Matrícula Feedz', 'Nome RH', 'Ação', 'Data/Hora', 'Data Desligamento', 'Revertido'];
+  const terminatedRows = terminated.map(i => [
+    i.matricula || '',
+    i.after_snapshot?.nome || i.before_snapshot?.nome || '',
+    'Desligado',
+    i.synced_at ? new Date(i.synced_at).toLocaleString('pt-BR') : '',
+    i.after_snapshot?.data_desligamento || '',
+    i.reverted_at ? 'Sim' : 'Não',
+  ]);
+
+  // Sheet 5: Inconsistências
+  const inconsistencyHeaders = ['Matrícula Feedz', 'Nome', 'Código', 'Detalhe', 'Data/Hora'];
+  const inconsistencyRows = inconsistencies.map(i => [
+    i.matricula || '(vazio)',
+    i.feedz_payload?.nome || i.feedz_payload?.employeeId || '',
+    i.reason_code || '',
+    i.reason_detail || '',
+    i.created_at ? new Date(i.created_at).toLocaleString('pt-BR') : '',
+  ]);
+
+  return buildMultiSheetXlsx([
+    { name: 'Resumo', headers: summaryHeaders, rows: summaryRows },
+    { name: 'Criados', headers: createdHeaders, rows: createdRows },
+    { name: 'Alterados', headers: updatedHeaders, rows: updatedRows },
+    { name: 'Desligados', headers: terminatedHeaders, rows: terminatedRows },
+    { name: 'Inconsistencias', headers: inconsistencyHeaders, rows: inconsistencyRows },
+  ]);
+}
+
+// Legacy V1 report (for old runs using feedz_sync_items)
+export function buildFeedzSyncReport(run: any, items: any[]): Blob {
+  const inserts = items.filter(i => i.action === 'INSERT');
+  const updates = items.filter(i => i.action === 'UPDATE');
+  const pendings = items.filter(i => i.action === 'PENDING');
+  const conflicts = items.filter(i => i.action === 'CONFLICT');
+
+  const summaryHeaders = ['Campo', 'Valor'];
+  const summaryRows = [
+    ['Run ID', run.id],
+    ['Data Início', run.started_at ? new Date(run.started_at).toLocaleString('pt-BR') : ''],
+    ['Data Fim', run.ended_at ? new Date(run.ended_at).toLocaleString('pt-BR') : ''],
+    ['Status', run.status],
     ['Processados', run.records_processed],
     ['Criados', run.records_created],
     ['Atualizados', run.records_updated],
-    ['Desligados', run.records_terminated],
-    ['Pendentes', run.records_pending || 0],
-    ['Conflitos', run.records_conflicts || 0],
-    ['Match por Feedz ID', run.matched_by_feedz_id || 0],
-    ['Match por Email', run.matched_by_email || 0],
-    ['Match por Telefone', run.matched_by_phone || 0],
-    ['Match por Nome+Score', run.matched_by_name_score || 0],
   ];
 
-  // Sheet 2: Inserções
   const insertHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'HR Person ID', 'Motivo'];
   const insertRows = inserts.map(i => [
     i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy,
     i.matched_hr_person_id || '', i.reason_code || 'Novo registro',
   ]);
 
-  // Sheet 3: Atualizações
   const updateHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'HR Person ID', 'Campos Alterados'];
   const updateRows = updates.map(i => {
     const changes = (i.fields_changed_json || []) as any[];
@@ -308,14 +373,12 @@ export function buildFeedzSyncReport(run: any, items: any[]): Blob {
     return [i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy, i.matched_hr_person_id || '', changesStr];
   });
 
-  // Sheet 4: Pendências
   const pendingHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'Motivo', 'HR Person Sugerido'];
   const pendingRows = pendings.map(i => [
     i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy,
     i.reason_code || '', i.matched_hr_person_id || '',
   ]);
 
-  // Sheet 5: Conflitos
   const conflictHeaders = ['Feedz ID', 'Email', 'Nome', 'Estratégia', 'Motivo', 'HR Person Conflitante'];
   const conflictRows = conflicts.map(i => [
     i.feedz_id, i.feedz_email, i.feedz_name, i.match_strategy,
