@@ -22,6 +22,7 @@ interface FeedzEmployee {
   cellphone?: string
   dismissal_at?: string
   last_day_worked?: string
+  registration?: string // Company internal matricula (UNIQUE per company)
 }
 
 // ─── NORMALIZATION ───────────────────────────────────────────────────────────
@@ -97,10 +98,16 @@ function normalizeFeedzStatus(status: string | undefined): 'ativo' | 'inativo' {
 function extractTerminationDate(person: FeedzEmployee): string | null {
   const raw = person.dismissal_at || person.last_day_worked || null
   if (!raw) return null
-  // Validate it looks like a date
   const d = new Date(raw)
   if (isNaN(d.getTime())) return null
   return d.toISOString().split('T')[0]
+}
+
+// ─── EXTRACT MATRICULA ──────────────────────────────────────────────────────
+// The Feedz API 'registration' field is the company's internal matricula.
+// 'employeeId' is the Feedz internal ID (stored as hr_people.id_externo).
+function extractMatricula(person: FeedzEmployee): string {
+  return String(person.registration || '').trim()
 }
 
 Deno.serve(async (req) => {
@@ -159,9 +166,10 @@ Deno.serve(async (req) => {
     const feedzData = await fetchAllFeedzEmployees(feedzToken)
 
     // ─── DETECT DUPLICATE MATRICULAS IN FEEDZ ──────────────────────────
+    // Use 'registration' as the real internal matricula
     const matriculaCounts = new Map<string, number>()
     for (const e of feedzData) {
-      const m = String(e.employeeId || '')
+      const m = extractMatricula(e)
       if (m) matriculaCounts.set(m, (matriculaCounts.get(m) || 0) + 1)
     }
     const duplicateMatriculas = new Set<string>()
@@ -181,9 +189,10 @@ Deno.serve(async (req) => {
     const matriculaMap = new Map<string, any[]>()
     for (const p of allPeople) {
       if (p.matricula) {
-        const arr = matriculaMap.get(p.matricula) || []
+        const key = String(p.matricula).trim()
+        const arr = matriculaMap.get(key) || []
         arr.push(p)
-        matriculaMap.set(p.matricula, arr)
+        matriculaMap.set(key, arr)
       }
     }
 
@@ -220,7 +229,9 @@ Deno.serve(async (req) => {
 
     for (const person of feedzData) {
       processed++
-      const matricula = String(person.employeeId || '').trim()
+      // CRITICAL: Use person.registration (company internal matricula), NOT person.employeeId
+      const matricula = extractMatricula(person)
+      const feedzEmployeeId = String(person.employeeId || '').trim()
       const feedzName = person.full_name || person.name || ''
       const feedzEmailRaw = person.email || null
       const feedzPhoneRaw = person.cellphone || person.phone || null
@@ -233,12 +244,12 @@ Deno.serve(async (req) => {
       const remuneracao = person.remuneration ? parseFloat(person.remuneration) : 0
 
       const now = new Date().toISOString()
-      const minPayload = { matricula, nome: feedzName, email: feedzEmailRaw, status: person.status, department: feedzDept, job: feedzJob }
+      const minPayload = { matricula, employeeId: feedzEmployeeId, nome: feedzName, email: feedzEmailRaw, status: person.status, department: feedzDept, job: feedzJob }
 
       // ─── RULE 1: Missing matricula ─────────────────────────────────────
       if (!matricula) {
         inconsistencyCount++
-        syncInconsistencies.push({ run_id: runId, matricula: null, reason_code: 'MISSING_MATRICULA', reason_detail: `Registro sem matrícula: ${feedzName}`, feedz_payload: minPayload })
+        syncInconsistencies.push({ run_id: runId, matricula: null, reason_code: 'MISSING_MATRICULA', reason_detail: `Registro sem matrícula (registration vazio): ${feedzName} (employeeId=${feedzEmployeeId})`, feedz_payload: minPayload })
         syncChanges.push({ run_id: runId, matricula: null, action: 'inconsistency', synced_at: now, payload_hash: null })
         continue
       }
@@ -291,7 +302,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── LOOKUP IN SYSTEM ──────────────────────────────────────────────
+      // ─── LOOKUP IN SYSTEM BY MATRICULA ─────────────────────────────────
       const matches = matriculaMap.get(matricula) || []
 
       if (matches.length > 1) {
@@ -315,7 +326,7 @@ Deno.serve(async (req) => {
             data_admissao: feedzAdmission || new Date().toISOString().split('T')[0],
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
             remuneracao_mensal: remuneracao, matricula,
-            id_externo: matricula, source: 'feedz', sync_status: 'synced',
+            id_externo: feedzEmployeeId, source: 'feedz', sync_status: 'synced',
             last_synced_at: now, nome_normalizado: normalizeName(feedzName), updated_at: now,
           }
 
@@ -336,7 +347,7 @@ Deno.serve(async (req) => {
               atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
             })
           } else {
-            console.error(`[feedz-sync] Insert error: ${insertErr?.message}`)
+            console.error(`[feedz-sync] Insert error for matricula=${matricula}: ${insertErr?.message}`)
             inconsistencyCount++
             syncInconsistencies.push({ run_id: runId, matricula, reason_code: 'PARSE_ERROR', reason_detail: `Erro ao inserir: ${insertErr?.message}`, feedz_payload: minPayload })
             syncChanges.push({ run_id: runId, matricula, action: 'inconsistency', synced_at: now, payload_hash: null })
@@ -360,7 +371,7 @@ Deno.serve(async (req) => {
             data_admissao: feedzAdmission || existing.data_admissao,
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
             remuneracao_mensal: remuneracao, matricula,
-            id_externo: matricula, source: 'feedz', sync_status: 'synced',
+            id_externo: feedzEmployeeId, source: 'feedz', sync_status: 'synced',
             last_synced_at: now, nome_normalizado: normalizeName(feedzName), updated_at: now,
           }
 
@@ -419,7 +430,6 @@ Deno.serve(async (req) => {
             if (fieldsChanged.some(f => f.field === 'cargo_id')) {
               const oldLabel = (existingJobs || []).find((j: any) => j.id === existing.cargo_id)?.label || 'Sem cargo'
               const newLabel = feedzJob || 'Sem cargo'
-              // Update cargo_antigo
               await db.from('hr_people').update({ cargo_antigo: oldLabel }).eq('id', existing.id)
               await db.from('hr_timeline').insert({
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
