@@ -401,7 +401,7 @@ Deno.serve(async (req) => {
           // Compute changed fields
           const fieldsChanged: { field: string; before: any; after: any }[] = []
           const snapshotBefore: Record<string, any> = {}
-          const checkFields = ['nome', 'tipo_vinculo', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'remuneracao_mensal', 'data_admissao']
+          const checkFields = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', ...(remuneracaoValid ? ['remuneracao_mensal'] : [])]
           for (const key of checkFields) {
             snapshotBefore[key] = existing[key]
             if (String(existing[key] ?? '') !== String(dbPayload[key] ?? '')) {
