@@ -241,7 +241,8 @@ Deno.serve(async (req) => {
       const feedzAdmission = person.admission_at || null
       const feedzStatus = normalizeFeedzStatus(person.status)
       const terminationDate = extractTerminationDate(person)
-      const remuneracao = person.remuneration ? parseFloat(person.remuneration) : 0
+      const rawRemuneracao = person.remuneration ? parseFloat(person.remuneration) : null
+      const remuneracaoValid = rawRemuneracao !== null && !isNaN(rawRemuneracao) && rawRemuneracao > 0
 
       const now = new Date().toISOString()
       const minPayload = { matricula, employeeId: feedzEmployeeId, nome: feedzName, email: feedzEmailRaw, status: person.status, department: feedzDept, job: feedzJob }
