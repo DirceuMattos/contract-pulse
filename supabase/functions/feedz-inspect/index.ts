@@ -16,14 +16,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = 'https://app.feedz.com.br/v2/integracao/employees?status[]=Ativo&size=3'
+    const url = 'https://app.feedz.com.br/v2/integracao/employees?status[]=Ativo&status[]=Desligado'
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${feedzToken}`,
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
         'User-Agent': 'BNP-Contratos/1.0',
       },
     })
+
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      const text = await response.text()
+      return new Response(JSON.stringify({ error: 'WAF block', status: response.status, contentType, body: text.substring(0, 500) }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const data = await response.json()
     const employees = Array.isArray(data) ? data : (data.data || data.content || [])
