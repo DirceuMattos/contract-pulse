@@ -728,8 +728,7 @@ function FeedzSyncSection() {
                         <TableCell className="text-xs">{r.records_created}</TableCell>
                         <TableCell className="text-xs">{r.records_updated}</TableCell>
                         <TableCell className="text-xs">{r.records_terminated}</TableCell>
-                        <TableCell className="text-xs">{r.records_pending || 0}</TableCell>
-                        <TableCell className="text-xs">{r.records_conflicts || 0}</TableCell>
+                        <TableCell className="text-xs">{r.inconsistency_count || 0}</TableCell>
                         <TableCell className="text-xs">
                           <Badge variant="outline" className="text-[10px]">{r.sync_mode || 'legacy'}</Badge>
                         </TableCell>
