@@ -30,7 +30,7 @@ import {
 import {
   formatCurrency, formatPercentage, formatDate,
   calculateResourceCost, calculateContractHealth,
-  calculateOverheadCost, getContractRevenue,
+  getContractRevenue,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { Resource, HealthStatus, OverheadItem } from '@/types';

@@ -51,7 +51,6 @@ import {
   formatPercentage,
   calculateContractHealth,
   calculateResourceCost,
-  calculateOverheadCost,
   calculateRenewalExpectedDate,
   getDaysUntil,
   getDaysSince,

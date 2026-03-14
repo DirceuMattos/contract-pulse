@@ -55,7 +55,7 @@ export default function ClientDetailPage() {
   
   // Calculate health for contracts
   const contractsWithHealth = clientContracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings, overheadItems, getAllocation(contract.id).value);
+    const health = calculateContractHealth(contract, resources, settings, [], getAllocation(contract.id).value);
     return { contract, health };
   });
   

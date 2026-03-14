@@ -125,7 +125,7 @@ export default function ContractsPage() {
   // Calculate health for each contract
   const contractsWithHealth = useMemo(() => contracts.map(contract => {
     const centralOH = getAllocation(contract.id).value;
-    const health = calculateContractHealth(contract, resources, settings, overheadItems, centralOH);
+    const health = calculateContractHealth(contract, resources, settings, [], centralOH);
     const client = clients.find(c => c.id === contract.clientId);
     const alerts = getAlertsForContract(contract.id);
     return { contract, health, client, alerts };
