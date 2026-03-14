@@ -690,7 +690,11 @@ export default function SquadsPage() {
               <div
                 className={cn(
                   'h-full rounded-full transition-all',
-                  isOverloaded ? 'bg-[hsl(var(--health-critical))]' : 'bg-primary/70',
+                  isOverloaded
+                    ? 'bg-[hsl(0,72%,51%)]'
+                    : rd.totalDedicacao > 80
+                      ? 'bg-[hsl(25,95%,53%)]'
+                      : 'bg-[hsl(210,80%,55%)]',
                 )}
                 style={{ width: `${Math.min(rd.totalDedicacao, 100)}%` }}
               />
