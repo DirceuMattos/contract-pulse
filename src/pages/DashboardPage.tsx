@@ -173,10 +173,18 @@ export default function DashboardPage() {
     return result;
   }, [activeContracts, selectedClientId, selectedContractId]);
 
+  const centralOverheadMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of overheadPoolResult.allocations) {
+      map.set(a.contractId, a.overheadAllocated);
+    }
+    return map;
+  }, [overheadPoolResult]);
+
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
-    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, overheadItems),
-    [filteredContracts, resources, settings, canViewValues, overheadItems]
+    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap),
+    [filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap]
   );
 
   // Charts data
