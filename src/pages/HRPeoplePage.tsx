@@ -110,7 +110,7 @@ export default function HRPeoplePage() {
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchTalento && matchGuardiao;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
