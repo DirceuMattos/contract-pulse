@@ -453,19 +453,32 @@ export default function ContractResourcesPage() {
 
       {/* Resources List */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <h2 className="text-lg font-semibold">Recursos Alocados</h2>
-          {resources.length > 5 && (
-            <div className="relative w-full max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome..."
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-                className="pl-9 h-9"
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custo">Custo mensal</SelectItem>
+                <SelectItem value="cargo">Função/Cargo</SelectItem>
+                <SelectItem value="nome">Nome</SelectItem>
+                <SelectItem value="tipo">Tipo (CLT/PJ)</SelectItem>
+              </SelectContent>
+            </Select>
+            {resources.length > 5 && (
+              <div className="relative w-full max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+            )}
+          </div>
         </div>
         
         {resources.length > 0 ? (
