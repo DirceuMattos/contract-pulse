@@ -232,7 +232,7 @@ export default function DashboardPage() {
     const rows = filteredAlerts.map(alert => {
       const contract = contracts.find(c => c.id === alert.contractId);
       const client = contract ? clients.find(cl => cl.id === contract.clientId) : undefined;
-      const health = contract ? calculateContractHealth(contract, resources, settings, overheadItems) : null;
+      const health = contract ? calculateContractHealth(contract, resources, settings, overheadItems, centralOverheadMap.get(contract.id) ?? 0) : null;
       return { alert, contract, client, health };
     });
 
