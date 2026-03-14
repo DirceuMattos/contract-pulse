@@ -101,7 +101,7 @@ type AlertFilter = 'vencimento' | 'reajuste' | 'margem';
 
 export default function ContractsPage() {
   const navigate = useNavigate();
-  const { contracts, clients, resources: _rawResources, settings, deleteContract, overheadItems } = useData();
+  const { contracts, clients, resources: _rawResources, settings, deleteContract } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
   const { getAlertsForContract } = useAlerts();
