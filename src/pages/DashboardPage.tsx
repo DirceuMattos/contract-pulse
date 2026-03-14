@@ -122,7 +122,7 @@ function loadFilters(): { selectedClientId: string; selectedContractId: string }
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { canViewValues } = useAuth();
-  const { contracts, clients, resources: _rawResources, settings, overheadItems } = useData();
+  const { contracts, clients, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
   const { result: overheadPoolResult } = useOverheadPool();
