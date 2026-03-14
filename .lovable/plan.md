@@ -1,4 +1,4 @@
-## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio)
+## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio) + Bloco D (Overhead Alocado nos Contratos)
 
 **STATUS: ✅ IMPLEMENTADO**
 
@@ -30,3 +30,14 @@
    - Tooltip de ajuste de arredondamento
 3. **Rota** — Adicionada em App.tsx
 4. **Não alterado** — Consultoria por contrato (CRUD de recursos) permanece intacta. Cálculo de break-even não alterado (Bloco E futuro).
+
+#### BLOCO D — Overhead Alocado nos Contratos
+
+1. **`src/hooks/useOverheadPool.ts`** (novo) — Hook que lê o pool central do localStorage, calcula alocações via `calculateOverheadAllocation`, e expõe `getAllocation(contractId)` retornando `{ percent, value, isPending, pendingReason }`.
+2. **`src/lib/calculations.ts`** — `calculateContractHealth` recebe parâmetro opcional `centralOverhead` (default 0), somado ao custo mensal. `calculateDashboardKPIs` recebe `centralOverheadMap` opcional.
+3. **`src/lib/alertGenerator.ts`** — Contexto de alertas aceita `centralOverheadMap`, propagado para checagem financeira.
+4. **`src/hooks/useAlerts.ts`** — Usa `useOverheadPool` para construir o mapa e passá-lo ao gerador de alertas.
+5. **Todas as páginas atualizadas** — `DashboardPage`, `ContractsPage`, `ClientDetailPage`, `SquadsPage`, `ContractDetailPage`, `ContractResourcesPage` passam o overhead alocado para `calculateContractHealth`.
+6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
+7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
+8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
