@@ -437,8 +437,7 @@ export default function SettingsPage() {
       {/* Feedz Integration */}
       {isCLevel && <FeedzSyncSection />}
 
-      {/* Overhead Central */}
-      {canEdit && <OverheadCentralSection />}
+
     </div>
   );
 }
