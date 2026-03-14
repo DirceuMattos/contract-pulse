@@ -36,6 +36,7 @@ export default function ClientDetailPage() {
   const navigate = useNavigate();
   const { getClient, getContractsByClient, resources: _rawResources, settings, overheadItems } = useData();
   const { resolvedResources: resources } = useResolvedResources();
+  const { getAllocation } = useOverheadPool();
   const { canEdit, canViewValues } = useAuth();
   
   const client = id ? getClient(id) : undefined;
