@@ -982,7 +982,7 @@ function OverheadCentralSection() {
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <Button variant="outline" disabled className="text-muted-foreground">
+          <Button variant="outline" onClick={() => navigate('/configuracoes/overhead-rateio')}>
             Ver detalhamento do rateio
           </Button>
           <Button onClick={handleSave}>

@@ -36,6 +36,7 @@ import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import HRPeoplePage from "@/pages/HRPeoplePage";
 import HRPersonDetailPage from "@/pages/HRPersonDetailPage";
 import FeedzReconciliationPage from "@/pages/FeedzReconciliationPage";
+import OverheadAllocationPage from "@/pages/OverheadAllocationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
