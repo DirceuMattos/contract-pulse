@@ -577,6 +577,8 @@ export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
     lastSyncedAt: (row.last_synced_at as string | null) ?? undefined,
     matricula: (row.matricula as string | null) ?? undefined,
     nomeNormalizado: (row.nome_normalizado as string | null) ?? undefined,
+    isTalento: (row.is_talento as boolean | null) ?? false,
+    isGuardiao: (row.is_guardiao as boolean | null) ?? false,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
