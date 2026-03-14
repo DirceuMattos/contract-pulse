@@ -1,22 +1,22 @@
-## Plan: Feedz Sync Reconstruído — Matrícula Única + 3 Fluxos + Inconsistências + Rollback
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Plano: Adicionar ordenacao por funcao (cargo) na lista de Recursos Alocados
 
-1. **Migração de banco** — Criadas tabelas `feedz_sync_change` e `feedz_sync_inconsistency`, adicionado `inconsistency_count` em `feedz_sync_runs`, e constraint UNIQUE parcial em `hr_people.matricula`.
+### Situacao atual
 
-2. **Edge function `feedz-sync`** — Reescrita completa com 4 cenários estritos:
-   - **CREATE**: matrícula não encontrada + ativo + sem data desligamento
-   - **UPDATE**: matrícula encontrada + ativo + sem data desligamento (com idempotência por hash)
-   - **TERMINATE**: matrícula encontrada + inativo/desligado + com data desligamento
-   - **INCONSISTENCY**: qualquer outro caso (matrícula vazia, duplicada, status conflitante)
+A lista de Recursos Alocados em `ContractResourcesPage.tsx` e ordenada exclusivamente por custo mensal (decrescente), sem opcao de mudar a ordenacao.
 
-3. **Edge function `feedz-rollback`** — Adaptada para `feedz_sync_change` com suporte a rollback de terminated (reativação).
+### Alteracao proposta
 
-4. **Frontend `FeedzReconciliationPage`** — 4 abas: Criados, Alterados, Desligados, Inconsistências. Export CSV para inconsistências. Rollback por registro.
+**Arquivo**: `src/pages/ContractResourcesPage.tsx`
 
-5. **SettingsPage** — Atualizada para exibir `inconsistency_count` em vez de pendências/conflitos.
+1. Adicionar estado `sortBy` com opcoes: `custo` (padrao atual), `cargo`, `nome`, `tipo`
+2. Adicionar um `Select` de ordenacao ao lado do campo de busca existente
+3. Alterar o `.sort()` na linha 479 para usar a funcao de ordenacao selecionada:
+   - **Custo mensal** (desc) -- comportamento atual
+   - **Funcao/Cargo** (asc, alfabetico) -- usa `resolved.cargo`
+   - **Nome** (asc, alfabetico) -- usa `resolved.nome`
+   - **Tipo** (CLT primeiro, depois PJ, depois Outros)
 
-### Tabelas antigas preservadas
-`feedz_sync_items`, `feedz_pending_matches`, `feedz_sync_events` permanecem para dados históricos.
+O Select ficara compacto, ao lado do campo de busca, sem alterar o layout existente.
+
