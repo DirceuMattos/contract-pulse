@@ -1,20 +1,51 @@
-## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações)
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Plano: Bloco C — Rateio do Overhead Central + Tabela de Detalhamento
 
-#### BLOCO A — Flags Talento e Guardião
+### Resumo
 
-1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
-2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
-3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
-4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos.
-5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
-6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
+Criar uma nova pagina `/configuracoes/overhead-rateio` com tabela de detalhamento do rateio do pool de overhead central entre contratos vigentes, acessivel pelo botao ja existente em Configuracoes.
 
-#### BLOCO B — Overhead Central
+### Alteracoes
 
-1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
-2. **Persistência** — `localStorage` com chave `overhead-central`.
-3. **UX** — Botão "Ver detalhamento do rateio" desabilitado (futuro Bloco C). Toast ao salvar.
+**1. Nova pagina `src/pages/OverheadAllocationPage.tsx`**
+
+- Rota: `/configuracoes/overhead-rateio`
+- Le o pool overhead do `localStorage` (chave `overhead-central`)
+- Usa `useData()` para obter `contracts` e `clients`
+- Usa `getContractRevenue()` para obter receita mensal de cada contrato
+- Filtra contratos vigentes (status `operacao` ou `implantacao`) com receita > 0
+- Calcula: `percentualContrato = receitaContrato / receitaTotal`, `overheadAlocado = percentual * totalPool`
+- Aplica ajuste de arredondamento no maior contrato se soma nao bater com total pool
+- Tabela principal com colunas: Cliente, Contrato, Valor Mensal (R$), Percentual (%), Overhead Alocado (R$), Acao (link abrir contrato)
+- Ordenacao default: overhead alocado desc
+- Rodape de validacao: receita total, total pool, soma alocada
+- Secao "Pendencias do rateio": contratos excluidos (receita = 0 ou ausente, status nao vigente) com motivo e link editar
+- Filtros: busca textual, select cliente
+
+**2. `src/App.tsx`** — Adicionar rota `/configuracoes/overhead-rateio` apontando para `OverheadAllocationPage`
+
+**3. `src/pages/SettingsPage.tsx`** — Ativar botao "Ver detalhamento do rateio":
+- Remover `disabled`
+- Adicionar `onClick={() => navigate('/configuracoes/overhead-rateio')}`
+
+**4. `src/lib/overheadAllocation.ts`** — Funcao utilitaria reutilizavel:
+
+```text
+calculateOverheadAllocation(contracts, clients, poolTotal) => {
+  allocations: { contractId, clientName, contractName, monthlyRevenue, percent, overheadAllocated }[]
+  pending: { contractId, clientName, contractName, reason }[]
+  totalRevenue: number
+  totalAllocated: number
+}
+```
+
+- Logica de arredondamento com ajuste residual no maior contrato
+- Exportada para uso futuro nos Blocos D/E
+
+### Nao alterado
+
+- Consultoria por contrato (CRUD de recursos) permanece intacta
+- Calculo de break-even nao e alterado (Bloco E)
+- Overhead por contrato existente nao e modificado
+
