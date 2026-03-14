@@ -714,24 +714,6 @@ export default function ContractResourcesPage() {
           </CardContent>
         </Card>
 
-        {/* Legacy overhead items (read-only) */}
-        {contractOverhead.length > 0 && (
-          <Card className="bg-muted/20 opacity-60">
-            <CardContent className="p-4">
-              <p className="text-xs text-health-attention mb-2">
-                ⚠ Overhead agora é calculado automaticamente. Itens abaixo são legado e não entram no cálculo.
-              </p>
-              {contractOverhead.map(item => (
-                <div key={item.id} className="flex items-center justify-between text-sm py-1">
-                  <span>{item.nome}</span>
-                  <span className="text-muted-foreground">
-                    {item.modo === 'percentual' ? `${item.percentual}%` : formatCurrency(item.valorFixoMensal ?? 0)}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Add/Edit Resource Dialog */}
