@@ -71,6 +71,7 @@ export default function ContractResourcesPage() {
   const { hrPeople } = useHR();
   const { hasSubprojects: hasSubprojectsFn, getAllocationsByContract } = useSubprojects();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
+  const { getAllocation: getOverheadAllocation } = useOverheadPool();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
