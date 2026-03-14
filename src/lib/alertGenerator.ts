@@ -8,6 +8,7 @@ interface AlertGeneratorContext {
   snapshots: Snapshot[];
   overheadItems?: OverheadItem[];
   historyEvents?: HistoryEvent[];
+  centralOverheadMap?: Map<string, number>;
 }
 
 /**
