@@ -362,7 +362,11 @@ export default function HRPeoplePage() {
                       const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao, isFrozen ? p.dataDesligamento : undefined);
                       return (
                         <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
-                          <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">{p.nome}</TableCell>
+                          <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">
+                            <span className="mr-1">{p.nome}</span>
+                            {p.isTalento && <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-[10px] px-1.5 py-0 ml-0.5">⭐ Talento</Badge>}
+                            {p.isGuardiao && <Badge className="bg-sky-600 text-white hover:bg-sky-700 text-[10px] px-1.5 py-0 ml-0.5">🛡️ Guardião</Badge>}
+                          </TableCell>
                           <TableCell className="text-xs text-muted-foreground py-2">{p.matricula || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge className={`text-xs ${
