@@ -64,8 +64,7 @@ export default function ContractResourcesPage() {
   const { 
     getContract, getClient, getResourcesByContract, 
     addResource, updateResource, deleteResource,
-    settings, overheadItems,
-    getOverheadByContract, addOverheadItem, updateOverheadItem, deleteOverheadItem,
+    settings,
     jobTitles, teams,
   } = useData();
   const { hrPeople } = useHR();
