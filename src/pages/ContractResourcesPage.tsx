@@ -81,6 +81,7 @@ export default function ContractResourcesPage() {
   const [linkResourceId, setLinkResourceId] = useState<string | null>(null);
   const [linkHrPersonId, setLinkHrPersonId] = useState<string>('');
   const [searchName, setSearchName] = useState('');
+  const [sortBy, setSortBy] = useState<'custo' | 'cargo' | 'nome' | 'tipo'>('custo');
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
