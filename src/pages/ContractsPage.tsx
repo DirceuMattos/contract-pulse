@@ -101,7 +101,7 @@ type AlertFilter = 'vencimento' | 'reajuste' | 'margem';
 
 export default function ContractsPage() {
   const navigate = useNavigate();
-  const { contracts, clients, resources: _rawResources, settings, deleteContract, overheadItems } = useData();
+  const { contracts, clients, resources: _rawResources, settings, deleteContract } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
   const { getAlertsForContract } = useAlerts();
@@ -125,11 +125,11 @@ export default function ContractsPage() {
   // Calculate health for each contract
   const contractsWithHealth = useMemo(() => contracts.map(contract => {
     const centralOH = getAllocation(contract.id).value;
-    const health = calculateContractHealth(contract, resources, settings, overheadItems, centralOH);
+    const health = calculateContractHealth(contract, resources, settings, [], centralOH);
     const client = clients.find(c => c.id === contract.clientId);
     const alerts = getAlertsForContract(contract.id);
     return { contract, health, client, alerts };
-  }), [contracts, resources, settings, overheadItems, clients, getAlertsForContract, getAllocation]);
+  }), [contracts, resources, settings, clients, getAlertsForContract, getAllocation]);
   
   // Apply filters
   const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts }) => {

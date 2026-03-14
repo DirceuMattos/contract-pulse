@@ -122,7 +122,7 @@ function loadFilters(): { selectedClientId: string; selectedContractId: string }
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { canViewValues } = useAuth();
-  const { contracts, clients, resources: _rawResources, settings, overheadItems } = useData();
+  const { contracts, clients, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
   const { result: overheadPoolResult } = useOverheadPool();
@@ -183,8 +183,8 @@ export default function DashboardPage() {
 
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
-    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap),
-    [filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap]
+    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, [], centralOverheadMap),
+    [filteredContracts, resources, settings, canViewValues, centralOverheadMap]
   );
 
   // Charts data
@@ -232,7 +232,7 @@ export default function DashboardPage() {
     const rows = filteredAlerts.map(alert => {
       const contract = contracts.find(c => c.id === alert.contractId);
       const client = contract ? clients.find(cl => cl.id === contract.clientId) : undefined;
-      const health = contract ? calculateContractHealth(contract, resources, settings, overheadItems, centralOverheadMap.get(contract.id) ?? 0) : null;
+      const health = contract ? calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0) : null;
       return { alert, contract, client, health };
     });
 
@@ -248,7 +248,7 @@ export default function DashboardPage() {
       const daysB = b.contract?.dataFim ? getDaysUntil(b.contract.dataFim) : 9999;
       return daysA - daysB;
     });
-  }, [filteredAlerts, contracts, clients, resources, settings, overheadItems, centralOverheadMap]);
+  }, [filteredAlerts, contracts, clients, resources, settings, centralOverheadMap]);
 
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);

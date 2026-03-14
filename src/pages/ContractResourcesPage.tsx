@@ -23,14 +23,14 @@ import { Input } from '@/components/ui/input';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { toast } from 'sonner';
-import { OverheadForm } from '@/components/forms/OverheadForm';
+
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
   formatCurrency, formatPercentage, formatDate,
   calculateResourceCost, calculateContractHealth,
-  calculateOverheadCost, getContractRevenue,
+  getContractRevenue,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { Resource, HealthStatus, OverheadItem } from '@/types';
@@ -64,8 +64,7 @@ export default function ContractResourcesPage() {
   const { 
     getContract, getClient, getResourcesByContract, 
     addResource, updateResource, deleteResource,
-    settings, overheadItems,
-    getOverheadByContract, addOverheadItem, updateOverheadItem, deleteOverheadItem,
+    settings,
     jobTitles, teams,
   } = useData();
   const { hrPeople } = useHR();
@@ -76,9 +75,6 @@ export default function ContractResourcesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [overheadFormOpen, setOverheadFormOpen] = useState(false);
-  const [editingOverhead, setEditingOverhead] = useState<OverheadItem | null>(null);
-  const [deleteOverheadId, setDeleteOverheadId] = useState<string | null>(null);
   // Link legacy dialog
   const [linkResourceId, setLinkResourceId] = useState<string | null>(null);
   const [linkHrPersonId, setLinkHrPersonId] = useState<string>('');
@@ -125,10 +121,8 @@ export default function ContractResourcesPage() {
   const totalSubprojectFTE = subprojectAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
 
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, resources, settings, overheadItems, overheadAlloc.value);
+  const health = calculateContractHealth(contract, resources, settings, [], overheadAlloc.value);
   const receitaMensal = getContractRevenue(contract);
-  const contractOverhead = id ? getOverheadByContract(id) : [];
-  const overheadCost = calculateOverheadCost(contract, contractOverhead);
 
   const resourcesByType = resources.reduce((acc, resource) => {
     const type = resource.tipo;
@@ -185,27 +179,6 @@ export default function ContractResourcesPage() {
     }
   };
 
-  const handleAddOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addOverheadItem(data);
-    setOverheadFormOpen(false);
-    toast.success('Overhead adicionado ao contrato');
-  };
-
-  const handleEditOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (editingOverhead) {
-      updateOverheadItem(editingOverhead.id, data);
-      setEditingOverhead(null);
-      toast.success('Alterações salvas');
-    }
-  };
-
-  const handleDeleteOverhead = () => {
-    if (deleteOverheadId) {
-      deleteOverheadItem(deleteOverheadId);
-      setDeleteOverheadId(null);
-      toast.success('Overhead removido do contrato');
-    }
-  };
 
   const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome));
 
@@ -449,7 +422,7 @@ export default function ContractResourcesPage() {
           canViewHRCosts={canViewHRCosts}
           peopleMap={peopleMap}
           resourcesMap={new Map(resources.filter(r => r.contractId === id).map(r => [r.id, r]))}
-          overheadItemsMap={new Map(overheadItems.filter(o => o.contractId === id).map(o => [o.id, o]))}
+          overheadItemsMap={new Map()}
           receitaMensal={health.receitaMensal}
         />
       )}
@@ -741,24 +714,6 @@ export default function ContractResourcesPage() {
           </CardContent>
         </Card>
 
-        {/* Legacy overhead items (read-only) */}
-        {contractOverhead.length > 0 && (
-          <Card className="bg-muted/20 opacity-60">
-            <CardContent className="p-4">
-              <p className="text-xs text-health-attention mb-2">
-                ⚠ Overhead agora é calculado automaticamente. Itens abaixo são legado e não entram no cálculo.
-              </p>
-              {contractOverhead.map(item => (
-                <div key={item.id} className="flex items-center justify-between text-sm py-1">
-                  <span>{item.nome}</span>
-                  <span className="text-muted-foreground">
-                    {item.modo === 'percentual' ? `${item.percentual}%` : formatCurrency(item.valorFixoMensal ?? 0)}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Add/Edit Resource Dialog */}
@@ -806,23 +761,6 @@ export default function ContractResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Overhead Dialog */}
-      <Dialog open={overheadFormOpen || !!editingOverhead} onOpenChange={(open) => {
-        if (!open) { setOverheadFormOpen(false); setEditingOverhead(null); }
-      }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingOverhead ? 'Editar Overhead' : 'Adicionar Overhead'}</DialogTitle>
-          </DialogHeader>
-          <OverheadForm
-            item={editingOverhead || undefined}
-            contractId={contract.id}
-            baseCalculo={health.receitaBruta}
-            onSubmit={editingOverhead ? handleEditOverhead : handleAddOverhead}
-            onCancel={() => { setOverheadFormOpen(false); setEditingOverhead(null); }}
-          />
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDeleteDialog
         open={!!deleteId}
@@ -833,14 +771,6 @@ export default function ContractResourcesPage() {
         confirmLabel="Remover"
       />
 
-      <ConfirmDeleteDialog
-        open={!!deleteOverheadId}
-        onOpenChange={() => setDeleteOverheadId(null)}
-        onConfirm={handleDeleteOverhead}
-        title="Remover overhead?"
-        description="Esta ação não pode ser desfeita. O custo indireto será removido do contrato."
-        confirmLabel="Remover"
-      />
 
       <CopyResourcesDialog
         open={copyDialogOpen}

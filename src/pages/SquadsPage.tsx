@@ -108,7 +108,7 @@ function sortTeamsByFixedOrder(teamsArray: SquadTeamData[]): SquadTeamData[] {
 // --- Component ---
 
 export default function SquadsPage() {
-  const { clients, contracts, resources: _rawResources, settings, overheadItems, jobTitles, teams } = useData();
+  const { clients, contracts, resources: _rawResources, settings, jobTitles, teams } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
@@ -164,7 +164,7 @@ export default function SquadsPage() {
       // If contract has subprojects, generate per-subproject cards
       if (hasSubprojects(contract.id)) {
         const subprojects = getSubprojectsByContract(contract.id);
-        const health = calculateContractHealth(contract, resources, settings, overheadItems, getOverheadAllocation(contract.id).value);
+        const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value);
         const hc = healthConfig[health.status];
 
         for (const sp of subprojects) {
@@ -294,7 +294,7 @@ export default function SquadsPage() {
         : resolvedHR;
       if (filteredHR.length === 0) continue;
 
-      const health = calculateContractHealth(contract, resources, settings, overheadItems, getOverheadAllocation(contract.id).value);
+      const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value);
       const hc = healthConfig[health.status];
 
       const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] }>();
@@ -355,7 +355,7 @@ export default function SquadsPage() {
       });
     }
     return result;
-  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getOverheadAllocation]);
+  }, [contracts, clients, resources, settings, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getOverheadAllocation]);
 
   // --- Resource-centric view data ---
 

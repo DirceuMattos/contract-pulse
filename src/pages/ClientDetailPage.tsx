@@ -34,7 +34,7 @@ const healthLabels: Record<HealthStatus, string> = {
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getClient, getContractsByClient, resources: _rawResources, settings, overheadItems } = useData();
+  const { getClient, getContractsByClient, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { getAllocation } = useOverheadPool();
   const { canEdit, canViewValues } = useAuth();
@@ -55,7 +55,7 @@ export default function ClientDetailPage() {
   
   // Calculate health for contracts
   const contractsWithHealth = clientContracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings, overheadItems, getAllocation(contract.id).value);
+    const health = calculateContractHealth(contract, resources, settings, [], getAllocation(contract.id).value);
     return { contract, health };
   });
   

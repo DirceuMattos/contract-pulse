@@ -35,11 +35,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -51,7 +46,6 @@ import {
   formatPercentage,
   calculateContractHealth,
   calculateResourceCost,
-  calculateOverheadCost,
   calculateRenewalExpectedDate,
   getDaysUntil,
   getDaysSince,
@@ -89,7 +83,7 @@ export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
+  const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts } = useData();
   const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
@@ -114,9 +108,7 @@ export default function ContractDetailPage() {
   }
   
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, contractResources, settings, overheadItems, overheadAlloc.value);
-  const contractOverheadItems = id ? getOverheadByContract(id) : [];
-  const overheadCost = calculateOverheadCost(contract, contractOverheadItems);
+  const health = calculateContractHealth(contract, contractResources, settings, [], overheadAlloc.value);
   const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
@@ -566,7 +558,7 @@ export default function ContractDetailPage() {
             </div>
           )}
 
-          {contractResources.length === 0 && contractOverheadItems.length === 0 ? (
+          {contractResources.length === 0 ? (
             <Card className="card-elevated">
               <CardContent className="py-12 text-center">
                 <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -757,32 +749,6 @@ export default function ContractDetailPage() {
                 </Card>
               </div>
 
-              {/* Legacy Overhead (read-only, collapsed) */}
-              {contractOverheadItems.length > 0 && (
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <ChevronDown className="w-3.5 h-3.5" />
-                    Overhead legado ({contractOverheadItems.length} item{contractOverheadItems.length !== 1 ? 'ns' : ''}) — somente leitura
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 space-y-2">
-                    <p className="text-xs text-health-attention bg-health-attention/10 rounded-md px-3 py-2">
-                      ⚠ Overhead agora é calculado automaticamente a partir do pool em Configurações. Estes itens são legado e não entram no cálculo.
-                    </p>
-                    {contractOverheadItems.map(item => (
-                      <Card key={item.id} className="opacity-60">
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <span>{item.nome}</span>
-                            <span className="text-muted-foreground">
-                              {item.modo === 'percentual' ? `${item.percentual}%` : formatCurrency(item.valorFixoMensal ?? 0)}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
             </>
           )}
         </TabsContent>
