@@ -564,7 +564,7 @@ export default function ContractDetailPage() {
             </div>
           )}
 
-          {contractResources.length === 0 && contractOverheadItems.length === 0 ? (
+          {contractResources.length === 0 ? (
             <Card className="card-elevated">
               <CardContent className="py-12 text-center">
                 <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
