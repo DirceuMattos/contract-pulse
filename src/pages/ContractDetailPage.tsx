@@ -755,32 +755,6 @@ export default function ContractDetailPage() {
                 </Card>
               </div>
 
-              {/* Legacy Overhead (read-only, collapsed) */}
-              {contractOverheadItems.length > 0 && (
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <ChevronDown className="w-3.5 h-3.5" />
-                    Overhead legado ({contractOverheadItems.length} item{contractOverheadItems.length !== 1 ? 'ns' : ''}) — somente leitura
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 space-y-2">
-                    <p className="text-xs text-health-attention bg-health-attention/10 rounded-md px-3 py-2">
-                      ⚠ Overhead agora é calculado automaticamente a partir do pool em Configurações. Estes itens são legado e não entram no cálculo.
-                    </p>
-                    {contractOverheadItems.map(item => (
-                      <Card key={item.id} className="opacity-60">
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <span>{item.nome}</span>
-                            <span className="text-muted-foreground">
-                              {item.modo === 'percentual' ? `${item.percentual}%` : formatCurrency(item.valorFixoMensal ?? 0)}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
             </>
           )}
         </TabsContent>
