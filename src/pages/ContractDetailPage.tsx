@@ -114,9 +114,7 @@ export default function ContractDetailPage() {
   }
   
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, contractResources, settings, overheadItems, overheadAlloc.value);
-  const contractOverheadItems = id ? getOverheadByContract(id) : [];
-  const overheadCost = calculateOverheadCost(contract, contractOverheadItems);
+  const health = calculateContractHealth(contract, contractResources, settings, [], overheadAlloc.value);
   const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
