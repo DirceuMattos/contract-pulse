@@ -129,7 +129,7 @@ export default function ContractsPage() {
     const client = clients.find(c => c.id === contract.clientId);
     const alerts = getAlertsForContract(contract.id);
     return { contract, health, client, alerts };
-  }), [contracts, resources, settings, overheadItems, clients, getAlertsForContract, getAllocation]);
+  }), [contracts, resources, settings, clients, getAlertsForContract, getAllocation]);
   
   // Apply filters
   const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts }) => {
