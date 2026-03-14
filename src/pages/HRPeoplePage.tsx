@@ -63,15 +63,17 @@ export default function HRPeoplePage() {
   const [filterVinculo, setFilterVinculo] = useState(storedFilters?.filterVinculo ?? '');
   const [filterComite, setFilterComite] = useState(storedFilters?.filterComite ?? '');
   const [filterMesAdmissao, setFilterMesAdmissao] = useState(storedFilters?.filterMesAdmissao ?? '');
+  const [filterTalento, setFilterTalento] = useState(storedFilters?.filterTalento ?? false);
+  const [filterGuardiao, setFilterGuardiao] = useState(storedFilters?.filterGuardiao ?? false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
-    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao }));
-  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao]);
+    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao }));
+  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao]);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '';
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); sessionStorage.removeItem('hr-filters'); };
+  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterTalento || filterGuardiao;
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterTalento(false); setFilterGuardiao(false); sessionStorage.removeItem('hr-filters'); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
