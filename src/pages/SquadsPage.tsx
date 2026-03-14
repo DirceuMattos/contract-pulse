@@ -113,7 +113,7 @@ export default function SquadsPage() {
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const { canEdit } = useAuth();
-  const navigate = useNavigate();
+  const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const [searchParams] = useSearchParams();
 
   const initialContractFilter = searchParams.get('contract') || 'all';
