@@ -121,10 +121,8 @@ export default function ContractResourcesPage() {
   const totalSubprojectFTE = subprojectAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
 
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, resources, settings, overheadItems, overheadAlloc.value);
+  const health = calculateContractHealth(contract, resources, settings, [], overheadAlloc.value);
   const receitaMensal = getContractRevenue(contract);
-  const contractOverhead = id ? getOverheadByContract(id) : [];
-  const overheadCost = calculateOverheadCost(contract, contractOverhead);
 
   const resourcesByType = resources.reduce((acc, resource) => {
     const type = resource.tipo;
