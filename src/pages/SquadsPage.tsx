@@ -870,6 +870,15 @@ export default function SquadsPage() {
           personName={editingResourceAlloc.personName}
         />
       )}
+
+      {addingToContract && (
+        <AddResourceToContractDialog
+          open={!!addingToContract}
+          onOpenChange={(open) => { if (!open) setAddingToContract(null); }}
+          hrPersonId={addingToContract.hrPersonId}
+          personName={addingToContract.personName}
+        />
+      )}
     </div>
   );
 }
