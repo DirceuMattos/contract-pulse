@@ -422,7 +422,7 @@ export default function ContractResourcesPage() {
           canViewHRCosts={canViewHRCosts}
           peopleMap={peopleMap}
           resourcesMap={new Map(resources.filter(r => r.contractId === id).map(r => [r.id, r]))}
-          overheadItemsMap={new Map(overheadItems.filter(o => o.contractId === id).map(o => [o.id, o]))}
+          overheadItemsMap={new Map()}
           receitaMensal={health.receitaMensal}
         />
       )}
