@@ -490,7 +490,22 @@ export default function ContractResourcesPage() {
                   const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
                   return resolved.nome.toLowerCase().includes(searchName.toLowerCase());
                 })
-                .sort((a, b) => calculateResourceCost(b, settings) - calculateResourceCost(a, settings))
+                .sort((a, b) => {
+                  const ra = resolveResource(a, peopleMap, jobMap, teamMap);
+                  const rb = resolveResource(b, peopleMap, jobMap, teamMap);
+                  switch (sortBy) {
+                    case 'cargo':
+                      return (ra.cargo || 'zzz').localeCompare(rb.cargo || 'zzz');
+                    case 'nome':
+                      return ra.nome.localeCompare(rb.nome);
+                    case 'tipo': {
+                      const order = { clt: 0, pj: 1, outro: 2 };
+                      return (order[a.tipo] ?? 3) - (order[b.tipo] ?? 3);
+                    }
+                    default:
+                      return calculateResourceCost(b, settings) - calculateResourceCost(a, settings);
+                  }
+                })
                 .map((resource) => {
                 const Icon = typeIcons[resource.tipo];
                 const custo = calculateResourceCost(resource, settings);
