@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil } from 'lucide-react';
+import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
@@ -24,6 +24,7 @@ import { buildXlsx, downloadCSV } from '@/lib/importExport';
 import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 import { SubprojectManagementPanel } from '@/components/squads/SubprojectManagementPanel';
 import { EditResourceAllocationDialog, ResourceAllocationInfo } from '@/components/squads/EditResourceAllocationDialog';
+import { AddResourceToContractDialog } from '@/components/squads/AddResourceToContractDialog';
 import { useAuth } from '@/contexts/AuthContext';
 // --- Types ---
 
@@ -123,6 +124,7 @@ export default function SquadsPage() {
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
+  const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
@@ -629,6 +631,24 @@ export default function SquadsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {canEdit && rd.resourceKey.startsWith('hr:') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setAddingToContract({
+                        hrPersonId: rd.resourceKey.replace('hr:', ''),
+                        personName: rd.nome,
+                      })}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Adicionar a outro projeto</TooltipContent>
+                </Tooltip>
+              )}
               <span className="tabular-nums font-medium text-sm">{totalFTE.toFixed(2)} FTE</span>
               {isOverloaded && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
             </div>
@@ -690,7 +710,11 @@ export default function SquadsPage() {
               <div
                 className={cn(
                   'h-full rounded-full transition-all',
-                  isOverloaded ? 'bg-[hsl(var(--health-critical))]' : 'bg-primary/70',
+                  isOverloaded
+                    ? 'bg-[hsl(0,72%,51%)]'
+                    : rd.totalDedicacao > 80
+                      ? 'bg-[hsl(25,95%,53%)]'
+                      : 'bg-[hsl(210,80%,55%)]',
                 )}
                 style={{ width: `${Math.min(rd.totalDedicacao, 100)}%` }}
               />
@@ -844,6 +868,15 @@ export default function SquadsPage() {
           onOpenChange={(open) => { if (!open) setEditingResourceAlloc(null); }}
           allocation={editingResourceAlloc.alloc}
           personName={editingResourceAlloc.personName}
+        />
+      )}
+
+      {addingToContract && (
+        <AddResourceToContractDialog
+          open={!!addingToContract}
+          onOpenChange={(open) => { if (!open) setAddingToContract(null); }}
+          hrPersonId={addingToContract.hrPersonId}
+          personName={addingToContract.personName}
         />
       )}
     </div>

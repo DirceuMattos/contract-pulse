@@ -30,7 +30,7 @@ const typeLabels: Record<AllocationType, string> = {
 };
 
 export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId, allocationType }: SubprojectAllocationDialogProps) {
-  const { addAllocation, getAllocationsByContract } = useSubprojects();
+  const { addAllocation, getAllocationsBySubproject } = useSubprojects();
   const { hrPeople } = useHR();
   const { resources, overheadItems } = useData();
   const [selectedId, setSelectedId] = useState('');
@@ -46,8 +46,11 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     }
   }, [open]);
 
+  
+
   const existingIds = useMemo(() => {
-    const allocs = getAllocationsByContract(contractId);
+    // Filter by subproject (not entire contract) so same person can be in multiple subprojects
+    const allocs = getAllocationsBySubproject(subprojectId);
     if (allocationType === 'hr') {
       return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
     } else if (allocationType === 'resource') {
@@ -55,7 +58,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     } else {
       return new Set(allocs.filter(a => a.overheadItemId).map(a => a.overheadItemId!));
     }
-  }, [getAllocationsByContract, contractId, allocationType]);
+  }, [getAllocationsBySubproject, subprojectId, allocationType]);
 
   const availableItems = useMemo(() => {
     const searchLower = search.toLowerCase();
