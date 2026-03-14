@@ -914,6 +914,7 @@ const OVERHEAD_CENTRAL_KEY = 'overhead-central';
 const defaultOverhead: OverheadCentralData = { administrativo: 0, infraestrutura: 0, governanca: 0, indiretos: 0, consultoria: 0 };
 
 function OverheadCentralSection() {
+  const navigate = useNavigate();
   const [data, setData] = useState<OverheadCentralData>(() => {
     try {
       const stored = localStorage.getItem(OVERHEAD_CENTRAL_KEY);
