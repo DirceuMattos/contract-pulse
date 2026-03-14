@@ -30,7 +30,7 @@ const typeLabels: Record<AllocationType, string> = {
 };
 
 export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId, allocationType }: SubprojectAllocationDialogProps) {
-  const { addAllocation, getAllocationsByContract } = useSubprojects();
+  const { addAllocation, getAllocationsBySubproject } = useSubprojects();
   const { hrPeople } = useHR();
   const { resources, overheadItems } = useData();
   const [selectedId, setSelectedId] = useState('');
