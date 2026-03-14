@@ -114,6 +114,7 @@ export default function SquadsPage() {
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const { canEdit } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const initialContractFilter = searchParams.get('contract') || 'all';
