@@ -248,7 +248,7 @@ export default function DashboardPage() {
       const daysB = b.contract?.dataFim ? getDaysUntil(b.contract.dataFim) : 9999;
       return daysA - daysB;
     });
-  }, [filteredAlerts, contracts, clients, resources, settings, overheadItems]);
+  }, [filteredAlerts, contracts, clients, resources, settings, overheadItems, centralOverheadMap]);
 
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);
