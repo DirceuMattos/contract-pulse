@@ -105,6 +105,7 @@ export default function ContractsPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
   const { getAlertsForContract } = useAlerts();
+  const { getAllocation } = useOverheadPool();
   
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
