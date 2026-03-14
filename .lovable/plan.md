@@ -1,22 +1,22 @@
+## Plan: Feedz Sync Reconstruído — Matrícula Única + 3 Fluxos + Inconsistências + Rollback
 
+**STATUS: ✅ IMPLEMENTADO**
 
-## Plano: Adicionar ordenacao por funcao (cargo) na lista de Recursos Alocados
+### O que foi feito
 
-### Situacao atual
+1. **Migração de banco** — Criadas tabelas `feedz_sync_change` e `feedz_sync_inconsistency`, adicionado `inconsistency_count` em `feedz_sync_runs`, e constraint UNIQUE parcial em `hr_people.matricula`.
 
-A lista de Recursos Alocados em `ContractResourcesPage.tsx` e ordenada exclusivamente por custo mensal (decrescente), sem opcao de mudar a ordenacao.
+2. **Edge function `feedz-sync`** — Reescrita completa com 4 cenários estritos:
+   - **CREATE**: matrícula não encontrada + ativo + sem data desligamento
+   - **UPDATE**: matrícula encontrada + ativo + sem data desligamento (com idempotência por hash)
+   - **TERMINATE**: matrícula encontrada + inativo/desligado + com data desligamento
+   - **INCONSISTENCY**: qualquer outro caso (matrícula vazia, duplicada, status conflitante)
 
-### Alteracao proposta
+3. **Edge function `feedz-rollback`** — Adaptada para `feedz_sync_change` com suporte a rollback de terminated (reativação).
 
-**Arquivo**: `src/pages/ContractResourcesPage.tsx`
+4. **Frontend `FeedzReconciliationPage`** — 4 abas: Criados, Alterados, Desligados, Inconsistências. Export CSV para inconsistências. Rollback por registro.
 
-1. Adicionar estado `sortBy` com opcoes: `custo` (padrao atual), `cargo`, `nome`, `tipo`
-2. Adicionar um `Select` de ordenacao ao lado do campo de busca existente
-3. Alterar o `.sort()` na linha 479 para usar a funcao de ordenacao selecionada:
-   - **Custo mensal** (desc) -- comportamento atual
-   - **Funcao/Cargo** (asc, alfabetico) -- usa `resolved.cargo`
-   - **Nome** (asc, alfabetico) -- usa `resolved.nome`
-   - **Tipo** (CLT primeiro, depois PJ, depois Outros)
+5. **SettingsPage** — Atualizada para exibir `inconsistency_count` em vez de pendências/conflitos.
 
-O Select ficara compacto, ao lado do campo de busca, sem alterar o layout existente.
-
+### Tabelas antigas preservadas
+`feedz_sync_items`, `feedz_pending_matches`, `feedz_sync_events` permanecem para dados históricos.
