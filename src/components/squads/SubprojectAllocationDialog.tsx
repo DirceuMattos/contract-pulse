@@ -46,7 +46,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     }
   }, [open]);
 
-  const { getAllocationsBySubproject } = useSubprojects();
+  
 
   const existingIds = useMemo(() => {
     // Filter by subproject (not entire contract) so same person can be in multiple subprojects
