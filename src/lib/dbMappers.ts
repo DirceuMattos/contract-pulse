@@ -618,6 +618,8 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     last_synced_at: p.lastSyncedAt ?? null,
     matricula: p.matricula ?? null,
     nome_normalizado: p.nomeNormalizado ?? null,
+    is_talento: p.isTalento ?? false,
+    is_guardiao: p.isGuardiao ?? false,
   };
 }
 

@@ -930,6 +930,8 @@ export type Database = {
           email: string | null
           id: string
           id_externo: string | null
+          is_guardiao: boolean
+          is_talento: boolean
           last_synced_at: string | null
           local_atuacao: string | null
           matricula: string | null
@@ -968,6 +970,8 @@ export type Database = {
           email?: string | null
           id?: string
           id_externo?: string | null
+          is_guardiao?: boolean
+          is_talento?: boolean
           last_synced_at?: string | null
           local_atuacao?: string | null
           matricula?: string | null
@@ -1006,6 +1010,8 @@ export type Database = {
           email?: string | null
           id?: string
           id_externo?: string | null
+          is_guardiao?: boolean
+          is_talento?: boolean
           last_synced_at?: string | null
           local_atuacao?: string | null
           matricula?: string | null

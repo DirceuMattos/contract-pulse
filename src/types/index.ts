@@ -432,6 +432,8 @@ export interface HRPerson {
   syncStatus?: string;
   lastSyncedAt?: string;
   matricula?: string;
+  isTalento?: boolean;
+  isGuardiao?: boolean;
   nomeNormalizado?: string;
   createdAt: string;
   updatedAt: string;
