@@ -85,10 +85,11 @@ function checkFinancialAlerts(
   contract: Contract,
   resources: Resource[],
   settings: Settings,
-  overheadItems: OverheadItem[]
+  overheadItems: OverheadItem[],
+  centralOverhead: number = 0
 ): Alert[] {
   const alerts: Alert[] = [];
-  const health = calculateContractHealth(contract, resources, settings, overheadItems);
+  const health = calculateContractHealth(contract, resources, settings, overheadItems, centralOverhead);
   
   if (health.margemMensal < 0) {
     alerts.push({
