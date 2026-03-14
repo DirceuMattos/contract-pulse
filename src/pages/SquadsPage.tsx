@@ -294,7 +294,7 @@ export default function SquadsPage() {
         : resolvedHR;
       if (filteredHR.length === 0) continue;
 
-      const health = calculateContractHealth(contract, resources, settings, overheadItems, getOverheadAllocation(contract.id).value);
+      const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value);
       const hc = healthConfig[health.status];
 
       const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] }>();
