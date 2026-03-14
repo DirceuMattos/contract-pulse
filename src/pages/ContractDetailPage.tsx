@@ -89,7 +89,7 @@ export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
+  const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts } = useData();
   const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
