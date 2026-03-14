@@ -28,7 +28,7 @@ export function generateAlerts(context: AlertGeneratorContext): Alert[] {
     const contractSnapshots = snapshots.filter(s => s.contractId === contract.id);
     
     // Alertas financeiros (deficit e margem baixa)
-    const financialAlerts = checkFinancialAlerts(contract, resources, settings, overheadItems);
+    const financialAlerts = checkFinancialAlerts(contract, resources, settings, overheadItems, centralOverheadMap?.get(contract.id) ?? 0);
     alerts.push(...financialAlerts);
     
     // Alerta de Reajuste Próximo
