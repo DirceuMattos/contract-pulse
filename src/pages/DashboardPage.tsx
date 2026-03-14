@@ -183,8 +183,8 @@ export default function DashboardPage() {
 
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
-    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap),
-    [filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap]
+    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, [], centralOverheadMap),
+    [filteredContracts, resources, settings, canViewValues, centralOverheadMap]
   );
 
   // Charts data
