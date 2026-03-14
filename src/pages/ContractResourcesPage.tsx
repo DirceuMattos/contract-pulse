@@ -771,14 +771,6 @@ export default function ContractResourcesPage() {
         confirmLabel="Remover"
       />
 
-      <ConfirmDeleteDialog
-        open={!!deleteOverheadId}
-        onOpenChange={() => setDeleteOverheadId(null)}
-        onConfirm={handleDeleteOverhead}
-        title="Remover overhead?"
-        description="Esta ação não pode ser desfeita. O custo indireto será removido do contrato."
-        confirmLabel="Remover"
-      />
 
       <CopyResourcesDialog
         open={copyDialogOpen}
