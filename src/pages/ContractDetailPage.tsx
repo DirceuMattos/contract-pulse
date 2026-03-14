@@ -394,7 +394,7 @@ export default function ContractDetailPage() {
       <Tabs defaultValue="resumo" className="space-y-6">
         <TabsList>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="recursos">Recursos ({contractResources.length + contractOverheadItems.length})</TabsTrigger>
+          <TabsTrigger value="recursos">Recursos ({contractResources.length})</TabsTrigger>
           <TabsTrigger value="escopo">Escopo</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
           {canAccessModule('HISTORY') && <TabsTrigger value="historico">Histórico</TabsTrigger>}
