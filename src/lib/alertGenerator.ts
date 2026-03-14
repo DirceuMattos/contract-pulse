@@ -15,7 +15,7 @@ interface AlertGeneratorContext {
  * Gera alertas automáticos baseados nos contratos e configurações
  */
 export function generateAlerts(context: AlertGeneratorContext): Alert[] {
-  const { contracts, resources, settings, snapshots, overheadItems = [], historyEvents = [] } = context;
+  const { contracts, resources, settings, snapshots, overheadItems = [], historyEvents = [], centralOverheadMap } = context;
   const alerts: Alert[] = [];
   
   // Filtra apenas contratos ativos (operação ou implantação)
