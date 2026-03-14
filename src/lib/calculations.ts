@@ -120,12 +120,13 @@ export function calculateDashboardKPIs(
   resources: Resource[],
   settings: Settings,
   includeValues: boolean = false,
-  overheadItems: OverheadItem[] = []
+  overheadItems: OverheadItem[] = [],
+  centralOverheadMap?: Map<string, number>
 ): DashboardKPIs {
   const activeContracts = contracts.filter(c => c.status === 'operacao' || c.status === 'implantacao');
   
   const healthData = activeContracts.map(contract => 
-    calculateContractHealth(contract, resources, settings, overheadItems)
+    calculateContractHealth(contract, resources, settings, overheadItems, centralOverheadMap?.get(contract.id) ?? 0)
   );
   
   const kpis: DashboardKPIs = {
