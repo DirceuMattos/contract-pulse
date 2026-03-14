@@ -179,27 +179,6 @@ export default function ContractResourcesPage() {
     }
   };
 
-  const handleAddOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addOverheadItem(data);
-    setOverheadFormOpen(false);
-    toast.success('Overhead adicionado ao contrato');
-  };
-
-  const handleEditOverhead = (data: Omit<OverheadItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (editingOverhead) {
-      updateOverheadItem(editingOverhead.id, data);
-      setEditingOverhead(null);
-      toast.success('Alterações salvas');
-    }
-  };
-
-  const handleDeleteOverhead = () => {
-    if (deleteOverheadId) {
-      deleteOverheadItem(deleteOverheadId);
-      setDeleteOverheadId(null);
-      toast.success('Overhead removido do contrato');
-    }
-  };
 
   const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo').sort((a, b) => a.nome.localeCompare(b.nome));
 
