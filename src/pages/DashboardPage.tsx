@@ -125,7 +125,7 @@ export default function DashboardPage() {
   const { contracts, clients, resources: _rawResources, settings, overheadItems } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
-
+  const { result: overheadPoolResult } = useOverheadPool();
   const savedFilters = loadFilters();
   const [selectedClientId, setSelectedClientId] = useState(savedFilters.selectedClientId);
   const [selectedContractId, setSelectedContractId] = useState(savedFilters.selectedContractId);
