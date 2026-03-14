@@ -75,9 +75,6 @@ export default function ContractResourcesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [overheadFormOpen, setOverheadFormOpen] = useState(false);
-  const [editingOverhead, setEditingOverhead] = useState<OverheadItem | null>(null);
-  const [deleteOverheadId, setDeleteOverheadId] = useState<string | null>(null);
   // Link legacy dialog
   const [linkResourceId, setLinkResourceId] = useState<string | null>(null);
   const [linkHrPersonId, setLinkHrPersonId] = useState<string>('');
