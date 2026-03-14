@@ -434,6 +434,8 @@ export default function SettingsPage() {
       {/* Feedz Integration */}
       {isCLevel && <FeedzSyncSection />}
 
+      {/* Overhead Central */}
+      {canEdit && <OverheadCentralSection />}
     </div>
   );
 }
@@ -895,5 +897,100 @@ function FeedzSyncSection() {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+// ─── OVERHEAD CENTRAL ────────────────────────────────────────────────────────
+
+interface OverheadCentralData {
+  administrativo: number;
+  infraestrutura: number;
+  governanca: number;
+  indiretos: number;
+  consultoria: number;
+}
+
+const OVERHEAD_CENTRAL_KEY = 'overhead-central';
+const defaultOverhead: OverheadCentralData = { administrativo: 0, infraestrutura: 0, governanca: 0, indiretos: 0, consultoria: 0 };
+
+function OverheadCentralSection() {
+  const [data, setData] = useState<OverheadCentralData>(() => {
+    try {
+      const stored = localStorage.getItem(OVERHEAD_CENTRAL_KEY);
+      return stored ? { ...defaultOverhead, ...JSON.parse(stored) } : defaultOverhead;
+    } catch { return defaultOverhead; }
+  });
+
+  const total = data.administrativo + data.infraestrutura + data.governanca + data.indiretos + data.consultoria;
+
+  const handleChange = (key: keyof OverheadCentralData, raw: string) => {
+    const val = parseFloat(raw);
+    if (isNaN(val) || val < 0) return;
+    setData(prev => ({ ...prev, [key]: val }));
+  };
+
+  const handleSave = () => {
+    localStorage.setItem(OVERHEAD_CENTRAL_KEY, JSON.stringify(data));
+    toast.success('Overhead Central atualizado!');
+  };
+
+  const items: { key: keyof OverheadCentralData; label: string }[] = [
+    { key: 'administrativo', label: 'Custos Administrativos' },
+    { key: 'infraestrutura', label: 'Custos de Infraestrutura (geral)' },
+    { key: 'governanca', label: 'Governança / Sócios' },
+    { key: 'indiretos', label: 'Custos Indiretos' },
+    { key: 'consultoria', label: 'Consultoria' },
+  ];
+
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Briefcase className="h-5 w-5 text-primary" />
+          <CardTitle>Overhead Central (mensal)</CardTitle>
+        </div>
+        <CardDescription>
+          Pool mensal de overhead em R$. O total será rateado automaticamente entre contratos na próxima etapa.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {items.map(item => (
+            <div key={item.key} className="space-y-1">
+              <Label className="text-sm">{item.label}</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">R$</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={data[item.key] || ''}
+                  onChange={e => handleChange(item.key, e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          ))}
+          <div className="space-y-1">
+            <Label className="text-sm font-semibold">Total Mensal</Label>
+            <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-foreground font-semibold">
+              {fmt(total)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <Button variant="outline" disabled className="text-muted-foreground">
+            Ver detalhamento do rateio
+          </Button>
+          <Button onClick={handleSave}>
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Overhead
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

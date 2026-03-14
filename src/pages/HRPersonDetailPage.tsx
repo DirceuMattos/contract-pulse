@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRTimelineEventForm } from '@/components/hr/HRTimelineEventForm';
@@ -317,7 +319,13 @@ export default function HRPersonDetailPage() {
             <Card>
               <CardHeader><CardTitle className="text-base">Dados Profissionais</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <Row label="Nome" value={person.nome} />
+                <Row label="Nome" value={
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span>{person.nome}</span>
+                    {person.isTalento && <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-[10px] px-1.5 py-0">⭐ Talento</Badge>}
+                    {person.isGuardiao && <Badge className="bg-sky-600 text-white hover:bg-sky-700 text-[10px] px-1.5 py-0">🛡️ Guardião</Badge>}
+                  </div>
+                } />
                 <Row label="Situação" value={<Badge className={person.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
                 <Row label="Vínculo" value={<Badge variant={person.tipoVinculo === 'clt' ? 'default' : 'secondary'}>{person.tipoVinculo.toUpperCase()}</Badge>} />
                 <Row label="Cargo" value={cargoLabel || '—'} />
@@ -325,6 +333,53 @@ export default function HRPersonDetailPage() {
                 {person.cargoAntigo && <Row label="Cargo Anterior" value={person.cargoAntigo} />}
                 {person.idExterno && <Row label="ID Externo" value={person.idExterno} />}
                 {person.matricula && <Row label="Matrícula Feedz" value={person.matricula} />}
+
+                {/* Flags Talento/Guardião */}
+                <Separator className="my-3" />
+                <TooltipProvider>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="talento-switch" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                            <Star className="h-4 w-4 text-amber-500" />
+                            Talento
+                          </Label>
+                        </TooltipTrigger>
+                        <TooltipContent>Recurso estratégico com atenção especial para retenção.</TooltipContent>
+                      </Tooltip>
+                      <Switch
+                        id="talento-switch"
+                        checked={!!person.isTalento}
+                        disabled={!canEdit}
+                        onCheckedChange={async (checked) => {
+                          await updatePerson(person.id, { isTalento: checked });
+                          toast.success(checked ? 'Marcado como Talento.' : 'Flag Talento removida.');
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="guardiao-switch" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                            <Shield className="h-4 w-4 text-sky-600" />
+                            Guardião
+                          </Label>
+                        </TooltipTrigger>
+                        <TooltipContent>Referência cultural e histórica da BNP.</TooltipContent>
+                      </Tooltip>
+                      <Switch
+                        id="guardiao-switch"
+                        checked={!!person.isGuardiao}
+                        disabled={!canEdit}
+                        onCheckedChange={async (checked) => {
+                          await updatePerson(person.id, { isGuardiao: checked });
+                          toast.success(checked ? 'Marcado como Guardião.' : 'Flag Guardião removida.');
+                        }}
+                      />
+                    </div>
+                  </div>
+                </TooltipProvider>
               </CardContent>
             </Card>
             <Card>
