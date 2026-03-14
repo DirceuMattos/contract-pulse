@@ -482,37 +482,38 @@ export default function ContractDetailPage() {
                       </div>
                     );
                   })}
-                  {overheadCost.total > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium flex items-center gap-1">
-                          Overhead
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                Custos indiretos calculados sobre a base de execução (RH + outros custos diretos).
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </span>
-                        <span className="text-sm text-muted-foreground">{contractOverheadItems.length} item{contractOverheadItems.length !== 1 ? 'ns' : ''}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Progress 
-                          value={health.custoMensal > 0 ? (overheadCost.total / health.custoMensal) * 100 : 0} 
-                          className="flex-1 h-2"
-                        />
-                        {canViewValues && (
-                          <span className="text-sm font-medium w-24 text-right">
-                            {formatCurrency(overheadCost.total)}
-                          </span>
-                        )}
-                      </div>
+                  {/* Overhead Alocado (from central pool) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium flex items-center gap-1">
+                        Overhead alocado
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              Calculado automaticamente com base no pool de overhead central e no valor mensal do contrato.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {overheadAlloc.isPending ? 'Indisponível' : `${overheadAlloc.percent.toFixed(2)}%`}
+                      </span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-3">
+                      <Progress 
+                        value={!overheadAlloc.isPending && health.custoMensal > 0 ? (overheadAlloc.value / health.custoMensal) * 100 : 0} 
+                        className="flex-1 h-2"
+                      />
+                      {canViewValues && (
+                        <span className="text-sm font-medium w-24 text-right">
+                          {overheadAlloc.isPending ? '—' : formatCurrency(overheadAlloc.value)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
