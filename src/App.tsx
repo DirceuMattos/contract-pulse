@@ -36,6 +36,7 @@ import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import HRPeoplePage from "@/pages/HRPeoplePage";
 import HRPersonDetailPage from "@/pages/HRPersonDetailPage";
 import FeedzReconciliationPage from "@/pages/FeedzReconciliationPage";
+import OverheadAllocationPage from "@/pages/OverheadAllocationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -86,6 +87,7 @@ const App = () => (
                           <Route path="/rh/cargos" element={<JobTitlesPage />} />
                           <Route path="/rh/equipes" element={<TeamsPage />} />
                           <Route path="/configuracoes/feedz-reconciliacao" element={<FeedzReconciliationPage />} />
+                          <Route path="/configuracoes/overhead-rateio" element={<OverheadAllocationPage />} />
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>

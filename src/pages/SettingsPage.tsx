@@ -914,6 +914,7 @@ const OVERHEAD_CENTRAL_KEY = 'overhead-central';
 const defaultOverhead: OverheadCentralData = { administrativo: 0, infraestrutura: 0, governanca: 0, indiretos: 0, consultoria: 0 };
 
 function OverheadCentralSection() {
+  const navigate = useNavigate();
   const [data, setData] = useState<OverheadCentralData>(() => {
     try {
       const stored = localStorage.getItem(OVERHEAD_CENTRAL_KEY);
@@ -982,7 +983,7 @@ function OverheadCentralSection() {
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <Button variant="outline" disabled className="text-muted-foreground">
+          <Button variant="outline" onClick={() => navigate('/configuracoes/overhead-rateio')}>
             Ver detalhamento do rateio
           </Button>
           <Button onClick={handleSave}>
