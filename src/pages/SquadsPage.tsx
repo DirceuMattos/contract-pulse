@@ -108,7 +108,7 @@ function sortTeamsByFixedOrder(teamsArray: SquadTeamData[]): SquadTeamData[] {
 // --- Component ---
 
 export default function SquadsPage() {
-  const { clients, contracts, resources: _rawResources, settings, overheadItems, jobTitles, teams } = useData();
+  const { clients, contracts, resources: _rawResources, settings, jobTitles, teams } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
