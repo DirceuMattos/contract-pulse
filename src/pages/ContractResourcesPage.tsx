@@ -367,7 +367,7 @@ export default function ContractResourcesPage() {
 
       {/* Cost Breakdown by Type */}
       {canViewValues && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {(['clt', 'pj', 'outro'] as const).map((tipo) => {
             const Icon = typeIcons[tipo];
             const count = resourcesByType[tipo]?.length || 0;
@@ -410,6 +410,46 @@ export default function ContractResourcesPage() {
               </Card>
             );
           })}
+
+          {/* Overhead Alocado Card */}
+          <Card className={overheadAlloc.isPending ? 'border-health-attention' : ''}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-accent text-accent-foreground">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold">Overhead</p>
+                  <p className="text-xs text-muted-foreground">Rateio central</p>
+                </div>
+              </div>
+              {overheadAlloc.isPending ? (
+                <div>
+                  <p className="text-sm font-medium text-health-attention">Indisponível</p>
+                  <p className="text-xs text-muted-foreground mt-1">{overheadAlloc.pendingReason}</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xl font-bold">{formatCurrency(overheadAlloc.value)}</p>
+                  <p className="text-xs text-muted-foreground">{overheadAlloc.percent.toFixed(2)}% do pool</p>
+                </>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline mt-2 inline-flex items-center gap-1"
+                    onClick={() => navigate('/configuracoes', { state: { tab: 'overhead' } })}
+                  >
+                    Ver rateio <Info className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Calculado automaticamente com base no pool de overhead e no valor mensal do contrato.
+                </TooltipContent>
+              </Tooltip>
+            </CardContent>
+          </Card>
         </div>
       )}
 
