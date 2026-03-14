@@ -338,15 +338,15 @@ export default function HRPeoplePage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-auto max-h-[calc(100vh-340px)] border rounded-md">
-              <div className="min-w-[1100px]">
+                <div className="min-w-[1000px]">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="text-xs w-[18px]" />
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('nome')}>Nome <SortIcon field="nome" /></TableHead>
                       <TableHead className="text-xs">Matrícula</TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tipoVinculo')}>Vínculo <SortIcon field="tipoVinculo" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('cargo')}>Cargo <SortIcon field="cargo" /></TableHead>
-                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('team')}>Dept. <SortIcon field="team" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('localAtuacao')}>Local <SortIcon field="localAtuacao" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('dataAdmissao')}>Admissão <SortIcon field="dataAdmissao" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}>Tempo <SortIcon field="tempo" /></TableHead>
@@ -360,13 +360,14 @@ export default function HRPeoplePage() {
                     {sorted.map(p => {
                       const isFrozen = p.situacao === 'inativo' && !!p.dataDesligamento;
                       const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao, isFrozen ? p.dataDesligamento : undefined);
+                      const hasFlag = p.isTalento || p.isGuardiao;
                       return (
-                        <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
-                          <TableCell className="text-xs font-medium max-w-[180px] truncate py-2">
-                            <span className="mr-1">{p.nome}</span>
-                            {p.isTalento && <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-[10px] px-1.5 py-0 ml-0.5">⭐ Talento</Badge>}
-                            {p.isGuardiao && <Badge className="bg-sky-600 text-white hover:bg-sky-700 text-[10px] px-1.5 py-0 ml-0.5">🛡️ Guardião</Badge>}
+                        <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : ''}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                          <TableCell className="py-2 px-1 w-[18px] text-center">
+                            {p.isTalento && <span title="Talento" className="text-[11px]">⭐</span>}
+                            {p.isGuardiao && <span title="Guardião" className="text-[11px]">🛡️</span>}
                           </TableCell>
+                          <TableCell className="text-xs font-medium max-w-[200px] truncate py-2">{p.nome}</TableCell>
                           <TableCell className="text-xs text-muted-foreground py-2">{p.matricula || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge className={`text-xs ${
@@ -379,7 +380,6 @@ export default function HRPeoplePage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground py-2 max-w-[140px] truncate">{getCargoLabel(p.cargoId) || '—'}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground py-2 max-w-[120px] truncate">{getTeamName(p.teamId) || '—'}</TableCell>
                           <TableCell className="text-xs text-muted-foreground py-2 max-w-[100px] truncate">{p.localAtuacao || '—'}</TableCell>
                           <TableCell className="text-xs py-2 whitespace-nowrap">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                           <TableCell className="py-2">
