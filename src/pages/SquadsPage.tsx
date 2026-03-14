@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { calculateContractHealth } from '@/lib/calculations';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { healthConfig } from '@/lib/uiConstants';
 import { Resource, Team } from '@/types';
 import Papa from 'papaparse';
