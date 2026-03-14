@@ -170,7 +170,10 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Câmbio */}
+          {/* Overhead Central - logo após Encargos */}
+          {canEdit && <OverheadCentralSection />}
+
+
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -434,8 +437,7 @@ export default function SettingsPage() {
       {/* Feedz Integration */}
       {isCLevel && <FeedzSyncSection />}
 
-      {/* Overhead Central */}
-      {canEdit && <OverheadCentralSection />}
+
     </div>
   );
 }
