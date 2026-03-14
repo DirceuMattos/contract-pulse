@@ -106,7 +106,9 @@ export default function HRPeoplePage() {
       if (filterComite === '__com') matchComite = !!p.comiteGestor;
       else if (filterComite === '__sem') matchComite = !p.comiteGestor;
       else if (filterComite) matchComite = p.comiteGestor === filterComite;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao;
+      const matchTalento = !filterTalento || !!p.isTalento;
+      const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchTalento && matchGuardiao;
     });
   }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao]);
 
