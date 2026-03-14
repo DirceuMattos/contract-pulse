@@ -93,6 +93,7 @@ export default function ContractDetailPage() {
   const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
+  const { canAccessModule } = useModuleAccess();
   const { hasSubprojects, getSubprojectsByContract } = useSubprojects();
   
   const contract = id ? getContract(id) : undefined;
