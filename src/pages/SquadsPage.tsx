@@ -24,6 +24,7 @@ import { buildXlsx, downloadCSV } from '@/lib/importExport';
 import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 import { SubprojectManagementPanel } from '@/components/squads/SubprojectManagementPanel';
 import { EditResourceAllocationDialog, ResourceAllocationInfo } from '@/components/squads/EditResourceAllocationDialog';
+import { AddResourceToContractDialog } from '@/components/squads/AddResourceToContractDialog';
 import { useAuth } from '@/contexts/AuthContext';
 // --- Types ---
 
