@@ -164,7 +164,7 @@ export default function SquadsPage() {
       // If contract has subprojects, generate per-subproject cards
       if (hasSubprojects(contract.id)) {
         const subprojects = getSubprojectsByContract(contract.id);
-        const health = calculateContractHealth(contract, resources, settings, overheadItems, getOverheadAllocation(contract.id).value);
+        const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value);
         const hc = healthConfig[health.status];
 
         for (const sp of subprojects) {
