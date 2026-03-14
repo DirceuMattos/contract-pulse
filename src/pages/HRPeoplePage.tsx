@@ -299,6 +299,16 @@ export default function HRPeoplePage() {
                 <SelectItem value="12">Dezembro</SelectItem>
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={filterTalento} onChange={e => setFilterTalento(e.target.checked)} className="rounded border-primary" />
+                ⭐ Talentos
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={filterGuardiao} onChange={e => setFilterGuardiao(e.target.checked)} className="rounded border-primary" />
+                🛡️ Guardiões
+              </label>
+            </div>
             {hasActiveFilters && (
               <Button variant="outline" onClick={handleClearFilters} className="gap-2">
                 <X className="h-4 w-4" />
