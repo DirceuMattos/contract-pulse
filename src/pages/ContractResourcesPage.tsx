@@ -761,23 +761,6 @@ export default function ContractResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Overhead Dialog */}
-      <Dialog open={overheadFormOpen || !!editingOverhead} onOpenChange={(open) => {
-        if (!open) { setOverheadFormOpen(false); setEditingOverhead(null); }
-      }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingOverhead ? 'Editar Overhead' : 'Adicionar Overhead'}</DialogTitle>
-          </DialogHeader>
-          <OverheadForm
-            item={editingOverhead || undefined}
-            contractId={contract.id}
-            baseCalculo={health.receitaBruta}
-            onSubmit={editingOverhead ? handleEditOverhead : handleAddOverhead}
-            onCancel={() => { setOverheadFormOpen(false); setEditingOverhead(null); }}
-          />
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDeleteDialog
         open={!!deleteId}
