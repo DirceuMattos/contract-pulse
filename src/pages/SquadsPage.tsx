@@ -124,6 +124,7 @@ export default function SquadsPage() {
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
+  const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
