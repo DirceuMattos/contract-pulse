@@ -631,6 +631,24 @@ export default function SquadsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {canEdit && rd.resourceKey.startsWith('hr:') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setAddingToContract({
+                        hrPersonId: rd.resourceKey.replace('hr:', ''),
+                        personName: rd.nome,
+                      })}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Adicionar a outro projeto</TooltipContent>
+                </Tooltip>
+              )}
               <span className="tabular-nums font-medium text-sm">{totalFTE.toFixed(2)} FTE</span>
               {isOverloaded && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
             </div>
