@@ -355,7 +355,7 @@ export default function SquadsPage() {
       });
     }
     return result;
-  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject]);
+  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getOverheadAllocation]);
 
   // --- Resource-centric view data ---
 
