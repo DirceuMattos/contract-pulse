@@ -8,13 +8,14 @@ interface AlertGeneratorContext {
   snapshots: Snapshot[];
   overheadItems?: OverheadItem[];
   historyEvents?: HistoryEvent[];
+  centralOverheadMap?: Map<string, number>;
 }
 
 /**
  * Gera alertas automáticos baseados nos contratos e configurações
  */
 export function generateAlerts(context: AlertGeneratorContext): Alert[] {
-  const { contracts, resources, settings, snapshots, overheadItems = [], historyEvents = [] } = context;
+  const { contracts, resources, settings, snapshots, overheadItems = [], historyEvents = [], centralOverheadMap } = context;
   const alerts: Alert[] = [];
   
   // Filtra apenas contratos ativos (operação ou implantação)
@@ -27,7 +28,7 @@ export function generateAlerts(context: AlertGeneratorContext): Alert[] {
     const contractSnapshots = snapshots.filter(s => s.contractId === contract.id);
     
     // Alertas financeiros (deficit e margem baixa)
-    const financialAlerts = checkFinancialAlerts(contract, resources, settings, overheadItems);
+    const financialAlerts = checkFinancialAlerts(contract, resources, settings, overheadItems, centralOverheadMap?.get(contract.id) ?? 0);
     alerts.push(...financialAlerts);
     
     // Alerta de Reajuste Próximo
@@ -84,10 +85,11 @@ function checkFinancialAlerts(
   contract: Contract,
   resources: Resource[],
   settings: Settings,
-  overheadItems: OverheadItem[]
+  overheadItems: OverheadItem[],
+  centralOverhead: number = 0
 ): Alert[] {
   const alerts: Alert[] = [];
-  const health = calculateContractHealth(contract, resources, settings, overheadItems);
+  const health = calculateContractHealth(contract, resources, settings, overheadItems, centralOverhead);
   
   if (health.margemMensal < 0) {
     alerts.push({

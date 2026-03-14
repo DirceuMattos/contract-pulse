@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ export default function ClientDetailPage() {
   const navigate = useNavigate();
   const { getClient, getContractsByClient, resources: _rawResources, settings, overheadItems } = useData();
   const { resolvedResources: resources } = useResolvedResources();
+  const { getAllocation } = useOverheadPool();
   const { canEdit, canViewValues } = useAuth();
   
   const client = id ? getClient(id) : undefined;
@@ -53,7 +55,7 @@ export default function ClientDetailPage() {
   
   // Calculate health for contracts
   const contractsWithHealth = clientContracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings, overheadItems);
+    const health = calculateContractHealth(contract, resources, settings, overheadItems, getAllocation(contract.id).value);
     return { contract, health };
   });
   

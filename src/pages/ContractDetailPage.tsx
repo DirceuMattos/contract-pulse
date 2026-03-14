@@ -28,6 +28,7 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,6 +92,7 @@ export default function ContractDetailPage() {
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts, overheadItems, getOverheadByContract } = useData();
   const { resolvedResources: allResolvedResources } = useResolvedResources();
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
+  const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
   const { hasSubprojects, getSubprojectsByContract } = useSubprojects();
   
@@ -111,7 +113,8 @@ export default function ContractDetailPage() {
     );
   }
   
-  const health = calculateContractHealth(contract, contractResources, settings, overheadItems);
+  const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
+  const health = calculateContractHealth(contract, contractResources, settings, overheadItems, overheadAlloc.value);
   const contractOverheadItems = id ? getOverheadByContract(id) : [];
   const overheadCost = calculateOverheadCost(contract, contractOverheadItems);
   const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
@@ -391,7 +394,7 @@ export default function ContractDetailPage() {
       <Tabs defaultValue="resumo" className="space-y-6">
         <TabsList>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="recursos">Recursos ({contractResources.length + contractOverheadItems.length})</TabsTrigger>
+          <TabsTrigger value="recursos">Recursos ({contractResources.length})</TabsTrigger>
           <TabsTrigger value="escopo">Escopo</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
           {canAccessModule('HISTORY') && <TabsTrigger value="historico">Histórico</TabsTrigger>}
@@ -479,37 +482,38 @@ export default function ContractDetailPage() {
                       </div>
                     );
                   })}
-                  {overheadCost.total > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium flex items-center gap-1">
-                          Overhead
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                Custos indiretos calculados sobre a base de execução (RH + outros custos diretos).
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </span>
-                        <span className="text-sm text-muted-foreground">{contractOverheadItems.length} item{contractOverheadItems.length !== 1 ? 'ns' : ''}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Progress 
-                          value={health.custoMensal > 0 ? (overheadCost.total / health.custoMensal) * 100 : 0} 
-                          className="flex-1 h-2"
-                        />
-                        {canViewValues && (
-                          <span className="text-sm font-medium w-24 text-right">
-                            {formatCurrency(overheadCost.total)}
-                          </span>
-                        )}
-                      </div>
+                  {/* Overhead Alocado (from central pool) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium flex items-center gap-1">
+                        Overhead alocado
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              Calculado automaticamente com base no pool de overhead central e no valor mensal do contrato.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {overheadAlloc.isPending ? 'Indisponível' : `${overheadAlloc.percent.toFixed(2)}%`}
+                      </span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-3">
+                      <Progress 
+                        value={!overheadAlloc.isPending && health.custoMensal > 0 ? (overheadAlloc.value / health.custoMensal) * 100 : 0} 
+                        className="flex-1 h-2"
+                      />
+                      {canViewValues && (
+                        <span className="text-sm font-medium w-24 text-right">
+                          {overheadAlloc.isPending ? '—' : formatCurrency(overheadAlloc.value)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -692,57 +696,92 @@ export default function ContractDetailPage() {
                 );
               })()}
 
-              {/* Custos Indiretos (Overhead) */}
+              {/* Overhead Alocado (from central pool) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  <Layers className="w-4 h-4" />
+                  Overhead Alocado
+                </div>
+                <Card className={cn("card-elevated", overheadAlloc.isPending && "border-health-attention/50")}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent-foreground shrink-0">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {overheadAlloc.isPending ? (
+                          <>
+                            <p className="font-medium text-health-attention flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4" /> Indisponível
+                            </p>
+                            <p className="text-xs text-muted-foreground">{overheadAlloc.pendingReason}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium">Overhead alocado</p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <span>Percentual do rateio: {overheadAlloc.percent.toFixed(2)}%</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        {!overheadAlloc.isPending && canViewValues && (
+                          <>
+                            <p className="text-lg font-bold">{formatCurrency(overheadAlloc.value)}</p>
+                            <p className="text-xs text-muted-foreground">/mês</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
+                      {overheadAlloc.isPending ? (
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => navigate(`/contratos/${id}/editar`)}>
+                          Corrigir valor mensal
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground" onClick={() => navigate('/configuracoes/overhead-rateio')}>
+                          Ver rateio →
+                        </Button>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Calculado automaticamente com base no pool de overhead central e no valor mensal do contrato.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Legacy Overhead (read-only, collapsed) */}
               {contractOverheadItems.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    <Layers className="w-4 h-4" />
-                    Custos Indiretos — Overhead ({contractOverheadItems.length})
-                  </div>
-                  {contractOverheadItems.map(item => {
-                    const categoryLabels: Record<string, string> = {
-                      infraestrutura: 'Infraestrutura',
-                      administrativo: 'Administrativo',
-                      governanca: 'Governança',
-                    };
-                    return (
-                      <Card key={item.id} className="card-elevated">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-lg bg-accent/50 flex items-center justify-center text-accent-foreground">
-                                <Layers className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <p className="font-medium">{item.nome}</p>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {categoryLabels[item.categoria] || item.categoria}
-                                  </Badge>
-                                  <span>
-                                    {item.modo === 'percentual'
-                                      ? `${item.percentual ?? 0}% sobre base`
-                                      : `Fixo mensal`}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <Badge className="mb-1 bg-accent/50 text-accent-foreground">OVERHEAD</Badge>
-                              {canViewValues && (
-                                <p className="text-sm font-medium">
-                                  {item.modo === 'fixo'
-                                    ? `${formatCurrency(item.valorFixoMensal ?? 0)}/mês`
-                                    : `${item.percentual ?? 0}%`}
-                                </p>
-                              )}
-                            </div>
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    Overhead legado ({contractOverheadItems.length} item{contractOverheadItems.length !== 1 ? 'ns' : ''}) — somente leitura
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 space-y-2">
+                    <p className="text-xs text-health-attention bg-health-attention/10 rounded-md px-3 py-2">
+                      ⚠ Overhead agora é calculado automaticamente a partir do pool em Configurações. Estes itens são legado e não entram no cálculo.
+                    </p>
+                    {contractOverheadItems.map(item => (
+                      <Card key={item.id} className="opacity-60">
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>{item.nome}</span>
+                            <span className="text-muted-foreground">
+                              {item.modo === 'percentual' ? `${item.percentual}%` : formatCurrency(item.valorFixoMensal ?? 0)}
+                            </span>
                           </div>
                         </CardContent>
                       </Card>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </>
           )}

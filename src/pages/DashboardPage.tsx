@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAlerts } from '@/hooks/useAlerts';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -124,7 +125,7 @@ export default function DashboardPage() {
   const { contracts, clients, resources: _rawResources, settings, overheadItems } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
-
+  const { result: overheadPoolResult } = useOverheadPool();
   const savedFilters = loadFilters();
   const [selectedClientId, setSelectedClientId] = useState(savedFilters.selectedClientId);
   const [selectedContractId, setSelectedContractId] = useState(savedFilters.selectedContractId);
@@ -172,10 +173,18 @@ export default function DashboardPage() {
     return result;
   }, [activeContracts, selectedClientId, selectedContractId]);
 
+  const centralOverheadMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of overheadPoolResult.allocations) {
+      map.set(a.contractId, a.overheadAllocated);
+    }
+    return map;
+  }, [overheadPoolResult]);
+
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
-    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, overheadItems),
-    [filteredContracts, resources, settings, canViewValues, overheadItems]
+    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap),
+    [filteredContracts, resources, settings, canViewValues, overheadItems, centralOverheadMap]
   );
 
   // Charts data
@@ -223,7 +232,7 @@ export default function DashboardPage() {
     const rows = filteredAlerts.map(alert => {
       const contract = contracts.find(c => c.id === alert.contractId);
       const client = contract ? clients.find(cl => cl.id === contract.clientId) : undefined;
-      const health = contract ? calculateContractHealth(contract, resources, settings, overheadItems) : null;
+      const health = contract ? calculateContractHealth(contract, resources, settings, overheadItems, centralOverheadMap.get(contract.id) ?? 0) : null;
       return { alert, contract, client, health };
     });
 
@@ -239,7 +248,7 @@ export default function DashboardPage() {
       const daysB = b.contract?.dataFim ? getDaysUntil(b.contract.dataFim) : 9999;
       return daysA - daysB;
     });
-  }, [filteredAlerts, contracts, clients, resources, settings, overheadItems]);
+  }, [filteredAlerts, contracts, clients, resources, settings, overheadItems, centralOverheadMap]);
 
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);

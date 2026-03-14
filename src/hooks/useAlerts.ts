@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { generateAlerts, countAlertsBySeverity, groupAlertsByContract } from '@/lib/alertGenerator';
 import { Alert } from '@/types';
 
@@ -10,6 +11,15 @@ import { Alert } from '@/types';
 export function useAlerts() {
   const { contracts, resources: _raw, settings, snapshots, overheadItems, historyEvents } = useData();
   const { resolvedResources: resources, brokenLinkCount } = useResolvedResources();
+  const { result: overheadResult } = useOverheadPool();
+
+  const centralOverheadMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of overheadResult.allocations) {
+      map.set(a.contractId, a.overheadAllocated);
+    }
+    return map;
+  }, [overheadResult]);
   
   const alerts = useMemo(() => {
     const generated = generateAlerts({
@@ -19,6 +29,7 @@ export function useAlerts() {
       snapshots,
       overheadItems,
       historyEvents,
+      centralOverheadMap,
     });
     
     // Add broken link alert if any
@@ -37,7 +48,7 @@ export function useAlerts() {
     }
     
     return generated;
-  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount]);
+  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount, centralOverheadMap]);
   
   const counts = useMemo(() => countAlertsBySeverity(alerts), [alerts]);
   

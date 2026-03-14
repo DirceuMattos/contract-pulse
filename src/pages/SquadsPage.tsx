@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { calculateContractHealth } from '@/lib/calculations';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { healthConfig } from '@/lib/uiConstants';
 import { Resource, Team } from '@/types';
 import Papa from 'papaparse';
@@ -112,6 +113,7 @@ export default function SquadsPage() {
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const { canEdit } = useAuth();
+  const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -162,7 +164,7 @@ export default function SquadsPage() {
       // If contract has subprojects, generate per-subproject cards
       if (hasSubprojects(contract.id)) {
         const subprojects = getSubprojectsByContract(contract.id);
-        const health = calculateContractHealth(contract, resources, settings, overheadItems);
+        const health = calculateContractHealth(contract, resources, settings, overheadItems, getOverheadAllocation(contract.id).value);
         const hc = healthConfig[health.status];
 
         for (const sp of subprojects) {
@@ -292,7 +294,7 @@ export default function SquadsPage() {
         : resolvedHR;
       if (filteredHR.length === 0) continue;
 
-      const health = calculateContractHealth(contract, resources, settings, overheadItems);
+      const health = calculateContractHealth(contract, resources, settings, overheadItems, getOverheadAllocation(contract.id).value);
       const hc = healthConfig[health.status];
 
       const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] }>();
@@ -353,7 +355,7 @@ export default function SquadsPage() {
       });
     }
     return result;
-  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject]);
+  }, [contracts, clients, resources, settings, overheadItems, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getOverheadAllocation]);
 
   // --- Resource-centric view data ---
 

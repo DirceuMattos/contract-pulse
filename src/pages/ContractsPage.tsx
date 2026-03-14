@@ -22,6 +22,7 @@ import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlerts } from '@/hooks/useAlerts';
+import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +105,7 @@ export default function ContractsPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { canEdit, canViewValues } = useAuth();
   const { getAlertsForContract } = useAlerts();
+  const { getAllocation } = useOverheadPool();
   
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -122,11 +124,12 @@ export default function ContractsPage() {
   
   // Calculate health for each contract
   const contractsWithHealth = useMemo(() => contracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings, overheadItems);
+    const centralOH = getAllocation(contract.id).value;
+    const health = calculateContractHealth(contract, resources, settings, overheadItems, centralOH);
     const client = clients.find(c => c.id === contract.clientId);
     const alerts = getAlertsForContract(contract.id);
     return { contract, health, client, alerts };
-  }), [contracts, resources, settings, overheadItems, clients, getAlertsForContract]);
+  }), [contracts, resources, settings, overheadItems, clients, getAlertsForContract, getAllocation]);
   
   // Apply filters
   const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts }) => {
