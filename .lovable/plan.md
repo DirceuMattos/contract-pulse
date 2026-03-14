@@ -1,22 +1,20 @@
-## Plan: Feedz Sync Reconstruído — Matrícula Única + 3 Fluxos + Inconsistências + Rollback
+## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações)
 
 **STATUS: ✅ IMPLEMENTADO**
 
 ### O que foi feito
 
-1. **Migração de banco** — Criadas tabelas `feedz_sync_change` e `feedz_sync_inconsistency`, adicionado `inconsistency_count` em `feedz_sync_runs`, e constraint UNIQUE parcial em `hr_people.matricula`.
+#### BLOCO A — Flags Talento e Guardião
 
-2. **Edge function `feedz-sync`** — Reescrita completa com 4 cenários estritos:
-   - **CREATE**: matrícula não encontrada + ativo + sem data desligamento
-   - **UPDATE**: matrícula encontrada + ativo + sem data desligamento (com idempotência por hash)
-   - **TERMINATE**: matrícula encontrada + inativo/desligado + com data desligamento
-   - **INCONSISTENCY**: qualquer outro caso (matrícula vazia, duplicada, status conflitante)
+1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
+2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
+3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
+4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos.
+5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
+6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
 
-3. **Edge function `feedz-rollback`** — Adaptada para `feedz_sync_change` com suporte a rollback de terminated (reativação).
+#### BLOCO B — Overhead Central
 
-4. **Frontend `FeedzReconciliationPage`** — 4 abas: Criados, Alterados, Desligados, Inconsistências. Export CSV para inconsistências. Rollback por registro.
-
-5. **SettingsPage** — Atualizada para exibir `inconsistency_count` em vez de pendências/conflitos.
-
-### Tabelas antigas preservadas
-`feedz_sync_items`, `feedz_pending_matches`, `feedz_sync_events` permanecem para dados históricos.
+1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
+2. **Persistência** — `localStorage` com chave `overhead-central`.
+3. **UX** — Botão "Ver detalhamento do rateio" desabilitado (futuro Bloco C). Toast ao salvar.
