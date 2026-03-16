@@ -46,6 +46,7 @@ function mapAllocation(row: any): SubprojectAllocation {
     resourceId: row.resource_id || null,
     overheadItemId: row.overhead_item_id || null,
     dedicationPercent: Number(row.dedication_percent),
+    costValue: row.cost_value != null ? Number(row.cost_value) : null,
     notes: row.notes || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
