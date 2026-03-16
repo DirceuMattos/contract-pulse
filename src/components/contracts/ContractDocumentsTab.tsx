@@ -489,7 +489,7 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
       )}
 
       {/* Dialogs */}
-      <AttachmentUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} contractId={contractId} />
+      <AttachmentUploadDialog open={uploadOpen} onOpenChange={handleUploadClose} contractId={contractId} />
       <AttachmentConfigDialog open={configOpen} onOpenChange={setConfigOpen} />
 
       {pdfViewer && (
