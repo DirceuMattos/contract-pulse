@@ -116,6 +116,52 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
   const isMock = (a: DocumentAttachment) => a.storageKey.startsWith('mock-');
   const legacyAttachments = allAttachments.filter(isLegacy);
 
+  // Extraction status tracking
+  const [extractionStatuses, setExtractionStatuses] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchExtractionStatuses = async () => {
+      if (allAttachments.length === 0) return;
+      const ids = allAttachments.map(a => a.id);
+      const { data } = await supabase
+        .from('doc_text_extractions')
+        .select('document_id, status')
+        .in('document_id', ids);
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach((d: any) => { map[d.document_id] = d.status; });
+        setExtractionStatuses(map);
+      }
+    };
+    fetchExtractionStatuses();
+  }, [allAttachments.length]);
+
+  // Trigger extraction after upload dialog closes
+  const handleUploadClose = async (open: boolean) => {
+    setUploadOpen(open);
+    if (!open) {
+      // Find new attachments without extraction and trigger
+      const freshAttachments = getAttachmentsByContract(contractId);
+      for (const att of freshAttachments) {
+        if (!extractionStatuses[att.id] && !isLegacy(att) && !isMock(att)) {
+          try {
+            await supabase.functions.invoke('doc-extract', { body: { document_id: att.id } });
+            setExtractionStatuses(prev => ({ ...prev, [att.id]: 'processing' }));
+          } catch { /* ignore */ }
+        }
+      }
+    }
+  };
+
+  const getExtractionBadge = (attId: string) => {
+    const status = extractionStatuses[attId];
+    if (!status) return null;
+    if (status === 'done') return <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-600 dark:text-green-400 gap-1"><CheckCircle2 className="w-3 h-3" />Indexado</Badge>;
+    if (status === 'processing' || status === 'queued') return <Badge variant="outline" className="text-[10px] border-blue-500/50 text-blue-600 dark:text-blue-400 gap-1"><Clock className="w-3 h-3" />Pendente</Badge>;
+    if (status === 'no_text') return <Badge variant="outline" className="text-[10px] border-muted-foreground/50 text-muted-foreground gap-1"><FileX className="w-3 h-3" />Sem texto</Badge>;
+    return null;
+  };
+
   // Filters
   let filtered = allAttachments;
   if (searchQuery) {
