@@ -41,3 +41,30 @@
 6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
 7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
 8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
+
+## Plan: Módulo IA — Estrutura, Análises Rule-Based e Minutas
+
+**STATUS: ✅ IMPLEMENTADO**
+
+### O que foi feito
+
+#### IA-1 — Estrutura + Navegação + Placeholders
+1. **moduleAccess.ts** — Adicionados `AI` e `AI_LOGS` ao `MODULE_KEYS`. AI_LOGS restrito a c-level. Intermediário sem acesso por default.
+2. **Sidebar.tsx** — Item "IA" com ícone Sparkles adicionado entre RH e Usuários.
+3. **App.tsx** — Rotas `/ai/*` com redirect `/ai` → `/ai/contracts-analysis`.
+4. **AIPageLayout.tsx** — Tabs de navegação entre sub-páginas + badge "Simulação (Etapa 1)".
+5. **Migração SQL** — Valores `AI` e `AI_LOGS` adicionados ao enum `module_key`.
+
+#### IA-2 — Análises Rule-Based
+1. **aiRuleEngine.ts** — Engine com funções puras:
+   - `analyzeContractPortfolio()`: KPIs (críticos, atenção, reajustes, vencimentos), top 10 recomendações, diagnóstico por contrato.
+   - `analyzeResources()`: mapa de carga por equipe, sobrecargas (>100%), ociosidade (<30%), comitê gestor, aniversários CLT.
+2. **AIContractsAnalysisPage** — Filtros (cliente, segmento, saúde, busca), cards KPI, recomendações com badges, diagnóstico por contrato, botão copiar.
+3. **AIResourcesAnalysisPage** — Toggle "Mostrar nomes" (admin default ON), filtro equipe, mapa de carga, sobrecargas, ociosidade, comitê, aniversários.
+
+#### IA-3 — Minutas
+1. **aiDrafts.ts** — Tipos Draft, DraftContractAnswers, DraftTRAnswers, DraftDocReference.
+2. **draftTemplates.ts** — 4 templates: Contrato GovTech, Contrato Privado, TR Padrão, TR Completo. Placeholders substituídos automaticamente.
+3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
+4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
+5. **AILogsPage** — Placeholder "Em breve".
