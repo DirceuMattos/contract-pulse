@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Users, Package, DollarSign, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Package, ChevronDown, ChevronRight, Info } from 'lucide-react';
 import { ContractSubproject, SubprojectAllocation } from '@/types';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useHR } from '@/contexts/HRContext';
