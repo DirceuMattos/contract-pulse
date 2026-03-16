@@ -18,10 +18,14 @@ interface EditAllocationDialogProps {
 export function EditAllocationDialog({ open, onOpenChange, allocation, itemName, itemTypeLabel = 'Recurso' }: EditAllocationDialogProps) {
   const { updateAllocation } = useSubprojects();
   const [dedication, setDedication] = useState(allocation.dedicationPercent);
+  const [costValue, setCostValue] = useState<number | ''>(allocation.costValue ?? '');
   const [saving, setSaving] = useState(false);
+
+  const isResource = !!allocation.resourceId;
 
   useEffect(() => {
     setDedication(allocation.dedicationPercent);
+    setCostValue(allocation.costValue ?? '');
   }, [allocation]);
 
   const handleSave = async () => {
@@ -31,11 +35,15 @@ export function EditAllocationDialog({ open, onOpenChange, allocation, itemName,
     }
     setSaving(true);
     try {
-      await updateAllocation(allocation.id, { dedicationPercent: dedication });
-      toast.success('Dedicação atualizada');
+      const updates: Partial<SubprojectAllocation> = { dedicationPercent: dedication };
+      if (isResource) {
+        updates.costValue = costValue === '' ? null : Number(costValue);
+      }
+      await updateAllocation(allocation.id, updates);
+      toast.success('Alocação atualizada');
       onOpenChange(false);
     } catch (e) {
-      toast.error('Erro ao atualizar dedicação');
+      toast.error('Erro ao atualizar alocação');
     } finally {
       setSaving(false);
     }
@@ -45,13 +53,30 @@ export function EditAllocationDialog({ open, onOpenChange, allocation, itemName,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Editar Dedicação</DialogTitle>
+          <DialogTitle>Editar Alocação</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div>
             <Label className="text-muted-foreground text-xs">{itemTypeLabel}</Label>
             <p className="font-medium">{itemName}</p>
           </div>
+          {isResource && (
+            <div className="space-y-1.5">
+              <Label htmlFor="costValue">Valor mensal (R$)</Label>
+              <Input
+                id="costValue"
+                type="number"
+                min={0}
+                step={0.01}
+                value={costValue}
+                onChange={(e) => setCostValue(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="0,00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Valor a ser computado para este recurso neste subprojeto
+              </p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="dedication">Dedicação (%)</Label>
             <Input
