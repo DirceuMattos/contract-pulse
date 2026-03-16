@@ -92,6 +92,11 @@ const App = () => (
                           <Route path="/rh/equipes" element={<TeamsPage />} />
                           <Route path="/configuracoes/feedz-reconciliacao" element={<FeedzReconciliationPage />} />
                           <Route path="/configuracoes/overhead-rateio" element={<OverheadAllocationPage />} />
+                          <Route path="/ai" element={<Navigate to="/ai/contracts-analysis" replace />} />
+                          <Route path="/ai/contracts-analysis" element={<AIContractsAnalysisPage />} />
+                          <Route path="/ai/resources-analysis" element={<AIResourcesAnalysisPage />} />
+                          <Route path="/ai/drafts" element={<AIDraftsPage />} />
+                          <Route path="/ai/logs" element={<AILogsPage />} />
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>
