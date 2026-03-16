@@ -131,10 +131,37 @@ export default function ContractResourcesPage() {
     return acc;
   }, {} as Record<string, Resource[]>);
 
+  // When subprojects exist, compute "Outros" cost from subproject allocations
+  const subprojectOutrosCostMap = useMemo(() => {
+    if (!contractHasSubprojects) return null;
+    const resourceAllocs = subprojectAllocations.filter(a => a.resourceId);
+    const map = new Map<string, { totalCost: number; totalDedication: number; allocCount: number }>();
+    for (const alloc of resourceAllocs) {
+      const res = resources.find(r => r.id === alloc.resourceId);
+      if (!res || res.tipo !== 'outro') continue;
+      const existing = map.get(alloc.resourceId!) || { totalCost: 0, totalDedication: 0, allocCount: 0 };
+      const cost = (alloc.costValue ?? res.custoBase) * (alloc.dedicationPercent / 100);
+      existing.totalCost += cost;
+      existing.totalDedication += alloc.dedicationPercent;
+      existing.allocCount += 1;
+      map.set(alloc.resourceId!, existing);
+    }
+    return map;
+  }, [contractHasSubprojects, subprojectAllocations, resources]);
+
   const custosPorTipo = {
     clt: (resourcesByType.clt || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
     pj: (resourcesByType.pj || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
-    outro: (resourcesByType.outro || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
+    outro: (() => {
+      const outroResources = resourcesByType.outro || [];
+      if (subprojectOutrosCostMap && subprojectOutrosCostMap.size > 0) {
+        return outroResources.reduce((sum, r) => {
+          const allocData = subprojectOutrosCostMap.get(r.id);
+          return sum + (allocData ? allocData.totalCost : calculateResourceCost(r, settings));
+        }, 0);
+      }
+      return outroResources.reduce((sum, r) => sum + calculateResourceCost(r, settings), 0);
+    })(),
   };
 
   const handleAddResource = (data: Omit<Resource, 'id' | 'createdAt' | 'updatedAt'>) => {
