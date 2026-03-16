@@ -105,31 +105,8 @@ export default function ContractResourcesPage() {
     [rawResources]
   );
 
-  if (!contract) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Users className="w-16 h-16 text-muted-foreground/30 mb-4" />
-        <h2 className="text-xl font-semibold text-foreground mb-2">Contrato não encontrado</h2>
-        <p className="text-muted-foreground mb-4">O contrato solicitado não existe ou foi removido.</p>
-        <Button onClick={() => navigate(location.state?.from || '/contratos')}>Voltar para Contratos</Button>
-      </div>
-    );
-  }
-
   const contractHasSubprojects = id ? hasSubprojectsFn(id) : false;
   const subprojectAllocations = id ? getAllocationsByContract(id) : [];
-  const totalSubprojectFTE = subprojectAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
-
-  const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, resources, settings, [], overheadAlloc.value);
-  const receitaMensal = getContractRevenue(contract);
-
-  const resourcesByType = resources.reduce((acc, resource) => {
-    const type = resource.tipo;
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(resource);
-    return acc;
-  }, {} as Record<string, Resource[]>);
 
   // When subprojects exist, compute "Outros" cost from subproject allocations
   const subprojectOutrosCostMap = useMemo(() => {
@@ -148,6 +125,19 @@ export default function ContractResourcesPage() {
     }
     return map;
   }, [contractHasSubprojects, subprojectAllocations, resources]);
+
+  if (!contract) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Users className="w-16 h-16 text-muted-foreground/30 mb-4" />
+        <h2 className="text-xl font-semibold text-foreground mb-2">Contrato não encontrado</h2>
+        <p className="text-muted-foreground mb-4">O contrato solicitado não existe ou foi removido.</p>
+        <Button onClick={() => navigate(location.state?.from || '/contratos')}>Voltar para Contratos</Button>
+      </div>
+    );
+  }
+
+  const totalSubprojectFTE = subprojectAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
 
   const custosPorTipo = {
     clt: (resourcesByType.clt || []).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
