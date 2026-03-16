@@ -120,7 +120,11 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {availableItems.length === 0 ? (
-                  <SelectItem value="__none" disabled>Nenhum item disponível</SelectItem>
+                  <SelectItem value="__none" disabled>
+                    {allocationType === 'resource'
+                      ? 'Nenhum recurso não-RH cadastrado neste contrato. Cadastre primeiro na aba Recursos.'
+                      : 'Nenhum item disponível'}
+                  </SelectItem>
                 ) : (
                   availableItems.map(item => (
                     <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
