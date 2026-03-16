@@ -85,8 +85,44 @@ export type Database = {
           },
         ]
       }
+      ai_run_exports: {
+        Row: {
+          created_at: string
+          file_type: string
+          id: string
+          run_id: string
+          storage_key: string
+        }
+        Insert: {
+          created_at?: string
+          file_type?: string
+          id?: string
+          run_id: string
+          storage_key: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          id?: string
+          run_id?: string
+          storage_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_run_exports_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_runs: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_reason: string | null
+          approved_status: string
           created_at: string
           error_message: string | null
           external_sources_used: Json | null
@@ -98,12 +134,20 @@ export type Database = {
           output_text: string | null
           prompt_hash: string | null
           redaction_level: string
+          replay_of_run_id: string | null
           run_type: string
           status: string
+          template_type: string | null
           template_version: string | null
+          tokens_in: number | null
+          tokens_out: number | null
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_reason?: string | null
+          approved_status?: string
           created_at?: string
           error_message?: string | null
           external_sources_used?: Json | null
@@ -115,12 +159,20 @@ export type Database = {
           output_text?: string | null
           prompt_hash?: string | null
           redaction_level?: string
+          replay_of_run_id?: string | null
           run_type?: string
           status?: string
+          template_type?: string | null
           template_version?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_reason?: string | null
+          approved_status?: string
           created_at?: string
           error_message?: string | null
           external_sources_used?: Json | null
@@ -132,12 +184,24 @@ export type Database = {
           output_text?: string | null
           prompt_hash?: string | null
           redaction_level?: string
+          replay_of_run_id?: string | null
           run_type?: string
           status?: string
+          template_type?: string | null
           template_version?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_runs_replay_of_run_id_fkey"
+            columns: ["replay_of_run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       alerts: {
         Row: {

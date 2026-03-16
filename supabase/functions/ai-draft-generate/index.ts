@@ -33,6 +33,7 @@ serve(async (req) => {
       user_id,
       user_role,
       search_query, // optional keywords for chunk retrieval
+      replay_of_run_id, // optional: ID of original run being replayed
     } = await req.json();
 
     if (!type || !answers || !user_id) {
@@ -263,11 +264,17 @@ Gere a minuta completa de ${typeLabel}.`;
       file_name: c.file_name,
     }));
 
+    // Determine template_type
+    const templateType = type === "contract"
+      ? (variant === "govtech" ? "contrato_govtech" : "contrato_privado")
+      : (variant === "completo" ? "tr_completo" : "tr_padrao");
+
     // Save ai_run
     const { data: aiRun, error: runErr } = await supabase
       .from("ai_runs")
       .insert({
         run_type: type === "contract" ? "draft_contract" : "draft_tr",
+        template_type: templateType,
         user_id,
         input_json: { type, variant, answers, doc_ids },
         redaction_level: redactionLevel,
@@ -277,6 +284,7 @@ Gere a minuta completa de ${typeLabel}.`;
         status: "success",
         model: "google/gemini-3-flash-preview",
         template_version: "v1",
+        replay_of_run_id: replay_of_run_id || null,
       })
       .select("id")
       .single();
