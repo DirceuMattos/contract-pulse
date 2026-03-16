@@ -1,0 +1,1 @@
+ALTER TABLE public.subproject_allocations ADD COLUMN IF NOT EXISTS cost_value numeric DEFAULT NULL;

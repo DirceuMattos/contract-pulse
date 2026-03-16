@@ -1878,6 +1878,7 @@ export type Database = {
       }
       subproject_allocations: {
         Row: {
+          cost_value: number | null
           created_at: string
           dedication_percent: number
           hr_person_id: string | null
@@ -1889,6 +1890,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cost_value?: number | null
           created_at?: string
           dedication_percent?: number
           hr_person_id?: string | null
@@ -1900,6 +1902,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cost_value?: number | null
           created_at?: string
           dedication_percent?: number
           hr_person_id?: string | null
