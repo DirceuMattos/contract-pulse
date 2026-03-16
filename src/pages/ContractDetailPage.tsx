@@ -685,7 +685,10 @@ export default function ContractDetailPage() {
                       Outros Recursos ({otherResources.length})
                     </div>
                     {otherResources.map(resource => {
-                      const cost = calculateResourceCost(resource, settings);
+                      const allocData = subprojectOutrosCost?.get(resource.id);
+                      const cost = allocData ? allocData.totalCost : calculateResourceCost(resource, settings);
+                      const dedication = allocData ? allocData.totalDedication : resource.percentualDedicacao;
+                      const isFromSubprojects = !!allocData;
                       return (
                         <Card key={resource.id} className="card-elevated">
                           <CardContent className="p-4">
@@ -702,7 +705,13 @@ export default function ContractDetailPage() {
                                         {resource.categoria}
                                       </Badge>
                                     )}
-                                    <span>{resource.percentualDedicacao}% dedicação</span>
+                                    <span>{dedication}% dedicação</span>
+                                    {isFromSubprojects && (
+                                      <Badge variant="outline" className="text-xs gap-1">
+                                        <Layers className="w-3 h-3" />
+                                        {allocData.allocCount} subprojeto{allocData.allocCount !== 1 ? 's' : ''}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
                               </div>
