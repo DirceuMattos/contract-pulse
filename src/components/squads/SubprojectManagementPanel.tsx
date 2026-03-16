@@ -48,7 +48,6 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   const resourceMap = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources]);
-  const overheadMap = useMemo(() => new Map(overheadItems.map(o => [o.id, o])), [overheadItems]);
 
   const toggleExpanded = (spId: string) => {
     setExpandedSubprojects(prev => {
