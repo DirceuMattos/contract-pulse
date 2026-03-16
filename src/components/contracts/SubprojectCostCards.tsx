@@ -92,16 +92,15 @@ export function SubprojectCostCards({
     // Second pass: prorate central overhead proportionally to direct cost
     const totalDireto = raw.reduce((s, r) => s + r.custoDireto, 0);
 
+    const overheadPorSubprojeto = subprojects.length > 0
+      ? overheadAllocated / subprojects.length
+      : 0;
+
     return raw.map(r => {
-      const overheadRateado = totalDireto > 0
-        ? overheadAllocated * (r.custoDireto / totalDireto)
-        : subprojects.length > 0
-          ? overheadAllocated / subprojects.length
-          : 0;
-      const custoTotal = r.custoDireto + overheadRateado;
+      const custoTotal = r.custoDireto + overheadPorSubprojeto;
       const percentual = custoMensalTotal > 0 ? (custoTotal / custoMensalTotal) * 100 : 0;
 
-      return { ...r, overheadRateado, custoTotal, percentual };
+      return { ...r, overheadRateado: overheadPorSubprojeto, custoTotal, percentual };
     });
   }, [subprojects, getAllocationsBySubproject, peopleMap, resourcesMap, settings, custoMensalTotal, overheadAllocated]);
 
