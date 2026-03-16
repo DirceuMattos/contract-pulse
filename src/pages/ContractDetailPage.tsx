@@ -88,13 +88,35 @@ export default function ContractDetailPage() {
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
-  const { hasSubprojects, getSubprojectsByContract } = useSubprojects();
+  const { hasSubprojects, getSubprojectsByContract, getAllocationsByContract } = useSubprojects();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
   const contractResources = useMemo(() => id ? allResolvedResources.filter(r => r.contractId === id) : [], [allResolvedResources, id]);
   const snapshots = id ? getSnapshotsByContract(id) : [];
   const contractAlerts = alerts.filter(a => a.contractId === id);
+
+  // When subprojects exist, compute "Outros" cost from subproject allocations
+  const contractHasSubs = !!(id && hasSubprojects(id));
+  const subAllocations = useMemo(() => contractHasSubs && id ? getAllocationsByContract(id) : [], [contractHasSubs, id, getAllocationsByContract]);
+  const resourceAllocations = useMemo(() => subAllocations.filter(a => a.resourceId), [subAllocations]);
+
+  // Build a map: resourceId -> aggregated cost from subproject allocations
+  const subprojectOutrosCost = useMemo(() => {
+    if (!contractHasSubs) return null;
+    const map = new Map<string, { totalCost: number; totalDedication: number; allocCount: number }>();
+    for (const alloc of resourceAllocations) {
+      const res = contractResources.find(r => r.id === alloc.resourceId);
+      if (!res || res.tipo !== 'outro') continue;
+      const existing = map.get(alloc.resourceId!) || { totalCost: 0, totalDedication: 0, allocCount: 0 };
+      const cost = (alloc.costValue ?? res.custoBase) * (alloc.dedicationPercent / 100);
+      existing.totalCost += cost;
+      existing.totalDedication += alloc.dedicationPercent;
+      existing.allocCount += 1;
+      map.set(alloc.resourceId!, existing);
+    }
+    return map;
+  }, [contractHasSubs, resourceAllocations, contractResources]);
   
   if (!contract) {
     return (
@@ -124,12 +146,23 @@ export default function ContractDetailPage() {
   }, {} as Record<string, Resource[]>);
   
   // Calculate costs by type
-  const costsByType = Object.entries(resourcesByType).map(([type, res]) => ({
-    type,
-    label: type === 'clt' ? 'CLT' : type === 'pj' ? 'PJ' : 'Outros',
-    cost: (res as Resource[]).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
-    count: (res as Resource[]).length,
-  }));
+  const costsByType = Object.entries(resourcesByType).map(([type, res]) => {
+    // When subprojects exist, use subproject allocation costs for "outro" resources
+    if (type === 'outro' && subprojectOutrosCost && subprojectOutrosCost.size > 0) {
+      let totalCost = 0;
+      for (const r of res as Resource[]) {
+        const allocData = subprojectOutrosCost.get(r.id);
+        totalCost += allocData ? allocData.totalCost : calculateResourceCost(r, settings);
+      }
+      return { type, label: 'Outros', cost: totalCost, count: (res as Resource[]).length };
+    }
+    return {
+      type,
+      label: type === 'clt' ? 'CLT' : type === 'pj' ? 'PJ' : 'Outros',
+      cost: (res as Resource[]).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
+      count: (res as Resource[]).length,
+    };
+  });
   
   // Trend data from snapshots
   const trendData = snapshots.map(s => ({
@@ -652,7 +685,10 @@ export default function ContractDetailPage() {
                       Outros Recursos ({otherResources.length})
                     </div>
                     {otherResources.map(resource => {
-                      const cost = calculateResourceCost(resource, settings);
+                      const allocData = subprojectOutrosCost?.get(resource.id);
+                      const cost = allocData ? allocData.totalCost : calculateResourceCost(resource, settings);
+                      const dedication = allocData ? allocData.totalDedication : resource.percentualDedicacao;
+                      const isFromSubprojects = !!allocData;
                       return (
                         <Card key={resource.id} className="card-elevated">
                           <CardContent className="p-4">
@@ -669,7 +705,13 @@ export default function ContractDetailPage() {
                                         {resource.categoria}
                                       </Badge>
                                     )}
-                                    <span>{resource.percentualDedicacao}% dedicação</span>
+                                    <span>{dedication}% dedicação</span>
+                                    {isFromSubprojects && (
+                                      <Badge variant="outline" className="text-xs gap-1">
+                                        <Layers className="w-3 h-3" />
+                                        {allocData.allocCount} subprojeto{allocData.allocCount !== 1 ? 's' : ''}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
                               </div>
