@@ -72,7 +72,29 @@ export default function AIDraftsPage() {
   const [gaps, setGaps] = useState<AIGap[]>([]);
   const [showEvidence, setShowEvidence] = useState(false);
 
+  // DB templates cache
+  const [dbTemplates, setDbTemplates] = useState<Record<string, { body: string; version: string }>>({});
+
   const isAdmin = user?.role === 'c-level';
+
+  // Fetch active templates from DB on mount
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('doc_templates')
+          .select('template_key, body_markdown, version')
+          .eq('is_active', true);
+        if (data) {
+          const map: Record<string, { body: string; version: string }> = {};
+          (data as any[]).forEach((t: any) => {
+            map[t.template_key] = { body: t.body_markdown, version: t.version };
+          });
+          setDbTemplates(map);
+        }
+      } catch { /* fallback to local templates */ }
+    })();
+  }, []);
 
   const availableDocs = useMemo(() => {
     return attachments.filter(a => {
@@ -149,6 +171,12 @@ export default function AIDraftsPage() {
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
 
+      // Resolve template key for version tracking
+      const templateKey = draftType === 'contract'
+        ? (variant === 'govtech' ? 'contrato_govtech' : 'contrato_privado')
+        : 'tr_padrao';
+      const templateVersion = dbTemplates[templateKey]?.version || '1.0.0';
+
       const { data, error } = await supabase.functions.invoke('ai-draft-generate', {
         body: {
           type: draftType,
@@ -157,6 +185,7 @@ export default function AIDraftsPage() {
           doc_ids: docIds,
           user_id: userId,
           user_role: user?.role || 'leitor',
+          template_version: templateVersion,
         },
       });
 

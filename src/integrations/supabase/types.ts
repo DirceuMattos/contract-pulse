@@ -600,6 +600,42 @@ export type Database = {
           },
         ]
       }
+      doc_templates: {
+        Row: {
+          body_markdown: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          schema_json: Json
+          template_key: string
+          title: string
+          version: string
+        }
+        Insert: {
+          body_markdown: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          schema_json?: Json
+          template_key: string
+          title: string
+          version?: string
+        }
+        Update: {
+          body_markdown?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          schema_json?: Json
+          template_key?: string
+          title?: string
+          version?: string
+        }
+        Relationships: []
+      }
       doc_text_extractions: {
         Row: {
           created_at: string
@@ -1991,6 +2027,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_doc_extractions_status: {
+        Args: never
+        Returns: {
+          document_id: string
+          error_message: string
+          extracted_at: string
+          id: string
+          owner_id: string
+          owner_type: string
+          status: string
+        }[]
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -2005,6 +2053,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_clevel: { Args: never; Returns: boolean }
       match_chunks_fts: {
         Args: { doc_ids: string[]; match_count?: number; query_text: string }
         Returns: {
