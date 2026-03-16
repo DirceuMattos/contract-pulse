@@ -30,7 +30,7 @@ import AttachmentConfigDialog from './AttachmentConfigDialog';
 import PDFViewerDialog from './PDFViewerDialog';
 import {
   Paperclip, Plus, Settings2, Search, MoreVertical, Eye, Download,
-  Printer, Mail, Share2, Trash2, FileText, CloudUpload, AlertTriangle,
+  Printer, Mail, Share2, Trash2, FileText, CloudUpload, AlertTriangle, CheckCircle2, Clock, FileX,
 } from 'lucide-react';
 
 interface ContractDocumentsTabProps {
