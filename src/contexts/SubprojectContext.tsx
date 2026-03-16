@@ -46,6 +46,7 @@ function mapAllocation(row: any): SubprojectAllocation {
     resourceId: row.resource_id || null,
     overheadItemId: row.overhead_item_id || null,
     dedicationPercent: Number(row.dedication_percent),
+    costValue: row.cost_value != null ? Number(row.cost_value) : null,
     notes: row.notes || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -123,6 +124,7 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
       resource_id: data.resourceId || null,
       overhead_item_id: data.overheadItemId || null,
       dedication_percent: data.dedicationPercent,
+      cost_value: data.costValue ?? null,
       notes: data.notes || null,
     }).select().single();
     if (error) throw error;
@@ -134,6 +136,7 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
   const updateAllocation = useCallback(async (id: string, data: Partial<SubprojectAllocation>) => {
     const update: any = {};
     if (data.dedicationPercent !== undefined) update.dedication_percent = data.dedicationPercent;
+    if (data.costValue !== undefined) update.cost_value = data.costValue;
     if (data.notes !== undefined) update.notes = data.notes;
     if (data.hrPersonId !== undefined) update.hr_person_id = data.hrPersonId;
     if (data.resourceId !== undefined) update.resource_id = data.resourceId;

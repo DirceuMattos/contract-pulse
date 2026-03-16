@@ -136,6 +136,7 @@ export interface SubprojectAllocation {
   resourceId?: string | null;
   overheadItemId?: string | null;
   dedicationPercent: number;
+  costValue?: number | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;

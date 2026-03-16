@@ -81,6 +81,11 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const renderAllocRow = (alloc: SubprojectAllocation, name: string, typeLabel: string) => (
     <div key={alloc.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
       <span className="font-medium truncate">{name}</span>
+      {alloc.costValue != null && (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          R$ {alloc.costValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+        </span>
+      )}
       <span className="ml-auto tabular-nums font-medium">{alloc.dedicationPercent}%</span>
       {canEdit && (
         <>

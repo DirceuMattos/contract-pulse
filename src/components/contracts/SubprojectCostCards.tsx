@@ -78,11 +78,11 @@ export function SubprojectCostCards({
 
         if (alloc.resourceId && resourcesMap) {
           resCount++;
-          const resource = resourcesMap.get(alloc.resourceId);
-          if (!resource) continue;
-
           const dedicacao = alloc.dedicationPercent / 100;
-          custoDireto += (resource.custoBase || 0) * dedicacao;
+          // Use custom cost_value from allocation if set, otherwise fall back to resource base cost
+          const resource = resourcesMap.get(alloc.resourceId);
+          const baseCost = alloc.costValue != null ? alloc.costValue : (resource?.custoBase || 0);
+          custoDireto += baseCost * dedicacao;
         }
       }
 
