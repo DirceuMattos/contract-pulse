@@ -8,7 +8,6 @@ import {
   FileText,
   Settings,
   Upload,
-  
   HelpCircle,
   ChevronLeft,
   ChevronRight,
@@ -18,6 +17,7 @@ import {
   Calculator,
   X,
   UsersRound,
+  Sparkles,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
