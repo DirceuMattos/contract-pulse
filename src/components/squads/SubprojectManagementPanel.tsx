@@ -217,6 +217,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                           <Package className="w-3 h-3" />,
                           resAllocs.length,
                         )}
+                      </div>
                     </CardContent>
                   </CollapsibleContent>
                 </Collapsible>
