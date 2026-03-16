@@ -1,70 +1,129 @@
-## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio) + Bloco D (Overhead Alocado nos Contratos)
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Plano: RLS Completas + Pipeline Extracao/Embeddings + Templates com Versionamento
 
-#### BLOCO A — Flags Talento e Guardião
+### 1. Migracao SQL
 
-1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
-2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
-3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
-4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos. Borda colorida na linha.
-5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
-6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
+Uma unica migracao cobrindo os 3 blocos:
 
-#### BLOCO B — Overhead Central
+**1.1 Security definer function `is_clevel`** (usa `has_role` existente, sem criar `is_admin` que referencia `profiles.role` — o sistema usa `user_roles` com `app_role` enum):
 
-1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
-2. **Persistência** — `localStorage` com chave `overhead-central`.
-3. **UX** — Botão "Ver detalhamento do rateio" ativo (navega para /configuracoes/overhead-rateio). Toast ao salvar.
+```sql
+CREATE OR REPLACE FUNCTION public.is_clevel()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$ SELECT public.has_role(auth.uid(), 'c-level'::app_role); $$;
+```
 
-#### BLOCO C — Rateio do Overhead Central
+**1.2 Security definer function `get_doc_extractions_status`** — retorna status sem texto extraido:
 
-1. **`src/lib/overheadAllocation.ts`** — Função `calculateOverheadAllocation` calcula percentual e overhead alocado por contrato, com ajuste de arredondamento no maior contrato.
-2. **`src/pages/OverheadAllocationPage.tsx`** — Nova página `/configuracoes/overhead-rateio`:
-   - Cards resumo: Pool total, Receita total, Soma alocada (com check ✓)
-   - Tabela principal: Cliente, Contrato, Valor Mensal, Percentual, Overhead Alocado, Status, link abrir
-   - Seção "Pendências do rateio": contratos excluídos (receita 0 ou não vigente) com motivo e link editar
-   - Filtros: busca textual + select cliente
-   - Tooltip de ajuste de arredondamento
-3. **Rota** — Adicionada em App.tsx
-4. **Não alterado** — Consultoria por contrato (CRUD de recursos) permanece intacta. Cálculo de break-even não alterado (Bloco E futuro).
+```sql
+CREATE OR REPLACE FUNCTION public.get_doc_extractions_status()
+RETURNS TABLE(id uuid, document_id uuid, owner_type text, owner_id uuid, status text, extracted_at timestamptz, error_message text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$ SELECT id, document_id, owner_type, owner_id, status, extracted_at, error_message FROM public.doc_text_extractions; $$;
+```
 
-#### BLOCO D — Overhead Alocado nos Contratos
+**1.3 Ajustar RLS em `doc_chunks`** — remover policy de SELECT para authenticated (chunks so acessados via Edge Function/service_role). Dropar `dc_select` existente.
 
-1. **`src/hooks/useOverheadPool.ts`** (novo) — Hook que lê o pool central do localStorage, calcula alocações via `calculateOverheadAllocation`, e expõe `getAllocation(contractId)` retornando `{ percent, value, isPending, pendingReason }`.
-2. **`src/lib/calculations.ts`** — `calculateContractHealth` recebe parâmetro opcional `centralOverhead` (default 0), somado ao custo mensal. `calculateDashboardKPIs` recebe `centralOverheadMap` opcional.
-3. **`src/lib/alertGenerator.ts`** — Contexto de alertas aceita `centralOverheadMap`, propagado para checagem financeira.
-4. **`src/hooks/useAlerts.ts`** — Usa `useOverheadPool` para construir o mapa e passá-lo ao gerador de alertas.
-5. **Todas as páginas atualizadas** — `DashboardPage`, `ContractsPage`, `ClientDetailPage`, `SquadsPage`, `ContractDetailPage`, `ContractResourcesPage` passam o overhead alocado para `calculateContractHealth`.
-6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
-7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
-8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
+**1.4 Ajustar RLS em `doc_chunk_embeddings`** — dropar `dce_select`. Sem SELECT para authenticated.
 
-## Plan: Módulo IA — Estrutura, Análises Rule-Based e Minutas
+**1.5 Ajustar RLS em `doc_text_extractions`** — dropar `dte_select` aberto. Criar SELECT restrito a c-level (para dashboard de monitoramento):
+```sql
+CREATE POLICY "dte_select_clevel" ON doc_text_extractions FOR SELECT TO authenticated USING (public.is_clevel());
+```
 
-**STATUS: ✅ IMPLEMENTADO**
+**1.6 Tabela `doc_templates`** — versionamento de templates:
+```sql
+CREATE TABLE public.doc_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_key text NOT NULL,
+  version text NOT NULL DEFAULT '1.0.0',
+  title text NOT NULL,
+  body_markdown text NOT NULL,
+  schema_json jsonb NOT NULL DEFAULT '{}',
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(template_key, version)
+);
+ALTER TABLE public.doc_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "dt_select" ON doc_templates FOR SELECT TO authenticated USING (true);
+CREATE POLICY "dt_insert" ON doc_templates FOR INSERT TO authenticated WITH CHECK (public.is_clevel());
+CREATE POLICY "dt_update" ON doc_templates FOR UPDATE TO authenticated USING (public.is_clevel());
+CREATE POLICY "dt_delete" ON doc_templates FOR DELETE TO authenticated USING (public.is_clevel());
+```
 
-### O que foi feito
+**1.7 Adicionar coluna `tsv` em `doc_chunks`** (se ausente — verificar se ja existe da migracao IA-4). Adicionar GIN index.
 
-#### IA-1 — Estrutura + Navegação + Placeholders
-1. **moduleAccess.ts** — Adicionados `AI` e `AI_LOGS` ao `MODULE_KEYS`. AI_LOGS restrito a c-level. Intermediário sem acesso por default.
-2. **Sidebar.tsx** — Item "IA" com ícone Sparkles adicionado entre RH e Usuários.
-3. **App.tsx** — Rotas `/ai/*` com redirect `/ai` → `/ai/contracts-analysis`.
-4. **AIPageLayout.tsx** — Tabs de navegação entre sub-páginas + badge "Simulação (Etapa 1)".
-5. **Migração SQL** — Valores `AI` e `AI_LOGS` adicionados ao enum `module_key`.
+**1.8 Seed dos 4 templates iniciais** (contrato_govtech, contrato_privado, tr_padrao, tr_completo) com o conteudo formal de `draftTemplates.ts` convertido para markdown com placeholders `{{campo}}`.
 
-#### IA-2 — Análises Rule-Based
-1. **aiRuleEngine.ts** — Engine com funções puras:
-   - `analyzeContractPortfolio()`: KPIs (críticos, atenção, reajustes, vencimentos), top 10 recomendações, diagnóstico por contrato.
-   - `analyzeResources()`: mapa de carga por equipe, sobrecargas (>100%), ociosidade (<30%), comitê gestor, aniversários CLT.
-2. **AIContractsAnalysisPage** — Filtros (cliente, segmento, saúde, busca), cards KPI, recomendações com badges, diagnóstico por contrato, botão copiar.
-3. **AIResourcesAnalysisPage** — Toggle "Mostrar nomes" (admin default ON), filtro equipe, mapa de carga, sobrecargas, ociosidade, comitê, aniversários.
+---
 
-#### IA-3 — Minutas
-1. **aiDrafts.ts** — Tipos Draft, DraftContractAnswers, DraftTRAnswers, DraftDocReference.
-2. **draftTemplates.ts** — 4 templates: Contrato GovTech, Contrato Privado, TR Padrão, TR Completo. Placeholders substituídos automaticamente.
-3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
-4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
-5. **AILogsPage** — Placeholder "Em breve".
+### 2. Edge Function: `doc-extract` (ajustes)
+
+Atualmente faz extracao basica com regex. Ajustes:
+- Adicionar `page_start`/`page_end` estimados nos chunks (baseado em posicao relativa do texto)
+- Melhorar chunking: 800-1200 chars com 10% overlap (atualmente 1000/100)
+- Adicionar `chunk_hash` via hash simples (ja existe)
+- Deduplicar por `(document_id, chunk_hash)` antes de inserir
+
+Sem mudancas estruturais grandes — a funcao ja funciona.
+
+---
+
+### 3. Edge Function: `doc-embed` (nao criar)
+
+Conforme decisao da IA-4, o gateway nao expoe endpoint de embeddings. Manter FTS com `match_chunks_fts`. A tabela `doc_chunk_embeddings` existe preparada para futuro. Nao criar edge function `doc-embed` neste bloco.
+
+---
+
+### 4. Frontend: `AILogsPage.tsx` (ajustes)
+
+- Adicionar secao "Monitoramento de Extracao" (Admin):
+  - Chamar `get_doc_extractions_status()` via `supabase.rpc()`
+  - Exibir contagens: queued, processing, done, failed, no_text
+  - Lista de falhas recentes
+  - Botao "Reindexar documentos" ja existe — manter
+
+---
+
+### 5. Frontend: Gestao de Templates (Admin)
+
+Nova secao em `AILogsPage.tsx` ou nova tab no `AIPageLayout`:
+- Tab "Templates" (visivel apenas Admin)
+- Lista templates com versao ativa
+- Dialog para editar body_markdown (textarea grande)
+- Botao "Publicar nova versao" (incrementa version, cria novo registro, desativa anterior)
+- Preview do markdown renderizado
+- CRUD via supabase client (RLS protege)
+
+---
+
+### 6. Frontend: `AIDraftsPage.tsx` (ajustes)
+
+- Na geracao com IA, buscar template ativo do DB (`doc_templates` onde `template_key` = tipo e `is_active = true`)
+- Passar `template_version` para a edge function `ai-draft-generate`
+- Na geracao local (sem IA), continuar usando `draftTemplates.ts` como fallback
+
+---
+
+### 7. Frontend: `draftTemplates.ts` (manter como fallback)
+
+Nao remover — serve como fallback quando DB nao disponivel ou para geracao local.
+
+---
+
+### Arquivos
+
+**Novos:**
+- SQL migration (RLS + `doc_templates` + seed + functions)
+
+**Editados:**
+- `src/pages/AILogsPage.tsx` — monitoramento extracao + gestao templates
+- `src/pages/AIDraftsPage.tsx` — buscar template do DB
+- `src/components/ai/AIPageLayout.tsx` — adicionar tab "Templates" (se Admin)
+- `supabase/functions/doc-extract/index.ts` — melhorias chunking
+
+**Nao alterados:**
+- Todas as edge functions existentes, modulos, calculos, permissoes
+
