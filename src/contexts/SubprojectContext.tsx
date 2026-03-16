@@ -136,6 +136,7 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
   const updateAllocation = useCallback(async (id: string, data: Partial<SubprojectAllocation>) => {
     const update: any = {};
     if (data.dedicationPercent !== undefined) update.dedication_percent = data.dedicationPercent;
+    if (data.costValue !== undefined) update.cost_value = data.costValue;
     if (data.notes !== undefined) update.notes = data.notes;
     if (data.hrPersonId !== undefined) update.hr_person_id = data.hrPersonId;
     if (data.resourceId !== undefined) update.resource_id = data.resourceId;
