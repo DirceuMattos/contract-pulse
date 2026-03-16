@@ -124,6 +124,7 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
       resource_id: data.resourceId || null,
       overhead_item_id: data.overheadItemId || null,
       dedication_percent: data.dedicationPercent,
+      cost_value: data.costValue ?? null,
       notes: data.notes || null,
     }).select().single();
     if (error) throw error;
