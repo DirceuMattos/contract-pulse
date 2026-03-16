@@ -217,23 +217,6 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                           <Package className="w-3 h-3" />,
                           resAllocs.length,
                         )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Overheads</h4>
-                        {renderSection(
-                          ovhAllocs,
-                          'Nenhum overhead alocado.',
-                          'overhead',
-                          sp.id,
-                          (a) => {
-                            const o = overheadMap.get(a.overheadItemId!);
-                            return o ? `${o.nome} (${o.categoria})` : 'Overhead não encontrado';
-                          },
-                          'Overhead',
-                          <DollarSign className="w-3 h-3" />,
-                          ovhAllocs.length,
-                        )}
-                      </div>
                     </CardContent>
                   </CollapsibleContent>
                 </Collapsible>
