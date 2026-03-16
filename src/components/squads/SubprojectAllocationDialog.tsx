@@ -69,23 +69,14 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
         .map(p => ({ id: p.id, label: p.nome }));
     }
 
-    if (allocationType === 'resource') {
-      return resources
-        .filter(r => r.contractId === contractId && r.tipo === 'outro')
-        .filter(r => !existingIds.has(r.id))
-        .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
-        .sort((a, b) => a.nome.localeCompare(b.nome))
-        .map(r => ({ id: r.id, label: `${r.nome}${r.categoria ? ` (${r.categoria})` : ''}` }));
-    }
-
-    // overhead
-    return overheadItems
-      .filter(o => o.contractId === contractId)
-      .filter(o => !existingIds.has(o.id))
-      .filter(o => !search || o.nome.toLowerCase().includes(searchLower))
+    // resource
+    return resources
+      .filter(r => r.contractId === contractId && r.tipo === 'outro')
+      .filter(r => !existingIds.has(r.id))
+      .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
       .sort((a, b) => a.nome.localeCompare(b.nome))
-      .map(o => ({ id: o.id, label: `${o.nome} (${o.categoria})` }));
-  }, [hrPeople, resources, overheadItems, existingIds, search, allocationType, contractId]);
+      .map(r => ({ id: r.id, label: `${r.nome}${r.categoria ? ` (${r.categoria})` : ''}` }));
+  }, [hrPeople, resources, existingIds, search, allocationType, contractId]);
 
   const handleSubmit = async () => {
     if (!selectedId) {
