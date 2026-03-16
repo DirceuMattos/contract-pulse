@@ -122,14 +122,47 @@ export default function ContractDetailPage() {
     acc[type].push(resource);
     return acc;
   }, {} as Record<string, Resource[]>);
+
+  // When subprojects exist, compute "Outros" cost from subproject allocations
+  const contractHasSubs = !!(id && hasSubprojects(id));
+  const subAllocations = useMemo(() => contractHasSubs && id ? getAllocationsByContract(id) : [], [contractHasSubs, id, getAllocationsByContract]);
+  const resourceAllocations = useMemo(() => subAllocations.filter(a => a.resourceId), [subAllocations]);
+
+  // Build a map: resourceId -> aggregated cost from subproject allocations
+  const subprojectOutrosCost = useMemo(() => {
+    if (!contractHasSubs) return null;
+    const map = new Map<string, { totalCost: number; totalDedication: number; allocCount: number }>();
+    for (const alloc of resourceAllocations) {
+      const res = contractResources.find(r => r.id === alloc.resourceId);
+      if (!res || res.tipo !== 'outro') continue;
+      const existing = map.get(alloc.resourceId!) || { totalCost: 0, totalDedication: 0, allocCount: 0 };
+      const cost = (alloc.costValue ?? res.custoBase) * (alloc.dedicationPercent / 100);
+      existing.totalCost += cost;
+      existing.totalDedication += alloc.dedicationPercent;
+      existing.allocCount += 1;
+      map.set(alloc.resourceId!, existing);
+    }
+    return map;
+  }, [contractHasSubs, resourceAllocations, contractResources]);
   
   // Calculate costs by type
-  const costsByType = Object.entries(resourcesByType).map(([type, res]) => ({
-    type,
-    label: type === 'clt' ? 'CLT' : type === 'pj' ? 'PJ' : 'Outros',
-    cost: (res as Resource[]).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
-    count: (res as Resource[]).length,
-  }));
+  const costsByType = Object.entries(resourcesByType).map(([type, res]) => {
+    // When subprojects exist, use subproject allocation costs for "outro" resources
+    if (type === 'outro' && subprojectOutrosCost && subprojectOutrosCost.size > 0) {
+      let totalCost = 0;
+      for (const r of res as Resource[]) {
+        const allocData = subprojectOutrosCost.get(r.id);
+        totalCost += allocData ? allocData.totalCost : calculateResourceCost(r, settings);
+      }
+      return { type, label: 'Outros', cost: totalCost, count: (res as Resource[]).length };
+    }
+    return {
+      type,
+      label: type === 'clt' ? 'CLT' : type === 'pj' ? 'PJ' : 'Outros',
+      cost: (res as Resource[]).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
+      count: (res as Resource[]).length,
+    };
+  });
   
   // Trend data from snapshots
   const trendData = snapshots.map(s => ({
