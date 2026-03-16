@@ -91,8 +91,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     try {
       const payload: any = { subprojectId, dedicationPercent: dedication };
       if (allocationType === 'hr') payload.hrPersonId = selectedId;
-      else if (allocationType === 'resource') payload.resourceId = selectedId;
-      else payload.overheadItemId = selectedId;
+      else payload.resourceId = selectedId;
 
       await addAllocation(payload);
       toast.success('Item alocado ao subprojeto');
