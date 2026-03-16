@@ -44,6 +44,7 @@ const navItems: { path: string; label: string; icon: any; moduleKey?: ModuleKey 
   { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
   { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
   { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
+  { path: '/ai', label: 'IA', icon: Sparkles, moduleKey: 'AI' },
   { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
   { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
   { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
