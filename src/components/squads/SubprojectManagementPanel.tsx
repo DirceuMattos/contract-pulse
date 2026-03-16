@@ -151,7 +151,6 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
             const allocations = getAllocationsBySubproject(sp.id);
             const hrAllocs = allocations.filter(a => a.hrPersonId);
             const resAllocs = allocations.filter(a => a.resourceId);
-            const ovhAllocs = allocations.filter(a => a.overheadItemId);
             const totalFTE = hrAllocs.reduce((s, a) => s + a.dedicationPercent / 100, 0);
             const isExpanded = expandedSubprojects.has(sp.id);
 
@@ -185,7 +184,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                       <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {hrAllocs.length} pessoa{hrAllocs.length !== 1 ? 's' : ''}</span>
                       <span>FTE: {totalFTE.toFixed(2)}</span>
                       <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {resAllocs.length} recurso{resAllocs.length !== 1 ? 's' : ''}</span>
-                      <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> {ovhAllocs.length} overhead{ovhAllocs.length !== 1 ? 's' : ''}</span>
+                      <span className="flex items-center gap-1"><Info className="w-3 h-3" /> Overhead Central (rateio automático)</span>
                     </div>
                   </CardHeader>
                   <CollapsibleContent>
