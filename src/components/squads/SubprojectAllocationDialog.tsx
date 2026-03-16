@@ -115,7 +115,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filtrar por nome..." />
           </div>
           <div>
-            <Label>{allocationType === 'hr' ? 'Pessoa' : allocationType === 'resource' ? 'Recurso' : 'Overhead'} *</Label>
+            <Label>{allocationType === 'hr' ? 'Pessoa' : 'Recurso'} *</Label>
             <Select value={selectedId} onValueChange={setSelectedId}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
