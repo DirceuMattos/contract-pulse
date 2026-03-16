@@ -69,9 +69,9 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
         .map(p => ({ id: p.id, label: p.nome }));
     }
 
-    // resource
+    // resource — show all non-HR resources for this contract (tipo 'outro' or any without hrPersonId)
     return resources
-      .filter(r => r.contractId === contractId && r.tipo === 'outro')
+      .filter(r => r.contractId === contractId && (r.tipo === 'outro' || !r.hrPersonId))
       .filter(r => !existingIds.has(r.id))
       .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
       .sort((a, b) => a.nome.localeCompare(b.nome))
