@@ -69,9 +69,9 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
         .map(p => ({ id: p.id, label: p.nome }));
     }
 
-    // resource
+    // resource — show all non-HR resources for this contract (tipo 'outro' or any without hrPersonId)
     return resources
-      .filter(r => r.contractId === contractId && r.tipo === 'outro')
+      .filter(r => r.contractId === contractId && (r.tipo === 'outro' || !r.hrPersonId))
       .filter(r => !existingIds.has(r.id))
       .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
       .sort((a, b) => a.nome.localeCompare(b.nome))
@@ -120,7 +120,11 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {availableItems.length === 0 ? (
-                  <SelectItem value="__none" disabled>Nenhum item disponível</SelectItem>
+                  <SelectItem value="__none" disabled>
+                    {allocationType === 'resource'
+                      ? 'Nenhum recurso não-RH cadastrado neste contrato. Cadastre primeiro na aba Recursos.'
+                      : 'Nenhum item disponível'}
+                  </SelectItem>
                 ) : (
                   availableItems.map(item => (
                     <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
