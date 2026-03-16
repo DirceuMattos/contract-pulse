@@ -50,6 +50,7 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
   rh: ['DASHBOARD', 'SQUADS', 'HR'],
   administrativo: [], // all managed via flags
+  intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR'],
 };
 
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
