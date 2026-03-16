@@ -68,3 +68,28 @@
 3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
 4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
 5. **AILogsPage** — Placeholder "Em breve".
+
+## Plan: RLS Completas + Pipeline Extração/Embeddings + Templates com Versionamento
+
+**STATUS: ✅ IMPLEMENTADO**
+
+### O que foi feito
+
+#### RLS Hardening
+1. **`is_clevel()`** — Security definer helper reutilizável.
+2. **`get_doc_extractions_status()`** — Security definer que retorna status de extrações sem expor texto.
+3. **`doc_chunks`** — Policy `dc_select` removida. Apenas service_role acessa.
+4. **`doc_chunk_embeddings`** — Policy `dce_select` removida. Apenas service_role acessa.
+5. **`doc_text_extractions`** — Policy `dte_select` substituída por `dte_select_clevel` (c-level only).
+
+#### Pipeline de Extração (doc-extract)
+1. **Chunking melhorado** — 1000 chars com 10% overlap, `page_start`/`page_end` estimados (~3000 chars/página).
+2. **Deduplicação** — Chunks duplicados por hash são filtrados antes do insert.
+3. **Código refatorado** — Funções auxiliares extraídas, lógica simplificada.
+
+#### Templates com Versionamento
+1. **Tabela `doc_templates`** — `template_key` + `version` (unique), `body_markdown`, `schema_json`, `is_active`.
+2. **RLS** — SELECT público, INSERT/UPDATE/DELETE c-level only.
+3. **Seed** — 4 templates iniciais (contrato_govtech, contrato_privado, tr_padrao, tr_completo) v1.0.0.
+4. **AILogsPage** — Tabs: Runs, Extração (monitoramento com contagens e falhas), Templates (CRUD + publicação de versões).
+5. **AIDraftsPage** — Busca template ativo do DB na montagem. Passa `template_version` na geração com IA. Fallback para `draftTemplates.ts`.
