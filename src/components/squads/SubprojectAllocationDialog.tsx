@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-export type AllocationType = 'hr' | 'resource' | 'overhead';
+export type AllocationType = 'hr' | 'resource';
 
 interface SubprojectAllocationDialogProps {
   open: boolean;
@@ -26,13 +26,12 @@ interface SubprojectAllocationDialogProps {
 const typeLabels: Record<AllocationType, string> = {
   hr: 'Pessoa ao Subprojeto',
   resource: 'Recurso ao Subprojeto',
-  overhead: 'Overhead ao Subprojeto',
 };
 
 export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId, allocationType }: SubprojectAllocationDialogProps) {
   const { addAllocation, getAllocationsBySubproject } = useSubprojects();
   const { hrPeople } = useHR();
-  const { resources, overheadItems } = useData();
+  const { resources } = useData();
   const [selectedId, setSelectedId] = useState('');
   const [dedication, setDedication] = useState(100);
   const [search, setSearch] = useState('');
@@ -53,10 +52,8 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     const allocs = getAllocationsBySubproject(subprojectId);
     if (allocationType === 'hr') {
       return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
-    } else if (allocationType === 'resource') {
-      return new Set(allocs.filter(a => a.resourceId).map(a => a.resourceId!));
     } else {
-      return new Set(allocs.filter(a => a.overheadItemId).map(a => a.overheadItemId!));
+      return new Set(allocs.filter(a => a.resourceId).map(a => a.resourceId!));
     }
   }, [getAllocationsBySubproject, subprojectId, allocationType]);
 
@@ -72,23 +69,14 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
         .map(p => ({ id: p.id, label: p.nome }));
     }
 
-    if (allocationType === 'resource') {
-      return resources
-        .filter(r => r.contractId === contractId && r.tipo === 'outro')
-        .filter(r => !existingIds.has(r.id))
-        .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
-        .sort((a, b) => a.nome.localeCompare(b.nome))
-        .map(r => ({ id: r.id, label: `${r.nome}${r.categoria ? ` (${r.categoria})` : ''}` }));
-    }
-
-    // overhead
-    return overheadItems
-      .filter(o => o.contractId === contractId)
-      .filter(o => !existingIds.has(o.id))
-      .filter(o => !search || o.nome.toLowerCase().includes(searchLower))
+    // resource
+    return resources
+      .filter(r => r.contractId === contractId && r.tipo === 'outro')
+      .filter(r => !existingIds.has(r.id))
+      .filter(r => !search || r.nome.toLowerCase().includes(searchLower))
       .sort((a, b) => a.nome.localeCompare(b.nome))
-      .map(o => ({ id: o.id, label: `${o.nome} (${o.categoria})` }));
-  }, [hrPeople, resources, overheadItems, existingIds, search, allocationType, contractId]);
+      .map(r => ({ id: r.id, label: `${r.nome}${r.categoria ? ` (${r.categoria})` : ''}` }));
+  }, [hrPeople, resources, existingIds, search, allocationType, contractId]);
 
   const handleSubmit = async () => {
     if (!selectedId) {
@@ -103,8 +91,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     try {
       const payload: any = { subprojectId, dedicationPercent: dedication };
       if (allocationType === 'hr') payload.hrPersonId = selectedId;
-      else if (allocationType === 'resource') payload.resourceId = selectedId;
-      else payload.overheadItemId = selectedId;
+      else payload.resourceId = selectedId;
 
       await addAllocation(payload);
       toast.success('Item alocado ao subprojeto');
@@ -128,7 +115,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filtrar por nome..." />
           </div>
           <div>
-            <Label>{allocationType === 'hr' ? 'Pessoa' : allocationType === 'resource' ? 'Recurso' : 'Overhead'} *</Label>
+            <Label>{allocationType === 'hr' ? 'Pessoa' : 'Recurso'} *</Label>
             <Select value={selectedId} onValueChange={setSelectedId}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>

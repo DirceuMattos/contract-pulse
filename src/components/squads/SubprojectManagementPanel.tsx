@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Users, Package, DollarSign, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Package, ChevronDown, ChevronRight, Info } from 'lucide-react';
 import { ContractSubproject, SubprojectAllocation } from '@/types';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useHR } from '@/contexts/HRContext';
@@ -34,7 +34,7 @@ const statusBadgeClass: Record<string, string> = {
 export function SubprojectManagementPanel({ contractId }: SubprojectManagementPanelProps) {
   const { getSubprojectsByContract, deleteSubproject, getAllocationsBySubproject, deleteAllocation } = useSubprojects();
   const { hrPeople } = useHR();
-  const { resources, overheadItems } = useData();
+  const { resources } = useData();
   const { canEdit } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -48,7 +48,6 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   const resourceMap = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources]);
-  const overheadMap = useMemo(() => new Map(overheadItems.map(o => [o.id, o])), [overheadItems]);
 
   const toggleExpanded = (spId: string) => {
     setExpandedSubprojects(prev => {
@@ -152,7 +151,6 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
             const allocations = getAllocationsBySubproject(sp.id);
             const hrAllocs = allocations.filter(a => a.hrPersonId);
             const resAllocs = allocations.filter(a => a.resourceId);
-            const ovhAllocs = allocations.filter(a => a.overheadItemId);
             const totalFTE = hrAllocs.reduce((s, a) => s + a.dedicationPercent / 100, 0);
             const isExpanded = expandedSubprojects.has(sp.id);
 
@@ -186,7 +184,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                       <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {hrAllocs.length} pessoa{hrAllocs.length !== 1 ? 's' : ''}</span>
                       <span>FTE: {totalFTE.toFixed(2)}</span>
                       <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {resAllocs.length} recurso{resAllocs.length !== 1 ? 's' : ''}</span>
-                      <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> {ovhAllocs.length} overhead{ovhAllocs.length !== 1 ? 's' : ''}</span>
+                      <span className="flex items-center gap-1"><Info className="w-3 h-3" /> Overhead Central (rateio automático)</span>
                     </div>
                   </CardHeader>
                   <CollapsibleContent>
@@ -218,22 +216,6 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                           'Recurso',
                           <Package className="w-3 h-3" />,
                           resAllocs.length,
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Overheads</h4>
-                        {renderSection(
-                          ovhAllocs,
-                          'Nenhum overhead alocado.',
-                          'overhead',
-                          sp.id,
-                          (a) => {
-                            const o = overheadMap.get(a.overheadItemId!);
-                            return o ? `${o.nome} (${o.categoria})` : 'Overhead não encontrado';
-                          },
-                          'Overhead',
-                          <DollarSign className="w-3 h-3" />,
-                          ovhAllocs.length,
                         )}
                       </div>
                     </CardContent>
