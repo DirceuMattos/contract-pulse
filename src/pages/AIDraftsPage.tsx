@@ -171,6 +171,12 @@ export default function AIDraftsPage() {
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
 
+      // Resolve template key for version tracking
+      const templateKey = draftType === 'contract'
+        ? (variant === 'govtech' ? 'contrato_govtech' : 'contrato_privado')
+        : 'tr_padrao';
+      const templateVersion = dbTemplates[templateKey]?.version || '1.0.0';
+
       const { data, error } = await supabase.functions.invoke('ai-draft-generate', {
         body: {
           type: draftType,
@@ -179,6 +185,7 @@ export default function AIDraftsPage() {
           doc_ids: docIds,
           user_id: userId,
           user_role: user?.role || 'leitor',
+          template_version: templateVersion,
         },
       });
 
