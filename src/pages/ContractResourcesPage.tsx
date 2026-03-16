@@ -499,9 +499,40 @@ export default function ContractResourcesPage() {
         
         {resources.length > 0 ? (
           <div className="space-y-3">
+            {/* HR Summary row when contract has subprojects */}
+            {contractHasSubprojects && (resourcesByType.clt?.length || resourcesByType.pj?.length) ? (
+              <Card className="border-l-4 border-l-primary">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-primary/10 text-primary shrink-0">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Recursos Humanos (via Subprojetos)</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {resourcesByType.clt?.length || 0} CLT • {resourcesByType.pj?.length || 0} PJ
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {canViewHRCosts && canViewValues ? (
+                      <p className="text-xl font-bold">{formatCurrency(custosPorTipo.clt + custosPorTipo.pj)}</p>
+                    ) : (
+                      <p className="text-xl font-bold text-muted-foreground">---</p>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/squads?contract=${id}`)}>
+                      Ver nos Squads
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
             <AnimatePresence>
               {resources
                 .filter(r => {
+                  // Hide individual HR resources when subprojects exist
+                  if (contractHasSubprojects && (r.tipo === 'clt' || r.tipo === 'pj')) return false;
                   if (!searchName.trim()) return true;
                   const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
                   return resolved.nome.toLowerCase().includes(searchName.toLowerCase());
