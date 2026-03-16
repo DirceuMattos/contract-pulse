@@ -428,6 +428,7 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
                               local
                             </Badge>
                           )}
+                          {!legacy && !isMock(a) && getExtractionBadge(a.id)}
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{formatSize(a.fileSizeBytes)}</TableCell>
