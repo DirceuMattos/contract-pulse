@@ -34,21 +34,32 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
   const { resources } = useData();
   const [selectedId, setSelectedId] = useState('');
   const [dedication, setDedication] = useState(100);
+  const [costValue, setCostValue] = useState<number | ''>('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const isResource = allocationType === 'resource';
 
   React.useEffect(() => {
     if (open) {
       setSelectedId('');
       setDedication(100);
+      setCostValue('');
       setSearch('');
     }
   }, [open]);
 
-  
+  // Pre-fill cost when selecting a resource
+  React.useEffect(() => {
+    if (isResource && selectedId) {
+      const res = resources.find(r => r.id === selectedId);
+      if (res) {
+        setCostValue(res.custoBase || 0);
+      }
+    }
+  }, [selectedId, isResource, resources]);
 
   const existingIds = useMemo(() => {
-    // Filter by subproject (not entire contract) so same person can be in multiple subprojects
     const allocs = getAllocationsBySubproject(subprojectId);
     if (allocationType === 'hr') {
       return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
@@ -69,7 +80,6 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
         .map(p => ({ id: p.id, label: p.nome }));
     }
 
-    // resource — show all non-HR resources for this contract (tipo 'outro' or any without hrPersonId)
     return resources
       .filter(r => r.contractId === contractId && (r.tipo === 'outro' || !r.hrPersonId))
       .filter(r => !existingIds.has(r.id))
@@ -87,11 +97,19 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
       toast.error('Dedicação deve ser entre 1% e 100%');
       return;
     }
+    if (isResource && (costValue === '' || Number(costValue) < 0)) {
+      toast.error('Informe o valor do recurso');
+      return;
+    }
     setSaving(true);
     try {
       const payload: any = { subprojectId, dedicationPercent: dedication };
-      if (allocationType === 'hr') payload.hrPersonId = selectedId;
-      else payload.resourceId = selectedId;
+      if (allocationType === 'hr') {
+        payload.hrPersonId = selectedId;
+      } else {
+        payload.resourceId = selectedId;
+        payload.costValue = Number(costValue);
+      }
 
       await addAllocation(payload);
       toast.success('Item alocado ao subprojeto');
@@ -121,7 +139,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
               <SelectContent>
                 {availableItems.length === 0 ? (
                   <SelectItem value="__none" disabled>
-                    {allocationType === 'resource'
+                    {isResource
                       ? 'Nenhum recurso não-RH cadastrado neste contrato. Cadastre primeiro na aba Recursos.'
                       : 'Nenhum item disponível'}
                   </SelectItem>
@@ -133,6 +151,22 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
               </SelectContent>
             </Select>
           </div>
+          {isResource && (
+            <div>
+              <Label>Valor mensal (R$) *</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={costValue}
+                onChange={(e) => setCostValue(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="0,00"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor a ser computado para este recurso neste subprojeto
+              </p>
+            </div>
+          )}
           <div>
             <Label>Dedicação (%)</Label>
             <Input
