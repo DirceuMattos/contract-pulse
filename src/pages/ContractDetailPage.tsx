@@ -88,7 +88,7 @@ export default function ContractDetailPage() {
   const { canEdit, canViewValues, canViewHRCosts } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
-  const { hasSubprojects, getSubprojectsByContract } = useSubprojects();
+  const { hasSubprojects, getSubprojectsByContract, getAllocationsByContract } = useSubprojects();
   
   const contract = id ? getContract(id) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
