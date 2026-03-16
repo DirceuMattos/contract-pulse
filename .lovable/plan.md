@@ -1,70 +1,137 @@
-## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio) + Bloco D (Overhead Alocado nos Contratos)
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Plano: IA-4 — RAG em Documentos + Busca Externa + Geracao de Minutas com Evidencias
 
-#### BLOCO A — Flags Talento e Guardião
+### Resumo
 
-1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
-2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
-3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
-4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos. Borda colorida na linha.
-5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
-6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
+Implementar o pipeline completo de IA real para o modulo de Minutas: extracao de texto de documentos anexados, chunking, embeddings (pgvector), consulta RAG semantica, geracao de minutas via Lovable AI Gateway (Gemini), busca externa opcional auditada, e pagina de Logs funcional.
 
-#### BLOCO B — Overhead Central
+---
 
-1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
-2. **Persistência** — `localStorage` com chave `overhead-central`.
-3. **UX** — Botão "Ver detalhamento do rateio" ativo (navega para /configuracoes/overhead-rateio). Toast ao salvar.
+### 1. Banco de Dados (Migracoes SQL)
 
-#### BLOCO C — Rateio do Overhead Central
+**Tabelas novas:**
 
-1. **`src/lib/overheadAllocation.ts`** — Função `calculateOverheadAllocation` calcula percentual e overhead alocado por contrato, com ajuste de arredondamento no maior contrato.
-2. **`src/pages/OverheadAllocationPage.tsx`** — Nova página `/configuracoes/overhead-rateio`:
-   - Cards resumo: Pool total, Receita total, Soma alocada (com check ✓)
-   - Tabela principal: Cliente, Contrato, Valor Mensal, Percentual, Overhead Alocado, Status, link abrir
-   - Seção "Pendências do rateio": contratos excluídos (receita 0 ou não vigente) com motivo e link editar
-   - Filtros: busca textual + select cliente
-   - Tooltip de ajuste de arredondamento
-3. **Rota** — Adicionada em App.tsx
-4. **Não alterado** — Consultoria por contrato (CRUD de recursos) permanece intacta. Cálculo de break-even não alterado (Bloco E futuro).
+- `doc_text_extractions` — status de extracao por documento (document_id FK, status enum, extracted_text, error_message, extracted_at)
+- `doc_chunks` — pedacos de texto (document_id, chunk_index, chunk_text, chunk_hash, page_start, page_end, token_count_est)
+- `doc_chunk_embeddings` — embeddings via pgvector (chunk_id FK, embedding vector(768), model text). Requer habilitar extensao `vector` (pgvector)
+- `ai_runs` — auditoria completa (run_type, user_id, input_json, redaction_level, internal_docs_used, external_sources_used, output_text, output_structured, status, error_message, model, template_version, prompt_hash)
+- `ai_external_search_logs` — logs de busca externa (run_id FK, query, sources jsonb, searched_at)
 
-#### BLOCO D — Overhead Alocado nos Contratos
+**RLS:**
+- `doc_text_extractions`, `doc_chunks`, `doc_chunk_embeddings`: SELECT para authenticated; INSERT/UPDATE/DELETE para service_role (Edge Functions)
+- `ai_runs`: SELECT para own user_id OR c-level; INSERT via service_role
+- `ai_external_search_logs`: SELECT para c-level; INSERT via service_role
 
-1. **`src/hooks/useOverheadPool.ts`** (novo) — Hook que lê o pool central do localStorage, calcula alocações via `calculateOverheadAllocation`, e expõe `getAllocation(contractId)` retornando `{ percent, value, isPending, pendingReason }`.
-2. **`src/lib/calculations.ts`** — `calculateContractHealth` recebe parâmetro opcional `centralOverhead` (default 0), somado ao custo mensal. `calculateDashboardKPIs` recebe `centralOverheadMap` opcional.
-3. **`src/lib/alertGenerator.ts`** — Contexto de alertas aceita `centralOverheadMap`, propagado para checagem financeira.
-4. **`src/hooks/useAlerts.ts`** — Usa `useOverheadPool` para construir o mapa e passá-lo ao gerador de alertas.
-5. **Todas as páginas atualizadas** — `DashboardPage`, `ContractsPage`, `ClientDetailPage`, `SquadsPage`, `ContractDetailPage`, `ContractResourcesPage` passam o overhead alocado para `calculateContractHealth`.
-6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
-7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
-8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
+**Funcao SQL:** `match_chunks(query_embedding vector, match_count int, doc_ids uuid[])` — busca por cosine similarity filtrada por documento
 
-## Plan: Módulo IA — Estrutura, Análises Rule-Based e Minutas
+---
 
-**STATUS: ✅ IMPLEMENTADO**
+### 2. Edge Functions (4 novas)
 
-### O que foi feito
+**2.1 `doc-extract`**
+- Recebe document_id
+- Baixa arquivo do Storage (service_role)
+- Extrai texto:
+  - PDF: usa pdf-parse (npm) ou envia ao Lovable AI para extracao
+  - DOCX: usa mammoth ou similar
+  - XLSX: extrai texto de celulas
+  - PNG/imagens: marca como "sem texto" (OCR opt-in futuro)
+- Gera chunks (800-1200 chars, 10% overlap)
+- Salva em doc_text_extractions + doc_chunks
+- Atualiza status
 
-#### IA-1 — Estrutura + Navegação + Placeholders
-1. **moduleAccess.ts** — Adicionados `AI` e `AI_LOGS` ao `MODULE_KEYS`. AI_LOGS restrito a c-level. Intermediário sem acesso por default.
-2. **Sidebar.tsx** — Item "IA" com ícone Sparkles adicionado entre RH e Usuários.
-3. **App.tsx** — Rotas `/ai/*` com redirect `/ai` → `/ai/contracts-analysis`.
-4. **AIPageLayout.tsx** — Tabs de navegação entre sub-páginas + badge "Simulação (Etapa 1)".
-5. **Migração SQL** — Valores `AI` e `AI_LOGS` adicionados ao enum `module_key`.
+**2.2 `doc-embed`**
+- Recebe document_id ou lista de chunk_ids
+- Gera embeddings via Lovable AI Gateway (model: text-embedding)
+- Nota: Lovable AI Gateway suporta apenas chat completions, nao embeddings. Alternativa: usar Gemini para gerar um resumo semantico por chunk e armazenar como texto para keyword search. OU usar a propria API do Gemini para embeddings via gateway se disponivel.
+- **Decisao pragmatica**: Na Etapa 1, usar busca por keyword (full-text search com tsvector) em vez de pgvector, pois o gateway nao expoe endpoint de embeddings. pgvector fica preparado para Etapa 2 com API propria.
+- Salva em doc_chunk_embeddings (ou usa tsvector index em doc_chunks)
 
-#### IA-2 — Análises Rule-Based
-1. **aiRuleEngine.ts** — Engine com funções puras:
-   - `analyzeContractPortfolio()`: KPIs (críticos, atenção, reajustes, vencimentos), top 10 recomendações, diagnóstico por contrato.
-   - `analyzeResources()`: mapa de carga por equipe, sobrecargas (>100%), ociosidade (<30%), comitê gestor, aniversários CLT.
-2. **AIContractsAnalysisPage** — Filtros (cliente, segmento, saúde, busca), cards KPI, recomendações com badges, diagnóstico por contrato, botão copiar.
-3. **AIResourcesAnalysisPage** — Toggle "Mostrar nomes" (admin default ON), filtro equipe, mapa de carga, sobrecargas, ociosidade, comitê, aniversários.
+**2.3 `ai-draft-generate`**
+- Recebe: tipo, variante, respostas do questionario, doc_ids selecionados, user context
+- Monta "Context Pack":
+  - Busca chunks relevantes dos docs selecionados (keyword match ou similarity)
+  - Aplica redaction por role (remove valores individuais de RH para nao-admin)
+- Envia prompt estruturado ao Lovable AI Gateway (google/gemini-3-flash-preview)
+- Prompt instrui: gerar minuta PT-BR, usar template, citar evidencias (doc + pagina), listar pendencias
+- Usa tool calling para extrair saida estruturada (texto + evidencias JSON)
+- Grava em ai_runs
+- Retorna minuta + evidencias + pendencias
 
-#### IA-3 — Minutas
-1. **aiDrafts.ts** — Tipos Draft, DraftContractAnswers, DraftTRAnswers, DraftDocReference.
-2. **draftTemplates.ts** — 4 templates: Contrato GovTech, Contrato Privado, TR Padrão, TR Completo. Placeholders substituídos automaticamente.
-3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
-4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
-5. **AILogsPage** — Placeholder "Em breve".
+**2.4 `ai-search-external`** (opcional)
+- Recebe query + run_id
+- Usa Firecrawl (se connector disponivel) ou busca simples
+- Registra em ai_external_search_logs
+- Retorna fontes encontradas
+- Somente Admin pode acionar
+
+---
+
+### 3. Frontend — Ajustes
+
+**3.1 AIDraftsPage.tsx**
+- Adicionar botao "Gerar minuta com IA" (ao lado do botao template existente)
+- Quando clicado:
+  - Chama edge function `doc-extract` para docs selecionados (se ainda nao extraidos)
+  - Chama `ai-draft-generate` com respostas + doc_ids
+  - Exibe loading com streaming (se possivel) ou aguarda resposta
+- Painel lateral "Evidencias usadas" — lista docs/paginas citados pela IA
+- Secao "Pendencias" — campos que a IA nao conseguiu preencher
+- Toggle "Usar fontes externas" (visivel apenas para Admin)
+- Manter botao "Gerar minuta (template)" como alternativa sem IA
+
+**3.2 AILogsPage.tsx**
+- Substituir placeholder por pagina funcional
+- Listar ai_runs do usuario (ou todos para Admin)
+- Exibir: data, tipo, status, docs usados, fontes externas
+- Detalhe expandivel: input, output, evidencias
+- Botao "Reindexar documentos" (Admin) — chama doc-extract para docs pendentes
+- Filtros: tipo de run, periodo, status
+
+**3.3 ContractDocumentsTab (ajuste menor)**
+- Apos upload de documento, disparar extracao automatica (chamar doc-extract)
+- Badge no documento: "Indexado" / "Pendente" / "Sem texto"
+
+---
+
+### 4. Seguranca
+
+- Edge functions validam JWT via getClaims
+- doc-extract/doc-embed usam service_role para acessar Storage
+- ai-draft-generate aplica redaction: se role != c-level, remove remuneracao individual dos chunks
+- ai_runs registra redaction_level
+- RLS garante que usuarios so veem seus proprios runs (exceto Admin)
+
+---
+
+### 5. Arquivos
+
+**Novos (8):**
+- `supabase/functions/doc-extract/index.ts`
+- `supabase/functions/doc-embed/index.ts`
+- `supabase/functions/ai-draft-generate/index.ts`
+- `supabase/functions/ai-search-external/index.ts`
+- SQL migration (tabelas + extensoes + funcoes)
+
+**Editados (4):**
+- `src/pages/AIDraftsPage.tsx` — botao IA, painel evidencias
+- `src/pages/AILogsPage.tsx` — pagina funcional
+- `src/components/contracts/ContractDocumentsTab.tsx` — trigger extracao pos-upload
+- `supabase/config.toml` — registrar novas functions
+
+**Nao alterados:**
+- Todos os modulos existentes, calculos, overhead, RH, permissoes
+
+---
+
+### 6. Decisao tecnica: Embeddings vs Full-Text Search
+
+O Lovable AI Gateway (`ai.gateway.lovable.dev`) expoe apenas `/v1/chat/completions`, nao um endpoint de embeddings. Duas opcoes:
+
+**Opcao A (recomendada para Etapa 1):** Full-text search com tsvector no Postgres. Simples, sem dependencia externa, funciona bem para docs estruturados. pgvector fica preparado (tabela criada) para futuro.
+
+**Opcao B:** Usar o proprio LLM (Gemini) para gerar embeddings simulados via prompt. Funciona mas e lento e custoso.
+
+Recomendo **Opcao A** agora. A tabela doc_chunk_embeddings sera criada mas ficara vazia ate haver um endpoint de embeddings disponivel.
+
