@@ -37,6 +37,10 @@ import HRPeoplePage from "@/pages/HRPeoplePage";
 import HRPersonDetailPage from "@/pages/HRPersonDetailPage";
 import FeedzReconciliationPage from "@/pages/FeedzReconciliationPage";
 import OverheadAllocationPage from "@/pages/OverheadAllocationPage";
+import AIContractsAnalysisPage from "@/pages/AIContractsAnalysisPage";
+import AIResourcesAnalysisPage from "@/pages/AIResourcesAnalysisPage";
+import AIDraftsPage from "@/pages/AIDraftsPage";
+import AILogsPage from "@/pages/AILogsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
