@@ -26,7 +26,6 @@ interface SubprojectAllocationDialogProps {
 const typeLabels: Record<AllocationType, string> = {
   hr: 'Pessoa ao Subprojeto',
   resource: 'Recurso ao Subprojeto',
-  overhead: 'Overhead ao Subprojeto',
 };
 
 export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, contractId, allocationType }: SubprojectAllocationDialogProps) {
