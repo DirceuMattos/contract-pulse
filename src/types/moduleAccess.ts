@@ -4,7 +4,7 @@ export const MODULE_KEYS = [
   'DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL',
   'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS',
   'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
-  'SETTINGS', 'IMPORT_EXPORT', 'HR',
+  'SETTINGS', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS',
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
@@ -35,6 +35,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes'], roleRestrictions: ['c-level'] },
   { key: 'IMPORT_EXPORT', label: 'Importar/Exportar', description: 'Importação e exportação de dados', routes: ['/importar-exportar'], roleRestrictions: [] },
   { key: 'HR', label: 'Recursos Humanos', description: 'Cadastro mestre de pessoas, cargos e equipes', routes: ['/rh', '/rh/cargos', '/rh/equipes'], roleRestrictions: [] },
+  { key: 'AI', label: 'IA / Análises', description: 'Análises inteligentes, insights e geração de minutas', routes: ['/ai', '/ai/contracts-analysis', '/ai/resources-analysis', '/ai/drafts'], roleRestrictions: [] },
+  { key: 'AI_LOGS', label: 'IA Logs', description: 'Fontes e logs das análises de IA', routes: ['/ai/logs'], isSubmodule: true, parentModule: 'AI', roleRestrictions: ['c-level'] },
 ];
 
 /**
@@ -48,6 +50,7 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
   rh: ['DASHBOARD', 'SQUADS', 'HR'],
   administrativo: [], // all managed via flags
+  intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR'],
 };
 
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
@@ -95,6 +98,10 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   
   // HR routes
   if (pathname.startsWith('/rh')) return 'HR';
+  
+  // AI routes
+  if (pathname === '/ai/logs') return 'AI_LOGS';
+  if (pathname.startsWith('/ai')) return 'AI';
   
   // Calculator routes
   if (pathname.startsWith('/calculadora')) return 'CALCULATOR';

@@ -1,138 +1,70 @@
+## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio) + Bloco D (Overhead Alocado nos Contratos)
 
+**STATUS: ✅ IMPLEMENTADO**
 
-## Plano: Modulo IA — Estrutura, Analises Rule-Based e Minutas
+### O que foi feito
 
-Este e um bloco grande com 3 partes. Recomendo implementar em etapas sequenciais.
+#### BLOCO A — Flags Talento e Guardião
 
----
+1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
+2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
+3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
+4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos. Borda colorida na linha.
+5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
+6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
 
-### Etapa 1 — IA-1: Estrutura + Navegacao + Placeholders
+#### BLOCO B — Overhead Central
 
-**1.1 Modulo de acesso (`src/types/moduleAccess.ts`)**
-- Adicionar `'AI'` e `'AI_LOGS'` ao `MODULE_KEYS`
-- `AI`: roleRestrictions `[]` (todos podem, controlado por moduleAccess)
-- `AI_LOGS`: roleRestrictions `['c-level']` (somente admin)
-- Adicionar rotas `/ai/*` no `getModuleKeyForRoute`
-- Defaults: c-level/leitor com AI habilitado; intermediario com AI desabilitado; comercial/juridico/rh/administrativo/lider_tribo desabilitado
+1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
+2. **Persistência** — `localStorage` com chave `overhead-central`.
+3. **UX** — Botão "Ver detalhamento do rateio" ativo (navega para /configuracoes/overhead-rateio). Toast ao salvar.
 
-**1.2 Navegacao (`src/components/layout/Sidebar.tsx`)**
-- Adicionar item `{ path: '/ai', label: 'IA', icon: Sparkles, moduleKey: 'AI' }` antes de Usuarios
-- Subitens nao sao necessarios no sidebar (navegacao interna nas paginas)
+#### BLOCO C — Rateio do Overhead Central
 
-**1.3 Rotas (`src/App.tsx`)**
-- `/ai/contracts-analysis` → `AIContractsAnalysisPage`
-- `/ai/resources-analysis` → `AIResourcesAnalysisPage`
-- `/ai/drafts` → `AIDraftsPage`
-- `/ai/logs` → `AILogsPage`
-- `/ai` → redirect para `/ai/contracts-analysis`
+1. **`src/lib/overheadAllocation.ts`** — Função `calculateOverheadAllocation` calcula percentual e overhead alocado por contrato, com ajuste de arredondamento no maior contrato.
+2. **`src/pages/OverheadAllocationPage.tsx`** — Nova página `/configuracoes/overhead-rateio`:
+   - Cards resumo: Pool total, Receita total, Soma alocada (com check ✓)
+   - Tabela principal: Cliente, Contrato, Valor Mensal, Percentual, Overhead Alocado, Status, link abrir
+   - Seção "Pendências do rateio": contratos excluídos (receita 0 ou não vigente) com motivo e link editar
+   - Filtros: busca textual + select cliente
+   - Tooltip de ajuste de arredondamento
+3. **Rota** — Adicionada em App.tsx
+4. **Não alterado** — Consultoria por contrato (CRUD de recursos) permanece intacta. Cálculo de break-even não alterado (Bloco E futuro).
 
-**1.4 Paginas placeholder (4 arquivos novos em `src/pages/`)**
-Cada pagina com:
-- PageHeader (titulo, descricao, botao primario desabilitado)
-- Badge "Simulacao (Etapa 1)"
-- Navegacao interna (tabs ou links entre as 4 sub-paginas)
-- EmptyState com CTA contextual
+#### BLOCO D — Overhead Alocado nos Contratos
 
-Arquivos:
-- `src/pages/AIContractsAnalysisPage.tsx`
-- `src/pages/AIResourcesAnalysisPage.tsx`
-- `src/pages/AIDraftsPage.tsx`
-- `src/pages/AILogsPage.tsx`
+1. **`src/hooks/useOverheadPool.ts`** (novo) — Hook que lê o pool central do localStorage, calcula alocações via `calculateOverheadAllocation`, e expõe `getAllocation(contractId)` retornando `{ percent, value, isPending, pendingReason }`.
+2. **`src/lib/calculations.ts`** — `calculateContractHealth` recebe parâmetro opcional `centralOverhead` (default 0), somado ao custo mensal. `calculateDashboardKPIs` recebe `centralOverheadMap` opcional.
+3. **`src/lib/alertGenerator.ts`** — Contexto de alertas aceita `centralOverheadMap`, propagado para checagem financeira.
+4. **`src/hooks/useAlerts.ts`** — Usa `useOverheadPool` para construir o mapa e passá-lo ao gerador de alertas.
+5. **Todas as páginas atualizadas** — `DashboardPage`, `ContractsPage`, `ClientDetailPage`, `SquadsPage`, `ContractDetailPage`, `ContractResourcesPage` passam o overhead alocado para `calculateContractHealth`.
+6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
+7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
+8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
 
-**1.5 Componente de layout compartilhado (`src/components/ai/AIPageLayout.tsx`)**
-- Tabs de navegacao entre as sub-paginas
-- Verificacao de permissao para tab "Logs"
-- Badge "Simulacao (Etapa 1)"
+## Plan: Módulo IA — Estrutura, Análises Rule-Based e Minutas
 
----
+**STATUS: ✅ IMPLEMENTADO**
 
-### Etapa 2 — IA-2: Analises Rule-Based
+### O que foi feito
 
-**2.1 Engine de regras (`src/lib/aiRuleEngine.ts`)**
-Funcoes puras que recebem dados e retornam insights:
+#### IA-1 — Estrutura + Navegação + Placeholders
+1. **moduleAccess.ts** — Adicionados `AI` e `AI_LOGS` ao `MODULE_KEYS`. AI_LOGS restrito a c-level. Intermediário sem acesso por default.
+2. **Sidebar.tsx** — Item "IA" com ícone Sparkles adicionado entre RH e Usuários.
+3. **App.tsx** — Rotas `/ai/*` com redirect `/ai` → `/ai/contracts-analysis`.
+4. **AIPageLayout.tsx** — Tabs de navegação entre sub-páginas + badge "Simulação (Etapa 1)".
+5. **Migração SQL** — Valores `AI` e `AI_LOGS` adicionados ao enum `module_key`.
 
-- `analyzeContractPortfolio(contracts, resources, settings, overheadMap)` → retorna:
-  - KPIs: contratos criticos, atencao, reajustes proximos, vencimentos proximos
-  - Top recomendacoes (lista priorizada ate 10)
-  - Por contrato: diagnostico (bullets) + checklist de acoes
+#### IA-2 — Análises Rule-Based
+1. **aiRuleEngine.ts** — Engine com funções puras:
+   - `analyzeContractPortfolio()`: KPIs (críticos, atenção, reajustes, vencimentos), top 10 recomendações, diagnóstico por contrato.
+   - `analyzeResources()`: mapa de carga por equipe, sobrecargas (>100%), ociosidade (<30%), comitê gestor, aniversários CLT.
+2. **AIContractsAnalysisPage** — Filtros (cliente, segmento, saúde, busca), cards KPI, recomendações com badges, diagnóstico por contrato, botão copiar.
+3. **AIResourcesAnalysisPage** — Toggle "Mostrar nomes" (admin default ON), filtro equipe, mapa de carga, sobrecargas, ociosidade, comitê, aniversários.
 
-- Regras implementadas:
-  - Resultado mensal < 0 → "Critico"
-  - Margem 0-5% → "Atencao"
-  - endDate <= 60 dias → "Renovacao"
-  - Reajuste proximo <= 60 dias → "Reajuste"
-  - Subprojetos + equipe grande → "Risco operacional"
-
-- `analyzeResources(resources, hrPeople, contracts, settings)` → retorna:
-  - Mapa de carga por equipe (FTE total, concentracao em criticos)
-  - Sobrecargas (>100% dedicacao)
-  - Ociosidade (baixa alocacao)
-  - Agenda Comite Gestor (mes atual)
-  - Aniversarios CLT (mes atual)
-
-**2.2 Pagina Analise de Contratos (`AIContractsAnalysisPage.tsx`)**
-- Filtros: Cliente, Contrato, Tipo (Gov/Privado), Saude
-- Botao "Gerar analise" executa `analyzeContractPortfolio`
-- Cards de visao geral do portfolio
-- Lista de recomendacoes com badges de severidade
-- Cards por contrato com diagnostico e acoes
-- Botao "Copiar resumo" (clipboard)
-- Link "Ver rateio" e "Abrir contrato"
-
-**2.3 Pagina Analise de Recursos (`AIResourcesAnalysisPage.tsx`)**
-- Filtros: Equipe, Cliente/Contrato, Status RH
-- Toggle "Mostrar nomes" (admin default ON, outros OFF — respeita sigilo)
-- Mapa de carga, pontos de atencao, agenda comite, aniversarios
-- Botao "Copiar resumo"
-- Usa dados de `useData()` + `useHR()` (HRContext)
-
----
-
-### Etapa 3 — IA-3: Minutas
-
-**3.1 Tipos (`src/types/aiDrafts.ts`)**
-- `DraftType`: 'contract' | 'tr'
-- `ContractVariant`: 'govtech' | 'privado'
-- `Draft`: id, tipo, variante, contexto (clientId/contractId), respostas do questionario, documentos referencia, texto final, status, timestamps
-
-**3.2 Templates (`src/lib/draftTemplates.ts`)**
-- 4 templates com placeholders (`{{contratante}}`, `{{objeto}}`, etc.)
-- Contrato GovTech, Contrato Privado, TR Padrao, TR Completo
-- Funcao `generateDraft(template, answers)` que substitui placeholders
-
-**3.3 Pagina Minutas (`AIDraftsPage.tsx`)**
-- Fluxo wizard:
-  1. Seletor de tipo (cards: Contrato / TR)
-  2. Contexto (selecionar cliente/contrato, toggle docs referencia)
-  3. Questionario dinamico (campos conforme PRD)
-  4. Geracao + editor rich-text simples (textarea com formatacao basica)
-- Aba "Rascunhos": lista salva em localStorage
-- Acoes: Copiar, Exportar PDF/DOCX (badges "Em breve")
-
-**3.4 Storage de rascunhos**
-- localStorage key `ai-drafts`
-- CRUD basico via hook `useAIDrafts()`
-
----
-
-### Resumo de arquivos
-
-**Novos (11 arquivos):**
-- `src/pages/AIContractsAnalysisPage.tsx`
-- `src/pages/AIResourcesAnalysisPage.tsx`
-- `src/pages/AIDraftsPage.tsx`
-- `src/pages/AILogsPage.tsx`
-- `src/components/ai/AIPageLayout.tsx`
-- `src/lib/aiRuleEngine.ts`
-- `src/types/aiDrafts.ts`
-- `src/lib/draftTemplates.ts`
-- `src/hooks/useAIDrafts.ts`
-
-**Editados (3 arquivos):**
-- `src/types/moduleAccess.ts` — adicionar AI, AI_LOGS
-- `src/components/layout/Sidebar.tsx` — adicionar item IA
-- `src/App.tsx` — adicionar rotas /ai/*
-
-**Nao alterados:**
-- Todos os modulos existentes, permissoes, calculos, overhead, contratos, RH
-
+#### IA-3 — Minutas
+1. **aiDrafts.ts** — Tipos Draft, DraftContractAnswers, DraftTRAnswers, DraftDocReference.
+2. **draftTemplates.ts** — 4 templates: Contrato GovTech, Contrato Privado, TR Padrão, TR Completo. Placeholders substituídos automaticamente.
+3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
+4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
+5. **AILogsPage** — Placeholder "Em breve".

@@ -1,0 +1,2 @@
+ALTER TYPE public.module_key ADD VALUE IF NOT EXISTS 'AI';
+ALTER TYPE public.module_key ADD VALUE IF NOT EXISTS 'AI_LOGS';
