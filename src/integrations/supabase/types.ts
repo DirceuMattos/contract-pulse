@@ -53,6 +53,92 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_external_search_logs: {
+        Row: {
+          id: string
+          query: string
+          run_id: string | null
+          searched_at: string
+          sources: Json | null
+        }
+        Insert: {
+          id?: string
+          query?: string
+          run_id?: string | null
+          searched_at?: string
+          sources?: Json | null
+        }
+        Update: {
+          id?: string
+          query?: string
+          run_id?: string | null
+          searched_at?: string
+          sources?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_external_search_logs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_runs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          external_sources_used: Json | null
+          id: string
+          input_json: Json
+          internal_docs_used: Json | null
+          model: string | null
+          output_structured: Json | null
+          output_text: string | null
+          prompt_hash: string | null
+          redaction_level: string
+          run_type: string
+          status: string
+          template_version: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          external_sources_used?: Json | null
+          id?: string
+          input_json?: Json
+          internal_docs_used?: Json | null
+          model?: string | null
+          output_structured?: Json | null
+          output_text?: string | null
+          prompt_hash?: string | null
+          redaction_level?: string
+          run_type?: string
+          status?: string
+          template_version?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          external_sources_used?: Json | null
+          id?: string
+          input_json?: Json
+          internal_docs_used?: Json | null
+          model?: string | null
+          output_structured?: Json | null
+          output_text?: string | null
+          prompt_hash?: string | null
+          redaction_level?: string
+          run_type?: string
+          status?: string
+          template_version?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       alerts: {
         Row: {
           alert_category: string | null
@@ -370,6 +456,126 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doc_chunk_embeddings: {
+        Row: {
+          chunk_id: string
+          created_at: string
+          id: string
+          model: string
+        }
+        Insert: {
+          chunk_id: string
+          created_at?: string
+          id?: string
+          model?: string
+        }
+        Update: {
+          chunk_id?: string
+          created_at?: string
+          id?: string
+          model?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_chunk_embeddings_chunk_id_fkey"
+            columns: ["chunk_id"]
+            isOneToOne: false
+            referencedRelation: "doc_chunks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doc_chunks: {
+        Row: {
+          chunk_hash: string | null
+          chunk_index: number
+          chunk_text: string
+          created_at: string
+          document_id: string
+          id: string
+          page_end: number | null
+          page_start: number | null
+          token_count_est: number | null
+          tsv: unknown
+        }
+        Insert: {
+          chunk_hash?: string | null
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string
+          document_id: string
+          id?: string
+          page_end?: number | null
+          page_start?: number | null
+          token_count_est?: number | null
+          tsv?: unknown
+        }
+        Update: {
+          chunk_hash?: string | null
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          page_end?: number | null
+          page_start?: number | null
+          token_count_est?: number | null
+          tsv?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doc_text_extractions: {
+        Row: {
+          created_at: string
+          document_id: string
+          error_message: string | null
+          extracted_at: string | null
+          extracted_text: string | null
+          id: string
+          owner_id: string | null
+          owner_type: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          extracted_at?: string | null
+          extracted_text?: string | null
+          id?: string
+          owner_id?: string | null
+          owner_type?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          extracted_at?: string | null
+          extracted_text?: string | null
+          id?: string
+          owner_id?: string | null
+          owner_type?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_text_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_attachments"
             referencedColumns: ["id"]
           },
         ]
@@ -1734,6 +1940,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_chunks_fts: {
+        Args: { doc_ids: string[]; match_count?: number; query_text: string }
+        Returns: {
+          chunk_index: number
+          chunk_text: string
+          document_id: string
+          id: string
+          page_end: number
+          page_start: number
+          rank: number
+        }[]
       }
     }
     Enums: {

@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.hr-update-matriculas]
 verify_jwt = false
+
+[functions.doc-extract]
+verify_jwt = false
+
+[functions.ai-draft-generate]
+verify_jwt = false
+
+[functions.ai-search-external]
+verify_jwt = false

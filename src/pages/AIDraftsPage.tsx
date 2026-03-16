@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAIDrafts } from '@/hooks/useAIDrafts';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Draft, DraftType, ContractVariant, DraftContractAnswers, DraftTRAnswers,
   emptyContractAnswers, emptyTRAnswers, DraftDocReference,
@@ -22,7 +25,7 @@ import {
 import {
   generateContractGovtech, generateContractPrivado, generateTRPadrao, generateTRCompleto,
 } from '@/lib/draftTemplates';
-import { FileText, ScrollText, Sparkles, Copy, Trash2, FilePlus, Plus, Minus } from 'lucide-react';
+import { FileText, ScrollText, Sparkles, Copy, Trash2, FilePlus, Plus, Minus, Loader2, BookOpen, AlertTriangle, Wand2 } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -32,8 +35,21 @@ const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 
 
 type WizardStep = 'select-type' | 'context' | 'questionnaire' | 'editor';
 
+interface AIEvidence {
+  ref_index: number;
+  document_name: string;
+  page?: string;
+  excerpt: string;
+}
+
+interface AIGap {
+  field: string;
+  description: string;
+}
+
 export default function AIDraftsPage() {
   const { clients, contracts, attachments } = useData();
+  const { user } = useAuth();
   const { drafts, addDraft, updateDraft, deleteDraft, duplicateDraft } = useAIDrafts();
   const { toast } = useToast();
 
@@ -50,6 +66,14 @@ export default function AIDraftsPage() {
   const [generatedText, setGeneratedText] = useState('');
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
+  // AI state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [evidences, setEvidences] = useState<AIEvidence[]>([]);
+  const [gaps, setGaps] = useState<AIGap[]>([]);
+  const [showEvidence, setShowEvidence] = useState(false);
+
+  const isAdmin = user?.role === 'c-level';
+
   const availableDocs = useMemo(() => {
     return attachments.filter(a => {
       if (selectedContractId) return a.contractId === selectedContractId;
@@ -64,7 +88,6 @@ export default function AIDraftsPage() {
   const selectedClient = clients.find(c => c.id === selectedClientId);
   const selectedContract = contracts.find(c => c.id === selectedContractId);
 
-  // Auto-fill from selected contract
   const autoFillFromContract = () => {
     if (!selectedContract || draftType !== 'contract') return;
     const client = clients.find(c => c.id === selectedContract.clientId);
@@ -99,7 +122,66 @@ export default function AIDraftsPage() {
       text = generateTRPadrao(trAnswers, docRefs);
     }
     setGeneratedText(text);
+    setEvidences([]);
+    setGaps([]);
     setStep('editor');
+  };
+
+  const handleGenerateAI = async () => {
+    setAiLoading(true);
+    setEvidences([]);
+    setGaps([]);
+
+    try {
+      const answers = draftType === 'contract' ? contractAnswers : trAnswers;
+      const docIds = useDocRefs ? selectedDocs : [];
+
+      // First extract text from selected docs
+      if (docIds.length > 0) {
+        for (const docId of docIds) {
+          try {
+            await supabase.functions.invoke('doc-extract', { body: { document_id: docId } });
+          } catch { /* continue */ }
+        }
+      }
+
+      // Generate with AI
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+
+      const { data, error } = await supabase.functions.invoke('ai-draft-generate', {
+        body: {
+          type: draftType,
+          variant,
+          answers,
+          doc_ids: docIds,
+          user_id: userId,
+          user_role: user?.role || 'leitor',
+        },
+      });
+
+      if (error) {
+        toast({ title: 'Erro ao gerar minuta', description: error.message, variant: 'destructive' });
+        setAiLoading(false);
+        return;
+      }
+
+      if (data?.error) {
+        toast({ title: 'Erro', description: data.error, variant: 'destructive' });
+        setAiLoading(false);
+        return;
+      }
+
+      setGeneratedText(data.draft_text || '');
+      setEvidences(data.evidences || []);
+      setGaps(data.gaps || []);
+      setShowEvidence(true);
+      setStep('editor');
+      toast({ title: 'Minuta gerada com IA!' });
+    } catch (e) {
+      toast({ title: 'Erro ao gerar minuta', description: 'Tente novamente.', variant: 'destructive' });
+    }
+    setAiLoading(false);
   };
 
   const handleSave = () => {
@@ -144,6 +226,9 @@ export default function AIDraftsPage() {
     setUseDocRefs(false);
     setSelectedDocs([]);
     setEditingDraftId(null);
+    setEvidences([]);
+    setGaps([]);
+    setShowEvidence(false);
   };
 
   const openDraft = (draft: Draft) => {
@@ -194,7 +279,7 @@ export default function AIDraftsPage() {
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       <PageHeader
         title="Minutas"
-        description="Gere minutas de contratos e termos de referência a partir de templates"
+        description="Gere minutas de contratos e termos de referência a partir de templates ou com IA"
         actions={
           step !== 'select-type' && (
             <Button variant="outline" onClick={resetWizard}>Nova minuta</Button>
@@ -430,10 +515,14 @@ export default function AIDraftsPage() {
                         </div>
                       </>
                     )}
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex flex-wrap gap-2 pt-2">
                       <Button variant="outline" onClick={() => setStep('context')}>Voltar</Button>
                       <Button onClick={handleGenerate} className="gap-2">
-                        <Sparkles className="w-4 h-4" /> Gerar minuta
+                        <Sparkles className="w-4 h-4" /> Gerar minuta (template)
+                      </Button>
+                      <Button onClick={handleGenerateAI} disabled={aiLoading} variant="default" className="gap-2 bg-gradient-to-r from-primary to-primary/80">
+                        {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                        {aiLoading ? 'Gerando com IA...' : 'Gerar minuta com IA'}
                       </Button>
                     </div>
                   </CardContent>
@@ -444,36 +533,87 @@ export default function AIDraftsPage() {
             {/* Step 4: Editor */}
             {step === 'editor' && (
               <motion.div variants={itemVariants} className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">
-                        {draftType === 'contract' ? `Minuta de Contrato (${variant === 'govtech' ? 'GovTech' : 'Privado'})` : 'Termo de Referência'}
-                      </CardTitle>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(generatedText); toast({ title: 'Copiado!' }); }} className="gap-1">
-                          <Copy className="w-3.5 h-3.5" /> Copiar
-                        </Button>
-                        <Button variant="outline" size="sm" disabled className="gap-1">Exportar PDF <Badge variant="secondary" className="text-[10px] ml-1">Em breve</Badge></Button>
-                        <Button variant="outline" size="sm" disabled className="gap-1">Exportar DOCX <Badge variant="secondary" className="text-[10px] ml-1">Em breve</Badge></Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Textarea
-                      value={generatedText}
-                      onChange={e => setGeneratedText(e.target.value)}
-                      rows={25}
-                      className="font-mono text-sm"
-                    />
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setStep('questionnaire')}>Voltar ao questionário</Button>
-                      <Button onClick={handleSave} className="gap-2">
-                        <FilePlus className="w-4 h-4" /> Salvar rascunho
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Main editor */}
+                  <div className="lg:col-span-2">
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <CardTitle className="text-lg">
+                            {draftType === 'contract' ? `Minuta de Contrato (${variant === 'govtech' ? 'GovTech' : 'Privado'})` : 'Termo de Referência'}
+                          </CardTitle>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(generatedText); toast({ title: 'Copiado!' }); }} className="gap-1">
+                              <Copy className="w-3.5 h-3.5" /> Copiar
+                            </Button>
+                            <Button variant="outline" size="sm" disabled className="gap-1">Exportar PDF <Badge variant="secondary" className="text-[10px] ml-1">Em breve</Badge></Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <Textarea
+                          value={generatedText}
+                          onChange={e => setGeneratedText(e.target.value)}
+                          rows={25}
+                          className="font-mono text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => setStep('questionnaire')}>Voltar ao questionário</Button>
+                          <Button onClick={handleSave} className="gap-2">
+                            <FilePlus className="w-4 h-4" /> Salvar rascunho
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Evidence sidebar */}
+                  <div className="space-y-4">
+                    {evidences.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <BookOpen className="w-4 h-4" /> Evidências usadas
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {evidences.map((ev, i) => (
+                            <div key={i} className="text-xs border-l-2 border-primary/30 pl-2">
+                              <p className="font-medium">[Ref {ev.ref_index}] {ev.document_name}</p>
+                              {ev.page && <p className="text-muted-foreground">Página {ev.page}</p>}
+                              <p className="text-muted-foreground mt-0.5 line-clamp-3">{ev.excerpt}</p>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {gaps.length > 0 && (
+                      <Alert className="border-amber-500/50">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertTitle className="text-sm">Pendências</AlertTitle>
+                        <AlertDescription>
+                          <ul className="text-xs space-y-1 mt-1">
+                            {gaps.map((gap, i) => (
+                              <li key={i}>
+                                <strong>{gap.field}:</strong> {gap.description}
+                              </li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {evidences.length === 0 && gaps.length === 0 && (
+                      <Card>
+                        <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                          <BookOpen className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                          <p>Use "Gerar com IA" para ver evidências e pendências aqui.</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
           </TabsContent>
