@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.ai-search-external]
 verify_jwt = false
+
+[functions.ai-export-run]
+verify_jwt = false
