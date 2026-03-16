@@ -7,23 +7,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/** Simple text extraction: PDF plain text via regex, DOCX via XML, XLSX via XML */
+// --- Text extraction helpers ---
+
 function extractTextFromPDF(buffer: Uint8Array): string {
-  // Attempt to extract text streams from PDF binary
   const text = new TextDecoder("latin1").decode(buffer);
   const matches: string[] = [];
-  // Match text between BT and ET operators
   const btEtRegex = /BT\s([\s\S]*?)ET/g;
   let m: RegExpExecArray | null;
   while ((m = btEtRegex.exec(text)) !== null) {
     const block = m[1];
-    // Extract text in parentheses (Tj operator)
     const tjRegex = /\(([^)]*)\)\s*Tj/g;
     let tj: RegExpExecArray | null;
     while ((tj = tjRegex.exec(block)) !== null) {
       matches.push(tj[1]);
     }
-    // TJ arrays
     const tjArrayRegex = /\[([^\]]*)\]\s*TJ/g;
     let tja: RegExpExecArray | null;
     while ((tja = tjArrayRegex.exec(block)) !== null) {
@@ -34,22 +31,16 @@ function extractTextFromPDF(buffer: Uint8Array): string {
       }
     }
   }
-
   if (matches.length === 0) {
-    // Fallback: try to find readable text sequences
     const readable = text.match(/[\x20-\x7E\xC0-\xFF]{10,}/g);
     if (readable) return readable.join(" ").slice(0, 100000);
     return "";
   }
-
   return matches.join(" ").slice(0, 500000);
 }
 
 async function extractTextFromDOCX(buffer: Uint8Array): Promise<string> {
-  // DOCX is a ZIP with word/document.xml
-  // Use simple approach: find XML text content
   const text = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
-  // Look for <w:t> tags
   const matches: string[] = [];
   const regex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
   let m: RegExpExecArray | null;
@@ -61,7 +52,6 @@ async function extractTextFromDOCX(buffer: Uint8Array): Promise<string> {
 
 function extractTextFromXLSX(buffer: Uint8Array): string {
   const text = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
-  // Look for shared strings <t> tags
   const matches: string[] = [];
   const regex = /<t[^>]*>([^<]*)<\/t>/g;
   let m: RegExpExecArray | null;
@@ -71,27 +61,9 @@ function extractTextFromXLSX(buffer: Uint8Array): string {
   return matches.join(" | ").slice(0, 500000);
 }
 
-/** Chunk text into overlapping segments */
-function chunkText(
-  text: string,
-  chunkSize = 1000,
-  overlap = 100
-): { text: string; index: number }[] {
-  const chunks: { text: string; index: number }[] = [];
-  let start = 0;
-  let idx = 0;
-  while (start < text.length) {
-    const end = Math.min(start + chunkSize, text.length);
-    chunks.push({ text: text.slice(start, end), index: idx });
-    idx++;
-    start = end - overlap;
-    if (start >= text.length) break;
-  }
-  return chunks;
-}
+// --- Chunking ---
 
 function hashText(text: string): string {
-  // Simple hash for dedup
   let hash = 0;
   for (let i = 0; i < text.length; i++) {
     const char = text.charCodeAt(i);
@@ -99,6 +71,52 @@ function hashText(text: string): string {
   }
   return hash.toString(36);
 }
+
+interface Chunk {
+  text: string;
+  index: number;
+  page_start: number | null;
+  page_end: number | null;
+  hash: string;
+}
+
+function chunkText(
+  fullText: string,
+  chunkSize = 1000,
+  overlapPercent = 0.1
+): Chunk[] {
+  const overlap = Math.round(chunkSize * overlapPercent);
+  const chunks: Chunk[] = [];
+  let start = 0;
+  let idx = 0;
+  const totalLen = fullText.length;
+
+  while (start < totalLen) {
+    const end = Math.min(start + chunkSize, totalLen);
+    const chunkText = fullText.slice(start, end);
+    const hash = hashText(chunkText);
+
+    // Estimate page numbers (assuming ~3000 chars per page)
+    const charsPerPage = 3000;
+    const pageStart = Math.floor(start / charsPerPage) + 1;
+    const pageEnd = Math.floor((end - 1) / charsPerPage) + 1;
+
+    chunks.push({
+      text: chunkText,
+      index: idx,
+      page_start: pageStart,
+      page_end: pageEnd,
+      hash,
+    });
+
+    idx++;
+    start = end - overlap;
+    if (start >= totalLen) break;
+  }
+  return chunks;
+}
+
+// --- Main handler ---
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -171,7 +189,6 @@ serve(async (req) => {
     const supportedText = ["pdf", "doc", "docx", "xls", "xlsx"];
 
     if (!supportedText.includes(ext)) {
-      // Mark as no-text (images, zip, etc.)
       await supabase
         .from("doc_text_extractions")
         .update({
@@ -221,30 +238,6 @@ serve(async (req) => {
     }
 
     if (!extractedText.trim()) {
-      // If basic extraction failed, try using Lovable AI to extract
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (LOVABLE_API_KEY && ext === "pdf") {
-        try {
-          // Use AI to summarize/describe — but we can't send binary to chat
-          // Mark as failed extraction for now
-          await supabase
-            .from("doc_text_extractions")
-            .update({
-              status: "no_text",
-              error_message: "Não foi possível extrair texto deste documento. O arquivo pode ser digitalizado (imagem).",
-              extracted_at: new Date().toISOString(),
-            })
-            .eq("id", extraction.id);
-
-          return new Response(
-            JSON.stringify({ status: "no_text", message: "Could not extract text - file may be image-based" }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        } catch {
-          // continue
-        }
-      }
-
       await supabase
         .from("doc_text_extractions")
         .update({
@@ -270,18 +263,28 @@ serve(async (req) => {
       })
       .eq("id", extraction.id);
 
-    // Generate chunks
-    const chunks = chunkText(extractedText, 1000, 100);
+    // Generate chunks with page estimates and deduplication
+    const chunks = chunkText(extractedText, 1000, 0.1);
 
     if (chunks.length > 0) {
       // Delete old chunks for this document
       await supabase.from("doc_chunks").delete().eq("document_id", document_id);
 
-      const chunkRows = chunks.map((c) => ({
+      // Deduplicate by hash
+      const seenHashes = new Set<string>();
+      const uniqueChunks = chunks.filter((c) => {
+        if (seenHashes.has(c.hash)) return false;
+        seenHashes.add(c.hash);
+        return true;
+      });
+
+      const chunkRows = uniqueChunks.map((c) => ({
         document_id,
         chunk_index: c.index,
         chunk_text: c.text,
-        chunk_hash: hashText(c.text),
+        chunk_hash: c.hash,
+        page_start: c.page_start,
+        page_end: c.page_end,
         token_count_est: Math.ceil(c.text.length / 4),
       }));
 
