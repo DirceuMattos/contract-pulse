@@ -52,10 +52,8 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
     const allocs = getAllocationsBySubproject(subprojectId);
     if (allocationType === 'hr') {
       return new Set(allocs.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
-    } else if (allocationType === 'resource') {
-      return new Set(allocs.filter(a => a.resourceId).map(a => a.resourceId!));
     } else {
-      return new Set(allocs.filter(a => a.overheadItemId).map(a => a.overheadItemId!));
+      return new Set(allocs.filter(a => a.resourceId).map(a => a.resourceId!));
     }
   }, [getAllocationsBySubproject, subprojectId, allocationType]);
 
