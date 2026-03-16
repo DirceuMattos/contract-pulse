@@ -34,7 +34,7 @@ const statusBadgeClass: Record<string, string> = {
 export function SubprojectManagementPanel({ contractId }: SubprojectManagementPanelProps) {
   const { getSubprojectsByContract, deleteSubproject, getAllocationsBySubproject, deleteAllocation } = useSubprojects();
   const { hrPeople } = useHR();
-  const { resources, overheadItems } = useData();
+  const { resources } = useData();
   const { canEdit } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
