@@ -33,6 +33,7 @@ serve(async (req) => {
       user_id,
       user_role,
       search_query, // optional keywords for chunk retrieval
+      replay_of_run_id, // optional: ID of original run being replayed
     } = await req.json();
 
     if (!type || !answers || !user_id) {
