@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, Info } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { formatCurrency } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
-import type { Settings, HRPerson, Resource, OverheadItem } from '@/types';
+import type { Settings, HRPerson, Resource } from '@/types';
 
 interface SubprojectCostCardsProps {
   contractId: string;
@@ -15,8 +15,8 @@ interface SubprojectCostCardsProps {
   canViewHRCosts: boolean;
   peopleMap: Map<string, HRPerson>;
   resourcesMap?: Map<string, Resource>;
-  overheadItemsMap?: Map<string, OverheadItem>;
   receitaMensal?: number;
+  overheadAllocated?: number;
 }
 
 const statusLabels: Record<string, string> = {
@@ -38,23 +38,22 @@ export function SubprojectCostCards({
   canViewHRCosts,
   peopleMap,
   resourcesMap,
-  overheadItemsMap,
   receitaMensal,
+  overheadAllocated = 0,
 }: SubprojectCostCardsProps) {
   const { getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const subprojects = getSubprojectsByContract(contractId);
 
   const spData = useMemo(() => {
-    return subprojects.map(sp => {
+    // First pass: calculate direct costs per subproject
+    const raw = subprojects.map(sp => {
       const allocations = getAllocationsBySubproject(sp.id);
-      let custoMensal = 0;
+      let custoDireto = 0;
       let fte = 0;
       let hrCount = 0;
       let resCount = 0;
-      let ovhCount = 0;
 
       for (const alloc of allocations) {
-        // HR allocation
         if (alloc.hrPersonId) {
           hrCount++;
           const person = peopleMap.get(alloc.hrPersonId);
@@ -74,47 +73,37 @@ export function SubprojectCostCards({
             custo = base * (1 + impostos / 100);
           }
 
-          custoMensal += custo * dedicacao;
+          custoDireto += custo * dedicacao;
         }
 
-        // Resource allocation
         if (alloc.resourceId && resourcesMap) {
           resCount++;
           const resource = resourcesMap.get(alloc.resourceId);
           if (!resource) continue;
 
           const dedicacao = alloc.dedicationPercent / 100;
-          custoMensal += (resource.custoBase || 0) * dedicacao;
-        }
-
-        // Overhead allocation
-        if (alloc.overheadItemId && overheadItemsMap) {
-          ovhCount++;
-          const overhead = overheadItemsMap.get(alloc.overheadItemId);
-          if (!overhead) continue;
-
-          const dedicacao = alloc.dedicationPercent / 100;
-          if (overhead.modo === 'fixo') {
-            custoMensal += (overhead.valorFixoMensal || 0) * dedicacao;
-          } else if (overhead.modo === 'percentual' && receitaMensal) {
-            custoMensal += (receitaMensal * (overhead.percentual || 0) / 100) * dedicacao;
-          }
+          custoDireto += (resource.custoBase || 0) * dedicacao;
         }
       }
 
-      const percentual = custoMensalTotal > 0 ? (custoMensal / custoMensalTotal) * 100 : 0;
-
-      return {
-        sp,
-        custoMensal,
-        fte,
-        hrCount,
-        resCount,
-        ovhCount,
-        percentual,
-      };
+      return { sp, custoDireto, fte, hrCount, resCount };
     });
-  }, [subprojects, getAllocationsBySubproject, peopleMap, resourcesMap, overheadItemsMap, settings, custoMensalTotal, receitaMensal]);
+
+    // Second pass: prorate central overhead proportionally to direct cost
+    const totalDireto = raw.reduce((s, r) => s + r.custoDireto, 0);
+
+    return raw.map(r => {
+      const overheadRateado = totalDireto > 0
+        ? overheadAllocated * (r.custoDireto / totalDireto)
+        : subprojects.length > 0
+          ? overheadAllocated / subprojects.length
+          : 0;
+      const custoTotal = r.custoDireto + overheadRateado;
+      const percentual = custoMensalTotal > 0 ? (custoTotal / custoMensalTotal) * 100 : 0;
+
+      return { ...r, overheadRateado, custoTotal, percentual };
+    });
+  }, [subprojects, getAllocationsBySubproject, peopleMap, resourcesMap, settings, custoMensalTotal, overheadAllocated]);
 
   if (subprojects.length === 0) return null;
 
@@ -125,7 +114,7 @@ export function SubprojectCostCards({
         Distribuição por Subprojeto
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {spData.map(({ sp, custoMensal, fte, hrCount, resCount, ovhCount, percentual }) => (
+        {spData.map(({ sp, custoDireto, overheadRateado, custoTotal, fte, hrCount, resCount, percentual }) => (
           <Card key={sp.id}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
@@ -136,8 +125,20 @@ export function SubprojectCostCards({
               </div>
               {canViewHRCosts ? (
                 <>
-                  <p className="text-xl font-bold">{formatCurrency(custoMensal)}</p>
+                  <p className="text-xl font-bold">{formatCurrency(custoTotal)}</p>
                   <p className="text-xs text-muted-foreground">{percentual.toFixed(1)}% do custo total</p>
+                  <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>Direto: {formatCurrency(custoDireto)}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-0.5 cursor-help">
+                          <Info className="w-3 h-3" />
+                          Overhead: {formatCurrency(overheadRateado)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Rateio automático do overhead central proporcional ao custo direto</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </>
               ) : (
                 <Tooltip>
@@ -152,7 +153,6 @@ export function SubprojectCostCards({
                 <span>•</span>
                 <span>FTE: {fte.toFixed(2)}</span>
                 {resCount > 0 && <><span>•</span><span>{resCount} recurso{resCount !== 1 ? 's' : ''}</span></>}
-                {ovhCount > 0 && <><span>•</span><span>{ovhCount} overhead{ovhCount !== 1 ? 's' : ''}</span></>}
               </div>
             </CardContent>
           </Card>
