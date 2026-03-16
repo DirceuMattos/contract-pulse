@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-export type AllocationType = 'hr' | 'resource' | 'overhead';
+export type AllocationType = 'hr' | 'resource';
 
 interface SubprojectAllocationDialogProps {
   open: boolean;
