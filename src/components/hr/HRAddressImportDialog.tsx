@@ -291,7 +291,7 @@ export function HRAddressImportDialog({ open, onOpenChange, onComplete }: HRAddr
             }}
           >
             <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">Arraste um arquivo CSV ou clique para selecionar</p>
+            <p className="text-sm text-muted-foreground">Arraste um arquivo CSV ou Excel (.xlsx) ou clique para selecionar</p>
             <p className="text-xs text-muted-foreground mt-1">A correspondência será feita pelo campo Matrícula</p>
           </div>
         )}
