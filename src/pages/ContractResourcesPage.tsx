@@ -155,7 +155,6 @@ export default function ContractResourcesPage() {
     const custoMensal = rawHealth.custoMensal + delta;
     const margemMensal = rawHealth.receitaLiquida - custoMensal;
     const margemPercentual = rawHealth.receitaLiquida > 0 ? (margemMensal / rawHealth.receitaLiquida) * 100 : 0;
-    const { getHealthStatus } = require('@/lib/calculations');
     return { ...rawHealth, custoMensal, margemMensal, margemPercentual, status: getHealthStatus(margemPercentual, settings) };
   })();
   const receitaMensal = getContractRevenue(contract);
