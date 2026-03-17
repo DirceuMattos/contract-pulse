@@ -37,7 +37,7 @@ export default function ReceivablesReconcilePage() {
     return contracts.filter(c => linkedMap[c.id]);
   }, [contracts, linkedMap]);
 
-  const handleSearch = (contractId: string) => {
+  const handleSearch = async (contractId: string) => {
     const contract = contracts.find(c => c.id === contractId);
     if (!contract) return;
     const client = clients.find(cl => cl.id === contract.clientId);
@@ -46,12 +46,30 @@ export default function ReceivablesReconcilePage() {
     setSearchDialogContract(contractId);
     setSearching(true);
 
-    // Simulate API delay
-    setTimeout(() => {
+    try {
+      // Try edge function first
+      const { data, error } = await supabase.functions.invoke('superlogica-search-subscriptions', {
+        body: { cnpj, hint: contract.superlogicaMatchHint },
+      });
+
+      if (error) throw error;
+
+      const results: SubscriptionCandidate[] = (data?.subscriptions ?? []).map((s: any) => ({
+        subscriptionId: s.superlogica_subscription_id,
+        label: s.label,
+        status: s.status,
+        amount: s.amount,
+        periodicity: s.periodicity,
+      }));
+
+      setCandidates(results.length ? results : (mockSubscriptionCandidates[cnpj] || []));
+    } catch {
+      // Fallback to mock
       const results = mockSubscriptionCandidates[cnpj] || [];
       setCandidates(results);
+    } finally {
       setSearching(false);
-    }, 800);
+    }
   };
 
   const handleLink = (contractId: string, candidate: SubscriptionCandidate) => {
