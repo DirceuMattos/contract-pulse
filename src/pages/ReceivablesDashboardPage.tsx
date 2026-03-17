@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
-import { mockInvoices, mockSubscriptionLinks, unlinkedContractIds } from '@/data/mockReceivables';
+import { mockInvoices, mockSubscriptionLinks } from '@/data/mockReceivables';
 import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivables';
 
 const currentMonth = '2026-03';
@@ -117,7 +117,10 @@ export default function ReceivablesDashboardPage() {
 
   const inadimplentes = rows.filter(r => r.status === 'atrasado').sort((a, b) => b.valorEmAtraso - a.valorEmAtraso);
 
-  const unlinkedCount = unlinkedContractIds.filter(id => contracts.some(c => c.id === id)).length;
+  const unlinkedCount = contracts.filter(c =>
+    !c.superlogicaSubscriptionId &&
+    ['implantacao', 'operacao'].includes(c.status)
+  ).length;
 
   const uniqueClients = useMemo(() => {
     const ids = new Set(rows.map(r => {
@@ -139,10 +142,16 @@ export default function ReceivablesDashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <PageHeader title="Recebíveis" description="Posição mensal de pagamentos por contrato" />
-        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/receivables/reconcile')}>
+            <Link2Off className="mr-2 h-4 w-4" />
+            Conciliar assinaturas
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
+          </Button>
+        </div>
       </div>
 
       {/* Unlinked banner */}
