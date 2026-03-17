@@ -282,7 +282,7 @@ export function HRAddressImportDialog({ open, onOpenChange, onComplete }: HRAddr
             onClick={() => {
               const input = document.createElement('input');
               input.type = 'file';
-              input.accept = '.csv,.txt';
+              input.accept = '.csv,.txt,.xlsx,.xls';
               input.onchange = (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0];
                 if (file) handleFile(file);
