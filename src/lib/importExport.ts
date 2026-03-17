@@ -438,10 +438,22 @@ export function parseFile(file: File): Promise<{ headers: string[]; data: Record
                 // Stored (no compression)
                 return rawData;
               } else if (compressionMethod === 8) {
-                // Deflate — use DecompressionStream
-                const ds = new DecompressionStream('raw' as CompressionFormat);
+                // Deflate — use DecompressionStream with fallback
+                let ds: DecompressionStream;
+                let inputData: Uint8Array = rawData;
+                try {
+                  ds = new DecompressionStream('deflate-raw' as CompressionFormat);
+                } catch {
+                  // Fallback: prepend zlib header and use 'deflate'
+                  ds = new DecompressionStream('deflate');
+                  const withHeader = new Uint8Array(rawData.length + 2);
+                  withHeader[0] = 0x78;
+                  withHeader[1] = 0x01;
+                  withHeader.set(rawData, 2);
+                  inputData = withHeader;
+                }
                 const writer = ds.writable.getWriter();
-                writer.write(rawData);
+                writer.write(inputData);
                 writer.close();
                 const reader = ds.readable.getReader();
                 const chunks: Uint8Array[] = [];
