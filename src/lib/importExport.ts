@@ -453,7 +453,7 @@ export function parseFile(file: File): Promise<{ headers: string[]; data: Record
                   inputData = withHeader;
                 }
                 const writer = ds.writable.getWriter();
-                writer.write(inputData);
+                writer.write(inputData as any);
                 writer.close();
                 const reader = ds.readable.getReader();
                 const chunks: Uint8Array[] = [];
