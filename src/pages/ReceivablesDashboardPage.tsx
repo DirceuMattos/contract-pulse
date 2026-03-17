@@ -117,7 +117,10 @@ export default function ReceivablesDashboardPage() {
 
   const inadimplentes = rows.filter(r => r.status === 'atrasado').sort((a, b) => b.valorEmAtraso - a.valorEmAtraso);
 
-  const unlinkedCount = unlinkedContractIds.filter(id => contracts.some(c => c.id === id)).length;
+  const unlinkedCount = contracts.filter(c =>
+    !c.superlogicaSubscriptionId &&
+    ['implantacao', 'operacao'].includes(c.status)
+  ).length;
 
   const uniqueClients = useMemo(() => {
     const ids = new Set(rows.map(r => {
