@@ -118,6 +118,14 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       motivoDesligamento: person?.motivoDesligamento || '',
       observacoesDesligamento: person?.observacoesDesligamento || '',
       tipoDesligamento: person?.tipoDesligamento,
+      enderecoCep: person?.enderecoCep || '',
+      enderecoLogradouro: person?.enderecoLogradouro || '',
+      enderecoNumero: person?.enderecoNumero || '',
+      enderecoSemNumero: person?.enderecoSemNumero || false,
+      enderecoComplemento: person?.enderecoComplemento || '',
+      enderecoBairro: person?.enderecoBairro || '',
+      enderecoMunicipio: person?.enderecoMunicipio || '',
+      enderecoUf: person?.enderecoUf || '',
     },
   });
 
