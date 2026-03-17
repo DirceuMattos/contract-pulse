@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { parseFile } from '@/lib/importExport';
 import { toast } from 'sonner';
 
 interface AddressRow {
@@ -123,35 +124,68 @@ export function HRAddressImportDialog({ open, onOpenChange, onComplete }: HRAddr
 
   const handleFile = useCallback(async (file: File) => {
     try {
-      const text = await file.text();
-      const rows = parseCSV(text);
-      if (rows.length < 2) { toast.error('Arquivo vazio ou sem dados.'); return; }
+      let parsed: AddressRow[] = [];
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
-      const headers = rows[0].map(h => h.toLowerCase().trim());
-      const colMap: Record<number, keyof AddressRow> = {};
-      headers.forEach((h, i) => {
-        const mapped = COLUMN_MAP[h];
-        if (mapped) colMap[i] = mapped;
-      });
+      if (isExcel) {
+        const result = await parseFile(file);
+        if (result.data.length === 0) { toast.error('Arquivo vazio ou sem dados.'); return; }
 
-      if (!Object.values(colMap).includes('matricula')) {
-        toast.error('Coluna "Matrícula" não encontrada na planilha.');
-        return;
-      }
-
-      const parsed: AddressRow[] = [];
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        const obj: any = {};
-        Object.entries(colMap).forEach(([idx, field]) => {
-          const val = row[Number(idx)]?.trim() || '';
-          if (field === 'semNumero') {
-            obj[field] = val.toLowerCase() === 'sim' || val === '1' || val.toLowerCase() === 'true' || val.toLowerCase() === 'x';
-          } else {
-            obj[field] = val;
-          }
+        const headerMap: Record<string, keyof AddressRow> = {};
+        result.headers.forEach(h => {
+          const mapped = COLUMN_MAP[h.toLowerCase().trim()];
+          if (mapped) headerMap[h] = mapped;
         });
-        if (obj.matricula) parsed.push(obj as AddressRow);
+
+        if (!Object.values(headerMap).includes('matricula')) {
+          toast.error('Coluna "Matrícula" não encontrada na planilha.');
+          return;
+        }
+
+        parsed = result.data
+          .map(row => {
+            const obj: any = {};
+            Object.entries(headerMap).forEach(([header, field]) => {
+              const val = String(row[header] ?? '').trim();
+              if (field === 'semNumero') {
+                obj[field] = val.toLowerCase() === 'sim' || val === '1' || val.toLowerCase() === 'true' || val.toLowerCase() === 'x';
+              } else {
+                obj[field] = val;
+              }
+            });
+            return obj;
+          })
+          .filter((obj): obj is AddressRow => !!obj.matricula);
+      } else {
+        const text = await file.text();
+        const rows = parseCSV(text);
+        if (rows.length < 2) { toast.error('Arquivo vazio ou sem dados.'); return; }
+
+        const headers = rows[0].map(h => h.toLowerCase().trim());
+        const colMap: Record<number, keyof AddressRow> = {};
+        headers.forEach((h, i) => {
+          const mapped = COLUMN_MAP[h];
+          if (mapped) colMap[i] = mapped;
+        });
+
+        if (!Object.values(colMap).includes('matricula')) {
+          toast.error('Coluna "Matrícula" não encontrada na planilha.');
+          return;
+        }
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const obj: any = {};
+          Object.entries(colMap).forEach(([idx, field]) => {
+            const val = row[Number(idx)]?.trim() || '';
+            if (field === 'semNumero') {
+              obj[field] = val.toLowerCase() === 'sim' || val === '1' || val.toLowerCase() === 'true' || val.toLowerCase() === 'x';
+            } else {
+              obj[field] = val;
+            }
+          });
+          if (obj.matricula) parsed.push(obj as AddressRow);
+        }
       }
 
       if (parsed.length === 0) { toast.error('Nenhuma linha com matrícula encontrada.'); return; }
@@ -248,7 +282,7 @@ export function HRAddressImportDialog({ open, onOpenChange, onComplete }: HRAddr
             onClick={() => {
               const input = document.createElement('input');
               input.type = 'file';
-              input.accept = '.csv,.txt';
+              input.accept = '.csv,.txt,.xlsx,.xls';
               input.onchange = (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0];
                 if (file) handleFile(file);
@@ -257,7 +291,7 @@ export function HRAddressImportDialog({ open, onOpenChange, onComplete }: HRAddr
             }}
           >
             <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">Arraste um arquivo CSV ou clique para selecionar</p>
+            <p className="text-sm text-muted-foreground">Arraste um arquivo CSV ou Excel (.xlsx) ou clique para selecionar</p>
             <p className="text-xs text-muted-foreground mt-1">A correspondência será feita pelo campo Matrícula</p>
           </div>
         )}
