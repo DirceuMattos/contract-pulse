@@ -36,11 +36,12 @@ function calcHRCustoBase(person: HRPerson): number {
   return (person.remuneracaoMensal || 0) + beneficiosValor;
 }
 
-/** Map HR tipoVinculo to Resource tipo for calculations */
+/** Map HR tipoVinculo to Resource tipo for calculations.
+ * All types are treated as HR resources (clt or pj) so they
+ * appear in the HR section, not "Outros". */
 function mapTipoVinculo(tipoVinculo: string): 'clt' | 'pj' | 'outro' {
   if (tipoVinculo === 'clt') return 'clt';
-  if (tipoVinculo === 'pj') return 'pj';
-  return 'outro'; // cooperado, socio, estagio
+  return 'pj';
 }
 
 export function resolveResource(
