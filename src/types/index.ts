@@ -432,6 +432,15 @@ export interface HRPerson {
   source?: string;
   syncStatus?: string;
   lastSyncedAt?: string;
+  // Endereço
+  enderecoCep?: string;
+  enderecoLogradouro?: string;
+  enderecoNumero?: string;
+  enderecoSemNumero?: boolean;
+  enderecoComplemento?: string;
+  enderecoBairro?: string;
+  enderecoMunicipio?: string;
+  enderecoUf?: string;
   matricula?: string;
   isTalento?: boolean;
   isGuardiao?: boolean;

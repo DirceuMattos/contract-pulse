@@ -628,6 +628,14 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     nome_normalizado: p.nomeNormalizado ?? null,
     is_talento: p.isTalento ?? false,
     is_guardiao: p.isGuardiao ?? false,
+    endereco_cep: p.enderecoCep ?? null,
+    endereco_logradouro: p.enderecoLogradouro ?? null,
+    endereco_numero: p.enderecoNumero ?? null,
+    endereco_sem_numero: p.enderecoSemNumero ?? false,
+    endereco_complemento: p.enderecoComplemento ?? null,
+    endereco_bairro: p.enderecoBairro ?? null,
+    endereco_municipio: p.enderecoMunicipio ?? null,
+    endereco_uf: p.enderecoUf ?? null,
   };
 }
 
