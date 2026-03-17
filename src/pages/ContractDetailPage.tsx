@@ -568,7 +568,7 @@ export default function ContractDetailPage() {
           
           {/* Receivables Card */}
           {(() => {
-            const { mockSubscriptionLinks, mockInvoices } = require('@/data/mockReceivables');
+            const link = mockSubscriptionLinks[id || ''];
             const link = mockSubscriptionLinks[id || ''];
             const isLinked = !!link;
             const overdue = isLinked ? mockInvoices.filter((inv: any) => inv.contractId === id && inv.status === 'overdue') : [];
