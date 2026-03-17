@@ -50,7 +50,7 @@ function normalizePhone(phone: string | null | undefined): string | null {
 
 // ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
 function computePayloadHash(data: Record<string, any>): string {
-  const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento']
+  const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento', 'remuneracao_mensal']
   const obj: Record<string, string> = {}
   for (const k of keys) obj[k] = String(data[k] ?? '')
   const str = JSON.stringify(obj)
