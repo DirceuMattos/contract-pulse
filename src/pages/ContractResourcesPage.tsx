@@ -140,7 +140,24 @@ export default function ContractResourcesPage() {
   const totalSubprojectFTE = subprojectAllocations.reduce((s, a) => s + a.dedicationPercent / 100, 0);
 
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, resources, settings, [], overheadAlloc.value);
+  const health = (() => {
+    const rawHealth = calculateContractHealth(contract, resources, settings, [], overheadAlloc.value);
+    if (!subprojectOutrosCostMap || subprojectOutrosCostMap.size === 0) return rawHealth;
+    const outroResources = resources.filter(r => r.tipo === 'outro');
+    const custoOutrosOriginal = outroResources.reduce((sum, r) => sum + calculateResourceCost(r, settings), 0);
+    let custoOutrosSubprojetos = 0;
+    for (const r of outroResources) {
+      const allocData = subprojectOutrosCostMap.get(r.id);
+      custoOutrosSubprojetos += allocData ? allocData.totalCost : calculateResourceCost(r, settings);
+    }
+    const delta = custoOutrosSubprojetos - custoOutrosOriginal;
+    if (Math.abs(delta) < 0.01) return rawHealth;
+    const custoMensal = rawHealth.custoMensal + delta;
+    const margemMensal = rawHealth.receitaLiquida - custoMensal;
+    const margemPercentual = rawHealth.receitaLiquida > 0 ? (margemMensal / rawHealth.receitaLiquida) * 100 : 0;
+    const { getHealthStatus } = require('@/lib/calculations');
+    return { ...rawHealth, custoMensal, margemMensal, margemPercentual, status: getHealthStatus(margemPercentual, settings) };
+  })();
   const receitaMensal = getContractRevenue(contract);
 
   const resourcesByType = resources.reduce((acc, resource) => {
