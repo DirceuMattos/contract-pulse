@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRImportDialog } from '@/components/hr/HRImportDialog';
 import { HRCorrectionsDialog, HRCorrectionRunsDialog } from '@/components/hr/HRCorrectionsDialog';
+import { HRAddressImportDialog } from '@/components/hr/HRAddressImportDialog';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
