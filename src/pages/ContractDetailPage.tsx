@@ -565,6 +565,75 @@ export default function ContractDetailPage() {
             </Card>
           </div>
           
+          {/* Receivables Card */}
+          {(() => {
+            const { mockSubscriptionLinks, mockInvoices } = require('@/data/mockReceivables');
+            const link = mockSubscriptionLinks[id || ''];
+            const isLinked = !!link;
+            const overdue = isLinked ? mockInvoices.filter((inv: any) => inv.contractId === id && inv.status === 'overdue') : [];
+            const totalOverdue = overdue.reduce((s: number, inv: any) => s + (inv.amount - inv.paidAmount), 0);
+            const maxDays = overdue.reduce((m: number, inv: any) => Math.max(m, inv.daysOverdue), 0);
+            const paidInvoices = isLinked ? mockInvoices.filter((inv: any) => inv.contractId === id && inv.paidAt).sort((a: any, b: any) => (b.paidAt > a.paidAt ? 1 : -1)) : [];
+            const status = !isLinked ? 'sem_vinculo' : totalOverdue > 0 ? 'atrasado' : 'em_dia';
+
+            return (
+              <Card className={cn(
+                'border-l-4',
+                status === 'em_dia' && 'border-l-emerald-500',
+                status === 'atrasado' && 'border-l-destructive',
+                status === 'sem_vinculo' && 'border-l-amber-500',
+              )}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Recebíveis
+                    {status === 'em_dia' && <Badge variant="outline" className="border-emerald-500 text-emerald-700 dark:text-emerald-400 ml-auto">Em dia</Badge>}
+                    {status === 'atrasado' && <Badge variant="destructive" className="ml-auto">Atrasado</Badge>}
+                    {status === 'sem_vinculo' && <Badge variant="secondary" className="ml-auto">Sem vínculo</Badge>}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {status === 'sem_vinculo' ? (
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <p>Este contrato não está vinculado a uma assinatura do Superlógica.</p>
+                      <Button variant="outline" size="sm" onClick={() => navigate('/receivables/reconcile')}>
+                        Vincular assinatura
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Assinatura</span>
+                        <span className="font-medium">{link.subscriptionLabel}</span>
+                      </div>
+                      {totalOverdue > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Valor em atraso</span>
+                          <span className="font-bold text-destructive">{formatCurrency(totalOverdue)}</span>
+                        </div>
+                      )}
+                      {maxDays > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Dias em atraso</span>
+                          <span className="font-medium">{maxDays}d</span>
+                        </div>
+                      )}
+                      {paidInvoices[0] && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Último pagamento</span>
+                          <span>{new Date(paidInvoices[0].paidAt).toLocaleDateString('pt-BR')} · {formatCurrency(paidInvoices[0].paidAmount)}</span>
+                        </div>
+                      )}
+                      <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => navigate('/receivables')}>
+                        Ver histórico →
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Subprojects card */}
           {id && hasSubprojects(id) && (
             <Card className="border-l-4 border-l-primary">
