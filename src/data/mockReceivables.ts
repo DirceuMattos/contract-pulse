@@ -42,7 +42,7 @@ export const mockSubscriptionLinks: Record<string, { subscriptionId: string; sub
 export const unlinkedContractIds = ['ctr-002', 'ctr-007', 'ctr-008', 'ctr-010', 'ctr-011'];
 
 // Mock subscription candidates returned by "search by CNPJ"
-export const mockSubscriptionCandidates: Record<string, SubscriptionCandidate[]> = {
+const _mockCandidates: Record<string, SubscriptionCandidate[]> = {
   // SEFAZ-SP (cli-001) – ctr-002 is unlinked but same client
   '46.377.222/0001-29': [
     { subscriptionId: 'sub-001', label: 'Plano Gestão Tributária - SEFAZ SP', amount: 285000, periodicidade: 'mensal', status: 'ativa', dataInicio: '2023-03-01' },
