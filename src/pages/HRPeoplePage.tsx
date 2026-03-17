@@ -79,6 +79,7 @@ export default function HRPeoplePage() {
   const [importOpen, setImportOpen] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
   const [correctionRunsOpen, setCorrectionRunsOpen] = useState(false);
+  const [addressImportOpen, setAddressImportOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('nome');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
