@@ -41,6 +41,8 @@ import AIContractsAnalysisPage from "@/pages/AIContractsAnalysisPage";
 import AIResourcesAnalysisPage from "@/pages/AIResourcesAnalysisPage";
 import AIDraftsPage from "@/pages/AIDraftsPage";
 import AILogsPage from "@/pages/AILogsPage";
+import ReceivablesDashboardPage from "@/pages/ReceivablesDashboardPage";
+import ReceivablesReconcilePage from "@/pages/ReceivablesReconcilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -97,6 +99,8 @@ const App = () => (
                           <Route path="/ai/resources-analysis" element={<AIResourcesAnalysisPage />} />
                           <Route path="/ai/drafts" element={<AIDraftsPage />} />
                           <Route path="/ai/logs" element={<AILogsPage />} />
+                          <Route path="/receivables" element={<ReceivablesDashboardPage />} />
+                          <Route path="/receivables/reconcile" element={<ReceivablesReconcilePage />} />
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>
