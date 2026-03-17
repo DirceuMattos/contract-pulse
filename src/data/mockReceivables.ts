@@ -63,3 +63,11 @@ const _mockCandidates: Record<string, SubscriptionCandidate[]> = {
     { subscriptionId: 'sub-010', label: 'Sistema Legislativo CMPA', amount: 48000, periodicidade: 'mensal', status: 'ativa' },
   ],
 };
+
+// Build lookup with both formatted and digits-only CNPJ keys
+export const mockSubscriptionCandidates: Record<string, SubscriptionCandidate[]> = Object.entries(_mockCandidates).reduce((acc, [key, value]) => {
+  acc[key] = value;
+  const digitsOnly = key.replace(/\D/g, '');
+  if (digitsOnly !== key) acc[digitsOnly] = value;
+  return acc;
+}, {} as Record<string, SubscriptionCandidate[]>);

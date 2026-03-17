@@ -62,7 +62,8 @@ export default function ReceivablesReconcilePage() {
         periodicity: s.periodicity,
       }));
 
-      setCandidates(results.length ? results : (mockSubscriptionCandidates[cnpj] || []));
+      const cnpjDigits = cnpj.replace(/\D/g, '');
+      setCandidates(results.length ? results : (mockSubscriptionCandidates[cnpj] || mockSubscriptionCandidates[cnpjDigits] || []));
     } catch {
       // Fallback to mock
       const cnpjDigits = cnpj.replace(/\D/g, '');
