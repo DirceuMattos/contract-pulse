@@ -35,6 +35,20 @@ export default function ReceivablesDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<'todos' | 'em_dia' | 'atrasado'>('todos');
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('superlogica-sync');
+      if (error) throw error;
+      toast.success(`Sincronização concluída: ${data?.updatedContracts ?? 0} contratos atualizados`);
+    } catch (err: any) {
+      toast.error(`Erro na sincronização: ${err.message || err}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Build receivable rows from mock data
   const rows = useMemo<ContractReceivableRow[]>(() => {
