@@ -600,7 +600,9 @@ export default function ContractResourcesPage() {
                 })
                 .map((resource) => {
                 const Icon = typeIcons[resource.tipo];
-                const custo = calculateResourceCost(resource, settings);
+                const custo = (resource.tipo === 'outro' && subprojectOutrosCostMap?.get(resource.id))
+                  ? subprojectOutrosCostMap.get(resource.id)!.totalCost
+                  : calculateResourceCost(resource, settings);
                 const resolved = resolveResource(resource, peopleMap, jobMap, teamMap);
 
                 return (
