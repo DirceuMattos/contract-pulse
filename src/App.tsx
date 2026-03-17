@@ -41,6 +41,8 @@ import AIContractsAnalysisPage from "@/pages/AIContractsAnalysisPage";
 import AIResourcesAnalysisPage from "@/pages/AIResourcesAnalysisPage";
 import AIDraftsPage from "@/pages/AIDraftsPage";
 import AILogsPage from "@/pages/AILogsPage";
+import ReceivablesDashboardPage from "@/pages/ReceivablesDashboardPage";
+import ReceivablesReconcilePage from "@/pages/ReceivablesReconcilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
