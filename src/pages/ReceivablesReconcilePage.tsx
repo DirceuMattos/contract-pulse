@@ -17,19 +17,19 @@ import { toast } from 'sonner';
 
 export default function ReceivablesReconcilePage() {
   const navigate = useNavigate();
-  const { contracts, clients } = useData();
+  const { contracts, clients, updateContract } = useData();
 
-  // Local state to track newly linked (mock)
   const [linkedMap, setLinkedMap] = useState<Record<string, string>>({});
   const [searchDialogContract, setSearchDialogContract] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SubscriptionCandidate[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // Contracts without superlogica_subscription_id (real DB check) + mock fallback
   const unlinkedContracts = useMemo(() => {
     return contracts.filter(c =>
-      unlinkedContractIds.includes(c.id) &&
-      !mockSubscriptionLinks[c.id] &&
-      !linkedMap[c.id]
+      !c.superlogicaSubscriptionId &&
+      !linkedMap[c.id] &&
+      ['implantacao', 'operacao'].includes(c.status)
     );
   }, [contracts, linkedMap]);
 
@@ -72,11 +72,22 @@ export default function ReceivablesReconcilePage() {
     }
   };
 
-  const handleLink = (contractId: string, candidate: SubscriptionCandidate) => {
-    setLinkedMap(prev => ({ ...prev, [contractId]: candidate.subscriptionId }));
-    setSearchDialogContract(null);
-    setCandidates([]);
-    toast.success(`Contrato vinculado à assinatura "${candidate.label}"`);
+  const handleLink = async (contractId: string, candidate: SubscriptionCandidate) => {
+    const client = clients.find(cl => cl.id === contracts.find(c => c.id === contractId)?.clientId);
+    try {
+      await updateContract(contractId, {
+        superlogicaSubscriptionId: candidate.subscriptionId,
+        superlogicaSubscriptionLabel: candidate.label,
+        superlogicaCustomerCnpj: client?.cnpj ?? undefined,
+        receivablesStatus: 'sem_vinculo',
+      });
+      setLinkedMap(prev => ({ ...prev, [contractId]: candidate.subscriptionId }));
+      setSearchDialogContract(null);
+      setCandidates([]);
+      toast.success(`Contrato vinculado à assinatura "${candidate.label}". Execute a sincronização para buscar cobranças.`);
+    } catch (err: any) {
+      toast.error(`Erro ao vincular: ${err.message || err}`);
+    }
   };
 
   const currentContract = searchDialogContract ? contracts.find(c => c.id === searchDialogContract) : null;
