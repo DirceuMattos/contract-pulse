@@ -65,7 +65,8 @@ export default function ReceivablesReconcilePage() {
       setCandidates(results.length ? results : (mockSubscriptionCandidates[cnpj] || []));
     } catch {
       // Fallback to mock
-      const results = mockSubscriptionCandidates[cnpj] || [];
+      const cnpjDigits = cnpj.replace(/\D/g, '');
+      const results = mockSubscriptionCandidates[cnpj] || mockSubscriptionCandidates[cnpjDigits] || [];
       setCandidates(results);
     } finally {
       setSearching(false);
