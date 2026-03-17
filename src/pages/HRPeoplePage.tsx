@@ -389,7 +389,11 @@ export default function HRPeoplePage() {
                           <TableCell className="text-xs text-muted-foreground py-2 max-w-[100px] truncate">{p.localAtuacao || '—'}</TableCell>
                           <TableCell className="text-xs py-2 whitespace-nowrap">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                           <TableCell className="py-2">
-                            <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
+                            {p.situacao === 'inativo' ? (
+                              <Badge className="bg-destructive text-destructive-foreground text-xs">Inativo</Badge>
+                            ) : (
+                              <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
+                            )}
                           </TableCell>
                           {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
                           <TableCell className="py-2">
