@@ -1,95 +1,55 @@
-## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio) + Bloco D (Overhead Alocado nos Contratos)
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Diagnóstico: Sincronização Feedz não atualiza salário e cargo
 
-#### BLOCO A — Flags Talento e Guardião
+### Causa Raiz Identificada
 
-1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
-2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
-3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
-4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos. Borda colorida na linha.
-5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
-6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
+O problema está na **função de hash de idempotência** (`computePayloadHash`, linha 52-63 do `feedz-sync/index.ts`).
 
-#### BLOCO B — Overhead Central
+O hash é calculado usando apenas estes campos:
+```
+['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento']
+```
 
-1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
-2. **Persistência** — `localStorage` com chave `overhead-central`.
-3. **UX** — Botão "Ver detalhamento do rateio" ativo (navega para /configuracoes/overhead-rateio). Toast ao salvar.
+**`remuneracao_mensal` NÃO está incluído no hash.**
 
-#### BLOCO C — Rateio do Overhead Central
+O fluxo de atualização (CASE C, linha 458-547) funciona assim:
+1. Calcula o `payloadHash` do registro Feedz
+2. Compara com o hash da última sincronização (`lastHashMap`)
+3. **Se o hash for igual, pula a atualização** (linha 486-489)
+4. Só depois verifica os campos alterados individualmente
 
-1. **`src/lib/overheadAllocation.ts`** — Função `calculateOverheadAllocation` calcula percentual e overhead alocado por contrato, com ajuste de arredondamento no maior contrato.
-2. **`src/pages/OverheadAllocationPage.tsx`** — Nova página `/configuracoes/overhead-rateio`:
-   - Cards resumo: Pool total, Receita total, Soma alocada (com check ✓)
-   - Tabela principal: Cliente, Contrato, Valor Mensal, Percentual, Overhead Alocado, Status, link abrir
-   - Seção "Pendências do rateio": contratos excluídos (receita 0 ou não vigente) com motivo e link editar
-   - Filtros: busca textual + select cliente
-   - Tooltip de ajuste de arredondamento
-3. **Rota** — Adicionada em App.tsx
-4. **Não alterado** — Consultoria por contrato (CRUD de recursos) permanece intacta. Cálculo de break-even não alterado (Bloco E futuro).
+Como `remuneracao_mensal` não faz parte do hash, quando **apenas o salário muda** (e nome, cargo, equipe, email, etc. permanecem iguais), o hash é idêntico ao anterior e o registro é **ignorado silenciosamente**.
 
-#### BLOCO D — Overhead Alocado nos Contratos
+### Sobre o Cargo
 
-1. **`src/hooks/useOverheadPool.ts`** (novo) — Hook que lê o pool central do localStorage, calcula alocações via `calculateOverheadAllocation`, e expõe `getAllocation(contractId)` retornando `{ percent, value, isPending, pendingReason }`.
-2. **`src/lib/calculations.ts`** — `calculateContractHealth` recebe parâmetro opcional `centralOverhead` (default 0), somado ao custo mensal. `calculateDashboardKPIs` recebe `centralOverheadMap` opcional.
-3. **`src/lib/alertGenerator.ts`** — Contexto de alertas aceita `centralOverheadMap`, propagado para checagem financeira.
-4. **`src/hooks/useAlerts.ts`** — Usa `useOverheadPool` para construir o mapa e passá-lo ao gerador de alertas.
-5. **Todas as páginas atualizadas** — `DashboardPage`, `ContractsPage`, `ClientDetailPage`, `SquadsPage`, `ContractDetailPage`, `ContractResourcesPage` passam o overhead alocado para `calculateContractHealth`.
-6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
-7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
-8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
+O `cargo_id` **está** no hash, então mudanças de cargo deveriam ser detectadas. Porém, se o cargo Feedz não tiver um mapeamento de alias configurado (`feedz_alias_mappings`) **e** não existir um `job_title` com label idêntico, o `cargoId` resolvido será `null` — o mesmo valor de antes — e a mudança não será registrada.
 
-## Plan: Módulo IA — Estrutura, Análises Rule-Based e Minutas
+### Como o sistema de contratos consome os dados
 
-**STATUS: ✅ IMPLEMENTADO**
+O sistema de contratos já está correto: `useResolvedResources` → `resolveResourceForCalc` busca `person.remuneracaoMensal` diretamente do HR Master em tempo real. **Se o HR for atualizado, os contratos refletem automaticamente.** O problema é que o HR não está sendo atualizado pela sincronização.
 
-### O que foi feito
+---
 
-#### IA-1 — Estrutura + Navegação + Placeholders
-1. **moduleAccess.ts** — Adicionados `AI` e `AI_LOGS` ao `MODULE_KEYS`. AI_LOGS restrito a c-level. Intermediário sem acesso por default.
-2. **Sidebar.tsx** — Item "IA" com ícone Sparkles adicionado entre RH e Usuários.
-3. **App.tsx** — Rotas `/ai/*` com redirect `/ai` → `/ai/contracts-analysis`.
-4. **AIPageLayout.tsx** — Tabs de navegação entre sub-páginas + badge "Simulação (Etapa 1)".
-5. **Migração SQL** — Valores `AI` e `AI_LOGS` adicionados ao enum `module_key`.
+## Plano de Correção
 
-#### IA-2 — Análises Rule-Based
-1. **aiRuleEngine.ts** — Engine com funções puras:
-   - `analyzeContractPortfolio()`: KPIs (críticos, atenção, reajustes, vencimentos), top 10 recomendações, diagnóstico por contrato.
-   - `analyzeResources()`: mapa de carga por equipe, sobrecargas (>100%), ociosidade (<30%), comitê gestor, aniversários CLT.
-2. **AIContractsAnalysisPage** — Filtros (cliente, segmento, saúde, busca), cards KPI, recomendações com badges, diagnóstico por contrato, botão copiar.
-3. **AIResourcesAnalysisPage** — Toggle "Mostrar nomes" (admin default ON), filtro equipe, mapa de carga, sobrecargas, ociosidade, comitê, aniversários.
+**Arquivo: `supabase/functions/feedz-sync/index.ts`**
 
-#### IA-3 — Minutas
-1. **aiDrafts.ts** — Tipos Draft, DraftContractAnswers, DraftTRAnswers, DraftDocReference.
-2. **draftTemplates.ts** — 4 templates: Contrato GovTech, Contrato Privado, TR Padrão, TR Completo. Placeholders substituídos automaticamente.
-3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
-4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
-5. **AILogsPage** — Placeholder "Em breve".
+### Correção 1 — Incluir `remuneracao_mensal` no hash de idempotência
+Adicionar `'remuneracao_mensal'` ao array de chaves na função `computePayloadHash` (linha 53):
 
-## Plan: RLS Completas + Pipeline Extração/Embeddings + Templates com Versionamento
+```typescript
+const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 
+              'data_admissao', 'data_desligamento', 'remuneracao_mensal']
+```
 
-**STATUS: ✅ IMPLEMENTADO**
+Isso garante que qualquer mudança de salário gere um hash diferente e a atualização seja processada.
 
-### O que foi feito
+### Impacto
+- 1 linha alterada no edge function
+- Na próxima sincronização, registros com salário diferente serão corretamente detectados e atualizados
+- Eventos de timeline ("Remuneração alterada via Feedz") serão criados normalmente (a lógica na linha 536-543 já existe)
 
-#### RLS Hardening
-1. **`is_clevel()`** — Security definer helper reutilizável.
-2. **`get_doc_extractions_status()`** — Security definer que retorna status de extrações sem expor texto.
-3. **`doc_chunks`** — Policy `dc_select` removida. Apenas service_role acessa.
-4. **`doc_chunk_embeddings`** — Policy `dce_select` removida. Apenas service_role acessa.
-5. **`doc_text_extractions`** — Policy `dte_select` substituída por `dte_select_clevel` (c-level only).
+### Sobre os cargos
+Se cargos também não estão sendo atualizados, pode ser necessário verificar a tabela `feedz_alias_mappings` para confirmar que os cargos do Feedz estão mapeados corretamente. Posso fazer essa verificação se necessário.
 
-#### Pipeline de Extração (doc-extract)
-1. **Chunking melhorado** — 1000 chars com 10% overlap, `page_start`/`page_end` estimados (~3000 chars/página).
-2. **Deduplicação** — Chunks duplicados por hash são filtrados antes do insert.
-3. **Código refatorado** — Funções auxiliares extraídas, lógica simplificada.
-
-#### Templates com Versionamento
-1. **Tabela `doc_templates`** — `template_key` + `version` (unique), `body_markdown`, `schema_json`, `is_active`.
-2. **RLS** — SELECT público, INSERT/UPDATE/DELETE c-level only.
-3. **Seed** — 4 templates iniciais (contrato_govtech, contrato_privado, tr_padrao, tr_completo) v1.0.0.
-4. **AILogsPage** — Tabs: Runs, Extração (monitoramento com contagens e falhas), Templates (CRUD + publicação de versões).
-5. **AIDraftsPage** — Busca template ativo do DB na montagem. Passa `template_version` na geração com IA. Fallback para `draftTemplates.ts`.
