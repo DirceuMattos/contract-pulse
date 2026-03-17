@@ -568,9 +568,8 @@ export default function ContractDetailPage() {
           
           {/* Receivables Card */}
           {(() => {
-            const link = mockSubscriptionLinks[id || ''];
-            const link = mockSubscriptionLinks[id || ''];
-            const isLinked = !!link;
+            const recLink = mockSubscriptionLinks[id || ''];
+            const isLinked = !!recLink;
             const overdue = isLinked ? mockInvoices.filter((inv: any) => inv.contractId === id && inv.status === 'overdue') : [];
             const totalOverdue = overdue.reduce((s: number, inv: any) => s + (inv.amount - inv.paidAmount), 0);
             const maxDays = overdue.reduce((m: number, inv: any) => Math.max(m, inv.daysOverdue), 0);
