@@ -23,6 +23,26 @@ export function buildLookups(hrPeople: HRPerson[], jobTitles: JobTitle[], teams:
   return { peopleMap, jobMap, teamMap };
 }
 
+/**
+ * Calculate custoBase from HR Master including benefits.
+ * Uses beneficiosLista (sum of all item values) when available,
+ * otherwise falls back to the legacy beneficios total.
+ */
+function calcHRCustoBase(person: HRPerson): number {
+  const beneficiosLista = (person as any).beneficiosLista;
+  const beneficiosValor = Array.isArray(beneficiosLista) && beneficiosLista.length
+    ? beneficiosLista.reduce((s: number, b: any) => s + (b.valor || 0), 0)
+    : (person.beneficios || 0);
+  return (person.remuneracaoMensal || 0) + beneficiosValor;
+}
+
+/** Map HR tipoVinculo to Resource tipo for calculations */
+function mapTipoVinculo(tipoVinculo: string): 'clt' | 'pj' | 'outro' {
+  if (tipoVinculo === 'clt') return 'clt';
+  if (tipoVinculo === 'pj') return 'pj';
+  return 'outro'; // cooperado, socio, estagio
+}
+
 export function resolveResource(
   resource: Resource,
   peopleMap: Map<string, HRPerson>,
@@ -41,7 +61,7 @@ export function resolveResource(
         teamName: team?.name,
         teamId: person.teamId,
         tipoVinculo: person.tipoVinculo,
-        custoBase: person.remuneracaoMensal,
+        custoBase: calcHRCustoBase(person),
         isLinked: true,
         isBrokenLink: false,
         isVacant,
@@ -75,7 +95,7 @@ export function resolveResource(
 
 /**
  * Resolve a resource and return a copy with custoBase overridden from HR Master.
- * Used for calculations so they use fresh HR data.
+ * Includes benefits in custoBase and maps tipoVinculo correctly.
  */
 export function resolveResourceForCalc(
   resource: Resource,
@@ -86,8 +106,8 @@ export function resolveResourceForCalc(
     if (person) {
       return {
         ...resource,
-        custoBase: person.remuneracaoMensal,
-        tipo: person.tipoVinculo === 'clt' ? 'clt' : 'pj',
+        custoBase: calcHRCustoBase(person),
+        tipo: mapTipoVinculo(person.tipoVinculo),
       };
     }
     console.warn(`[resourceResolver] Link quebrado: recurso "${resource.nome}" (id=${resource.id}) aponta para hrPersonId="${resource.hrPersonId}" que não existe no RH Mestre.`);
