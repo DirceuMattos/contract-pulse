@@ -69,7 +69,7 @@ export default function ReceivablesReconcilePage() {
         <Button variant="ghost" size="icon" onClick={() => navigate('/receivables')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title="Conciliação de Assinaturas" subtitle="Vincule contratos às assinaturas do Superlógica" />
+        <PageHeader title="Conciliação de Assinaturas" description="Vincule contratos às assinaturas do Superlógica" />
       </div>
 
       {/* Already linked in this session */}

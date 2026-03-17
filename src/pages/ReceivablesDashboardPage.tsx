@@ -120,7 +120,7 @@ export default function ReceivablesDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Recebíveis" subtitle="Posição mensal de pagamentos por contrato" />
+      <PageHeader title="Recebíveis" description="Posição mensal de pagamentos por contrato" />
 
       {/* Unlinked banner */}
       {unlinkedCount > 0 && (

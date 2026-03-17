@@ -99,6 +99,8 @@ const App = () => (
                           <Route path="/ai/resources-analysis" element={<AIResourcesAnalysisPage />} />
                           <Route path="/ai/drafts" element={<AIDraftsPage />} />
                           <Route path="/ai/logs" element={<AILogsPage />} />
+                          <Route path="/receivables" element={<ReceivablesDashboardPage />} />
+                          <Route path="/receivables/reconcile" element={<ReceivablesReconcilePage />} />
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>
