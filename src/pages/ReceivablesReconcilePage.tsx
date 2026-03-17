@@ -72,11 +72,22 @@ export default function ReceivablesReconcilePage() {
     }
   };
 
-  const handleLink = (contractId: string, candidate: SubscriptionCandidate) => {
-    setLinkedMap(prev => ({ ...prev, [contractId]: candidate.subscriptionId }));
-    setSearchDialogContract(null);
-    setCandidates([]);
-    toast.success(`Contrato vinculado à assinatura "${candidate.label}"`);
+  const handleLink = async (contractId: string, candidate: SubscriptionCandidate) => {
+    const client = clients.find(cl => cl.id === contracts.find(c => c.id === contractId)?.clientId);
+    try {
+      await updateContract(contractId, {
+        superlogicaSubscriptionId: candidate.subscriptionId,
+        superlogicaSubscriptionLabel: candidate.label,
+        superlogicaCustomerCnpj: client?.cnpj ?? undefined,
+        receivablesStatus: 'sem_vinculo',
+      });
+      setLinkedMap(prev => ({ ...prev, [contractId]: candidate.subscriptionId }));
+      setSearchDialogContract(null);
+      setCandidates([]);
+      toast.success(`Contrato vinculado à assinatura "${candidate.label}". Execute a sincronização para buscar cobranças.`);
+    } catch (err: any) {
+      toast.error(`Erro ao vincular: ${err.message || err}`);
+    }
   };
 
   const currentContract = searchDialogContract ? contracts.find(c => c.id === searchDialogContract) : null;
