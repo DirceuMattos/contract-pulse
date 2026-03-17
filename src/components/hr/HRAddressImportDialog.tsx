@@ -215,7 +215,8 @@ export function HRAddressImportDialog({ open, onOpenChange, onComplete }: HRAddr
       setMatches(results);
       setStep('preview');
     } catch (err) {
-      toast.error('Erro ao processar arquivo.');
+      console.error('HRAddressImport error:', err);
+      toast.error(`Erro ao processar arquivo: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, []);
 
