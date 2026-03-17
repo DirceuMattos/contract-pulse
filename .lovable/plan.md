@@ -93,3 +93,27 @@
 3. **Seed** — 4 templates iniciais (contrato_govtech, contrato_privado, tr_padrao, tr_completo) v1.0.0.
 4. **AILogsPage** — Tabs: Runs, Extração (monitoramento com contagens e falhas), Templates (CRUD + publicação de versões).
 5. **AIDraftsPage** — Busca template ativo do DB na montagem. Passa `template_version` na geração com IA. Fallback para `draftTemplates.ts`.
+
+## Plan: Módulo Recebíveis + Integração Superlógica
+
+**STATUS: ETAPA 1 ✅ IMPLEMENTADA | ETAPA 2 ⏳ PENDENTE**
+
+### ETAPA 1 — UI com dados mock
+
+1. **moduleAccess.ts** — `RECEIVABLES` adicionado ao `MODULE_KEYS` e `MODULE_CATALOG`. Rota mapeada em `getModuleKeyForRoute`.
+2. **Contract interface** — Campos Superlógica (`superlogicaSubscriptionId`, etc.) e cache de recebíveis (`receivablesStatus`, `receivablesOverdueAmount`, etc.) adicionados.
+3. **dbMappers.ts** — Mapeamento snake_case ↔ camelCase dos novos campos.
+4. **types/receivables.ts** — Interfaces `ReceivableInvoice`, `SubscriptionCandidate`, `ContractReceivableRow`, `ReceivablesSummary`.
+5. **mockReceivables.ts** — ~12 invoices mock, 6 contratos vinculados, 5 sem vínculo, candidatas por CNPJ.
+6. **ReceivablesDashboardPage** — KPIs (previsto, recebido, aberto, atraso, % inadimplência), filtros, tabela principal, seção inadimplentes, banner contratos sem vínculo.
+7. **ReceivablesReconcilePage** — Lista contratos sem vínculo, busca mock de assinaturas por CNPJ, dialog de seleção, vínculo local.
+8. **ContractDetailPage** — Card "Recebíveis" com status (em dia / atrasado / sem vínculo), valor em atraso, último pagamento, CTA vincular.
+9. **Sidebar** — Item "Recebíveis" com ícone Receipt entre IA e Usuários.
+10. **App.tsx** — Rotas `/receivables` e `/receivables/reconcile`.
+
+### ETAPA 2 — Backend + Superlógica (pendente)
+
+- Migração DB: campos no `contracts`, tabelas `receivables_invoices` e `superlogica_sync_runs`
+- Edge Functions: `superlogica-sync` e `superlogica-search-subscriptions`
+- Secrets: `SUPERLOGICA_API_TOKEN` e `SUPERLOGICA_APP_TOKEN`
+- Substituição de mock por dados reais
