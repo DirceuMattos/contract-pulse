@@ -223,6 +223,10 @@ export default function HRPeoplePage() {
                   <Upload className="h-4 w-4 mr-2" />
                   Importar
                 </Button>
+                <Button variant="outline" onClick={() => setAddressImportOpen(true)}>
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Endereços
+                </Button>
                 <Button onClick={() => { setEditingPerson(undefined); setDialogOpen(true); }}>
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Pessoa
