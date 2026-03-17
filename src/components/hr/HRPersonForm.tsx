@@ -180,6 +180,14 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       motivoDesligamento: data.situacao === 'inativo' ? (data.motivoDesligamento || undefined) : undefined,
       observacoesDesligamento: data.situacao === 'inativo' ? (data.observacoesDesligamento || undefined) : undefined,
       tipoDesligamento: data.situacao === 'inativo' ? data.tipoDesligamento : undefined,
+      enderecoCep: data.enderecoCep || undefined,
+      enderecoLogradouro: data.enderecoLogradouro || undefined,
+      enderecoNumero: data.enderecoNumero || undefined,
+      enderecoSemNumero: data.enderecoSemNumero || false,
+      enderecoComplemento: data.enderecoComplemento || undefined,
+      enderecoBairro: data.enderecoBairro || undefined,
+      enderecoMunicipio: data.enderecoMunicipio || undefined,
+      enderecoUf: data.enderecoUf || undefined,
     });
   };
 
