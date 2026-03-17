@@ -137,7 +137,13 @@ export default function ReceivablesDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Recebíveis" description="Posição mensal de pagamentos por contrato" />
+      <div className="flex items-center justify-between">
+        <PageHeader title="Recebíveis" description="Posição mensal de pagamentos por contrato" />
+        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
+        </Button>
+      </div>
 
       {/* Unlinked banner */}
       {unlinkedCount > 0 && (
