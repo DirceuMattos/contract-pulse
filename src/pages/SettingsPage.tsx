@@ -434,6 +434,36 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      {/* Quick links to sub-pages */}
+      {canEdit && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => navigate('/configuracoes/cargos')}>
+            <CardContent className="flex items-center justify-between py-5">
+              <div className="flex items-center gap-3">
+                <Briefcase className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium">Cargos (RH)</p>
+                  <p className="text-xs text-muted-foreground">{jobTitles.length} cargos cadastrados</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => navigate('/configuracoes/equipes')}>
+            <CardContent className="flex items-center justify-between py-5">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium">Equipes</p>
+                  <p className="text-xs text-muted-foreground">{teams.length} equipes cadastradas</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Feedz Integration */}
       {isCLevel && <FeedzSyncSection />}
 
