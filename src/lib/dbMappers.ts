@@ -165,6 +165,15 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     responsavel_cliente_email: contract.responsavelClienteEmail ?? null,
     responsavel_cliente_telefone: contract.responsavelClienteTelefone ?? null,
     percentual_impostos_faturamento: contract.percentualImpostosFaturamento ?? null,
+    superlogica_customer_cnpj: contract.superlogicaCustomerCnpj ?? null,
+    superlogica_customer_name: contract.superlogicaCustomerName ?? null,
+    superlogica_subscription_id: contract.superlogicaSubscriptionId ?? null,
+    superlogica_subscription_label: contract.superlogicaSubscriptionLabel ?? null,
+    superlogica_match_hint: contract.superlogicaMatchHint ?? null,
+    receivables_status: contract.receivablesStatus ?? null,
+    receivables_overdue_amount: contract.receivablesOverdueAmount ?? null,
+    receivables_open_amount: contract.receivablesOpenAmount ?? null,
+    receivables_last_payment_date: contract.receivablesLastPaymentDate ?? null,
     ultima_atualizacao_recursos: contract.ultimaAtualizacaoRecursos ?? null,
   };
 }

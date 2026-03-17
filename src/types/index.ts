@@ -111,6 +111,18 @@ export interface Contract {
   responsavelClienteTelefone?: string;
   
   hasSubprojects?: boolean;
+  
+  // Superlógica / Recebíveis
+  superlogicaCustomerCnpj?: string;
+  superlogicaCustomerName?: string;
+  superlogicaSubscriptionId?: string;
+  superlogicaSubscriptionLabel?: string;
+  superlogicaMatchHint?: string;
+  receivablesStatus?: 'em_dia' | 'atrasado' | 'sem_vinculo';
+  receivablesOverdueAmount?: number;
+  receivablesOpenAmount?: number;
+  receivablesLastPaymentDate?: string;
+  
   createdAt: string;
   updatedAt: string;
   ultimaAtualizacaoRecursos?: string;
