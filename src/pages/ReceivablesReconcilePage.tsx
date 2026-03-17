@@ -17,19 +17,19 @@ import { toast } from 'sonner';
 
 export default function ReceivablesReconcilePage() {
   const navigate = useNavigate();
-  const { contracts, clients } = useData();
+  const { contracts, clients, updateContract } = useData();
 
-  // Local state to track newly linked (mock)
   const [linkedMap, setLinkedMap] = useState<Record<string, string>>({});
   const [searchDialogContract, setSearchDialogContract] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SubscriptionCandidate[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // Contracts without superlogica_subscription_id (real DB check) + mock fallback
   const unlinkedContracts = useMemo(() => {
     return contracts.filter(c =>
-      unlinkedContractIds.includes(c.id) &&
-      !mockSubscriptionLinks[c.id] &&
-      !linkedMap[c.id]
+      !c.superlogicaSubscriptionId &&
+      !linkedMap[c.id] &&
+      ['implantacao', 'operacao'].includes(c.status)
     );
   }, [contracts, linkedMap]);
 
