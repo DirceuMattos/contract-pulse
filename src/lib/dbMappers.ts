@@ -174,7 +174,8 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     receivables_status: contract.receivablesStatus ?? null,
     receivables_overdue_amount: contract.receivablesOverdueAmount ?? null,
     receivables_open_amount: contract.receivablesOpenAmount ?? null,
-    receivables_last_payment_date: contract.receivablesLastPaymentDate ?? null,
+    receivables_last_payment_at: contract.receivablesLastPaymentAt ?? null,
+    receivables_last_sync_at: contract.receivablesLastSyncAt ?? null,
     ultima_atualizacao_recursos: contract.ultimaAtualizacaoRecursos ?? null,
   };
 }
