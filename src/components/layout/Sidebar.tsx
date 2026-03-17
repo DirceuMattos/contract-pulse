@@ -18,6 +18,7 @@ import {
   X,
   UsersRound,
   Sparkles,
+  Receipt,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
