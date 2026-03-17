@@ -56,6 +56,15 @@ const hrPersonSchema = z.object({
   motivoDesligamento: z.string().optional(),
   observacoesDesligamento: z.string().optional(),
   tipoDesligamento: z.enum(['dispensado', 'solicitou-dispensa', 'transferido-grupo', 'outro']).optional(),
+  // Endereço
+  enderecoCep: z.string().optional(),
+  enderecoLogradouro: z.string().optional(),
+  enderecoNumero: z.string().optional(),
+  enderecoSemNumero: z.boolean().optional(),
+  enderecoComplemento: z.string().optional(),
+  enderecoBairro: z.string().optional(),
+  enderecoMunicipio: z.string().optional(),
+  enderecoUf: z.string().optional(),
 });
 
 type HRPersonFormData = z.infer<typeof hrPersonSchema>;
