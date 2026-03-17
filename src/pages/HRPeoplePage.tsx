@@ -355,7 +355,7 @@ export default function HRPeoplePage() {
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('cargo')}>Cargo <SortIcon field="cargo" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('localAtuacao')}>Local <SortIcon field="localAtuacao" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('dataAdmissao')}>Admissão <SortIcon field="dataAdmissao" /></TableHead>
-                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}>Tempo <SortIcon field="tempo" /></TableHead>
+                      <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}><TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}>Tempo de Casa <SortIcon field="tempo" /></TableHead></TableHead>
                       {canViewHRCosts && <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('custoTotal')}>Custo Total <SortIcon field="custoTotal" /></TableHead>}
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('situacao')}>Sit. <SortIcon field="situacao" /></TableHead>
                       <TableHead className="text-xs cursor-pointer select-none sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]" onClick={() => handleSort('comiteGestor')}>Comitê <SortIcon field="comiteGestor" /></TableHead>
@@ -389,7 +389,11 @@ export default function HRPeoplePage() {
                           <TableCell className="text-xs text-muted-foreground py-2 max-w-[100px] truncate">{p.localAtuacao || '—'}</TableCell>
                           <TableCell className="text-xs py-2 whitespace-nowrap">{new Date(p.dataAdmissao + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                           <TableCell className="py-2">
-                            <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
+                            {p.situacao === 'inativo' ? (
+                              <Badge className="bg-destructive text-destructive-foreground text-xs">Inativo</Badge>
+                            ) : (
+                              <span className="text-xs whitespace-nowrap">{tempoCasa}</span>
+                            )}
                           </TableCell>
                           {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
                           <TableCell className="py-2">
