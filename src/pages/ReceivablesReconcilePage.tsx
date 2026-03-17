@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
 import { mockSubscriptionLinks, unlinkedContractIds, mockSubscriptionCandidates } from '@/data/mockReceivables';
+import { supabase } from '@/integrations/supabase/client';
 import type { SubscriptionCandidate } from '@/types/receivables';
 import { toast } from 'sonner';
 
