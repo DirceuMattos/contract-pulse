@@ -476,6 +476,13 @@ export default function HRPeoplePage() {
         onOpenChange={setCorrectionRunsOpen}
         onRollbackComplete={() => window.location.reload()}
       />
+
+      {/* Address Import Dialog */}
+      <HRAddressImportDialog
+        open={addressImportOpen}
+        onOpenChange={setAddressImportOpen}
+        onComplete={() => window.location.reload()}
+      />
     </div>
   );
 }
