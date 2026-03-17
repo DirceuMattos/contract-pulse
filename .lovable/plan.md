@@ -1,121 +1,55 @@
-## Plan: Bloco A (Flags Talento/Guardião no RH) + Bloco B (Overhead Central em Configurações) + Bloco C (Rateio) + Bloco D (Overhead Alocado nos Contratos)
 
-**STATUS: ✅ IMPLEMENTADO**
 
-### O que foi feito
+## Diagnóstico
 
-#### BLOCO A — Flags Talento e Guardião
+### Problema 1: Botão "Conectar assinaturas" nunca aparece no Dashboard
 
-1. **Migração SQL** — Adicionadas colunas `is_talento` e `is_guardiao` (boolean, default false) em `hr_people`.
-2. **Types** — Campos `isTalento` e `isGuardiao` adicionados ao `HRPerson`.
-3. **Mappers** — `hrPersonFromDb` e `hrPersonToDb` mapeiam os novos campos.
-4. **Lista RH** — Badges "⭐ Talento" (dourado) e "🛡️ Guardião" (azul) na coluna Nome. Filtros checkbox para ambos. Borda colorida na linha.
-5. **Detalhe RH** — Switches Talento/Guardião com tooltips na seção Dados Profissionais. Desabilitados para quem não tem `canEdit`.
-6. **Permissões** — `canEdit` controla edição (C-Level + Intermediário). Demais veem badges mas não editam.
+O banner com o botão para ir à página de conciliação depende de `unlinkedCount > 0` (linha 120), que conta quantos IDs de `unlinkedContractIds` existem nos contratos carregados. Mas `unlinkedContractIds` é uma lista mock com IDs fictícios (`'ctr-002'`, `'ctr-007'`, etc.), enquanto os contratos reais têm UUIDs. Resultado: `unlinkedCount` é sempre 0, o banner nunca aparece.
 
-#### BLOCO B — Overhead Central
+**Correção**: Substituir a lógica mock por uma contagem real — contratos em `implantacao`/`operacao` sem `superlogicaSubscriptionId` preenchido. Adicionar também um botão permanente no header da página para acessar a conciliação.
 
-1. **SettingsPage** — Nova seção "Overhead Central (mensal)" com 5 inputs R$ + total read-only.
-2. **Persistência** — `localStorage` com chave `overhead-central`.
-3. **UX** — Botão "Ver detalhamento do rateio" ativo (navega para /configuracoes/overhead-rateio). Toast ao salvar.
+### Problema 2: "Nenhuma assinatura encontrada para este CNPJ"
 
-#### BLOCO C — Rateio do Overhead Central
+Os logs mostram o erro real:
+```
+Invalid URL: 'plication/x-www-form-urlencoded/v2/financeiro/clientes?...'
+```
 
-1. **`src/lib/overheadAllocation.ts`** — Função `calculateOverheadAllocation` calcula percentual e overhead alocado por contrato, com ajuste de arredondamento no maior contrato.
-2. **`src/pages/OverheadAllocationPage.tsx`** — Nova página `/configuracoes/overhead-rateio`:
-   - Cards resumo: Pool total, Receita total, Soma alocada (com check ✓)
-   - Tabela principal: Cliente, Contrato, Valor Mensal, Percentual, Overhead Alocado, Status, link abrir
-   - Seção "Pendências do rateio": contratos excluídos (receita 0 ou não vigente) com motivo e link editar
-   - Filtros: busca textual + select cliente
-   - Tooltip de ajuste de arredondamento
-3. **Rota** — Adicionada em App.tsx
-4. **Não alterado** — Consultoria por contrato (CRUD de recursos) permanece intacta. Cálculo de break-even não alterado (Bloco E futuro).
+O secret `SUPERLOGICA_API_BASE` foi configurado com o valor `application/x-www-form-urlencoded` em vez de uma URL como `https://api.superlogica.net`. A edge function concatena `API_BASE + path`, gerando uma URL inválida.
 
-#### BLOCO D — Overhead Alocado nos Contratos
+Quando a edge function falha, o front faz fallback para `mockSubscriptionCandidates[cnpj]`. Mas os mocks usam CNPJs formatados (`'46.377.222/0001-29'`), enquanto os CNPJs reais do banco podem estar em formato diferente (só dígitos ou outro padrão). Logo, o fallback também retorna vazio.
 
-1. **`src/hooks/useOverheadPool.ts`** (novo) — Hook que lê o pool central do localStorage, calcula alocações via `calculateOverheadAllocation`, e expõe `getAllocation(contractId)` retornando `{ percent, value, isPending, pendingReason }`.
-2. **`src/lib/calculations.ts`** — `calculateContractHealth` recebe parâmetro opcional `centralOverhead` (default 0), somado ao custo mensal. `calculateDashboardKPIs` recebe `centralOverheadMap` opcional.
-3. **`src/lib/alertGenerator.ts`** — Contexto de alertas aceita `centralOverheadMap`, propagado para checagem financeira.
-4. **`src/hooks/useAlerts.ts`** — Usa `useOverheadPool` para construir o mapa e passá-lo ao gerador de alertas.
-5. **Todas as páginas atualizadas** — `DashboardPage`, `ContractsPage`, `ClientDetailPage`, `SquadsPage`, `ContractDetailPage`, `ContractResourcesPage` passam o overhead alocado para `calculateContractHealth`.
-6. **UI ContractDetailPage** — Seção "Distribuição de Custos" exibe barra "Overhead alocado" com percentual e valor. Aba "Recursos" exibe card "Overhead alocado" com estado normal ou "Indisponível". Itens legados aparecem colapsados como somente-leitura.
-7. **UI ContractResourcesPage** — Seção CRUD de overhead substituída por card read-only "Overhead alocado" com link "Ver rateio". Itens legados exibidos em card opaco com aviso.
-8. **Não alterado** — Consultoria por contrato, pool central em Configurações, página de rateio, break-even.
+**Correções**:
+1. Solicitar ao usuário que corrija o secret `SUPERLOGICA_API_BASE` com a URL correta da API.
+2. Normalizar o CNPJ no fallback mock (remover formatação) para que o match funcione no ambiente dev.
+3. Melhorar o fallback: tentar match por CNPJ normalizado (só dígitos).
 
-## Plan: Módulo IA — Estrutura, Análises Rule-Based e Minutas
+---
 
-**STATUS: ✅ IMPLEMENTADO**
+## Plano de implementação
 
-### O que foi feito
+### 1. Dashboard — Botão permanente + contagem real de não-vinculados
 
-#### IA-1 — Estrutura + Navegação + Placeholders
-1. **moduleAccess.ts** — Adicionados `AI` e `AI_LOGS` ao `MODULE_KEYS`. AI_LOGS restrito a c-level. Intermediário sem acesso por default.
-2. **Sidebar.tsx** — Item "IA" com ícone Sparkles adicionado entre RH e Usuários.
-3. **App.tsx** — Rotas `/ai/*` com redirect `/ai` → `/ai/contracts-analysis`.
-4. **AIPageLayout.tsx** — Tabs de navegação entre sub-páginas + badge "Simulação (Etapa 1)".
-5. **Migração SQL** — Valores `AI` e `AI_LOGS` adicionados ao enum `module_key`.
+**Arquivo**: `src/pages/ReceivablesDashboardPage.tsx`
 
-#### IA-2 — Análises Rule-Based
-1. **aiRuleEngine.ts** — Engine com funções puras:
-   - `analyzeContractPortfolio()`: KPIs (críticos, atenção, reajustes, vencimentos), top 10 recomendações, diagnóstico por contrato.
-   - `analyzeResources()`: mapa de carga por equipe, sobrecargas (>100%), ociosidade (<30%), comitê gestor, aniversários CLT.
-2. **AIContractsAnalysisPage** — Filtros (cliente, segmento, saúde, busca), cards KPI, recomendações com badges, diagnóstico por contrato, botão copiar.
-3. **AIResourcesAnalysisPage** — Toggle "Mostrar nomes" (admin default ON), filtro equipe, mapa de carga, sobrecargas, ociosidade, comitê, aniversários.
+- Remover dependência de `unlinkedContractIds` (mock)
+- Calcular `unlinkedCount` como contratos ativos sem `superlogicaSubscriptionId`
+- Manter o banner amarelo com contagem dinâmica
+- Adicionar botão "Conciliar assinaturas" no header ao lado do "Sincronizar agora"
 
-#### IA-3 — Minutas
-1. **aiDrafts.ts** — Tipos Draft, DraftContractAnswers, DraftTRAnswers, DraftDocReference.
-2. **draftTemplates.ts** — 4 templates: Contrato GovTech, Contrato Privado, TR Padrão, TR Completo. Placeholders substituídos automaticamente.
-3. **useAIDrafts.ts** — Hook CRUD com localStorage (`ai-drafts`).
-4. **AIDraftsPage** — Wizard 4 etapas (tipo → contexto → questionário → editor). Aba Rascunhos com abrir/duplicar/excluir. Auto-fill de dados do contrato selecionado. Referências de documentos. Copiar texto. Export PDF/DOCX em breve.
-5. **AILogsPage** — Placeholder "Em breve".
+### 2. Reconcile Page — Normalizar CNPJ no fallback mock
 
-## Plan: RLS Completas + Pipeline Extração/Embeddings + Templates com Versionamento
+**Arquivo**: `src/pages/ReceivablesReconcilePage.tsx`
 
-**STATUS: ✅ IMPLEMENTADO**
+- No `handleSearch`, ao fazer fallback para `mockSubscriptionCandidates`, normalizar o CNPJ (só dígitos) antes do lookup no Record
 
-### O que foi feito
+### 3. Mock data — Adicionar entradas por CNPJ normalizado
 
-#### RLS Hardening
-1. **`is_clevel()`** — Security definer helper reutilizável.
-2. **`get_doc_extractions_status()`** — Security definer que retorna status de extrações sem expor texto.
-3. **`doc_chunks`** — Policy `dc_select` removida. Apenas service_role acessa.
-4. **`doc_chunk_embeddings`** — Policy `dce_select` removida. Apenas service_role acessa.
-5. **`doc_text_extractions`** — Policy `dte_select` substituída por `dte_select_clevel` (c-level only).
+**Arquivo**: `src/data/mockReceivables.ts`
 
-#### Pipeline de Extração (doc-extract)
-1. **Chunking melhorado** — 1000 chars com 10% overlap, `page_start`/`page_end` estimados (~3000 chars/página).
-2. **Deduplicação** — Chunks duplicados por hash são filtrados antes do insert.
-3. **Código refatorado** — Funções auxiliares extraídas, lógica simplificada.
+- Duplicar as chaves do `mockSubscriptionCandidates` usando CNPJ sem formatação (só dígitos), para funcionar com ambos os formatos
 
-#### Templates com Versionamento
-1. **Tabela `doc_templates`** — `template_key` + `version` (unique), `body_markdown`, `schema_json`, `is_active`.
-2. **RLS** — SELECT público, INSERT/UPDATE/DELETE c-level only.
-3. **Seed** — 4 templates iniciais (contrato_govtech, contrato_privado, tr_padrao, tr_completo) v1.0.0.
-4. **AILogsPage** — Tabs: Runs, Extração (monitoramento com contagens e falhas), Templates (CRUD + publicação de versões).
-5. **AIDraftsPage** — Busca template ativo do DB na montagem. Passa `template_version` na geração com IA. Fallback para `draftTemplates.ts`.
+### 4. Secret `SUPERLOGICA_API_BASE` — Solicitar correção
 
-## Plan: Módulo Recebíveis + Integração Superlógica
+- Usar a tool `add_secret` para pedir ao usuário que insira a URL correta (ex: `https://api.superlogica.net` ou `https://apiassinaturas.superlogica.com`)
 
-**STATUS: ETAPA 1 ✅ IMPLEMENTADA | ETAPA 2 ✅ IMPLEMENTADA**
-
-### ETAPA 1 — UI com dados mock
-
-1. **moduleAccess.ts** — `RECEIVABLES` adicionado ao `MODULE_KEYS` e `MODULE_CATALOG`. Rota mapeada em `getModuleKeyForRoute`.
-2. **Contract interface** — Campos Superlógica (`superlogicaSubscriptionId`, etc.) e cache de recebíveis (`receivablesStatus`, `receivablesOverdueAmount`, etc.) adicionados.
-3. **dbMappers.ts** — Mapeamento snake_case ↔ camelCase dos novos campos.
-4. **types/receivables.ts** — Interfaces `ReceivableInvoice`, `SubscriptionCandidate`, `ContractReceivableRow`, `ReceivablesSummary`.
-5. **mockReceivables.ts** — ~12 invoices mock, 6 contratos vinculados, 5 sem vínculo, candidatas por CNPJ.
-6. **ReceivablesDashboardPage** — KPIs (previsto, recebido, aberto, atraso, % inadimplência), filtros, tabela principal, seção inadimplentes, banner contratos sem vínculo.
-7. **ReceivablesReconcilePage** — Lista contratos sem vínculo, busca mock de assinaturas por CNPJ, dialog de seleção, vínculo local.
-8. **ContractDetailPage** — Card "Recebíveis" com status (em dia / atrasado / sem vínculo), valor em atraso, último pagamento, CTA vincular.
-9. **Sidebar** — Item "Recebíveis" com ícone Receipt abaixo de Contratos.
-10. **App.tsx** — Rotas `/receivables` e `/receivables/reconcile`.
-
-### ETAPA 2 — Backend + Superlógica
-
-1. **Migração DB** — Colunas no `contracts` (superlogica_subscription_id, receivables_status, etc.), tabelas `superlogica_sync_run`, `receivables_subscriptions`, `receivables_invoices` com RLS e índices.
-2. **Edge Function `superlogica-search-subscriptions`** — Busca assinaturas por CNPJ na API Superlógica. Retorna candidatas para conciliação.
-3. **Edge Function `superlogica-sync`** — Sincroniza cobranças de contratos vinculados. Upsert em `receivables_invoices`, atualiza cache no contrato, registra run.
-4. **Secrets** — `SUPERLOGICA_API_BASE`, `SUPERLOGICA_APP_TOKEN`, `SUPERLOGICA_ACCESS_TOKEN` configurados.
-5. **Frontend** — ReceivablesReconcilePage chama edge function (fallback mock). Dashboard tem botão "Sincronizar agora".
-6. **Contract type** — Campos `receivablesLastPaymentAt` e `receivablesLastSyncAt` adicionados. Mapper ajustado.
