@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.ai-export-run]
 verify_jwt = false
+
+[functions.superlogica-search-subscriptions]
+verify_jwt = false
+
+[functions.superlogica-sync]
+verify_jwt = false

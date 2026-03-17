@@ -119,7 +119,8 @@ export function contractFromDb(row: Record<string, unknown>): Contract {
     receivablesStatus: (row.receivables_status as any) ?? undefined,
     receivablesOverdueAmount: (row.receivables_overdue_amount as number | null) ?? undefined,
     receivablesOpenAmount: (row.receivables_open_amount as number | null) ?? undefined,
-    receivablesLastPaymentDate: (row.receivables_last_payment_date as string | null) ?? undefined,
+    receivablesLastPaymentAt: (row.receivables_last_payment_at as string | null) ?? undefined,
+    receivablesLastSyncAt: (row.receivables_last_sync_at as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     ultimaAtualizacaoRecursos: (row.ultima_atualizacao_recursos as string | null) ?? undefined,
@@ -173,7 +174,8 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     receivables_status: contract.receivablesStatus ?? null,
     receivables_overdue_amount: contract.receivablesOverdueAmount ?? null,
     receivables_open_amount: contract.receivablesOpenAmount ?? null,
-    receivables_last_payment_date: contract.receivablesLastPaymentDate ?? null,
+    receivables_last_payment_at: contract.receivablesLastPaymentAt ?? null,
+    receivables_last_sync_at: contract.receivablesLastSyncAt ?? null,
     ultima_atualizacao_recursos: contract.ultimaAtualizacaoRecursos ?? null,
   };
 }

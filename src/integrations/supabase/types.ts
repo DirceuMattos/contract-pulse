@@ -406,6 +406,11 @@ export type Database = {
           percentual_fixo: number | null
           percentual_impostos_faturamento: number | null
           periodicidade_renovacao: string | null
+          receivables_last_payment_at: string | null
+          receivables_last_sync_at: string | null
+          receivables_open_amount: number | null
+          receivables_overdue_amount: number | null
+          receivables_status: string | null
           renewal_base_date: string | null
           renewal_term_months: number | null
           renovacao_automatica: boolean
@@ -420,6 +425,10 @@ export type Database = {
           slas: string | null
           status: Database["public"]["Enums"]["contract_status"]
           status_renovacao: Database["public"]["Enums"]["renewal_status"]
+          superlogica_customer_cnpj: string | null
+          superlogica_match_hint: string | null
+          superlogica_subscription_id: string | null
+          superlogica_subscription_label: string | null
           tags: string[]
           tipo: Database["public"]["Enums"]["contract_type"]
           ultima_atualizacao_recursos: string | null
@@ -449,6 +458,11 @@ export type Database = {
           percentual_fixo?: number | null
           percentual_impostos_faturamento?: number | null
           periodicidade_renovacao?: string | null
+          receivables_last_payment_at?: string | null
+          receivables_last_sync_at?: string | null
+          receivables_open_amount?: number | null
+          receivables_overdue_amount?: number | null
+          receivables_status?: string | null
           renewal_base_date?: string | null
           renewal_term_months?: number | null
           renovacao_automatica?: boolean
@@ -463,6 +477,10 @@ export type Database = {
           slas?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           status_renovacao?: Database["public"]["Enums"]["renewal_status"]
+          superlogica_customer_cnpj?: string | null
+          superlogica_match_hint?: string | null
+          superlogica_subscription_id?: string | null
+          superlogica_subscription_label?: string | null
           tags?: string[]
           tipo?: Database["public"]["Enums"]["contract_type"]
           ultima_atualizacao_recursos?: string | null
@@ -492,6 +510,11 @@ export type Database = {
           percentual_fixo?: number | null
           percentual_impostos_faturamento?: number | null
           periodicidade_renovacao?: string | null
+          receivables_last_payment_at?: string | null
+          receivables_last_sync_at?: string | null
+          receivables_open_amount?: number | null
+          receivables_overdue_amount?: number | null
+          receivables_status?: string | null
           renewal_base_date?: string | null
           renewal_term_months?: number | null
           renovacao_automatica?: boolean
@@ -506,6 +529,10 @@ export type Database = {
           slas?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           status_renovacao?: Database["public"]["Enums"]["renewal_status"]
+          superlogica_customer_cnpj?: string | null
+          superlogica_match_hint?: string | null
+          superlogica_subscription_id?: string | null
+          superlogica_subscription_label?: string | null
           tags?: string[]
           tipo?: Database["public"]["Enums"]["contract_type"]
           ultima_atualizacao_recursos?: string | null
@@ -1546,6 +1573,98 @@ export type Database = {
         }
         Relationships: []
       }
+      receivables_invoices: {
+        Row: {
+          amount: number
+          competence: string | null
+          contract_id: string
+          days_overdue: number
+          due_date: string | null
+          external_invoice_id: string | null
+          id: string
+          paid_amount: number
+          paid_at: string | null
+          raw_payload: Json
+          status: string
+          superlogica_subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          competence?: string | null
+          contract_id: string
+          days_overdue?: number
+          due_date?: string | null
+          external_invoice_id?: string | null
+          id?: string
+          paid_amount?: number
+          paid_at?: string | null
+          raw_payload?: Json
+          status?: string
+          superlogica_subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          competence?: string | null
+          contract_id?: string
+          days_overdue?: number
+          due_date?: string | null
+          external_invoice_id?: string | null
+          id?: string
+          paid_amount?: number
+          paid_at?: string | null
+          raw_payload?: Json
+          status?: string
+          superlogica_subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receivables_invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receivables_subscriptions: {
+        Row: {
+          amount: number | null
+          customer_cnpj: string | null
+          customer_name: string | null
+          id: string
+          label: string | null
+          periodicity: string | null
+          status: string | null
+          superlogica_subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          customer_cnpj?: string | null
+          customer_name?: string | null
+          id?: string
+          label?: string | null
+          periodicity?: string | null
+          status?: string | null
+          superlogica_subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          customer_cnpj?: string | null
+          customer_name?: string | null
+          id?: string
+          label?: string | null
+          periodicity?: string | null
+          status?: string | null
+          superlogica_subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       resources: {
         Row: {
           cargo: string | null
@@ -1967,6 +2086,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      superlogica_sync_run: {
+        Row: {
+          error_summary: string | null
+          errors_count: number
+          fetched_subscriptions: number
+          finished_at: string | null
+          id: string
+          invoices_upserted: number
+          started_at: string
+          status: string
+          updated_contracts: number
+        }
+        Insert: {
+          error_summary?: string | null
+          errors_count?: number
+          fetched_subscriptions?: number
+          finished_at?: string | null
+          id?: string
+          invoices_upserted?: number
+          started_at?: string
+          status?: string
+          updated_contracts?: number
+        }
+        Update: {
+          error_summary?: string | null
+          errors_count?: number
+          fetched_subscriptions?: number
+          finished_at?: string | null
+          id?: string
+          invoices_upserted?: number
+          started_at?: string
+          status?: string
+          updated_contracts?: number
+        }
+        Relationships: []
       }
       teams: {
         Row: {

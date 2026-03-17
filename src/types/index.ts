@@ -121,7 +121,8 @@ export interface Contract {
   receivablesStatus?: 'em_dia' | 'atrasado' | 'sem_vinculo';
   receivablesOverdueAmount?: number;
   receivablesOpenAmount?: number;
-  receivablesLastPaymentDate?: string;
+  receivablesLastPaymentAt?: string;
+  receivablesLastSyncAt?: string;
   
   createdAt: string;
   updatedAt: string;
