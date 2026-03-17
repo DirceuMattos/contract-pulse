@@ -402,17 +402,34 @@ export default function HRPersonDetailPage() {
                   } />
                 </div>
 
+                {/* Bloco Endereço — só exibe se houver ao menos 1 campo preenchido */}
+                {(person.enderecoCep || person.enderecoLogradouro || person.enderecoNumero || person.enderecoBairro || person.enderecoMunicipio || person.enderecoUf) && (
+                  <div className="mt-2 p-3 rounded-lg border border-muted bg-muted/30">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Endereço</p>
+                    {person.enderecoLogradouro && (
+                      <Row label="Logradouro" value={
+                        `${person.enderecoLogradouro}${person.enderecoNumero ? `, ${person.enderecoNumero}` : person.enderecoSemNumero ? ' (S/N)' : ''}${person.enderecoComplemento ? ` — ${person.enderecoComplemento}` : ''}`
+                      } />
+                    )}
+                    {person.enderecoBairro && <Row label="Bairro" value={person.enderecoBairro} />}
+                    {(person.enderecoMunicipio || person.enderecoUf) && (
+                      <Row label="Cidade/UF" value={[person.enderecoMunicipio, person.enderecoUf].filter(Boolean).join(' — ')} />
+                    )}
+                    {person.enderecoCep && <Row label="CEP" value={person.enderecoCep} />}
+                  </div>
+                )}
+
+                {/* Bloco Desligamento — só exibe para inativos com dados */}
                 {person.situacao === 'inativo' && person.dataDesligamento && (
-                  <Row label="Data de Desligamento" value={new Date(person.dataDesligamento + 'T12:00:00').toLocaleDateString('pt-BR')} />
-                )}
-                {person.tipoDesligamento && (
-                  <Row label="Tipo de Desligamento" value={tipoDesligamentoLabels[person.tipoDesligamento] || person.tipoDesligamento} />
-                )}
-                {person.motivoDesligamento && (
-                  <Row label="Motivo" value={person.motivoDesligamento} />
-                )}
-                {person.observacoesDesligamento && (
-                  <Row label="Obs. Desligamento" value={person.observacoesDesligamento} />
+                  <div className="mt-2 p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                    <p className="text-xs font-semibold text-destructive uppercase tracking-wide mb-2">Desligamento</p>
+                    <Row label="Data" value={new Date(person.dataDesligamento + 'T12:00:00').toLocaleDateString('pt-BR')} />
+                    {person.tipoDesligamento && (
+                      <Row label="Tipo" value={tipoDesligamentoLabels[person.tipoDesligamento] || person.tipoDesligamento} />
+                    )}
+                    {person.motivoDesligamento && <Row label="Motivo" value={person.motivoDesligamento} />}
+                    {person.observacoesDesligamento && <Row label="Observações" value={person.observacoesDesligamento} />}
+                  </div>
                 )}
               </CardContent>
             </Card>

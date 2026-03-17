@@ -579,6 +579,14 @@ export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
     nomeNormalizado: (row.nome_normalizado as string | null) ?? undefined,
     isTalento: (row.is_talento as boolean | null) ?? false,
     isGuardiao: (row.is_guardiao as boolean | null) ?? false,
+    enderecoCep: (row.endereco_cep as string | null) ?? undefined,
+    enderecoLogradouro: (row.endereco_logradouro as string | null) ?? undefined,
+    enderecoNumero: (row.endereco_numero as string | null) ?? undefined,
+    enderecoSemNumero: (row.endereco_sem_numero as boolean | null) ?? undefined,
+    enderecoComplemento: (row.endereco_complemento as string | null) ?? undefined,
+    enderecoBairro: (row.endereco_bairro as string | null) ?? undefined,
+    enderecoMunicipio: (row.endereco_municipio as string | null) ?? undefined,
+    enderecoUf: (row.endereco_uf as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -620,6 +628,14 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     nome_normalizado: p.nomeNormalizado ?? null,
     is_talento: p.isTalento ?? false,
     is_guardiao: p.isGuardiao ?? false,
+    endereco_cep: p.enderecoCep ?? null,
+    endereco_logradouro: p.enderecoLogradouro ?? null,
+    endereco_numero: p.enderecoNumero ?? null,
+    endereco_sem_numero: p.enderecoSemNumero ?? false,
+    endereco_complemento: p.enderecoComplemento ?? null,
+    endereco_bairro: p.enderecoBairro ?? null,
+    endereco_municipio: p.enderecoMunicipio ?? null,
+    endereco_uf: p.enderecoUf ?? null,
   };
 }
 

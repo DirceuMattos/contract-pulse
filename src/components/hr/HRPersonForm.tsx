@@ -56,6 +56,15 @@ const hrPersonSchema = z.object({
   motivoDesligamento: z.string().optional(),
   observacoesDesligamento: z.string().optional(),
   tipoDesligamento: z.enum(['dispensado', 'solicitou-dispensa', 'transferido-grupo', 'outro']).optional(),
+  // Endereço
+  enderecoCep: z.string().optional(),
+  enderecoLogradouro: z.string().optional(),
+  enderecoNumero: z.string().optional(),
+  enderecoSemNumero: z.boolean().optional(),
+  enderecoComplemento: z.string().optional(),
+  enderecoBairro: z.string().optional(),
+  enderecoMunicipio: z.string().optional(),
+  enderecoUf: z.string().optional(),
 });
 
 type HRPersonFormData = z.infer<typeof hrPersonSchema>;
@@ -109,6 +118,14 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       motivoDesligamento: person?.motivoDesligamento || '',
       observacoesDesligamento: person?.observacoesDesligamento || '',
       tipoDesligamento: person?.tipoDesligamento,
+      enderecoCep: person?.enderecoCep || '',
+      enderecoLogradouro: person?.enderecoLogradouro || '',
+      enderecoNumero: person?.enderecoNumero || '',
+      enderecoSemNumero: person?.enderecoSemNumero || false,
+      enderecoComplemento: person?.enderecoComplemento || '',
+      enderecoBairro: person?.enderecoBairro || '',
+      enderecoMunicipio: person?.enderecoMunicipio || '',
+      enderecoUf: person?.enderecoUf || '',
     },
   });
 
@@ -163,6 +180,14 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       motivoDesligamento: data.situacao === 'inativo' ? (data.motivoDesligamento || undefined) : undefined,
       observacoesDesligamento: data.situacao === 'inativo' ? (data.observacoesDesligamento || undefined) : undefined,
       tipoDesligamento: data.situacao === 'inativo' ? data.tipoDesligamento : undefined,
+      enderecoCep: data.enderecoCep || undefined,
+      enderecoLogradouro: data.enderecoLogradouro || undefined,
+      enderecoNumero: data.enderecoNumero || undefined,
+      enderecoSemNumero: data.enderecoSemNumero || false,
+      enderecoComplemento: data.enderecoComplemento || undefined,
+      enderecoBairro: data.enderecoBairro || undefined,
+      enderecoMunicipio: data.enderecoMunicipio || undefined,
+      enderecoUf: data.enderecoUf || undefined,
     });
   };
 
@@ -420,6 +445,73 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
             </div>
           </>
         )}
+
+        {/* Endereço */}
+        <Separator />
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Endereço</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField control={form.control} name="enderecoCep" render={({ field }) => (
+              <FormItem>
+                <FormLabel>CEP</FormLabel>
+                <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoLogradouro" render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Logradouro</FormLabel>
+                <FormControl><Input placeholder="Rua, Avenida..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoNumero" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número</FormLabel>
+                <FormControl><Input placeholder="Nº" {...field} disabled={form.watch('enderecoSemNumero')} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoSemNumero" render={({ field }) => (
+              <FormItem className="flex items-end gap-2 pb-2">
+                <FormControl>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={field.value || false} onCheckedChange={field.onChange} />
+                    <Label className="text-sm">Sem número</Label>
+                  </div>
+                </FormControl>
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoComplemento" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Complemento</FormLabel>
+                <FormControl><Input placeholder="Apto, Bloco..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoBairro" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Bairro</FormLabel>
+                <FormControl><Input placeholder="Bairro" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoMunicipio" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Município</FormLabel>
+                <FormControl><Input placeholder="Cidade" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="enderecoUf" render={({ field }) => (
+              <FormItem>
+                <FormLabel>UF</FormLabel>
+                <FormControl><Input placeholder="SP" maxLength={2} {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
+        </div>
 
         {/* Destaque para Comitê Gestor em */}
         <Separator />

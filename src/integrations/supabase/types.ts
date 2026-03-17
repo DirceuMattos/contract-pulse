@@ -1234,6 +1234,14 @@ export type Database = {
           data_admissao: string
           data_desligamento: string | null
           email: string | null
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_complemento: string | null
+          endereco_logradouro: string | null
+          endereco_municipio: string | null
+          endereco_numero: string | null
+          endereco_sem_numero: boolean | null
+          endereco_uf: string | null
           id: string
           id_externo: string | null
           is_guardiao: boolean
@@ -1274,6 +1282,14 @@ export type Database = {
           data_admissao?: string
           data_desligamento?: string | null
           email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_municipio?: string | null
+          endereco_numero?: string | null
+          endereco_sem_numero?: boolean | null
+          endereco_uf?: string | null
           id?: string
           id_externo?: string | null
           is_guardiao?: boolean
@@ -1314,6 +1330,14 @@ export type Database = {
           data_admissao?: string
           data_desligamento?: string | null
           email?: string | null
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_complemento?: string | null
+          endereco_logradouro?: string | null
+          endereco_municipio?: string | null
+          endereco_numero?: string | null
+          endereco_sem_numero?: boolean | null
+          endereco_uf?: string | null
           id?: string
           id_externo?: string | null
           is_guardiao?: boolean
