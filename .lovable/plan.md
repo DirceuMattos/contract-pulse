@@ -96,7 +96,7 @@
 
 ## Plan: Módulo Recebíveis + Integração Superlógica
 
-**STATUS: ETAPA 1 ✅ IMPLEMENTADA | ETAPA 2 ⏳ PENDENTE**
+**STATUS: ETAPA 1 ✅ IMPLEMENTADA | ETAPA 2 ✅ IMPLEMENTADA**
 
 ### ETAPA 1 — UI com dados mock
 
@@ -108,12 +108,14 @@
 6. **ReceivablesDashboardPage** — KPIs (previsto, recebido, aberto, atraso, % inadimplência), filtros, tabela principal, seção inadimplentes, banner contratos sem vínculo.
 7. **ReceivablesReconcilePage** — Lista contratos sem vínculo, busca mock de assinaturas por CNPJ, dialog de seleção, vínculo local.
 8. **ContractDetailPage** — Card "Recebíveis" com status (em dia / atrasado / sem vínculo), valor em atraso, último pagamento, CTA vincular.
-9. **Sidebar** — Item "Recebíveis" com ícone Receipt entre IA e Usuários.
+9. **Sidebar** — Item "Recebíveis" com ícone Receipt abaixo de Contratos.
 10. **App.tsx** — Rotas `/receivables` e `/receivables/reconcile`.
 
-### ETAPA 2 — Backend + Superlógica (pendente)
+### ETAPA 2 — Backend + Superlógica
 
-- Migração DB: campos no `contracts`, tabelas `receivables_invoices` e `superlogica_sync_runs`
-- Edge Functions: `superlogica-sync` e `superlogica-search-subscriptions`
-- Secrets: `SUPERLOGICA_API_TOKEN` e `SUPERLOGICA_APP_TOKEN`
-- Substituição de mock por dados reais
+1. **Migração DB** — Colunas no `contracts` (superlogica_subscription_id, receivables_status, etc.), tabelas `superlogica_sync_run`, `receivables_subscriptions`, `receivables_invoices` com RLS e índices.
+2. **Edge Function `superlogica-search-subscriptions`** — Busca assinaturas por CNPJ na API Superlógica. Retorna candidatas para conciliação.
+3. **Edge Function `superlogica-sync`** — Sincroniza cobranças de contratos vinculados. Upsert em `receivables_invoices`, atualiza cache no contrato, registra run.
+4. **Secrets** — `SUPERLOGICA_API_BASE`, `SUPERLOGICA_APP_TOKEN`, `SUPERLOGICA_ACCESS_TOKEN` configurados.
+5. **Frontend** — ReceivablesReconcilePage chama edge function (fallback mock). Dashboard tem botão "Sincronizar agora".
+6. **Contract type** — Campos `receivablesLastPaymentAt` e `receivablesLastSyncAt` adicionados. Mapper ajustado.
