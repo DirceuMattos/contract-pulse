@@ -604,7 +604,7 @@ export default function ContractDetailPage() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Assinatura</span>
-                        <span className="font-medium">{link.subscriptionLabel}</span>
+                        <span className="font-medium">{recLink.subscriptionLabel}</span>
                       </div>
                       {totalOverdue > 0 && (
                         <div className="flex justify-between">
