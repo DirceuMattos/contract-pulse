@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
-import { mockInvoices, mockSubscriptionLinks, unlinkedContractIds } from '@/data/mockReceivables';
+import { mockInvoices, mockSubscriptionLinks } from '@/data/mockReceivables';
 import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivables';
 
 const currentMonth = '2026-03';
