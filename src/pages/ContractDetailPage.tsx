@@ -49,6 +49,7 @@ import {
   calculateRenewalExpectedDate,
   getDaysUntil,
   getDaysSince,
+  getHealthStatus,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { HealthStatus, Resource, OverheadItem } from '@/types';
@@ -117,8 +118,29 @@ export default function ContractDetailPage() {
     }
     return map;
   }, [contractHasSubs, resourceAllocations, contractResources]);
-  
-  if (!contract) {
+
+  // Compute health with subproject cost adjustments (must be before early return)
+  const health = useMemo(() => {
+    if (!contract) return null;
+    const overheadAllocVal = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
+    const rawHealth = calculateContractHealth(contract, contractResources, settings, [], overheadAllocVal.value);
+    if (!subprojectOutrosCost || subprojectOutrosCost.size === 0) return rawHealth;
+    const outroResources = contractResources.filter(r => r.tipo === 'outro');
+    const custoOutrosOriginal = outroResources.reduce((sum, r) => sum + calculateResourceCost(r, settings), 0);
+    let custoOutrosSubprojetos = 0;
+    for (const r of outroResources) {
+      const allocData = subprojectOutrosCost.get(r.id);
+      custoOutrosSubprojetos += allocData ? allocData.totalCost : calculateResourceCost(r, settings);
+    }
+    const delta = custoOutrosSubprojetos - custoOutrosOriginal;
+    if (Math.abs(delta) < 0.01) return rawHealth;
+    const custoMensal = rawHealth.custoMensal + delta;
+    const margemMensal = rawHealth.receitaLiquida - custoMensal;
+    const margemPercentual = rawHealth.receitaLiquida > 0 ? (margemMensal / rawHealth.receitaLiquida) * 100 : 0;
+    return { ...rawHealth, custoMensal, margemMensal, margemPercentual, status: getHealthStatus(margemPercentual, settings) };
+  }, [contract, id, contractResources, settings, subprojectOutrosCost, getOverheadAllocation]);
+
+  if (!contract || !health) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <FileText className="w-16 h-16 text-muted-foreground/30 mb-4" />
@@ -130,7 +152,6 @@ export default function ContractDetailPage() {
   }
   
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, contractResources, settings, [], overheadAlloc.value);
   const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
