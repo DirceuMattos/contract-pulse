@@ -131,7 +131,25 @@ export default function ContractDetailPage() {
   }
   
   const overheadAlloc = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-  const health = calculateContractHealth(contract, contractResources, settings, [], overheadAlloc.value);
+  const rawHealth = calculateContractHealth(contract, contractResources, settings, [], overheadAlloc.value);
+
+  // Adjust health to reflect subproject allocation costs for "outro" resources
+  const health = useMemo(() => {
+    if (!subprojectOutrosCost || subprojectOutrosCost.size === 0) return rawHealth;
+    const outroResources = contractResources.filter(r => r.tipo === 'outro');
+    const custoOutrosOriginal = outroResources.reduce((sum, r) => sum + calculateResourceCost(r, settings), 0);
+    let custoOutrosSubprojetos = 0;
+    for (const r of outroResources) {
+      const allocData = subprojectOutrosCost.get(r.id);
+      custoOutrosSubprojetos += allocData ? allocData.totalCost : calculateResourceCost(r, settings);
+    }
+    const delta = custoOutrosSubprojetos - custoOutrosOriginal;
+    if (Math.abs(delta) < 0.01) return rawHealth;
+    const custoMensal = rawHealth.custoMensal + delta;
+    const margemMensal = rawHealth.receitaLiquida - custoMensal;
+    const margemPercentual = rawHealth.receitaLiquida > 0 ? (margemMensal / rawHealth.receitaLiquida) * 100 : 0;
+    return { ...rawHealth, custoMensal, margemMensal, margemPercentual, status: getHealthStatus(margemPercentual, settings) };
+  }, [rawHealth, subprojectOutrosCost, contractResources, settings]);
   const daysUntilEnd = contract.dataFim ? getDaysUntil(contract.dataFim) : null;
   const daysUntilAdjustment = getDaysUntil(contract.dataBaseReajuste);
   const daysSinceUpdate = contract.ultimaAtualizacaoRecursos 
