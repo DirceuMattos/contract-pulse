@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -17,12 +15,22 @@ function onlyDigits(x: string) {
   return (x || "").replace(/\D/g, "");
 }
 
+function normalizeBase(base: string): string {
+  // Remove trailing slash and /v2/financeiro if present to avoid duplication
+  let b = base.replace(/\/+$/, "");
+  if (b.endsWith("/v2/financeiro")) {
+    b = b.slice(0, -"/v2/financeiro".length);
+  }
+  return b;
+}
+
 async function superlogicaGet(path: string) {
-  const API_BASE = Deno.env.get("SUPERLOGICA_API_BASE")!;
+  const API_BASE = normalizeBase(Deno.env.get("SUPERLOGICA_API_BASE")!);
   const APP_TOKEN = Deno.env.get("SUPERLOGICA_APP_TOKEN")!;
   const ACCESS_TOKEN = Deno.env.get("SUPERLOGICA_ACCESS_TOKEN")!;
 
   const url = `${API_BASE}${path}`;
+  console.log(`[superlogica] GET ${url}`);
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -30,36 +38,86 @@ async function superlogicaGet(path: string) {
       access_token: ACCESS_TOKEN,
     },
   });
-  if (!res.ok)
-    throw new Error(`Superlógica HTTP ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`[superlogica] HTTP ${res.status}: ${body}`);
+    throw new Error(`Superlógica HTTP ${res.status}: ${body}`);
+  }
   return await res.json();
+}
+
+async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
+  let page = 1;
+  const perPage = 50;
+
+  while (page <= 20) { // safety limit
+    const data = await superlogicaGet(
+      `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=${perPage}&pagina=${page}`
+    );
+
+    const items = Array.isArray(data) ? data : (data?.data ?? []);
+    if (!items.length) break;
+
+    for (const c of items) {
+      const cgc = onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "");
+      if (cgc === cnpjDigits) {
+        const id = String(c.id_sacado_sac ?? "");
+        console.log(`[superlogica] Found client id=${id} for CNPJ ${cnpjDigits}`);
+        return id;
+      }
+    }
+
+    if (items.length < perPage) break;
+    page++;
+  }
+
+  console.log(`[superlogica] No client found for CNPJ ${cnpjDigits} after ${page} pages`);
+  return null;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
   if (req.method !== "POST") return json({ error: "POST required" }, 405);
 
   try {
-    const { cnpj, hint } = await req.json().catch(() => ({}));
+    const { cnpj } = await req.json().catch(() => ({}));
     const cnpjNorm = onlyDigits(cnpj);
     if (!cnpjNorm) return json({ error: "cnpj required" }, 400);
 
-    // Adjust endpoint per Superlógica Assinaturas API docs
+    console.log(`[superlogica] Searching subscriptions for CNPJ ${cnpjNorm}`);
+
+    // Step 1: Find client by CNPJ
+    const clientId = await findClientByCnpj(cnpjNorm);
+    if (!clientId) {
+      return json({ ok: true, cnpj: cnpjNorm, subscriptions: [] });
+    }
+
+    // Step 2: Fetch subscriptions for that client
     const data = await superlogicaGet(
-      `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=50&cpfCnpj=${cnpjNorm}`
+      `/v2/financeiro/assinaturas?idSacado=${clientId}&itensPorPagina=100`
     );
 
-    const subscriptions = (data?.data ?? data ?? []).map((s: any) => ({
-      superlogica_subscription_id: String(s.id_sacado_sac ?? s.id ?? ""),
-      label: s.st_nome_sac ?? s.st_nomeref_sac ?? "Assinatura",
-      status: s.st_status_sac ?? "",
-      amount: Number(s.fl_valor_sac ?? 0),
-      periodicity: s.st_periodicidade_pla ?? "",
-      cnpj: s.st_cpf_sac ?? s.st_cnpj_sac ?? "",
-    }));
+    const items = Array.isArray(data) ? data : (data?.data ?? []);
+    console.log(`[superlogica] Found ${items.length} subscription(s) for client ${clientId}`);
+
+    const subscriptions = items.map((s: any) => {
+      const deactivated = !!s.dt_desativacao_sac;
+      const frozen = !!s.dt_congelamento_sac;
+      let status = "ativa";
+      if (deactivated) status = "cancelada";
+      else if (frozen) status = "congelada";
+
+      return {
+        superlogica_subscription_id: String(s.id_planocliente_plc ?? s.id ?? ""),
+        label: s.st_nome_pla ?? s.st_descricao_plc ?? "Assinatura",
+        status,
+        amount: Number(s.fl_valor_plc ?? s.fl_valor_pla ?? 0),
+        periodicity: s.st_periodicidade_pla ?? "",
+        cnpj: cnpjNorm,
+      };
+    });
 
     return json({ ok: true, cnpj: cnpjNorm, subscriptions });
   } catch (err) {
