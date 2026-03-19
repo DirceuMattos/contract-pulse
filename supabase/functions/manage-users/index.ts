@@ -305,10 +305,15 @@ async function handleUpdate(
   // Update module permissions (upsert)
   if (moduleAccess) {
     // Delete existing and re-insert
-    await admin
+    const { error: delErr } = await admin
       .from("user_module_permissions")
       .delete()
       .eq("user_id", userId);
+
+    if (delErr) {
+      console.error("Failed to delete module permissions:", delErr.message);
+      return err(`Failed to update permissions: ${delErr.message}`, 500);
+    }
 
     const rows = Object.entries(moduleAccess).map(([key, allowed]) => ({
       user_id: userId,
@@ -316,7 +321,11 @@ async function handleUpdate(
       is_allowed: allowed,
     }));
     if (rows.length > 0) {
-      await admin.from("user_module_permissions").insert(rows);
+      const { error: insErr } = await admin.from("user_module_permissions").insert(rows);
+      if (insErr) {
+        console.error("Failed to insert module permissions:", insErr.message);
+        return err(`Failed to save permissions: ${insErr.message}`, 500);
+      }
     }
   }
 
