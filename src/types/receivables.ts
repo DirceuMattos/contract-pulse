@@ -55,12 +55,11 @@ export interface ContractReceivableRow {
   clientName: string;
   contractName: string;
   contractCode: string;
-  subscriptionLabel: string;
   status: ReceivablesStatus;
-  valorMes: number;
-  valorEmAtraso: number;
-  diasEmAtraso: number;
-  ultimoPagamentoData?: string;
-  ultimoPagamentoValor?: number;
-  vencimentoAtual?: string;
+  prevMonthPaidAt?: string;
+  prevMonthPaidAmount?: number;
+  currMonthPaidAt?: string;
+  currMonthAmount?: number;
+  currMonthPaid: boolean;
+  totalOverdue: number;
 }
