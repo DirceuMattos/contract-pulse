@@ -166,7 +166,6 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     responsavel_cliente_telefone: contract.responsavelClienteTelefone ?? null,
     percentual_impostos_faturamento: contract.percentualImpostosFaturamento ?? null,
     superlogica_customer_cnpj: contract.superlogicaCustomerCnpj ?? null,
-    superlogica_customer_name: contract.superlogicaCustomerName ?? null,
     superlogica_subscription_id: contract.superlogicaSubscriptionId ?? null,
     superlogica_subscription_label: contract.superlogicaSubscriptionLabel ?? null,
     superlogica_match_hint: contract.superlogicaMatchHint ?? null,

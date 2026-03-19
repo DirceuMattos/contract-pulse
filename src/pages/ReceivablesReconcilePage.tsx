@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Link2, Link2Off, Search, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Link2, Link2Off, Search, CheckCircle2, ArrowLeft, Zap, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
-import { mockSubscriptionLinks, unlinkedContractIds, mockSubscriptionCandidates } from '@/data/mockReceivables';
 import { supabase } from '@/integrations/supabase/client';
 import type { SubscriptionCandidate } from '@/types/receivables';
 import { toast } from 'sonner';
@@ -23,8 +22,8 @@ export default function ReceivablesReconcilePage() {
   const [searchDialogContract, setSearchDialogContract] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SubscriptionCandidate[]>([]);
   const [searching, setSearching] = useState(false);
+  const [bulkLinking, setBulkLinking] = useState(false);
 
-  // Contracts without superlogica_subscription_id (real DB check) + mock fallback
   const unlinkedContracts = useMemo(() => {
     return contracts.filter(c =>
       !c.superlogicaSubscriptionId &&
@@ -37,41 +36,38 @@ export default function ReceivablesReconcilePage() {
     return contracts.filter(c => linkedMap[c.id]);
   }, [contracts, linkedMap]);
 
-  const handleSearch = async (contractId: string) => {
-    const contract = contracts.find(c => c.id === contractId);
-    if (!contract) return;
-    const client = clients.find(cl => cl.id === contract.clientId);
-    const cnpj = client?.cnpj || '';
-
-    setSearchDialogContract(contractId);
-    setSearching(true);
+  const searchSubscriptions = async (cnpj: string): Promise<SubscriptionCandidate[]> => {
+    const cnpjDigits = cnpj.replace(/\D/g, '');
+    if (!cnpjDigits) return [];
 
     try {
-      // Try edge function first
       const { data, error } = await supabase.functions.invoke('superlogica-search-subscriptions', {
-        body: { cnpj, hint: contract.superlogicaMatchHint },
+        body: { cnpj: cnpjDigits },
       });
-
       if (error) throw error;
-
-      const results: SubscriptionCandidate[] = (data?.subscriptions ?? []).map((s: any) => ({
+      return (data?.subscriptions ?? []).map((s: any) => ({
         subscriptionId: s.superlogica_subscription_id,
         label: s.label,
         status: s.status,
         amount: s.amount,
-        periodicity: s.periodicity,
+        periodicidade: s.periodicity,
       }));
-
-      const cnpjDigits = cnpj.replace(/\D/g, '');
-      setCandidates(results.length ? results : (mockSubscriptionCandidates[cnpj] || mockSubscriptionCandidates[cnpjDigits] || []));
     } catch {
-      // Fallback to mock
-      const cnpjDigits = cnpj.replace(/\D/g, '');
-      const results = mockSubscriptionCandidates[cnpj] || mockSubscriptionCandidates[cnpjDigits] || [];
-      setCandidates(results);
-    } finally {
-      setSearching(false);
+      return [];
     }
+  };
+
+  const handleSearch = async (contractId: string) => {
+    const contract = contracts.find(c => c.id === contractId);
+    if (!contract) return;
+    const client = clients.find(cl => cl.id === contract.clientId);
+
+    setSearchDialogContract(contractId);
+    setSearching(true);
+
+    const results = await searchSubscriptions(client?.cnpj || '');
+    setCandidates(results);
+    setSearching(false);
   };
 
   const handleLink = async (contractId: string, candidate: SubscriptionCandidate) => {
@@ -86,10 +82,63 @@ export default function ReceivablesReconcilePage() {
       setLinkedMap(prev => ({ ...prev, [contractId]: candidate.subscriptionId }));
       setSearchDialogContract(null);
       setCandidates([]);
-      toast.success(`Contrato vinculado à assinatura "${candidate.label}". Execute a sincronização para buscar cobranças.`);
+      toast.success(`Contrato vinculado à assinatura "${candidate.label}".`);
     } catch (err: any) {
       toast.error(`Erro ao vincular: ${err.message || err}`);
     }
+  };
+
+  const handleBulkAutoLink = async () => {
+    setBulkLinking(true);
+    let linked = 0;
+    let manual = 0;
+    let noMatch = 0;
+
+    // Group unlinked contracts by client CNPJ
+    const cnpjToContracts: Record<string, typeof unlinkedContracts> = {};
+    for (const c of unlinkedContracts) {
+      const client = clients.find(cl => cl.id === c.clientId);
+      const cnpj = client?.cnpj?.replace(/\D/g, '') || '';
+      if (!cnpj) { noMatch++; continue; }
+      if (!cnpjToContracts[cnpj]) cnpjToContracts[cnpj] = [];
+      cnpjToContracts[cnpj].push(c);
+    }
+
+    for (const [cnpj, contractGroup] of Object.entries(cnpjToContracts)) {
+      const subs = await searchSubscriptions(cnpj);
+      const activeSubs = subs.filter(s => s.amount > 0);
+
+      if (activeSubs.length === 0) {
+        noMatch += contractGroup.length;
+        continue;
+      }
+
+      // If 1 contract and 1 subscription → auto-link
+      if (contractGroup.length === 1 && activeSubs.length === 1) {
+        try {
+          const c = contractGroup[0];
+          const sub = activeSubs[0];
+          await updateContract(c.id, {
+            superlogicaSubscriptionId: sub.subscriptionId,
+            superlogicaSubscriptionLabel: sub.label,
+            superlogicaCustomerCnpj: cnpj,
+            receivablesStatus: 'sem_vinculo',
+          });
+          setLinkedMap(prev => ({ ...prev, [c.id]: sub.subscriptionId }));
+          linked++;
+        } catch {
+          manual++;
+        }
+      } else {
+        // Multiple contracts or subscriptions — needs manual review
+        manual += contractGroup.length;
+      }
+    }
+
+    setBulkLinking(false);
+    toast.success(
+      `Auto-vinculação concluída: ${linked} vinculado(s), ${manual} para revisão manual, ${noMatch} sem assinatura encontrada.`
+    );
   };
 
   const currentContract = searchDialogContract ? contracts.find(c => c.id === searchDialogContract) : null;
@@ -102,9 +151,16 @@ export default function ReceivablesReconcilePage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Conciliação de Assinaturas" description="Vincule contratos às assinaturas do Superlógica" />
+        <div className="ml-auto">
+          {unlinkedContracts.length > 0 && (
+            <Button onClick={handleBulkAutoLink} disabled={bulkLinking}>
+              {bulkLinking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+              Auto-vincular todos
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Already linked in this session */}
       {linkedInSession.length > 0 && (
         <Card className="border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-700">
           <CardHeader className="pb-2">
@@ -126,7 +182,6 @@ export default function ReceivablesReconcilePage() {
         </Card>
       )}
 
-      {/* Unlinked contracts */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -175,7 +230,6 @@ export default function ReceivablesReconcilePage() {
         </CardContent>
       </Card>
 
-      {/* Search candidates dialog */}
       <Dialog open={!!searchDialogContract} onOpenChange={(open) => { if (!open) { setSearchDialogContract(null); setCandidates([]); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -198,7 +252,7 @@ export default function ReceivablesReconcilePage() {
           {searching ? (
             <div className="py-8 text-center text-muted-foreground">Buscando assinaturas no Superlógica...</div>
           ) : candidates.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">Nenhuma assinatura encontrada para este CNPJ</div>
+            <div className="py-8 text-center text-muted-foreground">Nenhuma assinatura ativa com valor encontrada para este CNPJ</div>
           ) : (
             <div className="space-y-2">
               {candidates.map(cand => (
