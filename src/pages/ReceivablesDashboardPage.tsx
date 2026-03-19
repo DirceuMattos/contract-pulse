@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -25,6 +25,12 @@ import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
 import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivables';
 
+interface InvoiceSummary {
+  lastPaidAmount?: number;
+  lastPaidAt?: string;
+  nextDueDate?: string;
+}
+
 export default function ReceivablesDashboardPage() {
   const navigate = useNavigate();
   const { contracts, clients } = useData();
@@ -33,6 +39,53 @@ export default function ReceivablesDashboardPage() {
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [invoiceSummaries, setInvoiceSummaries] = useState<Record<string, InvoiceSummary>>({});
+
+  // Fetch invoice summaries from receivables_invoices
+  useEffect(() => {
+    const fetchInvoiceSummaries = async () => {
+      // Last paid invoice per contract
+      const { data: paidData } = await supabase
+        .from('receivables_invoices')
+        .select('contract_id, paid_amount, paid_at')
+        .eq('status', 'paid')
+        .order('paid_at', { ascending: false });
+
+      // Next open invoice per contract
+      const { data: openData } = await supabase
+        .from('receivables_invoices')
+        .select('contract_id, due_date')
+        .eq('status', 'open')
+        .order('due_date', { ascending: true });
+
+      const summaries: Record<string, InvoiceSummary> = {};
+
+      // Group last paid by contract (first occurrence = most recent due to order)
+      if (paidData) {
+        for (const inv of paidData) {
+          if (!summaries[inv.contract_id]) summaries[inv.contract_id] = {};
+          if (!summaries[inv.contract_id].lastPaidAmount) {
+            summaries[inv.contract_id].lastPaidAmount = inv.paid_amount;
+            summaries[inv.contract_id].lastPaidAt = inv.paid_at ?? undefined;
+          }
+        }
+      }
+
+      // Group next due by contract (first occurrence = soonest due to order)
+      if (openData) {
+        for (const inv of openData) {
+          if (!summaries[inv.contract_id]) summaries[inv.contract_id] = {};
+          if (!summaries[inv.contract_id].nextDueDate) {
+            summaries[inv.contract_id].nextDueDate = inv.due_date ?? undefined;
+          }
+        }
+      }
+
+      setInvoiceSummaries(summaries);
+    };
+
+    fetchInvoiceSummaries();
+  }, [syncing]); // re-fetch after sync
 
   const handleSync = async () => {
     setSyncing(true);
@@ -56,21 +109,24 @@ export default function ReceivablesDashboardPage() {
         const valorMes = c.valorMensalReferencia ?? 0;
         const valorEmAtraso = c.receivablesOverdueAmount ?? 0;
         const status: ReceivablesStatus = valorEmAtraso > 0 ? 'atrasado' : 'em_dia';
+        const summary = invoiceSummaries[c.id];
 
         return {
           contractId: c.id,
           clientName: client?.nomeFantasia || client?.razaoSocial || '—',
           contractName: c.nome,
+          contractCode: c.codigo || '',
           subscriptionLabel: c.superlogicaSubscriptionLabel ?? '',
           status,
           valorMes,
           valorEmAtraso,
-          diasEmAtraso: 0, // will be populated after sync populates receivables_invoices
-          ultimoPagamentoData: c.receivablesLastPaymentAt,
-          ultimoPagamentoValor: undefined,
+          diasEmAtraso: 0,
+          ultimoPagamentoData: summary?.lastPaidAt ?? c.receivablesLastPaymentAt,
+          ultimoPagamentoValor: summary?.lastPaidAmount,
+          vencimentoAtual: summary?.nextDueDate,
         };
       });
-  }, [contracts, clients]);
+  }, [contracts, clients, invoiceSummaries]);
 
   // Filters
   const filteredRows = useMemo(() => {
@@ -83,7 +139,7 @@ export default function ReceivablesDashboardPage() {
       }
       if (search) {
         const s = search.toLowerCase();
-        if (!r.clientName.toLowerCase().includes(s) && !r.contractName.toLowerCase().includes(s) && !r.subscriptionLabel.toLowerCase().includes(s)) return false;
+        if (!r.clientName.toLowerCase().includes(s) && !r.contractName.toLowerCase().includes(s) && !(r.contractCode || '').toLowerCase().includes(s)) return false;
       }
       return true;
     });
@@ -177,7 +233,7 @@ export default function ReceivablesDashboardPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Input
-          placeholder="Buscar cliente, contrato ou assinatura..."
+          placeholder="Buscar cliente, contrato ou código..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="max-w-xs"
@@ -212,18 +268,19 @@ export default function ReceivablesDashboardPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente / Contrato</TableHead>
-                <TableHead>Assinatura</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Valor do Mês</TableHead>
+                <TableHead className="text-right">Último Pgto</TableHead>
+                <TableHead>Data Último Pgto</TableHead>
+                <TableHead className="text-right">Valor Mês Atual</TableHead>
+                <TableHead>Vencimento</TableHead>
                 <TableHead className="text-right">Em Atraso</TableHead>
-                <TableHead>Último Pagamento</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhum recebível encontrado
                   </TableCell>
                 </TableRow>
@@ -234,24 +291,30 @@ export default function ReceivablesDashboardPage() {
                     <div>
                       <span className="text-xs text-muted-foreground">{row.clientName}</span>
                       <p className="font-medium text-sm">{row.contractName}</p>
+                      {row.contractCode && (
+                        <span className="text-xs text-muted-foreground">{row.contractCode}</span>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">{row.subscriptionLabel}</TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {row.status === 'em_dia' ? (
                       <Badge variant="outline" className="border-emerald-500 text-emerald-700 dark:text-emerald-400">Em dia</Badge>
                     ) : (
                       <Badge variant="destructive">Atrasado</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(row.valorMes)}</TableCell>
-                  <TableCell className="text-right font-medium text-destructive">
-                    {row.valorEmAtraso > 0 ? formatCurrency(row.valorEmAtraso) : '—'}
+                  <TableCell className="text-right font-medium">
+                    {row.ultimoPagamentoValor != null ? formatCurrency(row.ultimoPagamentoValor) : '—'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {row.ultimoPagamentoData ? (
-                      <span>{new Date(row.ultimoPagamentoData).toLocaleDateString('pt-BR')}</span>
-                    ) : '—'}
+                    {row.ultimoPagamentoData ? new Date(row.ultimoPagamentoData).toLocaleDateString('pt-BR') : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(row.valorMes)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {row.vencimentoAtual ? new Date(row.vencimentoAtual).toLocaleDateString('pt-BR') : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-medium text-destructive">
+                    {row.valorEmAtraso > 0 ? formatCurrency(row.valorEmAtraso) : '—'}
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" onClick={() => navigate(`/contratos/${row.contractId}`)}>
