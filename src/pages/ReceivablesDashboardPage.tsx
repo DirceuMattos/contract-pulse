@@ -132,7 +132,7 @@ export default function ReceivablesDashboardPage() {
       .map(c => {
         const client = clients.find(cl => cl.id === c.clientId);
         const inv = invoiceData[c.id];
-        const totalOverdue = inv?.totalOverdue ?? (c.receivablesOverdueAmount ?? 0);
+        const totalOverdue = inv?.totalOverdue ?? 0;
         const status: ReceivablesStatus = totalOverdue > 0 ? 'atrasado' : 'em_dia';
 
         return {
