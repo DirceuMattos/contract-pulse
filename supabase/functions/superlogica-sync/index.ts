@@ -183,29 +183,41 @@ Deno.serve(async (req) => {
         const invoicesByContract: Record<string, any[]> = {};
 
         for (const x of (Array.isArray(allItems) ? allItems : [])) {
-          // Try to match invoice to a subscription
-          const invoiceSubId = String(x.id_planocliente_plc ?? "").trim();
+          // Try to match invoice to a subscription via id_contrato_mens or id_adesao_plc
+          const invoiceSubId = String(x.id_contrato_mens ?? x.id_planocliente_plc ?? "").trim();
 
           // Find the contract this invoice belongs to
           let contractId: string | null = null;
           if (invoiceSubId && subIdToContract[invoiceSubId]) {
             contractId = subIdToContract[invoiceSubId].id;
           } else if (groupContracts.length === 1) {
-            // If there's only one contract for this CNPJ, assign all invoices to it
             contractId = groupContracts[0].id;
           } else {
-            // Can't determine which contract — skip
             continue;
           }
 
-          const status = normalizeInvoiceStatus(x.st_status_recb ?? x.status ?? "");
-          const amount = Number(x.fl_valor_recb ?? x.amount ?? 0);
-          const paidAmount = Number(x.fl_valorpago_recb ?? x.paid_amount ?? 0);
-          const dueDate = x.dt_vencimento_recb ?? x.due_date ?? null;
-          const paidAt = x.dt_liquidacao_recb ?? x.paid_at ?? null;
-          const competence = x.st_competencia_recb ?? x.competence ?? null;
-          const externalId = String(x.id_recebimento_recb ?? x.id ?? "");
-          const daysOverdue = Number(x.qt_diasatraso ?? x.days_overdue ?? 0);
+          // fl_status_recb: 0=pending, 1=paid, 2=cancelled, 3=renegotiated
+          const rawStatus = String(x.fl_status_recb ?? "");
+          const statusMap: Record<string, string> = { "0": "open", "1": "paid", "2": "canceled", "3": "renegotiated" };
+          const status = statusMap[rawStatus] ?? normalizeInvoiceStatus(x.st_status_recb ?? "");
+
+          const amount = Number(x.vl_total_recb ?? x.vl_emitido_recb ?? 0);
+          const paidAmount = status === "paid" ? amount : 0;
+          const dueDate = x.dt_vencimento_recb ?? null;
+          const paidAt = x.dt_liquidacao_recb ?? (status === "paid" ? x.dt_recebimento_recb : null);
+          const competence = x.dt_competencia_recb ?? null;
+          const externalId = String(x.id_recebimento_recb ?? "");
+
+          // Calculate days overdue for open invoices
+          let daysOverdue = 0;
+          if (status === "open" && dueDate) {
+            const due = new Date(dueDate);
+            const now = new Date();
+            const diff = Math.floor((now.getTime() - due.getTime()) / 86400000);
+            daysOverdue = Math.max(0, diff);
+            // If overdue, mark as such
+          }
+          const finalStatus = (status === "open" && daysOverdue > 0) ? "overdue" : status;
 
           const subId = invoiceSubId || String(groupContracts[0].superlogica_subscription_id).trim();
 
