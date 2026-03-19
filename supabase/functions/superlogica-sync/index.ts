@@ -166,6 +166,8 @@ Deno.serve(async (req) => {
         fetchedSubs++;
         console.log(`[superlogica-sync] Fetching invoices for customer ${customerId} (CNPJ ${cnpj})`);
         const inv = await superlogicaGet(
+          `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`
+        );
           `/v2/financeiro/cobrancas?idSacado=${customerId}&itensPorPagina=100`
         );
 
