@@ -144,9 +144,7 @@ Deno.serve(async (req) => {
 
       // The API returns one row per subscription (not per service item within it)
       // so we take the max amount (in case of duplicates) rather than summing
-      if (amount > groups[subId].amount) {
-        groups[subId].amount = amount;
-      }
+      groups[subId].amount += amount;
 
       // If any row for this subId is NOT cancelled, mark group as active
       if (!cancelled) {

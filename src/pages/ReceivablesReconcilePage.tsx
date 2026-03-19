@@ -113,25 +113,21 @@ export default function ReceivablesReconcilePage() {
         continue;
       }
 
-      // If 1 contract and 1 subscription → auto-link
-      if (contractGroup.length === 1 && activeSubs.length === 1) {
+      // Link all contracts in this CNPJ group to the highest-value subscription
+      const topSub = activeSubs[0]; // already sorted by amount desc
+      for (const c of contractGroup) {
         try {
-          const c = contractGroup[0];
-          const sub = activeSubs[0];
           await updateContract(c.id, {
-            superlogicaSubscriptionId: sub.subscriptionId,
-            superlogicaSubscriptionLabel: sub.label,
+            superlogicaSubscriptionId: topSub.subscriptionId,
+            superlogicaSubscriptionLabel: topSub.label,
             superlogicaCustomerCnpj: cnpj,
             receivablesStatus: 'sem_vinculo',
           });
-          setLinkedMap(prev => ({ ...prev, [c.id]: sub.subscriptionId }));
+          setLinkedMap(prev => ({ ...prev, [c.id]: topSub.subscriptionId }));
           linked++;
         } catch {
           manual++;
         }
-      } else {
-        // Multiple contracts or subscriptions — needs manual review
-        manual += contractGroup.length;
       }
     }
 
