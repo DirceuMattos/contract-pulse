@@ -289,6 +289,7 @@ export default function ReceivablesDashboardPage() {
                 <TableHead className="text-xs">Status</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Anterior</TableHead>
                 <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>
+                <TableHead className="text-xs">Data Vcto<br/>Mês Atual</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Atual</TableHead>
                 <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>
                 <TableHead className="text-xs text-right">Valores<br/>em Atraso</TableHead>
