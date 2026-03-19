@@ -2305,6 +2305,7 @@ export type Database = {
         | "HR"
         | "AI"
         | "AI_LOGS"
+        | "RECEIVABLES"
       other_cost_category:
         | "cloud"
         | "licenca"
@@ -2510,6 +2511,7 @@ export const Constants = {
         "HR",
         "AI",
         "AI_LOGS",
+        "RECEIVABLES",
       ],
       other_cost_category: [
         "cloud",
