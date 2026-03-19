@@ -25,10 +25,25 @@ import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
 import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivables';
 
-interface InvoiceSummary {
-  lastPaidAmount?: number;
-  lastPaidAt?: string;
-  nextDueDate?: string;
+interface InvoiceByContract {
+  prevMonthPaidAt?: string;
+  prevMonthPaidAmount?: number;
+  currMonthPaidAt?: string;
+  currMonthAmount?: number;
+  currMonthPaid: boolean;
+  totalOverdue: number;
+}
+
+function getMonthRange(offset: number) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + offset;
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 0);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
 }
 
 export default function ReceivablesDashboardPage() {
@@ -39,53 +54,62 @@ export default function ReceivablesDashboardPage() {
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [syncing, setSyncing] = useState(false);
-  const [invoiceSummaries, setInvoiceSummaries] = useState<Record<string, InvoiceSummary>>({});
+  const [invoiceData, setInvoiceData] = useState<Record<string, InvoiceByContract>>({});
 
-  // Fetch invoice summaries from receivables_invoices
   useEffect(() => {
-    const fetchInvoiceSummaries = async () => {
-      // Last paid invoice per contract
-      const { data: paidData } = await supabase
-        .from('receivables_invoices')
-        .select('contract_id, paid_amount, paid_at')
-        .eq('status', 'paid')
-        .order('paid_at', { ascending: false });
+    const fetchInvoiceData = async () => {
+      const prev = getMonthRange(-1);
+      const curr = getMonthRange(0);
 
-      // Next open invoice per contract
-      const { data: openData } = await supabase
-        .from('receivables_invoices')
-        .select('contract_id, due_date')
-        .eq('status', 'open')
-        .order('due_date', { ascending: true });
+      const [{ data: allInvoices }] = await Promise.all([
+        supabase
+          .from('receivables_invoices')
+          .select('contract_id, status, due_date, amount, paid_amount, paid_at')
+          .order('due_date', { ascending: false }),
+      ]);
 
-      const summaries: Record<string, InvoiceSummary> = {};
+      if (!allInvoices) return;
 
-      // Group last paid by contract (first occurrence = most recent due to order)
-      if (paidData) {
-        for (const inv of paidData) {
-          if (!summaries[inv.contract_id]) summaries[inv.contract_id] = {};
-          if (!summaries[inv.contract_id].lastPaidAmount) {
-            summaries[inv.contract_id].lastPaidAmount = inv.paid_amount;
-            summaries[inv.contract_id].lastPaidAt = inv.paid_at ?? undefined;
+      const result: Record<string, InvoiceByContract> = {};
+
+      const ensure = (cid: string) => {
+        if (!result[cid]) result[cid] = { currMonthPaid: false, totalOverdue: 0 };
+      };
+
+      for (const inv of allInvoices) {
+        ensure(inv.contract_id);
+        const d = inv.due_date;
+
+        // Previous month
+        if (d && d >= prev.start && d <= prev.end && inv.status === 'paid') {
+          const r = result[inv.contract_id];
+          if (!r.prevMonthPaidAt) {
+            r.prevMonthPaidAt = inv.paid_at ?? undefined;
+            r.prevMonthPaidAmount = inv.paid_amount;
           }
+        }
+
+        // Current month
+        if (d && d >= curr.start && d <= curr.end) {
+          const r = result[inv.contract_id];
+          if (!r.currMonthAmount) {
+            r.currMonthAmount = inv.status === 'paid' ? inv.paid_amount : inv.amount;
+            r.currMonthPaid = inv.status === 'paid';
+            r.currMonthPaidAt = inv.status === 'paid' ? (inv.paid_at ?? undefined) : undefined;
+          }
+        }
+
+        // Overdue
+        if (inv.status === 'overdue') {
+          result[inv.contract_id].totalOverdue += (inv.amount - (inv.paid_amount || 0));
         }
       }
 
-      // Group next due by contract (first occurrence = soonest due to order)
-      if (openData) {
-        for (const inv of openData) {
-          if (!summaries[inv.contract_id]) summaries[inv.contract_id] = {};
-          if (!summaries[inv.contract_id].nextDueDate) {
-            summaries[inv.contract_id].nextDueDate = inv.due_date ?? undefined;
-          }
-        }
-      }
-
-      setInvoiceSummaries(summaries);
+      setInvoiceData(result);
     };
 
-    fetchInvoiceSummaries();
-  }, [syncing]); // re-fetch after sync
+    fetchInvoiceData();
+  }, [syncing]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -100,35 +124,31 @@ export default function ReceivablesDashboardPage() {
     }
   };
 
-  // Build receivable rows from real contract data
   const rows = useMemo<ContractReceivableRow[]>(() => {
     return contracts
       .filter(c => !!c.superlogicaSubscriptionId)
       .map(c => {
         const client = clients.find(cl => cl.id === c.clientId);
-        const valorMes = c.valorMensalReferencia ?? 0;
-        const valorEmAtraso = c.receivablesOverdueAmount ?? 0;
-        const status: ReceivablesStatus = valorEmAtraso > 0 ? 'atrasado' : 'em_dia';
-        const summary = invoiceSummaries[c.id];
+        const inv = invoiceData[c.id];
+        const totalOverdue = inv?.totalOverdue ?? (c.receivablesOverdueAmount ?? 0);
+        const status: ReceivablesStatus = totalOverdue > 0 ? 'atrasado' : 'em_dia';
 
         return {
           contractId: c.id,
           clientName: client?.nomeFantasia || client?.razaoSocial || '—',
           contractName: c.nome,
           contractCode: c.codigo || '',
-          subscriptionLabel: c.superlogicaSubscriptionLabel ?? '',
           status,
-          valorMes,
-          valorEmAtraso,
-          diasEmAtraso: 0,
-          ultimoPagamentoData: summary?.lastPaidAt ?? c.receivablesLastPaymentAt,
-          ultimoPagamentoValor: summary?.lastPaidAmount,
-          vencimentoAtual: summary?.nextDueDate,
+          prevMonthPaidAt: inv?.prevMonthPaidAt,
+          prevMonthPaidAmount: inv?.prevMonthPaidAmount,
+          currMonthPaidAt: inv?.currMonthPaidAt,
+          currMonthAmount: inv?.currMonthAmount ?? (c.valorMensalReferencia ?? undefined),
+          currMonthPaid: inv?.currMonthPaid ?? false,
+          totalOverdue,
         };
       });
-  }, [contracts, clients, invoiceSummaries]);
+  }, [contracts, clients, invoiceData]);
 
-  // Filters
   const filteredRows = useMemo(() => {
     return rows.filter(r => {
       if (statusFilter === 'em_dia' && r.status !== 'em_dia') return false;
@@ -139,23 +159,22 @@ export default function ReceivablesDashboardPage() {
       }
       if (search) {
         const s = search.toLowerCase();
-        if (!r.clientName.toLowerCase().includes(s) && !r.contractName.toLowerCase().includes(s) && !(r.contractCode || '').toLowerCase().includes(s)) return false;
+        if (!r.clientName.toLowerCase().includes(s) && !r.contractName.toLowerCase().includes(s) && !r.contractCode.toLowerCase().includes(s)) return false;
       }
       return true;
     });
   }, [rows, statusFilter, clientFilter, search, contracts]);
 
-  // KPIs
   const kpis = useMemo(() => {
-    const totalPrevisto = rows.reduce((s, r) => s + r.valorMes, 0);
-    const totalRecebido = rows.filter(r => r.status === 'em_dia').reduce((s, r) => s + r.valorMes, 0);
-    const totalEmAtraso = rows.reduce((s, r) => s + r.valorEmAtraso, 0);
+    const totalPrevisto = rows.reduce((s, r) => s + (r.currMonthAmount ?? 0), 0);
+    const totalRecebido = rows.filter(r => r.currMonthPaid).reduce((s, r) => s + (r.currMonthAmount ?? 0), 0);
+    const totalEmAtraso = rows.reduce((s, r) => s + r.totalOverdue, 0);
     const totalEmAberto = totalPrevisto - totalRecebido;
     const pctInadimplencia = totalPrevisto > 0 ? (totalEmAtraso / totalPrevisto) * 100 : 0;
     return { totalPrevisto, totalRecebido, totalEmAberto, totalEmAtraso, pctInadimplencia };
   }, [rows]);
 
-  const inadimplentes = rows.filter(r => r.status === 'atrasado').sort((a, b) => b.valorEmAtraso - a.valorEmAtraso);
+  const inadimplentes = rows.filter(r => r.status === 'atrasado').sort((a, b) => b.totalOverdue - a.totalOverdue);
 
   const unlinkedCount = contracts.filter(c =>
     !c.superlogicaSubscriptionId &&
@@ -194,7 +213,6 @@ export default function ReceivablesDashboardPage() {
         </div>
       </div>
 
-      {/* Unlinked banner */}
       {unlinkedCount > 0 && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700">
@@ -213,7 +231,6 @@ export default function ReceivablesDashboardPage() {
         </motion.div>
       )}
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {kpiCards.map((kpi, i) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
@@ -230,7 +247,6 @@ export default function ReceivablesDashboardPage() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Input
           placeholder="Buscar cliente, contrato ou código..."
@@ -261,7 +277,6 @@ export default function ReceivablesDashboardPage() {
         </Select>
       </div>
 
-      {/* Main Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -269,11 +284,11 @@ export default function ReceivablesDashboardPage() {
               <TableRow>
                 <TableHead>Cliente / Contrato</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Último Pgto</TableHead>
-                <TableHead>Data Último Pgto</TableHead>
-                <TableHead className="text-right">Valor Mês Atual</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead className="text-right">Em Atraso</TableHead>
+                <TableHead>Data Pgto Mês Anterior</TableHead>
+                <TableHead className="text-right">Valor Pago (mês anterior)</TableHead>
+                <TableHead>Data Pgto Mês Atual</TableHead>
+                <TableHead className="text-right">Valor Pago / à Pagar</TableHead>
+                <TableHead className="text-right">Valores em Atraso</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -303,18 +318,27 @@ export default function ReceivablesDashboardPage() {
                       <Badge variant="destructive">Atrasado</Badge>
                     )}
                   </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {row.prevMonthPaidAt ? new Date(row.prevMonthPaidAt).toLocaleDateString('pt-BR') : '—'}
+                  </TableCell>
                   <TableCell className="text-right font-medium">
-                    {row.ultimoPagamentoValor != null ? formatCurrency(row.ultimoPagamentoValor) : '—'}
+                    {row.prevMonthPaidAmount != null ? formatCurrency(row.prevMonthPaidAmount) : '—'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {row.ultimoPagamentoData ? new Date(row.ultimoPagamentoData).toLocaleDateString('pt-BR') : '—'}
+                    {row.currMonthPaid && row.currMonthPaidAt
+                      ? new Date(row.currMonthPaidAt).toLocaleDateString('pt-BR')
+                      : '—'}
                   </TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(row.valorMes)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {row.vencimentoAtual ? new Date(row.vencimentoAtual).toLocaleDateString('pt-BR') : '—'}
+                  <TableCell className="text-right font-medium">
+                    {row.currMonthAmount != null ? (
+                      <span className={row.currMonthPaid ? 'text-emerald-700 dark:text-emerald-400' : ''}>
+                        {formatCurrency(row.currMonthAmount)}
+                        {!row.currMonthPaid && <span className="text-xs text-muted-foreground ml-1">(à pagar)</span>}
+                      </span>
+                    ) : '—'}
                   </TableCell>
                   <TableCell className="text-right font-medium text-destructive">
-                    {row.valorEmAtraso > 0 ? formatCurrency(row.valorEmAtraso) : '—'}
+                    {row.totalOverdue > 0 ? formatCurrency(row.totalOverdue) : '—'}
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" onClick={() => navigate(`/contratos/${row.contractId}`)}>
@@ -328,7 +352,6 @@ export default function ReceivablesDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Inadimplentes section */}
       {inadimplentes.length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader>
@@ -346,7 +369,7 @@ export default function ReceivablesDashboardPage() {
                     <p className="text-xs text-muted-foreground">{row.clientName}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-destructive">{formatCurrency(row.valorEmAtraso)}</p>
+                    <p className="font-bold text-destructive">{formatCurrency(row.totalOverdue)}</p>
                     <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => navigate(`/contratos/${row.contractId}`)}>
                       Abrir contrato →
                     </Button>
