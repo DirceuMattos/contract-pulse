@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     console.log(`[superlogica] Found ${items.length} subscription(s) for client ${clientId}`);
 
-    const subscriptions = items.map((s: any) => {
+    const allSubscriptions = items.map((s: any) => {
       const deactivated = !!s.dt_desativacao_sac;
       const frozen = !!s.dt_congelamento_sac;
       let status = "ativa";
@@ -121,6 +121,13 @@ Deno.serve(async (req) => {
         cnpj: cnpjNorm,
       };
     });
+
+    // Filter: only active subscriptions with amount > 0
+    const subscriptions = allSubscriptions
+      .filter((s) => s.status === "ativa" && s.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+
+    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0 (from ${allSubscriptions.length} total)`);
 
     return json({ ok: true, cnpj: cnpjNorm, subscriptions });
   } catch (err) {
