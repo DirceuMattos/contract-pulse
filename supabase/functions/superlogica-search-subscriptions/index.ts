@@ -104,10 +104,13 @@ Deno.serve(async (req) => {
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     console.log(`[superlogica] Found ${items.length} raw item(s) for client ${clientId}`);
 
-    // Debug: log first 2 items' status fields to identify correct field names
-    for (let i = 0; i < Math.min(2, items.length); i++) {
-      const s = items[i];
-      console.log(`[superlogica] Item ${i} fields: id_planocliente_plc=${s.id_planocliente_plc}, fl_valor_plc=${s.fl_valor_plc}, st_nome_pla=${s.st_nome_pla}, dt_desativacao_plc=${s.dt_desativacao_plc}, dt_congelamento_plc=${s.dt_congelamento_plc}, fl_ativo_plc=${s.fl_ativo_plc}, dt_desativacao_sac=${s.dt_desativacao_sac}`);
+    // Debug: log ALL keys of first item to find the correct value/status fields
+    if (items.length > 0) {
+      console.log(`[superlogica] Item 0 ALL KEYS: ${Object.keys(items[0]).join(', ')}`);
+      // Log all key-value pairs for first item
+      const first = items[0];
+      const pairs = Object.entries(first).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' | ');
+      console.log(`[superlogica] Item 0 ALL VALUES: ${pairs}`);
     }
 
     // Step 3: Group items by subscription ID (id_planocliente_plc) and sum values
