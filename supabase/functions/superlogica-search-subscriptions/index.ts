@@ -16,7 +16,6 @@ function onlyDigits(x: string) {
 }
 
 function normalizeBase(raw: string): string {
-  // If the value doesn't look like a URL, use the default
   if (!raw || !raw.startsWith("http")) {
     return "https://api.superlogica.net";
   }
@@ -53,7 +52,7 @@ async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
   let page = 1;
   const perPage = 50;
 
-  while (page <= 20) { // safety limit
+  while (page <= 20) {
     const data = await superlogicaGet(
       `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=${perPage}&pagina=${page}`
     );
@@ -78,6 +77,11 @@ async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
   return null;
 }
 
+function isEmptyDate(v: unknown): boolean {
+  const s = String(v ?? "").trim();
+  return !s || s === "0000-00-00" || s === "";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -91,43 +95,92 @@ Deno.serve(async (req) => {
 
     console.log(`[superlogica] Searching subscriptions for CNPJ ${cnpjNorm}`);
 
-    // Step 1: Find client by CNPJ
     const clientId = await findClientByCnpj(cnpjNorm);
     if (!clientId) {
       return json({ ok: true, cnpj: cnpjNorm, subscriptions: [] });
     }
 
-    // Step 2: Fetch subscriptions for that client
     const data = await superlogicaGet(
       `/v2/financeiro/assinaturas?idSacado=${clientId}&itensPorPagina=100`
     );
 
     const items = Array.isArray(data) ? data : (data?.data ?? []);
-    console.log(`[superlogica] Found ${items.length} subscription(s) for client ${clientId}`);
+    console.log(`[superlogica] Found ${items.length} raw item(s) for client ${clientId}`);
 
-    const allSubscriptions = items.map((s: any) => {
-      const deactivated = !!s.dt_desativacao_sac;
-      const frozen = !!s.dt_congelamento_sac;
-      let status = "ativa";
-      if (deactivated) status = "cancelada";
-      else if (frozen) status = "congelada";
+    // Group items by id_planocliente_plc and sum values
+    // API fields discovered from raw payload:
+    //   total / mrr = subscription value
+    //   dt_cancelamento_plc = cancellation date (empty = active)
+    //   dt_congelamento_sac = freeze date (client level, but only indicator available)
+    //   id_planocliente_plc = subscription ID
+    //   st_nome_pla = plan name
+    //   fl_periodicidade_pla = periodicity
+
+    const groups: Record<string, {
+      id: string;
+      label: string;
+      amount: number;
+      periodicity: string;
+      cancelled: boolean;
+    }> = {};
+
+    for (const s of items) {
+      const subId = String(s.id_planocliente_plc ?? "");
+      if (!subId) continue;
+
+      const cancelled = !isEmptyDate(s.dt_cancelamento_plc);
+      // Use "total" or "mrr" field for the subscription value
+      const amount = Number(s.total ?? s.mrr ?? s.vl_aproxrenovacao_plc ?? 0);
+
+      if (!groups[subId]) {
+        groups[subId] = {
+          id: subId,
+          label: s.st_nome_pla ?? s.st_identificador_plc ?? "Assinatura",
+          amount: 0,
+          periodicity: String(s.fl_periodicidade_pla ?? ""),
+          cancelled,
+        };
+      }
+
+      // The API returns one row per subscription (not per service item within it)
+      // so we take the max amount (in case of duplicates) rather than summing
+      if (amount > groups[subId].amount) {
+        groups[subId].amount = amount;
+      }
+
+      // If any row for this subId is NOT cancelled, mark group as active
+      if (!cancelled) {
+        groups[subId].cancelled = false;
+      }
+    }
+
+    const allSubscriptions = Object.values(groups).map((g) => {
+      const periodicityMap: Record<string, string> = {
+        "0": "Mensal",
+        "1": "Bimestral",
+        "2": "Trimestral",
+        "3": "Semestral",
+        "4": "Anual",
+      };
 
       return {
-        superlogica_subscription_id: String(s.id_planocliente_plc ?? s.id ?? ""),
-        label: s.st_nome_pla ?? s.st_descricao_plc ?? "Assinatura",
-        status,
-        amount: Number(s.fl_valor_plc ?? s.fl_valor_pla ?? 0),
-        periodicity: s.st_periodicidade_pla ?? "",
+        superlogica_subscription_id: g.id,
+        label: g.label,
+        status: g.cancelled ? "cancelada" : "ativa",
+        amount: g.amount,
+        periodicity: periodicityMap[g.periodicity] ?? g.periodicity,
         cnpj: cnpjNorm,
       };
     });
 
-    // Filter: only active subscriptions with amount > 0
+    console.log(`[superlogica] Grouped into ${allSubscriptions.length} subscription(s): ${allSubscriptions.map(s => `${s.label}=R$${s.amount}(${s.status})`).join(', ')}`);
+
+    // Filter: only active subscriptions with total amount > 0
     const subscriptions = allSubscriptions
       .filter((s) => s.status === "ativa" && s.amount > 0)
       .sort((a, b) => b.amount - a.amount);
 
-    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0 (from ${allSubscriptions.length} total)`);
+    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0`);
 
     return json({ ok: true, cnpj: cnpjNorm, subscriptions });
   } catch (err) {
