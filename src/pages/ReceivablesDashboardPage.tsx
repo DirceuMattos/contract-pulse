@@ -329,6 +329,9 @@ export default function ReceivablesDashboardPage() {
                     {row.prevMonthPaidAmount != null ? formatCurrency(row.prevMonthPaidAmount) : '—'}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground py-2">
+                    {row.currMonthDueDate ? new Date(row.currMonthDueDate).toLocaleDateString('pt-BR') : '—'}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground py-2">
                     {row.currMonthPaid && row.currMonthPaidAt
                       ? new Date(row.currMonthPaidAt).toLocaleDateString('pt-BR')
                       : '—'}
