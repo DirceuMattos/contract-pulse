@@ -16,7 +16,6 @@ function onlyDigits(x: string) {
 }
 
 function normalizeBase(raw: string): string {
-  // If the value doesn't look like a URL, use the default
   if (!raw || !raw.startsWith("http")) {
     return "https://api.superlogica.net";
   }
@@ -53,7 +52,7 @@ async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
   let page = 1;
   const perPage = 50;
 
-  while (page <= 20) { // safety limit
+  while (page <= 20) {
     const data = await superlogicaGet(
       `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=${perPage}&pagina=${page}`
     );
@@ -103,31 +102,79 @@ Deno.serve(async (req) => {
     );
 
     const items = Array.isArray(data) ? data : (data?.data ?? []);
-    console.log(`[superlogica] Found ${items.length} subscription(s) for client ${clientId}`);
+    console.log(`[superlogica] Found ${items.length} raw item(s) for client ${clientId}`);
 
-    const allSubscriptions = items.map((s: any) => {
-      const deactivated = !!s.dt_desativacao_sac;
-      const frozen = !!s.dt_congelamento_sac;
+    // Debug: log first 2 items' status fields to identify correct field names
+    for (let i = 0; i < Math.min(2, items.length); i++) {
+      const s = items[i];
+      console.log(`[superlogica] Item ${i} fields: id_planocliente_plc=${s.id_planocliente_plc}, fl_valor_plc=${s.fl_valor_plc}, st_nome_pla=${s.st_nome_pla}, dt_desativacao_plc=${s.dt_desativacao_plc}, dt_congelamento_plc=${s.dt_congelamento_plc}, fl_ativo_plc=${s.fl_ativo_plc}, dt_desativacao_sac=${s.dt_desativacao_sac}`);
+    }
+
+    // Step 3: Group items by subscription ID (id_planocliente_plc) and sum values
+    const groups: Record<string, {
+      id: string;
+      label: string;
+      amount: number;
+      periodicity: string;
+      deactivated: boolean;
+      frozen: boolean;
+    }> = {};
+
+    for (const s of items) {
+      const subId = String(s.id_planocliente_plc ?? s.id ?? "");
+      if (!subId) continue;
+
+      // Use _plc (plan/subscription) fields, NOT _sac (client) fields
+      const deactivated = !!(s.dt_desativacao_plc && s.dt_desativacao_plc !== "0000-00-00");
+      const frozen = !!(s.dt_congelamento_plc && s.dt_congelamento_plc !== "0000-00-00");
+      // Also check fl_ativo_plc as fallback (0 = inactive)
+      const explicitlyInactive = s.fl_ativo_plc !== undefined && String(s.fl_ativo_plc) === "0";
+
+      const amount = Number(s.fl_valor_plc ?? s.fl_valor_pla ?? 0);
+
+      if (!groups[subId]) {
+        groups[subId] = {
+          id: subId,
+          label: s.st_nome_pla ?? s.st_descricao_plc ?? "Assinatura",
+          amount: 0,
+          periodicity: s.st_periodicidade_pla ?? "",
+          deactivated: deactivated || explicitlyInactive,
+          frozen,
+        };
+      }
+
+      // Sum amounts for all items in the same subscription
+      groups[subId].amount += amount;
+
+      // If any item in the group is active, consider the group active
+      if (!deactivated && !explicitlyInactive) {
+        groups[subId].deactivated = false;
+      }
+    }
+
+    const allSubscriptions = Object.values(groups).map((g) => {
       let status = "ativa";
-      if (deactivated) status = "cancelada";
-      else if (frozen) status = "congelada";
+      if (g.deactivated) status = "cancelada";
+      else if (g.frozen) status = "congelada";
 
       return {
-        superlogica_subscription_id: String(s.id_planocliente_plc ?? s.id ?? ""),
-        label: s.st_nome_pla ?? s.st_descricao_plc ?? "Assinatura",
+        superlogica_subscription_id: g.id,
+        label: g.label,
         status,
-        amount: Number(s.fl_valor_plc ?? s.fl_valor_pla ?? 0),
-        periodicity: s.st_periodicidade_pla ?? "",
+        amount: g.amount,
+        periodicity: g.periodicity,
         cnpj: cnpjNorm,
       };
     });
 
-    // Filter: only active subscriptions with amount > 0
+    console.log(`[superlogica] Grouped into ${allSubscriptions.length} subscription(s): ${allSubscriptions.map(s => `${s.label}=${s.amount}(${s.status})`).join(', ')}`);
+
+    // Filter: only active subscriptions with total amount > 0
     const subscriptions = allSubscriptions
       .filter((s) => s.status === "ativa" && s.amount > 0)
       .sort((a, b) => b.amount - a.amount);
 
-    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0 (from ${allSubscriptions.length} total)`);
+    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0 (from ${allSubscriptions.length} grouped)`);
 
     return json({ ok: true, cnpj: cnpjNorm, subscriptions });
   } catch (err) {
