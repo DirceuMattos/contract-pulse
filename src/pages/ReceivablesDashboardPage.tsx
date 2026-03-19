@@ -94,6 +94,7 @@ export default function ReceivablesDashboardPage() {
         if (d && d >= curr.start && d <= curr.end) {
           const r = result[inv.contract_id];
           if (!r.currMonthAmount) {
+            r.currMonthDueDate = d;
             r.currMonthAmount = inv.status === 'paid' ? inv.paid_amount : inv.amount;
             r.currMonthPaid = inv.status === 'paid';
             r.currMonthPaidAt = inv.status === 'paid' ? (inv.paid_at ?? undefined) : undefined;

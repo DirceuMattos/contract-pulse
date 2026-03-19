@@ -58,6 +58,7 @@ export interface ContractReceivableRow {
   status: ReceivablesStatus;
   prevMonthPaidAt?: string;
   prevMonthPaidAmount?: number;
+  currMonthDueDate?: string;
   currMonthPaidAt?: string;
   currMonthAmount?: number;
   currMonthPaid: boolean;
