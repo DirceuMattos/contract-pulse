@@ -77,6 +77,11 @@ async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
   return null;
 }
 
+function isEmptyDate(v: unknown): boolean {
+  const s = String(v ?? "").trim();
+  return !s || s === "0000-00-00" || s === "";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -90,13 +95,11 @@ Deno.serve(async (req) => {
 
     console.log(`[superlogica] Searching subscriptions for CNPJ ${cnpjNorm}`);
 
-    // Step 1: Find client by CNPJ
     const clientId = await findClientByCnpj(cnpjNorm);
     if (!clientId) {
       return json({ ok: true, cnpj: cnpjNorm, subscriptions: [] });
     }
 
-    // Step 2: Fetch subscriptions for that client
     const data = await superlogicaGet(
       `/v2/financeiro/assinaturas?idSacado=${clientId}&itensPorPagina=100`
     );
@@ -104,80 +107,80 @@ Deno.serve(async (req) => {
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     console.log(`[superlogica] Found ${items.length} raw item(s) for client ${clientId}`);
 
-    // Debug: log ALL keys of first item to find the correct value/status fields
-    if (items.length > 0) {
-      console.log(`[superlogica] Item 0 ALL KEYS: ${Object.keys(items[0]).join(', ')}`);
-      // Log all key-value pairs for first item
-      const first = items[0];
-      const pairs = Object.entries(first).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' | ');
-      console.log(`[superlogica] Item 0 ALL VALUES: ${pairs}`);
-    }
+    // Group items by id_planocliente_plc and sum values
+    // API fields discovered from raw payload:
+    //   total / mrr = subscription value
+    //   dt_cancelamento_plc = cancellation date (empty = active)
+    //   dt_congelamento_sac = freeze date (client level, but only indicator available)
+    //   id_planocliente_plc = subscription ID
+    //   st_nome_pla = plan name
+    //   fl_periodicidade_pla = periodicity
 
-    // Step 3: Group items by subscription ID (id_planocliente_plc) and sum values
     const groups: Record<string, {
       id: string;
       label: string;
       amount: number;
       periodicity: string;
-      deactivated: boolean;
-      frozen: boolean;
+      cancelled: boolean;
     }> = {};
 
     for (const s of items) {
-      const subId = String(s.id_planocliente_plc ?? s.id ?? "");
+      const subId = String(s.id_planocliente_plc ?? "");
       if (!subId) continue;
 
-      // Use _plc (plan/subscription) fields, NOT _sac (client) fields
-      const deactivated = !!(s.dt_desativacao_plc && s.dt_desativacao_plc !== "0000-00-00");
-      const frozen = !!(s.dt_congelamento_plc && s.dt_congelamento_plc !== "0000-00-00");
-      // Also check fl_ativo_plc as fallback (0 = inactive)
-      const explicitlyInactive = s.fl_ativo_plc !== undefined && String(s.fl_ativo_plc) === "0";
-
-      const amount = Number(s.fl_valor_plc ?? s.fl_valor_pla ?? 0);
+      const cancelled = !isEmptyDate(s.dt_cancelamento_plc);
+      // Use "total" or "mrr" field for the subscription value
+      const amount = Number(s.total ?? s.mrr ?? s.vl_aproxrenovacao_plc ?? 0);
 
       if (!groups[subId]) {
         groups[subId] = {
           id: subId,
-          label: s.st_nome_pla ?? s.st_descricao_plc ?? "Assinatura",
+          label: s.st_nome_pla ?? s.st_identificador_plc ?? "Assinatura",
           amount: 0,
-          periodicity: s.st_periodicidade_pla ?? "",
-          deactivated: deactivated || explicitlyInactive,
-          frozen,
+          periodicity: String(s.fl_periodicidade_pla ?? ""),
+          cancelled,
         };
       }
 
-      // Sum amounts for all items in the same subscription
-      groups[subId].amount += amount;
+      // The API returns one row per subscription (not per service item within it)
+      // so we take the max amount (in case of duplicates) rather than summing
+      if (amount > groups[subId].amount) {
+        groups[subId].amount = amount;
+      }
 
-      // If any item in the group is active, consider the group active
-      if (!deactivated && !explicitlyInactive) {
-        groups[subId].deactivated = false;
+      // If any row for this subId is NOT cancelled, mark group as active
+      if (!cancelled) {
+        groups[subId].cancelled = false;
       }
     }
 
     const allSubscriptions = Object.values(groups).map((g) => {
-      let status = "ativa";
-      if (g.deactivated) status = "cancelada";
-      else if (g.frozen) status = "congelada";
+      const periodicityMap: Record<string, string> = {
+        "0": "Mensal",
+        "1": "Bimestral",
+        "2": "Trimestral",
+        "3": "Semestral",
+        "4": "Anual",
+      };
 
       return {
         superlogica_subscription_id: g.id,
         label: g.label,
-        status,
+        status: g.cancelled ? "cancelada" : "ativa",
         amount: g.amount,
-        periodicity: g.periodicity,
+        periodicity: periodicityMap[g.periodicity] ?? g.periodicity,
         cnpj: cnpjNorm,
       };
     });
 
-    console.log(`[superlogica] Grouped into ${allSubscriptions.length} subscription(s): ${allSubscriptions.map(s => `${s.label}=${s.amount}(${s.status})`).join(', ')}`);
+    console.log(`[superlogica] Grouped into ${allSubscriptions.length} subscription(s): ${allSubscriptions.map(s => `${s.label}=R$${s.amount}(${s.status})`).join(', ')}`);
 
     // Filter: only active subscriptions with total amount > 0
     const subscriptions = allSubscriptions
       .filter((s) => s.status === "ativa" && s.amount > 0)
       .sort((a, b) => b.amount - a.amount);
 
-    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0 (from ${allSubscriptions.length} grouped)`);
+    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0`);
 
     return json({ ok: true, cnpj: cnpjNorm, subscriptions });
   } catch (err) {
