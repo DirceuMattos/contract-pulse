@@ -279,15 +279,15 @@ export default function ReceivablesDashboardPage() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <Table className="text-xs">
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente / Contrato</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Data Pgto Mês Anterior</TableHead>
-                <TableHead className="text-right">Valor Pago (mês anterior)</TableHead>
-                <TableHead>Data Pgto Mês Atual</TableHead>
-                <TableHead className="text-right">Valor Pago / à Pagar</TableHead>
+                <TableHead className="text-xs">Cliente / Contrato</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Data Pgto<br/>Mês Anterior</TableHead>
+                <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>
+                <TableHead className="text-xs">Data Pgto<br/>Mês Atual</TableHead>
+                <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>
                 <TableHead className="text-right">Valores em Atraso</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
