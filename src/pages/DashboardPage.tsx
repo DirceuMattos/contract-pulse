@@ -121,7 +121,8 @@ function loadFilters(): { selectedClientId: string; selectedContractId: string }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { canViewValues } = useAuth();
+  const { canViewValues: _canViewValues, userRole } = useAuth();
+  const canViewValues = _canViewValues && userRole !== 'administrativo';
   const { contracts, clients, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
