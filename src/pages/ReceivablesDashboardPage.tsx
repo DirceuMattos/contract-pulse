@@ -288,8 +288,8 @@ export default function ReceivablesDashboardPage() {
                 <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Atual</TableHead>
                 <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>
-                <TableHead className="text-right">Valores em Atraso</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="text-xs text-right">Valores<br/>em Atraso</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
