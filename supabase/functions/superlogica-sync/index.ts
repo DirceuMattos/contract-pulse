@@ -17,8 +17,19 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function normalizeBase(raw: string): string {
+  if (!raw || !raw.startsWith("http")) {
+    return "https://api.superlogica.net";
+  }
+  let b = raw.replace(/\/+$/, "");
+  if (b.endsWith("/v2/financeiro")) {
+    b = b.slice(0, -"/v2/financeiro".length);
+  }
+  return b;
+}
+
 async function superlogicaGet(path: string) {
-  const API_BASE = Deno.env.get("SUPERLOGICA_API_BASE")!;
+  const API_BASE = normalizeBase(Deno.env.get("SUPERLOGICA_API_BASE") || "");
   const APP_TOKEN = Deno.env.get("SUPERLOGICA_APP_TOKEN")!;
   const ACCESS_TOKEN = Deno.env.get("SUPERLOGICA_ACCESS_TOKEN")!;
 
