@@ -41,11 +41,15 @@ Deno.serve(async (req) => {
           access_token: ACCESS_TOKEN,
         },
       });
-      const body = await res.text();
+      const body = await res.json().catch(() => null);
       results.push({
         path: p,
         status: res.status,
-        preview: body.substring(0, 500),
+        keys: Array.isArray(body) && body[0] ? Object.keys(body[0]) : null,
+        recebimentoKeys: Array.isArray(body) && body[0]?.recebimento?.[0] ? Object.keys(body[0].recebimento[0]) : null,
+        recebimentoSample: Array.isArray(body) && body[0]?.recebimento?.[0] ? body[0].recebimento[0] : null,
+        itemCount: Array.isArray(body) ? body.length : null,
+        recebimentoCount: Array.isArray(body) && body[0]?.recebimento ? body[0].recebimento.length : null,
       });
     } catch (e) {
       results.push({ path: p, error: String(e) });
