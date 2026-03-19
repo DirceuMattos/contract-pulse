@@ -28,6 +28,7 @@ import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivabl
 interface InvoiceByContract {
   prevMonthPaidAt?: string;
   prevMonthPaidAmount?: number;
+  currMonthDueDate?: string;
   currMonthPaidAt?: string;
   currMonthAmount?: number;
   currMonthPaid: boolean;
@@ -93,6 +94,7 @@ export default function ReceivablesDashboardPage() {
         if (d && d >= curr.start && d <= curr.end) {
           const r = result[inv.contract_id];
           if (!r.currMonthAmount) {
+            r.currMonthDueDate = d;
             r.currMonthAmount = inv.status === 'paid' ? inv.paid_amount : inv.amount;
             r.currMonthPaid = inv.status === 'paid';
             r.currMonthPaidAt = inv.status === 'paid' ? (inv.paid_at ?? undefined) : undefined;
@@ -141,6 +143,7 @@ export default function ReceivablesDashboardPage() {
           status,
           prevMonthPaidAt: inv?.prevMonthPaidAt,
           prevMonthPaidAmount: inv?.prevMonthPaidAmount,
+          currMonthDueDate: inv?.currMonthDueDate,
           currMonthPaidAt: inv?.currMonthPaidAt,
           currMonthAmount: inv?.currMonthAmount ?? (c.valorMensalReferencia ?? undefined),
           currMonthPaid: inv?.currMonthPaid ?? false,
@@ -286,6 +289,7 @@ export default function ReceivablesDashboardPage() {
                 <TableHead className="text-xs">Status</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Anterior</TableHead>
                 <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>
+                <TableHead className="text-xs">Data Vcto<br/>Mês Atual</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Atual</TableHead>
                 <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>
                 <TableHead className="text-xs text-right">Valores<br/>em Atraso</TableHead>
@@ -295,7 +299,7 @@ export default function ReceivablesDashboardPage() {
             <TableBody>
               {filteredRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Nenhum recebível encontrado
                   </TableCell>
                 </TableRow>
@@ -323,6 +327,9 @@ export default function ReceivablesDashboardPage() {
                   </TableCell>
                   <TableCell className="text-right text-xs font-medium py-2">
                     {row.prevMonthPaidAmount != null ? formatCurrency(row.prevMonthPaidAmount) : '—'}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground py-2">
+                    {row.currMonthDueDate ? new Date(row.currMonthDueDate).toLocaleDateString('pt-BR') : '—'}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground py-2">
                     {row.currMonthPaid && row.currMonthPaidAt
