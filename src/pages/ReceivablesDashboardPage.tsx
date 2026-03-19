@@ -299,7 +299,7 @@ export default function ReceivablesDashboardPage() {
             <TableBody>
               {filteredRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Nenhum recebível encontrado
                   </TableCell>
                 </TableRow>
