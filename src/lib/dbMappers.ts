@@ -112,7 +112,6 @@ export function contractFromDb(row: Record<string, unknown>): Contract {
     responsavelClienteTelefone: (row.responsavel_cliente_telefone as string | null) ?? undefined,
     percentualImpostosFaturamento: (row.percentual_impostos_faturamento as number | null) ?? undefined,
     superlogicaCustomerCnpj: (row.superlogica_customer_cnpj as string | null) ?? undefined,
-    superlogicaCustomerName: (row.superlogica_customer_name as string | null) ?? undefined,
     superlogicaSubscriptionId: (row.superlogica_subscription_id as string | null) ?? undefined,
     superlogicaSubscriptionLabel: (row.superlogica_subscription_label as string | null) ?? undefined,
     superlogicaMatchHint: (row.superlogica_match_hint as string | null) ?? undefined,
