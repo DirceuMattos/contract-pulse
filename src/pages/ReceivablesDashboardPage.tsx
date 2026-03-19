@@ -143,6 +143,7 @@ export default function ReceivablesDashboardPage() {
           status,
           prevMonthPaidAt: inv?.prevMonthPaidAt,
           prevMonthPaidAmount: inv?.prevMonthPaidAmount,
+          currMonthDueDate: inv?.currMonthDueDate,
           currMonthPaidAt: inv?.currMonthPaidAt,
           currMonthAmount: inv?.currMonthAmount ?? (c.valorMensalReferencia ?? undefined),
           currMonthPaid: inv?.currMonthPaid ?? false,
