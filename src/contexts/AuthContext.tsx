@@ -118,9 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.signOut();
   };
 
-  const canViewValues = userRole === 'c-level';
-  const canEdit = userRole === 'c-level' || userRole === 'intermediario';
-  const canViewHRCosts = userRole === 'c-level';
+  const canViewValues = userRole === 'c-level' || userRole === 'administrativo';
+  const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo';
+  const canViewHRCosts = userRole === 'c-level' || userRole === 'administrativo';
 
   return (
     <AuthContext.Provider value={{
