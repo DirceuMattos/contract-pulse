@@ -168,8 +168,6 @@ Deno.serve(async (req) => {
         const inv = await superlogicaGet(
           `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`
         );
-          `/v2/financeiro/cobrancas?idSacado=${customerId}&itensPorPagina=100`
-        );
 
         const allItems = inv?.data ?? inv ?? [];
         console.log(`[superlogica-sync] Got ${Array.isArray(allItems) ? allItems.length : 0} invoice(s) for customer ${customerId}`);
