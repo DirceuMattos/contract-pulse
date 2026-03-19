@@ -54,6 +54,7 @@ export interface ContractReceivableRow {
   contractId: string;
   clientName: string;
   contractName: string;
+  contractCode: string;
   subscriptionLabel: string;
   status: ReceivablesStatus;
   valorMes: number;
@@ -61,4 +62,5 @@ export interface ContractReceivableRow {
   diasEmAtraso: number;
   ultimoPagamentoData?: string;
   ultimoPagamentoValor?: number;
+  vencimentoAtual?: string;
 }
