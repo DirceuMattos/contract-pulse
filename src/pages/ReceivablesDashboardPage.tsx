@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -23,10 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
-import { mockInvoices, mockSubscriptionLinks } from '@/data/mockReceivables';
 import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivables';
-
-const currentMonth = '2026-03';
 
 export default function ReceivablesDashboardPage() {
   const navigate = useNavigate();
@@ -42,7 +39,7 @@ export default function ReceivablesDashboardPage() {
     try {
       const { data, error } = await supabase.functions.invoke('superlogica-sync');
       if (error) throw error;
-      toast.success(`Sincronização concluída: ${data?.updatedContracts ?? 0} contratos atualizados`);
+      toast.success(`Sincronização concluída: ${data?.updatedContracts ?? 0} contratos atualizados. Recarregue a página para ver os dados atualizados.`);
     } catch (err: any) {
       toast.error(`Erro na sincronização: ${err.message || err}`);
     } finally {
@@ -50,40 +47,27 @@ export default function ReceivablesDashboardPage() {
     }
   };
 
-  // Build receivable rows from mock data
+  // Build receivable rows from real contract data
   const rows = useMemo<ContractReceivableRow[]>(() => {
     return contracts
-      .filter(c => mockSubscriptionLinks[c.id]) // only linked contracts
+      .filter(c => !!c.superlogicaSubscriptionId)
       .map(c => {
         const client = clients.find(cl => cl.id === c.clientId);
-        const link = mockSubscriptionLinks[c.id];
-        const invoicesForContract = mockInvoices.filter(
-          inv => inv.contractId === c.id && inv.competence === currentMonth
-        );
-        const overdue = mockInvoices.filter(
-          inv => inv.contractId === c.id && inv.status === 'overdue'
-        );
-        const maxDaysOverdue = overdue.reduce((m, inv) => Math.max(m, inv.daysOverdue), 0);
-        const totalOverdue = overdue.reduce((sum, inv) => sum + (inv.amount - inv.paidAmount), 0);
-        const valorMes = invoicesForContract.reduce((s, inv) => s + inv.amount, 0);
-        const status: ReceivablesStatus = totalOverdue > 0 ? 'atrasado' : 'em_dia';
-
-        // Find last payment
-        const paidInvoices = mockInvoices
-          .filter(inv => inv.contractId === c.id && inv.paidAt)
-          .sort((a, b) => (b.paidAt! > a.paidAt! ? 1 : -1));
+        const valorMes = c.valorMensalReferencia ?? 0;
+        const valorEmAtraso = c.receivablesOverdueAmount ?? 0;
+        const status: ReceivablesStatus = valorEmAtraso > 0 ? 'atrasado' : 'em_dia';
 
         return {
           contractId: c.id,
           clientName: client?.nomeFantasia || client?.razaoSocial || '—',
           contractName: c.nome,
-          subscriptionLabel: link.subscriptionLabel,
+          subscriptionLabel: c.superlogicaSubscriptionLabel ?? '',
           status,
           valorMes,
-          valorEmAtraso: totalOverdue,
-          diasEmAtraso: maxDaysOverdue,
-          ultimoPagamentoData: paidInvoices[0]?.paidAt,
-          ultimoPagamentoValor: paidInvoices[0]?.paidAmount,
+          valorEmAtraso,
+          diasEmAtraso: 0, // will be populated after sync populates receivables_invoices
+          ultimoPagamentoData: c.receivablesLastPaymentAt,
+          ultimoPagamentoValor: undefined,
         };
       });
   }, [contracts, clients]);
@@ -232,7 +216,6 @@ export default function ReceivablesDashboardPage() {
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Valor do Mês</TableHead>
                 <TableHead className="text-right">Em Atraso</TableHead>
-                <TableHead className="text-right">Dias</TableHead>
                 <TableHead>Último Pagamento</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
@@ -240,7 +223,7 @@ export default function ReceivablesDashboardPage() {
             <TableBody>
               {filteredRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     Nenhum recebível encontrado
                   </TableCell>
                 </TableRow>
@@ -265,17 +248,9 @@ export default function ReceivablesDashboardPage() {
                   <TableCell className="text-right font-medium text-destructive">
                     {row.valorEmAtraso > 0 ? formatCurrency(row.valorEmAtraso) : '—'}
                   </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {row.diasEmAtraso > 0 ? `${row.diasEmAtraso}d` : '—'}
-                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {row.ultimoPagamentoData ? (
-                      <div>
-                        <span>{new Date(row.ultimoPagamentoData).toLocaleDateString('pt-BR')}</span>
-                        {row.ultimoPagamentoValor && (
-                          <span className="block text-xs">{formatCurrency(row.ultimoPagamentoValor)}</span>
-                        )}
-                      </div>
+                      <span>{new Date(row.ultimoPagamentoData).toLocaleDateString('pt-BR')}</span>
                     ) : '—'}
                   </TableCell>
                   <TableCell>
@@ -305,7 +280,7 @@ export default function ReceivablesDashboardPage() {
                 <div key={row.contractId} className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10">
                   <div>
                     <p className="font-medium text-sm">{row.contractName}</p>
-                    <p className="text-xs text-muted-foreground">{row.clientName} · {row.diasEmAtraso} dias em atraso</p>
+                    <p className="text-xs text-muted-foreground">{row.clientName}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-destructive">{formatCurrency(row.valorEmAtraso)}</p>
