@@ -15,9 +15,12 @@ function onlyDigits(x: string) {
   return (x || "").replace(/\D/g, "");
 }
 
-function normalizeBase(base: string): string {
-  // Remove trailing slash and /v2/financeiro if present to avoid duplication
-  let b = base.replace(/\/+$/, "");
+function normalizeBase(raw: string): string {
+  // If the value doesn't look like a URL, use the default
+  if (!raw || !raw.startsWith("http")) {
+    return "https://api.superlogica.net";
+  }
+  let b = raw.replace(/\/+$/, "");
   if (b.endsWith("/v2/financeiro")) {
     b = b.slice(0, -"/v2/financeiro".length);
   }
