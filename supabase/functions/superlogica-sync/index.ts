@@ -169,30 +169,48 @@ Deno.serve(async (req) => {
           `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`
         );
 
-        const allItems = inv?.data ?? inv ?? [];
-        console.log(`[superlogica-sync] Got ${Array.isArray(allItems) ? allItems.length : 0} invoice(s) for customer ${customerId}`);
+        const allItemsRaw = inv?.data ?? inv ?? [];
+        const allItems = Array.isArray(allItemsRaw) ? allItemsRaw : [];
+        const customerItems = allItems.filter((x: any) =>
+          String(x.id_sacado_sac ?? x.idSacado ?? x.id_sacado ?? "").trim() === String(customerId)
+        );
+        console.log(
+          `[superlogica-sync] Got ${allItems.length} invoice(s) total, ${customerItems.length} for customer ${customerId}`
+        );
 
-        // Build a set of subscription IDs we care about
-        const subIdToContract: Record<string, ContractRow> = {};
+        // Build subscription -> contracts map (can be ambiguous)
+        const subIdToContracts: Record<string, ContractRow[]> = {};
         for (const c of groupContracts) {
           const subId = String(c.superlogica_subscription_id).trim();
-          subIdToContract[subId] = c;
+          if (!subIdToContracts[subId]) subIdToContracts[subId] = [];
+          subIdToContracts[subId].push(c);
         }
 
         // Parse and distribute invoices to their contracts
         const invoicesByContract: Record<string, any[]> = {};
+        const reportedAmbiguity = new Set<string>();
 
-        for (const x of (Array.isArray(allItems) ? allItems : [])) {
+        for (const x of customerItems) {
           // Try to match invoice to a subscription via id_contrato_mens or id_adesao_plc
           const invoiceSubId = String(x.id_contrato_mens ?? x.id_planocliente_plc ?? "").trim();
 
           // Find the contract this invoice belongs to
           let contractId: string | null = null;
-          if (invoiceSubId && subIdToContract[invoiceSubId]) {
-            contractId = subIdToContract[invoiceSubId].id;
-          } else if (groupContracts.length === 1) {
+          const matches = invoiceSubId ? (subIdToContracts[invoiceSubId] ?? []) : [];
+
+          if (invoiceSubId && matches.length === 1) {
+            contractId = matches[0].id;
+          } else if (!invoiceSubId && groupContracts.length === 1) {
             contractId = groupContracts[0].id;
           } else {
+            const ambiguityKey = invoiceSubId || "without_subscription_id";
+            if (!reportedAmbiguity.has(ambiguityKey)) {
+              reportedAmbiguity.add(ambiguityKey);
+              errorsCount++;
+              errors.push(
+                `CNPJ ${cnpj}: cobrança não vinculada por ambiguidade (subId=${ambiguityKey}, contratos=${groupContracts.length})`
+              );
+            }
             continue;
           }
 
@@ -215,7 +233,6 @@ Deno.serve(async (req) => {
             const now = new Date();
             const diff = Math.floor((now.getTime() - due.getTime()) / 86400000);
             daysOverdue = Math.max(0, diff);
-            // If overdue, mark as such
           }
           const finalStatus = (status === "open" && daysOverdue > 0) ? "overdue" : status;
 
