@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
             external_invoice_id: externalId || null,
             competence: competence || null,
             due_date: dueDate,
-            status,
+            status: finalStatus,
             amount,
             paid_amount: paidAmount,
             paid_at: paidAt,
