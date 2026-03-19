@@ -203,9 +203,9 @@ Deno.serve(async (req) => {
 
           const amount = Number(x.vl_total_recb ?? x.vl_emitido_recb ?? 0);
           const paidAmount = status === "paid" ? amount : 0;
-          const dueDate = x.dt_vencimento_recb ?? null;
-          const paidAt = x.dt_liquidacao_recb ?? (status === "paid" ? x.dt_recebimento_recb : null);
-          const competence = x.dt_competencia_recb ?? null;
+          const dueDate = x.dt_vencimento_recb || null;
+          const paidAt = x.dt_liquidacao_recb || (status === "paid" ? (x.dt_recebimento_recb || null) : null);
+          const competence = x.dt_competencia_recb || null;
           const externalId = String(x.id_recebimento_recb ?? "");
 
           // Calculate days overdue for open invoices
