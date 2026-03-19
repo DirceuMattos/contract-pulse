@@ -28,6 +28,7 @@ import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivabl
 interface InvoiceByContract {
   prevMonthPaidAt?: string;
   prevMonthPaidAmount?: number;
+  currMonthDueDate?: string;
   currMonthPaidAt?: string;
   currMonthAmount?: number;
   currMonthPaid: boolean;
