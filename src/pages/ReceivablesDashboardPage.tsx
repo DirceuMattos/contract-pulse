@@ -279,17 +279,17 @@ export default function ReceivablesDashboardPage() {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
+          <Table className="text-xs">
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente / Contrato</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Data Pgto Mês Anterior</TableHead>
-                <TableHead className="text-right">Valor Pago (mês anterior)</TableHead>
-                <TableHead>Data Pgto Mês Atual</TableHead>
-                <TableHead className="text-right">Valor Pago / à Pagar</TableHead>
-                <TableHead className="text-right">Valores em Atraso</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="text-xs">Cliente / Contrato</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Data Pgto<br/>Mês Anterior</TableHead>
+                <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>
+                <TableHead className="text-xs">Data Pgto<br/>Mês Atual</TableHead>
+                <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>
+                <TableHead className="text-xs text-right">Valores<br/>em Atraso</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -302,47 +302,47 @@ export default function ReceivablesDashboardPage() {
               )}
               {filteredRows.map(row => (
                 <TableRow key={row.contractId} className={row.status === 'atrasado' ? 'bg-destructive/5' : ''}>
-                  <TableCell>
+                  <TableCell className="py-2">
                     <div>
-                      <span className="text-xs text-muted-foreground">{row.clientName}</span>
-                      <p className="font-medium text-sm">{row.contractName}</p>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{row.clientName}</span>
+                      <p className="font-medium text-xs leading-tight">{row.contractName}</p>
                       {row.contractCode && (
-                        <span className="text-xs text-muted-foreground">{row.contractCode}</span>
+                        <span className="text-[11px] text-muted-foreground">{row.contractCode}</span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell className="whitespace-nowrap py-2">
                     {row.status === 'em_dia' ? (
-                      <Badge variant="outline" className="border-emerald-500 text-emerald-700 dark:text-emerald-400">Em dia</Badge>
+                      <Badge variant="outline" className="text-[11px] px-1.5 py-0 border-emerald-500 text-emerald-700 dark:text-emerald-400">Em dia</Badge>
                     ) : (
-                      <Badge variant="destructive">Atrasado</Badge>
+                      <Badge variant="destructive" className="text-[11px] px-1.5 py-0">Atrasado</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-xs text-muted-foreground py-2">
                     {row.prevMonthPaidAt ? new Date(row.prevMonthPaidAt).toLocaleDateString('pt-BR') : '—'}
                   </TableCell>
-                  <TableCell className="text-right font-medium">
+                  <TableCell className="text-right text-xs font-medium py-2">
                     {row.prevMonthPaidAmount != null ? formatCurrency(row.prevMonthPaidAmount) : '—'}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-xs text-muted-foreground py-2">
                     {row.currMonthPaid && row.currMonthPaidAt
                       ? new Date(row.currMonthPaidAt).toLocaleDateString('pt-BR')
                       : '—'}
                   </TableCell>
-                  <TableCell className="text-right font-medium">
+                  <TableCell className="text-right py-2">
                     {row.currMonthAmount != null ? (
-                      <span className={row.currMonthPaid ? 'text-emerald-700 dark:text-emerald-400' : ''}>
-                        {formatCurrency(row.currMonthAmount)}
-                        {!row.currMonthPaid && <span className="text-xs text-muted-foreground ml-1">(à pagar)</span>}
-                      </span>
+                      <div className={row.currMonthPaid ? 'text-emerald-700 dark:text-emerald-400' : ''}>
+                        <span className="text-xs font-medium block">{formatCurrency(row.currMonthAmount)}</span>
+                        {!row.currMonthPaid && <span className="text-[11px] text-muted-foreground block">à pagar</span>}
+                      </div>
                     ) : '—'}
                   </TableCell>
-                  <TableCell className="text-right font-medium text-destructive">
+                  <TableCell className="text-right text-xs font-medium text-destructive py-2">
                     {row.totalOverdue > 0 ? formatCurrency(row.totalOverdue) : '—'}
                   </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => navigate(`/contratos/${row.contractId}`)}>
-                      <ExternalLink className="h-4 w-4" />
+                  <TableCell className="py-2">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/contratos/${row.contractId}`)}>
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
                 </TableRow>
