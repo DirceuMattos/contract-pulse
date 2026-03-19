@@ -1,0 +1,1 @@
+ALTER TABLE public.receivables_invoices ADD CONSTRAINT receivables_invoices_sub_ext_unique UNIQUE (superlogica_subscription_id, external_invoice_id);
