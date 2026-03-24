@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canViewValues = userRole === 'c-level' || userRole === 'administrativo';
-  const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo';
+  const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh';
   const canViewHRCosts = userRole === 'c-level' || userRole === 'administrativo';
 
   return (
