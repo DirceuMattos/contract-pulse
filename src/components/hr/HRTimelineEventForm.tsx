@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { HRTimelineEvent } from '@/types';
+import { handleFormValidationError } from '@/lib/formValidation';
 
 const schema = z.object({
   eventDate: z.string().min(1, 'Data é obrigatória'),
@@ -71,7 +72,7 @@ export function HRTimelineEventForm({ event, personId, canViewFinanceiro, onSubm
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleFormValidationError)} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField control={form.control} name="eventDate" render={({ field }) => (
             <FormItem>

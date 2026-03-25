@@ -37,6 +37,27 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { handleFormValidationError } from '@/lib/formValidation';
+
+// Map form fields to accordion sections for auto-expand on error
+const fieldToSection: Record<string, string> = {
+  codigo: 'identificacao', nome: 'identificacao', clientId: 'identificacao',
+  tipo: 'identificacao', segmento: 'identificacao', status: 'identificacao',
+  unidade: 'identificacao', centroCusto: 'identificacao', govSphere: 'identificacao',
+  dataInicio: 'vigencia', dataFim: 'vigencia', renovacaoAutomatica: 'vigencia',
+  periodicidadeRenovacao: 'vigencia', statusRenovacao: 'vigencia',
+  renewalTermMonths: 'vigencia', renewalBaseDate: 'vigencia',
+  indiceReajuste: 'vigencia', dataBaseReajuste: 'vigencia',
+  percentualFixo: 'vigencia', alertaReajusteDias: 'vigencia',
+  modeloReceita: 'receita', valorMensalReferencia: 'receita',
+  valorTotalContrato: 'receita', percentualImpostosFaturamento: 'receita',
+  moeda: 'receita', observacoesFinanceiras: 'receita',
+  objeto: 'escopo', escopoOperacional: 'escopo', slas: 'escopo', riscosPendencias: 'escopo',
+  responsavelInterno: 'responsaveis', responsavelCS: 'responsaveis',
+  responsavelComercial: 'responsaveis', responsavelCliente: 'responsaveis',
+  responsavelClienteEmail: 'responsaveis', responsavelClienteTelefone: 'responsaveis',
+};
 
 interface ContractFormProps {
   contract?: Contract;
@@ -50,7 +71,9 @@ const periodicidades = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bienal'];
 
 export function ContractForm({ contract, onSubmit, onCancel, isLoading }: ContractFormProps) {
   const { clients, settings } = useData();
+  const { toast } = useToast();
   const [tagInput, setTagInput] = useState('');
+  const [openSections, setOpenSections] = useState<string[]>(['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']);
   
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractFormSchema),
@@ -132,8 +155,19 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <Accordion type="multiple" defaultValue={['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          handleFormValidationError(errors);
+          // Auto-expand accordion sections that contain errors
+          const sectionsWithErrors = new Set<string>();
+          Object.keys(errors).forEach(key => {
+            const section = fieldToSection[key];
+            if (section) sectionsWithErrors.add(section);
+          });
+          if (sectionsWithErrors.size > 0) {
+            setOpenSections(prev => [...new Set([...prev, ...sectionsWithErrors])]);
+          }
+        })} className="space-y-6">
+        <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-4">
           {/* Identificação */}
           <AccordionItem value="identificacao" className="border rounded-lg px-4">
             <AccordionTrigger className="hover:no-underline">

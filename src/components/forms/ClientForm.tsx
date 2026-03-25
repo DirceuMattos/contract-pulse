@@ -8,6 +8,7 @@ import { Client } from '@/types';
 import { clientFormSchema, ClientFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
+import { handleFormValidationError } from '@/lib/formValidation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -221,7 +222,7 @@ export function ClientForm({ client, mode }: ClientFormProps) {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, handleFormValidationError)} className="space-y-6">
           {/* Identification */}
           <Card>
             <CardHeader>

@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { handleFormValidationError } from '@/lib/formValidation';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -86,7 +87,7 @@ export default function SettingsPage() {
       />
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, handleFormValidationError)} className="space-y-6">
           {/* Encargos e Impostos */}
           <Card>
             <CardHeader>

@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Resource, ResourceType, OtherCostCategory, Seniority, Settings } from '@/types';
 import { formatCurrency, calculateResourceCost } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
+import { handleFormValidationError } from '@/lib/formValidation';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -254,7 +255,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
   return (
     <TooltipProvider>
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormValidationError)} className="space-y-6">
         {/* Tipo de Recurso */}
         <FormField
           control={form.control}
