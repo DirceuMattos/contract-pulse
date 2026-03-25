@@ -1,75 +1,57 @@
 
 
-## Problema identificado
+## Validação visual de campos obrigatórios
 
-Existem **duas camadas de bloqueio** conflitantes:
+### Problema
+Quando o usuário clica em "Salvar" com campos obrigatórios vazios, o formulario simplesmente nao salva — sem feedback visual. Em formularios longos (como Contrato, com 5 seções em accordion), o usuario nao sabe onde esta o erro.
 
-### 1. Políticas RLS no banco de dados (causa raiz dos erros de gravação)
-Todas as tabelas de dados (hr_people, hr_timeline, clients, contracts, resources, history_events, etc.) possuem políticas de INSERT/UPDATE que permitem **apenas `c-level` e `intermediario`**:
+### Solucao
 
-```sql
--- Exemplo atual em TODAS as tabelas:
-WITH CHECK: has_any_role(auth.uid(), ARRAY['c-level', 'intermediario'])
-```
+Duas alteracoes centrais que cobrem **todos os 8 formularios** do sistema:
 
-Os papéis `rh` e `administrativo` **não estão nas políticas**, então qualquer tentativa de gravar dados resulta em erro RLS silencioso — mesmo que o frontend mostre os botões de edição.
+#### 1. Toast de erro global ao falhar validacao
+Criar um wrapper `onInvalid` em cada `form.handleSubmit(onSubmit, onInvalid)` que:
+- Exibe um toast vermelho: "Existem campos obrigatórios não preenchidos"
+- Faz scroll automatico ate o primeiro campo com erro
 
-### 2. Flag `canEdit` no frontend (parcialmente corrigida)
-Atualmente:
-```typescript
-const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo';
-```
-O papel `rh` não está incluído, então o frontend esconde botões de edição para RH — mesmo quando o módulo está habilitado.
+**Arquivos afetados** (8 formularios):
+- `src/components/forms/ContractForm.tsx`
+- `src/components/forms/ClientForm.tsx`
+- `src/components/forms/ResourceForm.tsx`
+- `src/components/forms/OverheadForm.tsx`
+- `src/components/hr/HRPersonForm.tsx`
+- `src/components/hr/HRTimelineEventForm.tsx`
+- `src/components/users/UserFormDialog.tsx`
+- `src/pages/SettingsPage.tsx`
 
-### Resultado combinado
-- **Administrativo**: Vê botões de edição (frontend permite), mas o banco rejeita a gravação (RLS bloqueia) → erro silencioso
-- **RH**: Não vê botões de edição (frontend bloqueia) → "acesso negado" visual
-
-## Plano
-
-### Etapa 1 — Atualizar políticas RLS para incluir `rh` e `administrativo`
-
-**Via migration SQL**, alterar as políticas de INSERT e UPDATE em **todas as tabelas de dados** para incluir os 4 papéis que podem editar:
-
-Tabelas afetadas (13 tabelas):
-- `clients`, `contracts`, `resources`, `history_events`
-- `hr_people`, `hr_timeline`
-- `overhead_items`, `document_attachments`, `attachment_description_configs`
-- `job_titles`, `teams`
-- `snapshots` (INSERT)
-- `settings` (verificar se tem UPDATE policy)
-
-Para cada tabela, trocar:
-```sql
-has_any_role(auth.uid(), ARRAY['c-level', 'intermediario'])
-```
-Por:
-```sql
-has_any_role(auth.uid(), ARRAY['c-level', 'intermediario', 'administrativo', 'rh'])
-```
-
-### Etapa 2 — Atualizar `canEdit` no frontend para incluir `rh`
-
-**Arquivo**: `src/contexts/AuthContext.tsx` (linha 122)
-
-Alterar:
-```typescript
-const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo';
+Em cada um, alterar:
+```tsx
+form.handleSubmit(onSubmit)
 ```
 Para:
-```typescript
-const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh';
+```tsx
+form.handleSubmit(onSubmit, (errors) => {
+  toast({
+    title: 'Campos obrigatórios',
+    description: 'Preencha todos os campos obrigatórios destacados em vermelho.',
+    variant: 'destructive',
+  });
+  // Scroll to first error
+  const firstErrorKey = Object.keys(errors)[0];
+  const el = document.querySelector(`[name="${firstErrorKey}"]`) 
+    || document.getElementById(`${firstErrorKey}-form-item`);
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+})
 ```
 
-Isso garante que o frontend exibe os botões de edição para todos os papéis que têm permissão de gravação no banco.
+#### 2. Destaque visual nos campos com erro (ContractForm especifico)
+O `ContractForm` usa `Accordion` — se o campo com erro esta em uma secao fechada, o usuario nao o ve. Solucao: ao falhar validacao, abrir automaticamente as secoes que contem erros.
 
-### O que NÃO muda
-- O controle de **acesso ao módulo** (moduleAccess) continua restringindo quais páginas cada usuário pode ver
-- Políticas de **DELETE** continuam restritas a `c-level`
-- O papel `leitor`, `comercial`, `lider_tribo` e `juridico` continuam sem permissão de edição
+No `ContractForm.tsx`, controlar o estado do accordion programaticamente e expandir secoes com erros.
 
 ### Resultado esperado
-- Usuários RH com módulo HR habilitado poderão editar pessoas, timeline e dados nos módulos que possuem acesso
-- Usuários Administrativos com módulos habilitados poderão gravar alterações sem erros silenciosos
-- A regra confirmada "se o módulo está habilitado, o usuário pode editar" estará implementada de ponta a ponta
+- Toast vermelho claro informando que ha campos pendentes
+- Scroll automatico ate o primeiro campo com erro
+- Campos com erro destacados em vermelho (ja funciona via `FormMessage` existente)
+- No formulario de contrato, secoes com erros se abrem automaticamente
 
