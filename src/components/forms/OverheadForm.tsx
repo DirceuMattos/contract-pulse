@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/tooltip';
 import { OverheadItem, OverheadCategory, OverheadMode } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
+import { handleFormValidationError } from '@/lib/formValidation';
 
 const overheadFormSchema = z.object({
   categoria: z.enum(['infraestrutura', 'administrativo', 'governanca']),
@@ -102,7 +103,7 @@ export function OverheadForm({ item, contractId, baseCalculo, onSubmit, onCancel
   return (
     <TooltipProvider>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-5">
+        <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormValidationError)} className="space-y-5">
           <FormField
             control={form.control}
             name="categoria"

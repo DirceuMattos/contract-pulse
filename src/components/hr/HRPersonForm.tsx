@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { HRPerson, BeneficioItem } from '@/types';
+import { handleFormValidationError } from '@/lib/formValidation';
 import { useData } from '@/contexts/DataContext';
 
 const BENEFICIO_OPTIONS = [
@@ -193,7 +194,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleFormValidationError)} className="space-y-6">
         {/* Identificação */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Dados Profissionais</h3>

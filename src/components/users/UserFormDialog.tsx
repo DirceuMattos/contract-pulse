@@ -9,6 +9,7 @@ import { ModuleKey, MODULE_CATALOG, getDefaultModuleAccess, isRoleAllowedForModu
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { handleFormValidationError } from '@/lib/formValidation';
 import {
   Dialog,
   DialogContent,
@@ -256,7 +257,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit, handleFormValidationError)} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
