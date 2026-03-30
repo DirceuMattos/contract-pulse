@@ -73,7 +73,18 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Sync with auth state like other contexts
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchData();
+      } else if (event === 'SIGNED_OUT') {
+        setSubprojects([]);
+        setAllocations([]);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [fetchData]);
 
   // hasSubprojects is now derived from actual data
   const hasSubprojectsFn = useCallback((contractId: string) => {
