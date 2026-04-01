@@ -666,7 +666,22 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
+            {canViewValues && (
+              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                {([{ key: 'govtech', label: 'Govtech', color: 'hsl(222, 47%, 35%)' }, { key: 'privado', label: 'Privado', color: 'hsl(262, 52%, 47%)' }]).map(({ key, label, color }) => {
+                  const d = financialBreakdown.bySegment[key];
+                  if (!d || (d.receita === 0 && d.custo === 0)) return null;
+                  return (
+                    <div key={key} className="flex items-start gap-1.5 text-xs">
+                      <div className="w-2 h-2 rounded-sm mt-1 shrink-0" style={{ backgroundColor: color }} />
+                      <span className="text-muted-foreground">
+                        {label} — Receita: <span className="font-medium text-foreground">{formatCurrency(d.receita)}</span> | Custo: <span className="font-medium text-foreground">{formatCurrency(d.custo)}</span> | Resultado: <span className={cn("font-medium", d.margem >= 0 ? "text-health-healthy" : "text-health-critical")}>{formatCurrency(d.margem)}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
         </Card>
 
         {/* Type Distribution */}
