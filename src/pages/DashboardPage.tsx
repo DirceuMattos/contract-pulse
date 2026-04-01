@@ -576,6 +576,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+      </motion.div>
 
       {/* Charts Row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
