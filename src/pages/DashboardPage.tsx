@@ -571,27 +571,11 @@ export default function DashboardPage() {
                 </span>
                 <span className="text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{kpis.contratosHibrido}</span> Híbrido
-                </span>
-            </div>
-            {canViewValues && (
-              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
-                {([{ key: 'govtech', label: 'Govtech', color: 'hsl(222, 47%, 35%)' }, { key: 'privado', label: 'Privado', color: 'hsl(262, 52%, 47%)' }]).map(({ key, label, color }) => {
-                  const d = financialBreakdown.bySegment[key];
-                  if (!d || (d.receita === 0 && d.custo === 0)) return null;
-                  return (
-                    <div key={key} className="flex items-start gap-1.5 text-xs">
-                      <div className="w-2 h-2 rounded-sm mt-1 shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-muted-foreground">
-                        {label} — Receita: <span className="font-medium text-foreground">{formatCurrency(d.receita)}</span> | Custo: <span className="font-medium text-foreground">{formatCurrency(d.custo)}</span> | Resultado: <span className={cn("font-medium", d.margem >= 0 ? "text-health-healthy" : "text-health-critical")}>{formatCurrency(d.margem)}</span>
-                      </span>
-                    </div>
-                  );
-                })}
+              </span>
               </div>
-            )}
+            </CardContent>
           </Card>
         )}
-      </motion.div>
 
       {/* Charts Row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
