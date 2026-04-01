@@ -683,6 +683,7 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
+          </CardContent>
         </Card>
 
         {/* Type Distribution */}
@@ -728,6 +729,9 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Contracts with Alerts Table */}
       <motion.div variants={itemVariants}>
