@@ -621,6 +621,22 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+            {canViewValues && (
+              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                {(['saudavel', 'atencao', 'critico'] as const).map((key) => {
+                  const d = financialBreakdown.byHealth[key];
+                  if (!d || (d.receita === 0 && d.custo === 0)) return null;
+                  return (
+                    <div key={key} className="flex items-start gap-1.5 text-xs">
+                      <div className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ backgroundColor: healthColors[key] }} />
+                      <span className="text-muted-foreground">
+                        {healthLabels[key]} — Receita: <span className="font-medium text-foreground">{formatCurrency(d.receita)}</span> | Custo: <span className="font-medium text-foreground">{formatCurrency(d.custo)}</span> | Resultado: <span className={cn("font-medium", d.margem >= 0 ? "text-health-healthy" : "text-health-critical")}>{formatCurrency(d.margem)}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
