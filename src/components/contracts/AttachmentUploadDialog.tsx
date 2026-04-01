@@ -128,8 +128,9 @@ export default function AttachmentUploadDialog({ open, onOpenChange, contractId 
       toast({ title: 'Documento anexado com sucesso' });
       resetForm();
       onOpenChange(false);
-    } catch (error) {
-      toast({ title: 'Erro ao salvar', description: 'Não foi possível salvar o arquivo no armazenamento local.', variant: 'destructive' });
+    } catch (error: any) {
+      const msg = error?.message || 'Erro desconhecido ao salvar o arquivo.';
+      toast({ title: 'Erro ao salvar documento', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
