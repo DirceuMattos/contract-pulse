@@ -712,9 +712,22 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            {canViewValues && (
+              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                {([{ key: 'sistema', label: 'Sistema', color: 'hsl(199, 89%, 48%)' }, { key: 'infraestrutura', label: 'Infraestrutura', color: 'hsl(25, 95%, 53%)' }, { key: 'hibrido', label: 'Híbrido', color: 'hsl(280, 67%, 55%)' }]).map(({ key, label, color }) => {
+                  const d = financialBreakdown.byType[key];
+                  if (!d || (d.receita === 0 && d.custo === 0)) return null;
+                  return (
+                    <div key={key} className="flex items-start gap-1.5 text-xs">
+                      <div className="w-2 h-2 rounded-sm mt-1 shrink-0" style={{ backgroundColor: color }} />
+                      <span className="text-muted-foreground">
+                        {label} — Receita: <span className="font-medium text-foreground">{formatCurrency(d.receita)}</span> | Custo: <span className="font-medium text-foreground">{formatCurrency(d.custo)}</span> | Resultado: <span className={cn("font-medium", d.margem >= 0 ? "text-health-healthy" : "text-health-critical")}>{formatCurrency(d.margem)}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
       {/* Contracts with Alerts Table */}
       <motion.div variants={itemVariants}>
