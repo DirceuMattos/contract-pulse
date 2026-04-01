@@ -206,6 +206,47 @@ export default function DashboardPage() {
     { name: 'Híbrido', value: kpis.contratosHibrido, color: 'hsl(280, 67%, 55%)' },
   ].filter(d => d.value > 0);
 
+  // Financial aggregation by health, segment, type
+  const financialBreakdown = useMemo(() => {
+    const byHealth: Record<string, { receita: number; custo: number; margem: number }> = {
+      saudavel: { receita: 0, custo: 0, margem: 0 },
+      atencao: { receita: 0, custo: 0, margem: 0 },
+      critico: { receita: 0, custo: 0, margem: 0 },
+    };
+    const bySegment: Record<string, { receita: number; custo: number; margem: number }> = {
+      govtech: { receita: 0, custo: 0, margem: 0 },
+      privado: { receita: 0, custo: 0, margem: 0 },
+    };
+    const byType: Record<string, { receita: number; custo: number; margem: number }> = {
+      sistema: { receita: 0, custo: 0, margem: 0 },
+      infraestrutura: { receita: 0, custo: 0, margem: 0 },
+      hibrido: { receita: 0, custo: 0, margem: 0 },
+    };
+
+    for (const contract of filteredContracts) {
+      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+      const entry = { receita: health.receitaLiquida, custo: health.custoMensal, margem: health.margemMensal };
+
+      if (byHealth[health.status]) {
+        byHealth[health.status].receita += entry.receita;
+        byHealth[health.status].custo += entry.custo;
+        byHealth[health.status].margem += entry.margem;
+      }
+      if (bySegment[contract.segmento]) {
+        bySegment[contract.segmento].receita += entry.receita;
+        bySegment[contract.segmento].custo += entry.custo;
+        bySegment[contract.segmento].margem += entry.margem;
+      }
+      if (byType[contract.tipo]) {
+        byType[contract.tipo].receita += entry.receita;
+        byType[contract.tipo].custo += entry.custo;
+        byType[contract.tipo].margem += entry.margem;
+      }
+    }
+
+    return { byHealth, bySegment, byType };
+  }, [filteredContracts, resources, settings, centralOverheadMap]);
+
   // Filtered contract IDs
   const filteredContractIds = useMemo(() => new Set(filteredContracts.map(c => c.id)), [filteredContracts]);
 
