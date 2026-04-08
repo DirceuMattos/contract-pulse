@@ -75,6 +75,11 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
 
   // Sync with auth state like other contexts
   useEffect(() => {
+    // Initial fetch if already signed in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) fetchData();
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         fetchData();
