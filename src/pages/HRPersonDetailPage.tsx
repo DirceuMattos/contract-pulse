@@ -399,6 +399,7 @@ export default function HRPersonDetailPage() {
                         }}
                       />
                     </div>
+                  </div>
                 </TooltipProvider>
               </CardContent>
             </Card>
