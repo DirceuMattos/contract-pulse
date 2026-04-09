@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_people ADD COLUMN is_em_avaliacao boolean NOT NULL DEFAULT false;

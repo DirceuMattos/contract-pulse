@@ -1271,6 +1271,7 @@ export type Database = {
           endereco_uf: string | null
           id: string
           id_externo: string | null
+          is_em_avaliacao: boolean
           is_guardiao: boolean
           is_talento: boolean
           last_synced_at: string | null
@@ -1319,6 +1320,7 @@ export type Database = {
           endereco_uf?: string | null
           id?: string
           id_externo?: string | null
+          is_em_avaliacao?: boolean
           is_guardiao?: boolean
           is_talento?: boolean
           last_synced_at?: string | null
@@ -1367,6 +1369,7 @@ export type Database = {
           endereco_uf?: string | null
           id?: string
           id_externo?: string | null
+          is_em_avaliacao?: boolean
           is_guardiao?: boolean
           is_talento?: boolean
           last_synced_at?: string | null
