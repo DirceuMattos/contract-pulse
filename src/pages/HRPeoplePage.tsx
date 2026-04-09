@@ -314,12 +314,13 @@ export default function HRPeoplePage() {
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                 <input type="checkbox" checked={filterGuardiao} onChange={e => setFilterGuardiao(e.target.checked)} className="rounded border-primary" />
-                 🛡️ Guardiões
-316:               </label>
-317:               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-318:                 <input type="checkbox" checked={filterEmAvaliacao} onChange={e => setFilterEmAvaliacao(e.target.checked)} className="rounded border-primary" />
-319:                 <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /> Em Avaliação
-320:               </label>
+                🛡️ Guardiões
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={filterEmAvaliacao} onChange={e => setFilterEmAvaliacao(e.target.checked)} className="rounded border-primary" />
+                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /> Em Avaliação
+              </label>
+            </div>
             {hasActiveFilters && (
               <Button variant="outline" onClick={handleClearFilters} className="gap-2">
                 <X className="h-4 w-4" />
