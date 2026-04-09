@@ -372,10 +372,12 @@ export default function HRPeoplePage() {
                     {sorted.map(p => {
                       const isFrozen = p.situacao === 'inativo' && !!p.dataDesligamento;
                       const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao, isFrozen ? p.dataDesligamento : undefined);
-                      const hasFlag = p.isTalento || p.isGuardiao;
+                      const hasFlag = p.isTalento || p.isGuardiao || p.isEmAvaliacao;
+                      const borderColor = p.isEmAvaliacao ? 'border-l-yellow-500' : p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : '';
                       return (
-                        <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : ''}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                        <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="py-2 px-1 w-[18px] text-center">
+                            {p.isEmAvaliacao && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" title="Em Avaliação" />}
                             {p.isTalento && <span title="Talento" className="text-[11px]">⭐</span>}
                             {p.isGuardiao && <span title="Guardião" className="text-[11px]">🛡️</span>}
                           </TableCell>

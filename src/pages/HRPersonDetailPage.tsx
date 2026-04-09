@@ -324,6 +324,7 @@ export default function HRPersonDetailPage() {
                     <span>{person.nome}</span>
                     {person.isTalento && <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-[10px] px-1.5 py-0">⭐ Talento</Badge>}
                     {person.isGuardiao && <Badge className="bg-sky-600 text-white hover:bg-sky-700 text-[10px] px-1.5 py-0">🛡️ Guardião</Badge>}
+                    {person.isEmAvaliacao && <Badge className="bg-yellow-500 text-white hover:bg-yellow-600 text-[10px] px-1.5 py-0">⚠ Em Avaliação</Badge>}
                   </div>
                 } />
                 <Row label="Situação" value={<Badge className={person.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}>{person.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</Badge>} />
@@ -378,7 +379,26 @@ export default function HRPersonDetailPage() {
                         }}
                       />
                     </div>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="emavaliacao-switch" className="flex items-center gap-1.5 cursor-pointer text-sm">
+                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                            Em Avaliação
+                          </Label>
+                        </TooltipTrigger>
+                        <TooltipContent>Profissional em período de avaliação de desempenho.</TooltipContent>
+                      </Tooltip>
+                      <Switch
+                        id="emavaliacao-switch"
+                        checked={!!person.isEmAvaliacao}
+                        disabled={!canEdit}
+                        onCheckedChange={async (checked) => {
+                          await updatePerson(person.id, { isEmAvaliacao: checked });
+                          toast.success(checked ? 'Marcado como Em Avaliação.' : 'Flag Em Avaliação removida.');
+                        }}
+                      />
+                    </div>
                 </TooltipProvider>
               </CardContent>
             </Card>
