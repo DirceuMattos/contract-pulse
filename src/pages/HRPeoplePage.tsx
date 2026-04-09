@@ -377,7 +377,7 @@ export default function HRPeoplePage() {
                       return (
                         <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="py-2 px-1 w-[18px] text-center">
-                            {p.isEmAvaliacao && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" title="Em Avaliação" />}
+                            {p.isEmAvaliacao && <span title="Em Avaliação"><AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /></span>}
                             {p.isTalento && <span title="Talento" className="text-[11px]">⭐</span>}
                             {p.isGuardiao && <span title="Guardião" className="text-[11px]">🛡️</span>}
                           </TableCell>
