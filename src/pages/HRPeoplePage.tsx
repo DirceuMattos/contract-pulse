@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -66,15 +66,16 @@ export default function HRPeoplePage() {
   const [filterMesAdmissao, setFilterMesAdmissao] = useState(storedFilters?.filterMesAdmissao ?? '');
   const [filterTalento, setFilterTalento] = useState(storedFilters?.filterTalento ?? false);
   const [filterGuardiao, setFilterGuardiao] = useState(storedFilters?.filterGuardiao ?? false);
+  const [filterEmAvaliacao, setFilterEmAvaliacao] = useState(storedFilters?.filterEmAvaliacao ?? false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
-    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao }));
-  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao]);
+    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao, filterEmAvaliacao }));
+  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao, filterEmAvaliacao]);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterTalento || filterGuardiao;
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterTalento(false); setFilterGuardiao(false); sessionStorage.removeItem('hr-filters'); };
+  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterTalento || filterGuardiao || filterEmAvaliacao;
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); sessionStorage.removeItem('hr-filters'); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
@@ -110,9 +111,10 @@ export default function HRPeoplePage() {
       else if (filterComite) matchComite = p.comiteGestor === filterComite;
       const matchTalento = !filterTalento || !!p.isTalento;
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchTalento && matchGuardiao;
+      const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchTalento && matchGuardiao && matchEmAvaliacao;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao, filterEmAvaliacao]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -314,6 +316,10 @@ export default function HRPeoplePage() {
                 <input type="checkbox" checked={filterGuardiao} onChange={e => setFilterGuardiao(e.target.checked)} className="rounded border-primary" />
                 🛡️ Guardiões
               </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={filterEmAvaliacao} onChange={e => setFilterEmAvaliacao(e.target.checked)} className="rounded border-primary" />
+                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /> Em Avaliação
+              </label>
             </div>
             {hasActiveFilters && (
               <Button variant="outline" onClick={handleClearFilters} className="gap-2">
@@ -366,10 +372,12 @@ export default function HRPeoplePage() {
                     {sorted.map(p => {
                       const isFrozen = p.situacao === 'inativo' && !!p.dataDesligamento;
                       const { texto: tempoCasa } = calcularTempoDeCasa(p.dataAdmissao, isFrozen ? p.dataDesligamento : undefined);
-                      const hasFlag = p.isTalento || p.isGuardiao;
+                      const hasFlag = p.isTalento || p.isGuardiao || p.isEmAvaliacao;
+                      const borderColor = p.isEmAvaliacao ? 'border-l-yellow-500' : p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : '';
                       return (
-                        <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : ''}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                        <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                           <TableCell className="py-2 px-1 w-[18px] text-center">
+                            {p.isEmAvaliacao && <span title="Em Avaliação"><AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /></span>}
                             {p.isTalento && <span title="Talento" className="text-[11px]">⭐</span>}
                             {p.isGuardiao && <span title="Guardião" className="text-[11px]">🛡️</span>}
                           </TableCell>

@@ -457,6 +457,7 @@ export interface HRPerson {
   matricula?: string;
   isTalento?: boolean;
   isGuardiao?: boolean;
+  isEmAvaliacao?: boolean;
   nomeNormalizado?: string;
   createdAt: string;
   updatedAt: string;
