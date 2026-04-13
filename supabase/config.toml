@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.superlogica-sync]
 verify_jwt = false
+
+[functions.simulation-parse-document]
+verify_jwt = false
