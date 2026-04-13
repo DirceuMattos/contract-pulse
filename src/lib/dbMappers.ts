@@ -526,6 +526,10 @@ export function simulationFromDb(
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     consultantAnalysis: (row.consultant_analysis as string | null) ?? undefined,
+    aiNotes: (row.ai_notes as string | null) ?? undefined,
+    aiConfidence: (row.ai_confidence as Record<string, string> | null) ?? undefined,
+    aiCoverage: (row.ai_coverage as ContractSimulation['aiCoverage'] | null) ?? undefined,
+    aiComplexityJustification: (row.ai_complexity_justification as string | null) ?? undefined,
     createdByUserId: (row.created_by_user_id as string | null) ?? undefined,
   };
 }
@@ -553,6 +557,10 @@ export function simulationToDb(sim: ContractSimulation): Record<string, unknown>
     custom_overhead: sim.customOverhead,
     using_suggested: sim.usingSuggested,
     consultant_analysis: sim.consultantAnalysis ?? null,
+    ai_notes: sim.aiNotes ?? null,
+    ai_confidence: sim.aiConfidence ?? null,
+    ai_coverage: sim.aiCoverage ?? null,
+    ai_complexity_justification: sim.aiComplexityJustification ?? null,
     status: sim.status,
     created_by_user_id: sim.createdByUserId ?? null,
   };

@@ -1890,6 +1890,10 @@ export type Database = {
       }
       simulations: {
         Row: {
+          ai_complexity_justification: string | null
+          ai_confidence: Json | null
+          ai_coverage: Json | null
+          ai_notes: string | null
           client_name: string
           complexity_level: Database["public"]["Enums"]["simulation_complexity"]
           consultancy_cost: number | null
@@ -1919,6 +1923,10 @@ export type Database = {
           using_suggested: boolean
         }
         Insert: {
+          ai_complexity_justification?: string | null
+          ai_confidence?: Json | null
+          ai_coverage?: Json | null
+          ai_notes?: string | null
           client_name?: string
           complexity_level?: Database["public"]["Enums"]["simulation_complexity"]
           consultancy_cost?: number | null
@@ -1948,6 +1956,10 @@ export type Database = {
           using_suggested?: boolean
         }
         Update: {
+          ai_complexity_justification?: string | null
+          ai_confidence?: Json | null
+          ai_coverage?: Json | null
+          ai_notes?: string | null
           client_name?: string
           complexity_level?: Database["public"]["Enums"]["simulation_complexity"]
           consultancy_cost?: number | null

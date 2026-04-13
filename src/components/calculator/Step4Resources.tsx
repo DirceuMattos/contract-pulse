@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card } from '@/components/ui/card';
-import { Plus, Trash2, RotateCcw, Lightbulb } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, Lightbulb, FileText, Sparkles } from 'lucide-react';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { generateSuggestedResources, getAppliedRules } from '@/lib/simulationEngine';
 import { useData } from '@/contexts/DataContext';
@@ -104,6 +105,8 @@ export function Step4Resources({ data, onChange }: Props) {
     onChange({ customOverhead: current, usingSuggested: false });
   };
 
+  const hrConfidence = data.aiConfidence?.hrProfiles;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -112,6 +115,19 @@ export function Step4Resources({ data, onChange }: Props) {
           <p className="text-sm text-muted-foreground">
             {data.usingSuggested ? 'Exibindo sugestão automática. Edite para personalizar.' : 'Recursos personalizados.'}
           </p>
+          {hrConfidence && (
+            <div className="flex items-center gap-1 mt-1">
+              {hrConfidence === 'documento' && (
+                <Badge variant="outline" className="text-[10px] gap-1"><FileText className="w-3 h-3" /> Equipe extraída do documento</Badge>
+              )}
+              {hrConfidence === 'referencia' && (
+                <Badge variant="outline" className="text-[10px] gap-1"><Sparkles className="w-3 h-3" /> Baseado em contratos internos</Badge>
+              )}
+              {hrConfidence === 'estimativa' && (
+                <Badge variant="outline" className="text-[10px] gap-1"><Sparkles className="w-3 h-3" /> Estimativa — revisar manualmente</Badge>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           {!data.usingSuggested && (

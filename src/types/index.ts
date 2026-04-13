@@ -534,6 +534,13 @@ export interface SimulationScenario {
   healthStatus: HealthStatus;
 }
 
+export interface AnalysisCoverage {
+  fieldsFound: string[];
+  fieldsNotFound: string[];
+  overallQuality: 'completa' | 'parcial' | 'limitada';
+  qualitySummary: string;
+}
+
 export interface ContractSimulation {
   id: string;
   name: string;
@@ -561,7 +568,9 @@ export interface ContractSimulation {
   usingSuggested: boolean;
   consultantAnalysis?: string;
   aiNotes?: string;
-  aiConfidence?: Record<string, 'documento' | 'referencia' | 'estimativa'>;
+  aiConfidence?: Record<string, string>;
+  aiCoverage?: AnalysisCoverage;
+  aiComplexityJustification?: string;
   status: SimulationStatus;
   createdAt: string;
   updatedAt: string;
