@@ -188,12 +188,15 @@ serve(async (req) => {
 
     const docText = extractedText.slice(0, 100000);
 
-    // Fetch existing contracts as real-world context
+    // Fetch existing contracts and salary data as real-world context
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const contractContext = await fetchContractContext(supabaseAdmin);
+    const [contractContext, salaryTable] = await Promise.all([
+      fetchContractContext(supabaseAdmin),
+      fetchSalaryTable(supabaseAdmin),
+    ]);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -207,8 +210,8 @@ serve(async (req) => {
 1. **EXTRAIA APENAS** dados que estão **EXPLICITAMENTE** escritos no documento fornecido.
 2. Se uma informação **NÃO consta** no texto, retorne **null** (para campos únicos) ou **array vazio []** (para listas). **NUNCA invente.**
 3. **NUNCA** invente nomes de órgãos, valores monetários, prazos, perfis profissionais ou quantidades que não estejam no texto.
-4. Para **salários/remuneração**: se o documento não menciona valores, use como referência os CONTRATOS DE REFERÊNCIA da empresa (fornecidos abaixo). Se não houver referência aplicável, use valores de mercado 2024/2025 — mas **MARQUE como estimativa** no campo confidence.
-5. Se o documento é **vago sobre quantidade** de profissionais, retorne a quantidade **MÍNIMA** explicitamente mencionada. Se nenhuma quantidade é mencionada, use 1.
+4. Para **salários/remuneração**: use OBRIGATORIAMENTE a TABELA SALARIAL DA EMPRESA como primeira referência. Os valores da tabela refletem o custo real praticado pela empresa. NUNCA subestime — em caso de dúvida, use o valor MÉDIO ou MÁXIMO da tabela, nunca o mínimo. Se não houver cargo equivalente na tabela, use mercado 2024/2025 mas MARQUE como estimativa.
+5. **IMPORTANTE**: Os salários da tabela já são valores reais pagos. Não aplique "desconto" ou "ajuste conservador" sobre eles.
 6. **NÃO infira** perfis profissionais que não são mencionados ou claramente implícitos no escopo descrito.
 7. Cada informação retornada deve poder ser **rastreada** a um trecho específico do documento.
 
