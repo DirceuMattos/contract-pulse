@@ -247,12 +247,13 @@ function computeCosts(simulation: ContractSimulation) {
 }
 
 // ── Suggest pricing ──
-export function suggestPricing(simulation: ContractSimulation): {
+export function suggestPricing(simulation: ContractSimulation, taxPercent: number = 16.33): {
   suggestedMonthlyValue: number;
   suggestedTotalValue: number;
   suggestedTermMonths: number;
   targetMarginPercent: number;
   breakEvenMonthly: number;
+  minViableMonthly: number;
 } {
   const { custoMensal } = computeCosts(simulation);
 
@@ -264,7 +265,14 @@ export function suggestPricing(simulation: ContractSimulation): {
   };
   const targetMarginPercent = marginMap[simulation.complexityLevel];
   const breakEvenMonthly = custoMensal;
-  const suggestedMonthlyValue = custoMensal / (1 - targetMarginPercent / 100);
+
+  // Gross revenue must cover taxes AND deliver target margin on net revenue
+  // netRevenue = gross * (1 - tax%)
+  // margin = (netRevenue - cost) / netRevenue
+  // => gross = cost / ((1 - margin%) * (1 - tax%))
+  const taxFactor = 1 - taxPercent / 100;
+  const minViableMonthly = custoMensal / taxFactor; // break-even gross (margin 0%)
+  const suggestedMonthlyValue = custoMensal / ((1 - targetMarginPercent / 100) * taxFactor);
 
   // Suggested term based on demand type (use first type for term suggestion)
   const termMap: Record<DemandType, number> = {
@@ -286,6 +294,7 @@ export function suggestPricing(simulation: ContractSimulation): {
     suggestedTermMonths,
     targetMarginPercent,
     breakEvenMonthly,
+    minViableMonthly,
   };
 }
 
@@ -305,7 +314,7 @@ export function calculateSimulationResults(simulation: ContractSimulation, taxPe
   const hasProposedValue = (simulation.proposedMonthlyValue ?? 0) > 0;
   const receitaBruta = hasProposedValue
     ? simulation.proposedMonthlyValue!
-    : suggestPricing(simulation).suggestedMonthlyValue;
+    : suggestPricing(simulation, taxPercent).suggestedMonthlyValue;
   const percentualImpostos = taxPercent;
   const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
 
