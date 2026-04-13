@@ -88,9 +88,14 @@ export default function CalculatorPage() {
         description="Simule contratos em negociação e projete resultados financeiros."
         animated={false}
         actions={
-          <Link to="/calculadora/nova">
-            <Button><Plus className="w-4 h-4 mr-2" /> Nova simulação</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating || simulations.length === 0}>
+              <RefreshCw className={cn("w-4 h-4 mr-2", recalculating && "animate-spin")} /> Recalcular todas
+            </Button>
+            <Link to="/calculadora/nova">
+              <Button><Plus className="w-4 h-4 mr-2" /> Nova simulação</Button>
+            </Link>
+          </div>
         }
       />
 
