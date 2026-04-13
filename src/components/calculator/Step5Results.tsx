@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Sparkles, Info, Calendar, Target, AlertCircle, Receipt, FileText } from 'lucide-react';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { suggestPricing, calculateSimulationResults, generateScenarios } from '@/lib/simulationEngine';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -158,24 +159,32 @@ export function Step5Results({ data, onChange }: Props) {
         </Card>
       )}
 
-      {/* Pricing Suggestion */}
+      {/* Editable contract value + Pricing Suggestion */}
       <Card className="p-5 border-primary/30 bg-primary/5">
         <div className="flex items-center gap-2 mb-4">
           <Target className="w-5 h-5 text-primary" />
-          <h4 className="font-semibold text-foreground">Sugestão de Precificação</h4>
+          <h4 className="font-semibold text-foreground">Valor do Contrato & Precificação</h4>
           <Tooltip>
             <TooltipTrigger asChild>
               <Info className="w-4 h-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              <p>Calculado com base no custo total apurado + margem-alvo ({pricing.targetMarginPercent}%) definida pela complexidade do projeto.</p>
+              <p>Informe o valor mensal do contrato para ver a margem real. Se deixar vazio, será usado o valor sugerido (custo + margem-alvo de {pricing.targetMarginPercent}%).</p>
             </TooltipContent>
           </Tooltip>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground">Valor mensal sugerido</p>
-            <p className="text-lg font-bold text-primary">{formatCurrency(pricing.suggestedMonthlyValue)}</p>
+            <p className="text-xs text-muted-foreground mb-1">Valor mensal do contrato</p>
+            <CurrencyInput
+              value={data.proposedMonthlyValue}
+              onChange={v => onChange?.({ proposedMonthlyValue: v })}
+              placeholder="Usar sugestão"
+              className="h-9 text-sm font-semibold"
+            />
+            {!(data.proposedMonthlyValue && data.proposedMonthlyValue > 0) && (
+              <p className="text-[10px] text-muted-foreground mt-1">Usando sugestão: {formatCurrency(pricing.suggestedMonthlyValue)}</p>
+            )}
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Valor total sugerido</p>
@@ -245,15 +254,17 @@ export function Step5Results({ data, onChange }: Props) {
 
       {/* Scenarios Table */}
       <Card className="p-4 space-y-3">
-        <h4 className="font-medium text-foreground">Comparativo de cenários</h4>
+        <div>
+          <h4 className="font-medium text-foreground">Comparativo de cenários</h4>
+          <p className="text-xs text-muted-foreground">Variação sobre os custos estimados mantendo a mesma receita.</p>
+        </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Cenário</TableHead>
-                <TableHead>Receita</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Overhead</TableHead>
+                <TableHead>Premissa</TableHead>
+                <TableHead>Custo total</TableHead>
                 <TableHead>Resultado</TableHead>
                 <TableHead>Margem</TableHead>
                 <TableHead>Status</TableHead>
@@ -263,9 +274,8 @@ export function Step5Results({ data, onChange }: Props) {
               {scenarios.map(s => (
                 <TableRow key={s.label}>
                   <TableCell className="font-medium">{s.label}</TableCell>
-                  <TableCell>{formatCurrency(s.receitaMensal)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{s.description}</TableCell>
                   <TableCell>{formatCurrency(s.custoMensal)}</TableCell>
-                  <TableCell>{formatCurrency(s.overheadMensal)}</TableCell>
                   <TableCell className={cn('font-medium', healthColor(s.healthStatus))}>{formatCurrency(s.resultadoMensal)}</TableCell>
                   <TableCell>{s.margemPercent.toFixed(1)}%</TableCell>
                   <TableCell><Badge className={healthBg(s.healthStatus)}>{healthLabel(s.healthStatus)}</Badge></TableCell>

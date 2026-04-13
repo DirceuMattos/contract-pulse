@@ -188,7 +188,7 @@ export function Step4Resources({ data, onChange }: Props) {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Input className="h-8 text-sm" type="number" step={0.1} min={0} value={item.quantity} onChange={e => updateHR(item.id, 'quantity', parseFloat(e.target.value) || 0)} />
+                    <Input className="h-8 text-sm" type="number" step={1} min={1} value={item.quantity} onChange={e => updateHR(item.id, 'quantity', parseInt(e.target.value, 10) || 1)} />
                   </TableCell>
                   <TableCell>
                     <CurrencyInput

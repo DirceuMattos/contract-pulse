@@ -526,6 +526,7 @@ export interface SimulationOverhead {
 
 export interface SimulationScenario {
   label: string;
+  description?: string;
   receitaMensal: number;
   custoMensal: number;
   overheadMensal: number;
