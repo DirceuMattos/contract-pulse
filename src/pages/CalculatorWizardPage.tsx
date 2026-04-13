@@ -122,6 +122,9 @@ export default function CalculatorWizardPage() {
         valueMonthly: (c.valueMonthly as number) || 0,
       }));
     }
+    if (result.aiNotes) {
+      updates.aiNotes = result.aiNotes as string;
+    }
     onChange(updates);
   }, [onChange]);
 

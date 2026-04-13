@@ -560,6 +560,7 @@ export interface ContractSimulation {
   customOverhead: SimulationOverhead;
   usingSuggested: boolean;
   consultantAnalysis?: string;
+  aiNotes?: string;
   status: SimulationStatus;
   createdAt: string;
   updatedAt: string;

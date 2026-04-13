@@ -13,7 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    // --- Auth check ---
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -44,9 +43,42 @@ serve(async (req) => {
     const formatBRL = (v: number) =>
       new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-    const prompt = `Você é um consultor de negócios experiente em contratos de tecnologia e serviços de TI no Brasil.
+    // Build HR profiles section
+    const hrProfiles = simulation.hrProfiles || [];
+    const hrSection = hrProfiles.length > 0
+      ? hrProfiles.map((p: any, i: number) =>
+          `  ${i + 1}. ${p.role} — ${p.quantity}x ${p.hiringType?.toUpperCase()} — ${formatBRL(p.grossMonthly)}/mês — Encargos: ${p.chargesPercent}%`
+        ).join("\n")
+      : "  (Não informado)";
 
-Analise a seguinte simulação de contrato e forneça insights práticos e diretos.
+    // Build other costs section
+    const otherCosts = simulation.otherCosts || [];
+    const costsSection = otherCosts.length > 0
+      ? otherCosts.map((c: any, i: number) =>
+          `  ${i + 1}. [${c.category}] ${c.description} — ${formatBRL(c.valueMonthly)}/mês`
+        ).join("\n")
+      : "  (Nenhum custo adicional)";
+
+    // Build scenarios section
+    const scenarios = simulation.scenarios || [];
+    const scenariosSection = scenarios.length > 0
+      ? scenarios.map((s: any) =>
+          `  - **${s.label}**: Receita ${formatBRL(s.receitaMensal)} | Custo ${formatBRL(s.custoMensal)} | Overhead ${formatBRL(s.overheadMensal)} | Resultado ${formatBRL(s.resultadoMensal)} | Margem ${s.margemPercent.toFixed(1)}% | Status: ${s.healthStatus}`
+        ).join("\n")
+      : "";
+
+    // Build overhead section
+    const overhead = simulation.overhead || {};
+    const overheadSection = `  - Infraestrutura: ${overhead.infraPercent ?? 0}% | Administrativo: ${overhead.adminPercent ?? 0}% | Governança: ${overhead.governancePercent ?? 0}%`;
+
+    // Build aiNotes section
+    const aiNotesSection = simulation.aiNotes
+      ? `\n### Observações extraídas do documento (IA)\n${simulation.aiNotes}`
+      : "";
+
+    const prompt = `Você é um consultor de negócios experiente em contratos de tecnologia e serviços de TI no Brasil, com expertise em precificação, gestão de riscos e análise de viabilidade.
+
+Analise a seguinte simulação de contrato de forma DETALHADA E PROFUNDA, considerando TODOS os dados fornecidos.
 
 ## Dados da Simulação
 
@@ -57,6 +89,8 @@ Analise a seguinte simulação de contrato e forneça insights práticos e diret
 - **Prazo sugerido:** ${simulation.suggestedTermMonths} meses
 - **Complexidade:** ${simulation.complexityLevel}
 - **Descrição:** ${simulation.description}
+
+### Precificação
 - **Valor mensal sugerido:** ${formatBRL(simulation.suggestedMonthlyValue)}
 - **Valor total sugerido:** ${formatBRL(simulation.suggestedTotalValue)}
 - **Custo mensal:** ${formatBRL(simulation.custoMensal)}
@@ -64,8 +98,17 @@ Analise a seguinte simulação de contrato e forneça insights práticos e diret
 - **Margem projetada:** ${simulation.margemPercent.toFixed(1)}%
 - **Margem-alvo:** ${simulation.targetMarginPercent}%
 
-### Questionário
-- Tipo de demanda: ${simulation.questionnaire.demandType}
+### Composição da Equipe (RH)
+${hrSection}
+
+### Custos Adicionais
+${costsSection}
+
+### Overhead
+${overheadSection}
+
+### Questionário Técnico
+- Tipo de demanda: ${Array.isArray(simulation.questionnaire.demandType) ? simulation.questionnaire.demandType.join(" + ") : simulation.questionnaire.demandType}
 - Criticidade: ${simulation.questionnaire.criticality}
 - Integrações: ${simulation.questionnaire.integrations}
 - Módulos: ${simulation.questionnaire.modules}
@@ -73,18 +116,64 @@ Analise a seguinte simulação de contrato e forneça insights práticos e diret
 - SLA: ${simulation.questionnaire.slaLevel}
 - Ritmo de entrega: ${simulation.questionnaire.deliveryPace}
 - Dependência de campo: ${simulation.questionnaire.fieldDependency ? "Sim" : "Não"}
+${scenariosSection ? `\n### Cenários Calculados\n${scenariosSection}` : ""}
+${aiNotesSection}
 
-## Instruções
+## Instruções de Análise
 
-Forneça sua análise em português brasileiro, com os seguintes tópicos:
+Forneça sua análise em português brasileiro, cobrindo OBRIGATORIAMENTE todos os tópicos abaixo com PROFUNDIDADE e ESPECIFICIDADE. Use dados concretos da simulação para embasar cada ponto. Evite generalidades.
 
-1. **Perfil do Contrato** — Breve análise do perfil e posicionamento
-2. **Pontos de Atenção e Riscos** — Riscos específicos identificados
-3. **Oportunidades de Otimização** — Sugestões para melhorar margem ou reduzir riscos
-4. **Recomendação sobre Prazo e Precificação** — Avaliação da adequação do prazo e preço sugeridos
-5. **Veredicto Final** — Resumo executivo em 2-3 frases
+### 1. Perfil do Contrato
+- Posicionamento estratégico (governo vs privado, implicações)
+- Adequação do prazo ao escopo
+- Nível de risco geral (baixo/médio/alto) com justificativa
 
-Seja direto, prático e específico. Evite generalidades. Use dados da simulação para embasar cada ponto.`;
+### 2. Análise da Composição de Equipe
+- Avaliar se o mix de perfis é adequado ao escopo descrito
+- Identificar perfis que podem estar faltando (ex: QA, DevOps, Scrum Master)
+- Comentar sobre senioridade e quantidade vs complexidade
+- Avaliar custo médio por perfil vs mercado
+
+### 3. Análise de Cenários
+${scenariosSection ? "- Comentar CADA cenário individualmente (Conservador, Base, Otimista)" : "- Projetar cenários possíveis baseados nos dados"}
+- Indicar qual cenário é mais provável e por quê
+- Identificar condições que levariam ao cenário conservador
+- Sugerir ações para garantir o cenário otimista
+
+### 4. Riscos e Pontos de Atenção
+- Riscos contratuais específicos (SLA, penalidades, multas mencionadas)
+- Riscos operacionais (dependência de pessoas-chave, turnover)
+- Riscos financeiros (margem apertada, custos não previstos)
+- Riscos regulatórios (LGPD, compliance, certificações)
+- Para cada risco: probabilidade (alta/média/baixa), impacto e mitigação
+
+### 5. Oportunidades de Otimização
+- Sugestões para melhorar margem sem comprometer qualidade
+- Possibilidades de automação que reduzam custo operacional
+- Estratégias de escalonamento da equipe (ramp-up/ramp-down)
+- Oportunidades de upsell ou serviços adicionais
+
+### 6. Benchmark de Mercado
+- Comparar margem projetada com referências do setor (TI gov: 8-15%, privado: 15-25%)
+- Avaliar se o preço está competitivo para o escopo
+- Comentar sobre ticket médio por profissional vs mercado
+
+### 7. Recomendação sobre Prazo e Precificação
+- O prazo proposto é adequado? Justifique
+- O valor sugerido é viável? Está acima ou abaixo do mercado?
+- Sugestão de faixa de preço ideal com justificativa
+
+### 8. Plano de Contingência
+- O que fazer se o cenário conservador se materializar
+- Ações corretivas para recuperar margem
+- Gatilhos de alerta (indicadores para monitorar)
+
+### 9. Veredicto Final
+- Resumo executivo em 3-5 frases
+- Classificação: RECOMENDADO / RECOMENDADO COM RESSALVAS / NÃO RECOMENDADO
+- Top 3 ações prioritárias antes de submeter proposta
+
+Seja direto, prático e específico. Use formatação em markdown com negrito e listas para facilitar a leitura.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -95,12 +184,12 @@ Seja direto, prático e específico. Evite generalidades. Use dados da simulaç�
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-pro",
           messages: [
             {
               role: "system",
               content:
-                "Você é um consultor sênior especializado em contratos de TI e governança de serviços no Brasil. Responda sempre em português brasileiro de forma objetiva e profissional.",
+                "Você é um consultor sênior com 20+ anos de experiência em contratos de TI, precificação de serviços e análise de viabilidade no Brasil. Você conhece profundamente o mercado brasileiro de TI, faixas salariais, margens praticadas e riscos comuns. Responda sempre em português brasileiro de forma objetiva, profissional e com dados concretos.",
             },
             { role: "user", content: prompt },
           ],
