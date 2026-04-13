@@ -10,10 +10,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Plus, Search, Calculator, Copy, Trash2, Archive, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Calculator, Copy, Trash2, Archive, ShieldAlert, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { HealthStatus } from '@/types';
+import type { HealthStatus, ContractSimulation } from '@/types';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { healthConfig } from '@/lib/uiConstants';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -26,6 +26,14 @@ function healthBorderClass(s: HealthStatus) {
   return s === 'saudavel' ? 'border-l-health-healthy' : s === 'atencao' ? 'border-l-health-attention' : 'border-l-health-critical';
 }
 
+function normalizeSimulation(sim: ContractSimulation): ContractSimulation {
+  return {
+    ...sim,
+    suggestedHR: sim.suggestedHR.map(h => ({ ...h, quantity: Math.max(1, Math.ceil(h.quantity ?? 1)) })),
+    customHR: sim.customHR.map(h => ({ ...h, quantity: Math.max(1, Math.ceil(h.quantity ?? 1)) })),
+  };
+}
+
 export default function CalculatorPage() {
   const { user } = useAuth();
   const { settings } = useData();
@@ -33,6 +41,25 @@ export default function CalculatorPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [recalculating, setRecalculating] = useState(false);
+
+  const handleRecalculateAll = async () => {
+    setRecalculating(true);
+    let count = 0;
+    for (const sim of simulations) {
+      const normalized = normalizeSimulation(sim);
+      await updateSimulation(normalized);
+      count++;
+    }
+    setRecalculating(false);
+    toast.success(`${count} simulação(ões) recalculada(s)`);
+  };
+
+  const handleRecalculateOne = async (sim: ContractSimulation) => {
+    const normalized = normalizeSimulation(sim);
+    await updateSimulation(normalized);
+    toast.success('Simulação recalculada');
+  };
 
   const filtered = useMemo(() => {
     return simulations.filter(s => {
@@ -61,9 +88,14 @@ export default function CalculatorPage() {
         description="Simule contratos em negociação e projete resultados financeiros."
         animated={false}
         actions={
-          <Link to="/calculadora/nova">
-            <Button><Plus className="w-4 h-4 mr-2" /> Nova simulação</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating || simulations.length === 0}>
+              <RefreshCw className={cn("w-4 h-4 mr-2", recalculating && "animate-spin")} /> Recalcular todas
+            </Button>
+            <Link to="/calculadora/nova">
+              <Button><Plus className="w-4 h-4 mr-2" /> Nova simulação</Button>
+            </Link>
+          </div>
         }
       />
 
@@ -129,6 +161,9 @@ export default function CalculatorPage() {
                   <Link to={`/calculadora/${sim.id}`} className="flex-1">
                     <Button variant="ghost" size="sm" className="w-full text-xs">Abrir</Button>
                   </Link>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRecalculateOne(sim)} title="Recalcular">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { duplicateSimulation(sim.id); toast.success('Simulação duplicada'); }}>
                     <Copy className="w-3.5 h-3.5" />
                   </Button>
