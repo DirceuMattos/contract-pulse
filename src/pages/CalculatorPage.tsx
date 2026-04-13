@@ -26,6 +26,14 @@ function healthBorderClass(s: HealthStatus) {
   return s === 'saudavel' ? 'border-l-health-healthy' : s === 'atencao' ? 'border-l-health-attention' : 'border-l-health-critical';
 }
 
+function normalizeSimulation(sim: ContractSimulation): ContractSimulation {
+  return {
+    ...sim,
+    suggestedHR: sim.suggestedHR.map(h => ({ ...h, quantity: Math.max(1, Math.ceil(h.quantity ?? 1)) })),
+    customHR: sim.customHR.map(h => ({ ...h, quantity: Math.max(1, Math.ceil(h.quantity ?? 1)) })),
+  };
+}
+
 export default function CalculatorPage() {
   const { user } = useAuth();
   const { settings } = useData();
@@ -33,6 +41,25 @@ export default function CalculatorPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [recalculating, setRecalculating] = useState(false);
+
+  const handleRecalculateAll = async () => {
+    setRecalculating(true);
+    let count = 0;
+    for (const sim of simulations) {
+      const normalized = normalizeSimulation(sim);
+      await updateSimulation(normalized);
+      count++;
+    }
+    setRecalculating(false);
+    toast.success(`${count} simulação(ões) recalculada(s)`);
+  };
+
+  const handleRecalculateOne = async (sim: ContractSimulation) => {
+    const normalized = normalizeSimulation(sim);
+    await updateSimulation(normalized);
+    toast.success('Simulação recalculada');
+  };
 
   const filtered = useMemo(() => {
     return simulations.filter(s => {
