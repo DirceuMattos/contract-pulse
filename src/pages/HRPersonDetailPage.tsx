@@ -65,7 +65,7 @@ export default function HRPersonDetailPage() {
   const navigate = useNavigate();
   const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts, updateResource } = useData();
-  const { canEdit, canViewHRCosts, user } = useAuth();
+  const { canEdit, canViewHRCosts, user, userRole } = useAuth();
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
@@ -309,7 +309,7 @@ export default function HRPersonDetailPage() {
         <TabsList>
           <TabsTrigger value="resumo"><Briefcase className="h-4 w-4 mr-2" />Resumo</TabsTrigger>
           {canViewHRCosts && <TabsTrigger value="financeiro"><DollarSign className="h-4 w-4 mr-2" />Financeiro</TabsTrigger>}
-          <TabsTrigger value="timeline"><Clock className="h-4 w-4 mr-2" />Linha do Tempo</TabsTrigger>
+          {userRole === 'c-level' && <TabsTrigger value="timeline"><Clock className="h-4 w-4 mr-2" />Linha do Tempo</TabsTrigger>}
           <TabsTrigger value="alocacoes"><GitBranch className="h-4 w-4 mr-2" />Alocações</TabsTrigger>
         </TabsList>
 
