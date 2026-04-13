@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/calculations';
 import type { ContractReceivableRow, ReceivablesStatus } from '@/types/receivables';
 
@@ -50,6 +51,7 @@ function getMonthRange(offset: number) {
 export default function ReceivablesDashboardPage() {
   const navigate = useNavigate();
   const { contracts, clients } = useData();
+  const { canViewValues } = useAuth();
 
   const [statusFilter, setStatusFilter] = useState<'todos' | 'em_dia' | 'atrasado'>('todos');
   const [clientFilter, setClientFilter] = useState<string>('all');
@@ -234,21 +236,23 @@ export default function ReceivablesDashboardPage() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {kpiCards.map((kpi, i) => (
-          <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <Card>
-              <CardContent className="pt-4 pb-3 px-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
-                  <span className="text-xs text-muted-foreground">{kpi.label}</span>
-                </div>
-                <p className="text-lg font-bold">{kpi.value}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+      {canViewValues && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {kpiCards.map((kpi, i) => (
+            <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                    <span className="text-xs text-muted-foreground">{kpi.label}</span>
+                  </div>
+                  <p className="text-lg font-bold">{kpi.value}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <Input
@@ -288,18 +292,18 @@ export default function ReceivablesDashboardPage() {
                 <TableHead className="text-xs">Cliente / Contrato</TableHead>
                 <TableHead className="text-xs">Status</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Anterior</TableHead>
-                <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>
+                {canViewValues && <TableHead className="text-xs text-right">Valor Pago<br/>(mês anterior)</TableHead>}
                 <TableHead className="text-xs">Data Vcto<br/>Mês Atual</TableHead>
                 <TableHead className="text-xs">Data Pgto<br/>Mês Atual</TableHead>
-                <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>
-                <TableHead className="text-xs text-right">Valores<br/>em Atraso</TableHead>
+                {canViewValues && <TableHead className="text-xs text-right">Valor Pago<br/>/ à Pagar</TableHead>}
+                {canViewValues && <TableHead className="text-xs text-right">Valores<br/>em Atraso</TableHead>}
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={canViewValues ? 9 : 6} className="text-center py-8 text-muted-foreground">
                     Nenhum recebível encontrado
                   </TableCell>
                 </TableRow>
@@ -325,9 +329,11 @@ export default function ReceivablesDashboardPage() {
                   <TableCell className="text-xs text-muted-foreground py-2">
                     {row.prevMonthPaidAt ? new Date(row.prevMonthPaidAt).toLocaleDateString('pt-BR') : '—'}
                   </TableCell>
-                  <TableCell className="text-right text-xs font-medium py-2">
-                    {row.prevMonthPaidAmount != null ? formatCurrency(row.prevMonthPaidAmount) : '—'}
-                  </TableCell>
+                  {canViewValues && (
+                    <TableCell className="text-right text-xs font-medium py-2">
+                      {row.prevMonthPaidAmount != null ? formatCurrency(row.prevMonthPaidAmount) : '—'}
+                    </TableCell>
+                  )}
                   <TableCell className="text-xs text-muted-foreground py-2">
                     {row.currMonthDueDate ? new Date(row.currMonthDueDate).toLocaleDateString('pt-BR') : '—'}
                   </TableCell>
@@ -336,17 +342,21 @@ export default function ReceivablesDashboardPage() {
                       ? new Date(row.currMonthPaidAt).toLocaleDateString('pt-BR')
                       : '—'}
                   </TableCell>
-                  <TableCell className="text-right py-2">
-                    {row.currMonthAmount != null ? (
-                      <div className={row.currMonthPaid ? 'text-emerald-700 dark:text-emerald-400' : ''}>
-                        <span className="text-xs font-medium block">{formatCurrency(row.currMonthAmount)}</span>
-                        {!row.currMonthPaid && <span className="text-[11px] text-muted-foreground block">à pagar</span>}
-                      </div>
-                    ) : '—'}
-                  </TableCell>
-                  <TableCell className="text-right text-xs font-medium text-destructive py-2">
-                    {row.totalOverdue > 0 ? formatCurrency(row.totalOverdue) : '—'}
-                  </TableCell>
+                  {canViewValues && (
+                    <TableCell className="text-right py-2">
+                      {row.currMonthAmount != null ? (
+                        <div className={row.currMonthPaid ? 'text-emerald-700 dark:text-emerald-400' : ''}>
+                          <span className="text-xs font-medium block">{formatCurrency(row.currMonthAmount)}</span>
+                          {!row.currMonthPaid && <span className="text-[11px] text-muted-foreground block">à pagar</span>}
+                        </div>
+                      ) : '—'}
+                    </TableCell>
+                  )}
+                  {canViewValues && (
+                    <TableCell className="text-right text-xs font-medium text-destructive py-2">
+                      {row.totalOverdue > 0 ? formatCurrency(row.totalOverdue) : '—'}
+                    </TableCell>
+                  )}
                   <TableCell className="py-2">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/contratos/${row.contractId}`)}>
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -359,7 +369,7 @@ export default function ReceivablesDashboardPage() {
         </CardContent>
       </Card>
 
-      {inadimplentes.length > 0 && (
+      {canViewValues && inadimplentes.length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
