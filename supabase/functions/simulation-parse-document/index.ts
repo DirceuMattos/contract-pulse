@@ -212,10 +212,15 @@ serve(async (req) => {
 3. **NUNCA** invente nomes de órgãos, valores monetários, prazos, perfis profissionais ou quantidades que não estejam no texto.
 4. Para **salários/remuneração**: use OBRIGATORIAMENTE a TABELA SALARIAL DA EMPRESA como primeira referência. Os valores da tabela refletem o custo real praticado pela empresa. NUNCA subestime — em caso de dúvida, use o valor MÉDIO ou MÁXIMO da tabela, nunca o mínimo. Se não houver cargo equivalente na tabela, use mercado 2024/2025 mas MARQUE como estimativa.
 5. **IMPORTANTE**: Os salários da tabela já são valores reais pagos. Não aplique "desconto" ou "ajuste conservador" sobre eles.
-6. **NÃO infira** perfis profissionais que não são mencionados ou claramente implícitos no escopo descrito.
-7. Cada informação retornada deve poder ser **rastreada** a um trecho específico do documento.
+6. Se o documento é **vago sobre quantidade** de profissionais, retorne a quantidade **MÍNIMA** explicitamente mencionada. Se nenhuma quantidade é mencionada, use 1.
+7. **NÃO infira** perfis profissionais que não são mencionados ou claramente implícitos no escopo descrito.
+8. Cada informação retornada deve poder ser **rastreada** a um trecho específico do documento.
 
-## CONTRATOS DE REFERÊNCIA DA EMPRESA (dados reais para calibração)
+## TABELA SALARIAL DA EMPRESA (custos reais praticados — USE ESTES VALORES)
+
+${salaryTable}
+
+## CONTRATOS DE REFERÊNCIA DA EMPRESA (contexto adicional)
 
 ${contractContext}
 
