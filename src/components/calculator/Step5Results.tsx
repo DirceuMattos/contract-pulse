@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Sparkles, Info, Calendar, Target, AlertCircle, Receipt } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Sparkles, Info, Calendar, Target, AlertCircle, Receipt, FileText } from 'lucide-react';
 import { suggestPricing, calculateSimulationResults, generateScenarios } from '@/lib/simulationEngine';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -63,6 +63,11 @@ export function Step5Results({ data, onChange }: Props) {
     setInsightError('');
     setInsightText('');
 
+    // Build HR profiles from active data
+    const activeHR = data.usingSuggested ? data.suggestedHR : data.customHR;
+    const activeOtherCosts = data.usingSuggested ? data.suggestedOtherCosts : data.customOtherCosts;
+    const activeOverhead = data.usingSuggested ? data.suggestedOverhead : data.customOverhead;
+
     try {
       const { data: funcData, error } = await supabase.functions.invoke('simulation-insights', {
         body: {
@@ -82,6 +87,29 @@ export function Step5Results({ data, onChange }: Props) {
             custoMensal: results.custoMensal,
             margemPercent: results.margemPercent,
             description: data.description,
+            hrProfiles: activeHR.map(h => ({
+              role: h.role,
+              hiringType: h.hiringType,
+              quantity: h.quantity,
+              grossMonthly: h.grossMonthly,
+              chargesPercent: h.chargesPercent,
+            })),
+            otherCosts: activeOtherCosts.map(c => ({
+              category: c.category,
+              description: c.description,
+              valueMonthly: c.valueMonthly,
+            })),
+            overhead: activeOverhead,
+            scenarios: scenarios.map(s => ({
+              label: s.label,
+              receitaMensal: s.receitaMensal,
+              custoMensal: s.custoMensal,
+              overheadMensal: s.overheadMensal,
+              resultadoMensal: s.resultadoMensal,
+              margemPercent: s.margemPercent,
+              healthStatus: s.healthStatus,
+            })),
+            aiNotes: data.aiNotes,
           },
         },
       });
@@ -115,6 +143,20 @@ export function Step5Results({ data, onChange }: Props) {
         <h3 className="text-lg font-semibold text-foreground">Resultado, Sugestão e Insights</h3>
         <p className="text-sm text-muted-foreground">Precificação sugerida, projeção financeira e análise consultiva.</p>
       </div>
+
+      {/* AI Notes from Document Analysis */}
+      {data.aiNotes && (
+        <Card className="p-5 border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="w-5 h-5 text-amber-600" />
+            <h4 className="font-semibold text-foreground">Observações Extraídas do Documento</h4>
+            <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-700">IA</Badge>
+          </div>
+          <div className="prose prose-sm dark:prose-invert max-w-none text-foreground whitespace-pre-wrap text-sm">
+            {data.aiNotes}
+          </div>
+        </Card>
+      )}
 
       {/* Pricing Suggestion */}
       <Card className="p-5 border-primary/30 bg-primary/5">
