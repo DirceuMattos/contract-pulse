@@ -125,6 +125,9 @@ export default function CalculatorWizardPage() {
     if (result.aiNotes) {
       updates.aiNotes = result.aiNotes as string;
     }
+    if (result.confidence) {
+      updates.aiConfidence = result.confidence as Record<string, 'documento' | 'referencia' | 'estimativa'>;
+    }
     onChange(updates);
   }, [onChange]);
 

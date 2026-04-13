@@ -561,6 +561,7 @@ export interface ContractSimulation {
   usingSuggested: boolean;
   consultantAnalysis?: string;
   aiNotes?: string;
+  aiConfidence?: Record<string, 'documento' | 'referencia' | 'estimativa'>;
   status: SimulationStatus;
   createdAt: string;
   updatedAt: string;

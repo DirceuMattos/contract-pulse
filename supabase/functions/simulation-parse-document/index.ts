@@ -48,6 +48,47 @@ function extractTextFromDOCX(buffer: Uint8Array): string {
   return matches.join(" ").slice(0, 100000);
 }
 
+async function fetchContractContext(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data: contracts } = await supabaseAdmin
+      .from("contracts")
+      .select("nome, tipo, segmento, valor_mensal_referencia, status")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (!contracts || contracts.length === 0) return "Nenhum contrato cadastrado ainda.";
+
+    const { data: resources } = await supabaseAdmin
+      .from("resources")
+      .select("nome, cargo, custo_base, tipo, contract_id")
+      .in("contract_id", contracts.map((c: Record<string, unknown>) => (c as Record<string, unknown>).id || "").filter(Boolean));
+
+    const resourcesByContract: Record<string, Array<{ nome: string; cargo: string; custo: number; tipo: string }>> = {};
+    (resources ?? []).forEach((r: Record<string, unknown>) => {
+      const cid = r.contract_id as string;
+      if (!resourcesByContract[cid]) resourcesByContract[cid] = [];
+      resourcesByContract[cid].push({
+        nome: r.nome as string,
+        cargo: (r.cargo as string) || "",
+        custo: r.custo_base as number,
+        tipo: r.tipo as string,
+      });
+    });
+
+    return contracts.map((c: Record<string, unknown>) => {
+      const id = (c as Record<string, unknown>).id as string;
+      const res = resourcesByContract[id] || [];
+      const resStr = res.length > 0
+        ? res.map(r => `  - ${r.cargo || r.nome} (${r.tipo}): R$ ${r.custo}`).join("\n")
+        : "  (sem recursos cadastrados)";
+      return `• ${c.nome} | Tipo: ${c.tipo} | Segmento: ${c.segmento} | Valor ref: R$ ${c.valor_mensal_referencia || "N/A"} | Status: ${c.status}\n  Recursos:\n${resStr}`;
+    }).join("\n\n");
+  } catch (err) {
+    console.error("Error fetching contract context:", err);
+    return "Não foi possível carregar contratos de referência.";
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -111,91 +152,85 @@ serve(async (req) => {
 
     const docText = extractedText.slice(0, 100000);
 
+    // Fetch existing contracts as real-world context
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const contractContext = await fetchContractContext(supabaseAdmin);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    const systemPrompt = `Você é um analista sênior especializado em licitações, contratos de TI e estimativas de custo do setor público e privado brasileiro, com mais de 15 anos de experiência em análise de Termos de Referência e Editais.
+    const systemPrompt = `Você é um analista especializado em licitações e contratos de TI do setor público e privado brasileiro.
 
-Sua tarefa é realizar uma ANÁLISE EXAUSTIVA E DETALHISTA do documento fornecido, extraindo TODAS as informações relevantes para a simulação de um contrato de serviços de TI.
+## REGRAS FUNDAMENTAIS — SIGA RIGOROSAMENTE
 
-## DIRETRIZES DE EXTRAÇÃO
+1. **EXTRAIA APENAS** dados que estão **EXPLICITAMENTE** escritos no documento fornecido.
+2. Se uma informação **NÃO consta** no texto, retorne **null** (para campos únicos) ou **array vazio []** (para listas). **NUNCA invente.**
+3. **NUNCA** invente nomes de órgãos, valores monetários, prazos, perfis profissionais ou quantidades que não estejam no texto.
+4. Para **salários/remuneração**: se o documento não menciona valores, use como referência os CONTRATOS DE REFERÊNCIA da empresa (fornecidos abaixo). Se não houver referência aplicável, use valores de mercado 2024/2025 — mas **MARQUE como estimativa** no campo confidence.
+5. Se o documento é **vago sobre quantidade** de profissionais, retorne a quantidade **MÍNIMA** explicitamente mencionada. Se nenhuma quantidade é mencionada, use 1.
+6. **NÃO infira** perfis profissionais que não são mencionados ou claramente implícitos no escopo descrito.
+7. Cada informação retornada deve poder ser **rastreada** a um trecho específico do documento.
 
-### Identificação do Contrato
-- Extraia o objeto/título COMPLETO do edital ou TR
-- Identifique o órgão/empresa contratante com nome completo
-- Determine se é governo (municipal, estadual, federal) ou privado com base no contexto (presença de CNPJ público, menção a licitação, pregão, etc.)
-- Extraia o prazo de vigência EXATO mencionado no documento
-- Crie um resumo do escopo que cubra TODOS os serviços descritos, não apenas o principal
+## CONTRATOS DE REFERÊNCIA DA EMPRESA (dados reais para calibração)
 
-### Complexidade e Questionário Técnico
-- **Tipo de demanda**: Se o TR cobre TANTO sustentação quanto evolução (ou implantação + sustentação), retorne um ARRAY com todos os tipos aplicáveis
-- **Criticidade**: Avalie com base em: natureza do sistema (saúde, segurança = alta), penalidades previstas, SLAs exigidos, volume de usuários
-- **Integrações**: Conte TODAS as integrações mencionadas (APIs, webservices, barramento ESB, integrações com outros sistemas, importação/exportação de dados)
-- **Módulos**: Conte módulos, subsistemas, funcionalidades macro descritas
-- **Volume de usuários**: Procure referências a "usuários simultâneos", "usuários cadastrados", "postos de trabalho", "unidades atendidas" × estimativa de usuários por unidade
-- **SLA**: Identifique janelas de atendimento (8x5, 12x5, 24x7), tempo máximo de resposta, disponibilidade mínima
-- **Ritmo de entrega**: Avalie prazos de implantação, cronogramas, sprints, entregas parciais
-- **Dependência de campo**: Verifique se há necessidade de presença física, visitas técnicas, escritório local, deslocamentos
+${contractContext}
 
-### Perfis Profissionais (HR)
-ESTA É A SEÇÃO MAIS IMPORTANTE. Seja EXTREMAMENTE detalhista:
-- Identifique CADA perfil profissional mencionado no documento (Gerente de Projetos, Scrum Master, Product Owner, Arquiteto de Software, DBA, Analista de Sistemas, Desenvolvedor Frontend, Desenvolvedor Backend, Analista de Testes/QA, Analista de Requisitos, DevOps/SRE, Analista de Dados, Designer UX/UI, Analista de Suporte N1/N2/N3, Analista de Segurança, etc.)
-- Para cada perfil, considere: cargo exato, formação exigida, certificações requeridas, experiência mínima
-- Estime salários com base no mercado brasileiro de TI 2024/2025, considerando senioridade e região
-- Se o documento menciona "equipe mínima" ou "postos de trabalho", extraia a quantidade exata
-- Se NÃO menciona perfis explicitamente, INFIRA a equipe necessária com base no escopo descrito (ex: sistema web complexo = pelo menos dev frontend + backend + QA + GP)
-- Use CLT para perfis que exigem presença ou vínculo formal (suporte, campo), PJ para perfis técnicos especializados
-- Inclua na descrição do cargo as certificações e requisitos quando mencionados (ex: "Gerente de Projetos - PMP, mín. 5 anos")
+## O QUE EXTRAIR DO DOCUMENTO
+
+### Identificação
+- Nome/objeto completo do edital ou TR — copie do documento, não resuma
+- Nome do órgão/empresa contratante — exatamente como escrito
+- Tipo (gov/private) — baseado em evidências no texto (presença de pregão, CNPJ público, etc.)
+- Prazo de vigência — somente se explicitamente mencionado
+- Esfera governamental — somente se aplicável e identificável
+
+### Questionário Técnico
+- Tipo de demanda: identifique apenas os tipos EXPLICITAMENTE descritos no escopo
+- Criticidade: baseie-se em SLAs, penalidades e natureza do sistema mencionados no documento
+- Integrações: conte apenas as EXPLICITAMENTE mencionadas
+- Módulos: conte apenas os EXPLICITAMENTE listados
+- Volume de usuários: use apenas números do documento
+- SLA: extraia o nível descrito no documento
+- Ritmo de entrega: baseie-se em cronogramas do documento
+- Dependência de campo: somente se houver menção a presença física
+
+### Perfis Profissionais
+- Liste APENAS perfis que o documento MENCIONA EXPLICITAMENTE (por nome, por tabela de postos, por descrição de equipe mínima)
+- Inclua cargo, qualificações e certificações SOMENTE se descritos no documento
+- Para salários: use os Contratos de Referência acima como base. Se não houver referência, estime com mercado 2024/2025 e marque em confidence
+- NÃO adicione perfis "porque faz sentido para o escopo" — adicione SOMENTE se o documento os menciona
 
 ### Custos Adicionais
-Identifique TODOS os custos implícitos e explícitos:
-- Licenças de software (IDEs, ferramentas de gestão, monitoramento, CI/CD)
-- Infraestrutura cloud (servidores, storage, CDN, banco de dados gerenciado)
-- Viagens e deslocamentos (frequência estimada × custo médio)
-- Treinamentos e capacitação (da equipe e do cliente/usuários finais)
-- Transição de conhecimento (período inicial sem faturamento pleno)
-- Garantia contratual (seguro garantia, caução)
-- Equipamentos (notebooks, monitores, periféricos para equipe)
-- Ferramentas de comunicação e colaboração
-- Custos de acessibilidade (WCAG, testes de acessibilidade)
-- Segurança da informação (pentest, certificações, ferramentas)
+- Liste APENAS custos EXPLICITAMENTE mencionados no documento (licenças, infraestrutura, viagens, treinamentos, garantias)
+- NÃO invente custos que "normalmente existem" — somente os do documento
 
-### Observações Importantes (aiNotes)
-Capture em texto livre TODAS as informações relevantes que não cabem nos campos estruturados:
-- Exigências de seguro garantia e percentuais
-- Penalidades e multas previstas (glosas por descumprimento de SLA, multas por atraso)
-- Indicadores de desempenho (KPIs) e metas contratuais
-- Exigência de escritório local ou equipe residente
-- Requisitos de sigilo e LGPD
-- Condições de pagamento e reajuste
-- Subcontratação permitida ou vedada
-- Propriedade intelectual do código
-- Período de garantia pós-contrato
-- Qualquer cláusula atípica ou risco identificado
-- Estimativa de complexidade técnica (tecnologias específicas, legado, migração)
-- Requisitos de transferência de conhecimento
+### Observações (aiNotes)
+- Separe claramente: "EXTRAÍDO DO DOCUMENTO:" e "SUGESTÕES ADICIONAIS:"
+- Na seção extraída: penalidades, SLAs específicos, garantias, exigências de segurança, LGPD, condições de pagamento — tudo COM referência ao trecho do documento
+- Na seção sugestões: riscos potenciais e recomendações que você identifica, claramente marcados como opinião analítica`;
 
-Seja EXTREMAMENTE detalhista nas aiNotes. Este campo é crucial para a análise de riscos posterior.`;
-
-    const userPrompt = `Analise o seguinte documento de forma EXAUSTIVA e extraia TODOS os dados para simulação de contrato. Não omita nenhuma informação relevante:\n\n${docText}`;
+    const userPrompt = `Analise o documento abaixo e extraia SOMENTE as informações que estão EXPLICITAMENTE presentes no texto. Não adicione nada que não esteja escrito no documento.\n\n${docText}`;
 
     const toolSchema = {
       type: "function",
       function: {
         name: "fill_simulation",
-        description: "Preenche os campos da simulação de contrato com dados extraídos do documento de forma detalhada e completa.",
+        description: "Preenche os campos da simulação SOMENTE com dados extraídos do documento. Campos não encontrados devem ser null ou array vazio.",
         parameters: {
           type: "object",
           properties: {
-            name: { type: "string", description: "Nome/título completo da simulação baseado no objeto do edital" },
-            clientName: { type: "string", description: "Nome completo do órgão/empresa contratante" },
-            contractType: { type: "string", enum: ["gov", "private"], description: "Tipo de contrato" },
-            govSphere: { type: "string", enum: ["municipal", "estadual", "federal"], description: "Esfera governamental (se gov)" },
-            termMonths: { type: "number", description: "Prazo em meses conforme documento" },
-            description: { type: "string", description: "Resumo detalhado do escopo cobrindo TODOS os serviços (até 1000 caracteres)" },
-            complexityLevel: { type: "string", enum: ["baixa", "media", "alta"] },
+            name: { type: ["string", "null"], description: "Nome/título EXATO do objeto, copiado do documento. Null se não encontrado." },
+            clientName: { type: ["string", "null"], description: "Nome EXATO do contratante conforme escrito no documento. Null se não encontrado." },
+            contractType: { type: ["string", "null"], enum: ["gov", "private", null], description: "Tipo de contrato baseado em evidências do texto." },
+            govSphere: { type: ["string", "null"], enum: ["municipal", "estadual", "federal", null], description: "Esfera governamental. Null se não identificável." },
+            termMonths: { type: ["number", "null"], description: "Prazo em meses EXATO conforme documento. Null se não mencionado." },
+            description: { type: ["string", "null"], description: "Resumo do escopo usando APENAS informações do documento (até 1000 chars)." },
+            complexityLevel: { type: ["string", "null"], enum: ["baixa", "media", "alta", null], description: "Nível de complexidade baseado nos requisitos do documento." },
             questionnaire: {
               type: "object",
               properties: {
@@ -204,7 +239,6 @@ Seja EXTREMAMENTE detalhista nas aiNotes. Este campo é crucial para a análise 
                     { type: "string", enum: ["sustentacao", "evolucao", "novo-sistema", "implantacao"] },
                     { type: "array", items: { type: "string", enum: ["sustentacao", "evolucao", "novo-sistema", "implantacao"] } },
                   ],
-                  description: "Tipo(s) de demanda. Use array quando o TR cobre múltiplos tipos (ex: sustentação + evolução).",
                 },
                 criticality: { type: "string", enum: ["baixa", "media", "alta"] },
                 integrations: { type: "string", enum: ["nenhuma", "1-2", "3-5", "mais-5"] },
@@ -218,14 +252,14 @@ Seja EXTREMAMENTE detalhista nas aiNotes. Este campo é crucial para a análise 
             },
             hrProfiles: {
               type: "array",
-              description: "Lista COMPLETA de todos os perfis profissionais necessários, com cargos específicos e detalhados",
+              description: "SOMENTE perfis EXPLICITAMENTE mencionados no documento. Array vazio se nenhum perfil é descrito.",
               items: {
                 type: "object",
                 properties: {
-                  role: { type: "string", description: "Cargo específico com requisitos (ex: 'Gerente de Projetos - PMP, 5+ anos', 'Dev Backend Sênior - Java/Spring')" },
+                  role: { type: "string", description: "Cargo EXATO conforme descrito no documento" },
                   hiringType: { type: "string", enum: ["clt", "pj"] },
-                  quantity: { type: "number" },
-                  grossMonthly: { type: "number", description: "Salário bruto mensal estimado em R$ baseado no mercado 2024/2025" },
+                  quantity: { type: "number", description: "Quantidade EXATA mencionada no documento. Se não mencionada, use 1." },
+                  grossMonthly: { type: "number", description: "Salário bruto mensal. Use contratos de referência como base, ou mercado 2024/2025." },
                   chargesPercent: { type: "number", description: "Percentual de encargos (ex: 80 para CLT, 6 para PJ)" },
                 },
                 required: ["role", "hiringType", "quantity", "grossMonthly", "chargesPercent"],
@@ -233,25 +267,38 @@ Seja EXTREMAMENTE detalhista nas aiNotes. Este campo é crucial para a análise 
             },
             otherCosts: {
               type: "array",
-              description: "Lista COMPLETA de todos os custos adicionais identificados (licenças, infra, viagens, treinamento, garantias, etc.)",
+              description: "SOMENTE custos EXPLICITAMENTE mencionados no documento. Array vazio se nenhum custo adicional é descrito.",
               items: {
                 type: "object",
                 properties: {
-                  category: { type: "string", description: "Categoria (infraestrutura, licenca, viagem, treinamento, garantia, equipamento, seguranca, acessibilidade, outro)" },
-                  description: { type: "string", description: "Descrição detalhada do custo" },
+                  category: { type: "string" },
+                  description: { type: "string", description: "Descrição do custo conforme o documento" },
                   valueMonthly: { type: "number", description: "Valor mensal estimado em R$" },
                 },
                 required: ["category", "description", "valueMonthly"],
               },
             },
             aiNotes: {
-              type: "string",
-              description: "Observações detalhadas sobre riscos, exigências contratuais, penalidades, SLAs específicos, requisitos de segurança, LGPD, garantias, e qualquer informação relevante não coberta pelos campos estruturados. Seja MUITO detalhista.",
+              type: ["string", "null"],
+              description: "Formato obrigatório:\n\nEXTRAÍDO DO DOCUMENTO:\n- [item com referência ao trecho]\n\nSUGESTÕES ADICIONAIS:\n- [recomendação analítica claramente marcada como sugestão]",
             },
-            responsavelCliente: { type: "string", description: "Nome do responsável no cliente, se mencionado" },
-            consultancyCost: { type: "number", description: "Custo de consultoria mensal, se aplicável" },
+            confidence: {
+              type: "object",
+              description: "Indica a origem de cada dado: 'documento' (extraído diretamente), 'referencia' (calibrado com contratos da empresa), 'estimativa' (estimado sem base no documento/referência).",
+              properties: {
+                name: { type: "string", enum: ["documento", "estimativa"] },
+                clientName: { type: "string", enum: ["documento", "estimativa"] },
+                contractType: { type: "string", enum: ["documento", "estimativa"] },
+                termMonths: { type: "string", enum: ["documento", "estimativa"] },
+                hrProfiles: { type: "string", enum: ["documento", "referencia", "estimativa"] },
+                otherCosts: { type: "string", enum: ["documento", "referencia", "estimativa"] },
+                salaries: { type: "string", enum: ["documento", "referencia", "estimativa"] },
+              },
+            },
+            responsavelCliente: { type: ["string", "null"], description: "Nome do responsável no cliente, SOMENTE se mencionado no documento." },
+            consultancyCost: { type: ["number", "null"], description: "Custo de consultoria mensal, SOMENTE se mencionado no documento." },
           },
-          required: ["name", "clientName", "contractType", "termMonths", "description", "complexityLevel", "questionnaire", "hrProfiles", "otherCosts", "aiNotes"],
+          required: ["name", "clientName", "contractType", "termMonths", "description", "complexityLevel", "questionnaire", "hrProfiles", "otherCosts", "aiNotes", "confidence"],
         },
       },
     };
