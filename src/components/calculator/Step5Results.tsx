@@ -45,7 +45,7 @@ const SCENARIO_COLORS: Record<string, string> = {
 export function Step5Results({ data, onChange }: Props) {
   const { settings } = useData();
   const taxPercent = settings.percentualImpostosFaturamento;
-  const pricing = suggestPricing(data);
+  const pricing = suggestPricing(data, taxPercent);
   const results = calculateSimulationResults(data, taxPercent);
   const scenarios = generateScenarios(data, taxPercent);
 
@@ -208,9 +208,8 @@ export function Step5Results({ data, onChange }: Props) {
       {/* Recommendation Card — counterpoint */}
       {(() => {
         const proposedValue = data.proposedMonthlyValue && data.proposedMonthlyValue > 0 ? data.proposedMonthlyValue : 0;
-        const breakEven = pricing.breakEvenMonthly;
+        const minViable = pricing.minViableMonthly;
         const idealValue = pricing.suggestedMonthlyValue;
-        const minViable = breakEven / (1 - taxPercent / 100); // minimum to cover costs after taxes
         const isDeficitario = proposedValue > 0 && proposedValue < minViable;
         const isBelowIdeal = proposedValue > 0 && proposedValue >= minViable && proposedValue < idealValue;
 
