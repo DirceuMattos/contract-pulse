@@ -91,6 +91,8 @@ export default function CalculatorWizardPage() {
 
   const handleDocumentAnalysis = useCallback((result: Record<string, unknown>) => {
     const updates: Partial<ContractSimulation> = {};
+
+    // Identification — only set if actually found (not null)
     if (result.name != null && result.name !== '') updates.name = result.name as string;
     if (result.clientName != null && result.clientName !== '') updates.clientName = result.clientName as string;
     if (result.contractType != null) updates.contractType = result.contractType as ContractSimulation['contractType'];
@@ -100,9 +102,23 @@ export default function CalculatorWizardPage() {
     if (result.complexityLevel != null) updates.complexityLevel = result.complexityLevel as ContractSimulation['complexityLevel'];
     if (result.responsavelCliente != null && result.responsavelCliente !== '') updates.responsavelCliente = result.responsavelCliente as string;
     if (result.consultancyCost != null) updates.consultancyCost = result.consultancyCost as number;
+
+    // Questionnaire — merge only non-null fields, keep defaults for unidentified
     if (result.questionnaire) {
-      updates.questionnaire = result.questionnaire as ContractSimulation['questionnaire'];
+      const q = result.questionnaire as Record<string, unknown>;
+      const merged = { ...data.questionnaire };
+      if (q.demandType != null) merged.demandType = q.demandType as any;
+      if (q.criticality != null) merged.criticality = q.criticality as any;
+      if (q.integrations != null) merged.integrations = q.integrations as any;
+      if (q.modules != null) merged.modules = q.modules as any;
+      if (q.userVolume != null) merged.userVolume = q.userVolume as any;
+      if (q.slaLevel != null) merged.slaLevel = q.slaLevel as any;
+      if (q.deliveryPace != null) merged.deliveryPace = q.deliveryPace as any;
+      if (q.fieldDependency != null) merged.fieldDependency = q.fieldDependency as boolean;
+      updates.questionnaire = merged;
     }
+
+    // HR Profiles — only apply if document actually found profiles
     if (Array.isArray(result.hrProfiles) && result.hrProfiles.length > 0) {
       updates.customHR = (result.hrProfiles as Array<Record<string, unknown>>).map(p => ({
         id: crypto.randomUUID(),
@@ -114,6 +130,8 @@ export default function CalculatorWizardPage() {
       }));
       updates.usingSuggested = false;
     }
+
+    // Other costs
     if (Array.isArray(result.otherCosts) && result.otherCosts.length > 0) {
       updates.customOtherCosts = (result.otherCosts as Array<Record<string, unknown>>).map(c => ({
         id: crypto.randomUUID(),
@@ -122,14 +140,15 @@ export default function CalculatorWizardPage() {
         valueMonthly: (c.valueMonthly as number) || 0,
       }));
     }
-    if (result.aiNotes) {
-      updates.aiNotes = result.aiNotes as string;
-    }
-    if (result.confidence) {
-      updates.aiConfidence = result.confidence as Record<string, 'documento' | 'referencia' | 'estimativa'>;
-    }
+
+    // Analysis metadata
+    if (result.aiNotes != null) updates.aiNotes = result.aiNotes as string;
+    if (result.confidence != null) updates.aiConfidence = result.confidence as Record<string, string>;
+    if (result.coverage != null) updates.aiCoverage = result.coverage as ContractSimulation['aiCoverage'];
+    if (result.complexityJustification != null) updates.aiComplexityJustification = result.complexityJustification as string;
+
     onChange(updates);
-  }, [onChange]);
+  }, [onChange, data.questionnaire]);
 
   const goTo = (s: number) => {
     setStep(s);
