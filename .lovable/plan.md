@@ -1,38 +1,35 @@
 
-## Plano: Reescrever a análise usando visão da IA (PDF como imagem)
 
-### Diagnóstico raiz
+## Plano: Corrigir Recursos e Resultados do Simulador
 
-O problema **não é o prompt** — é a **extração de texto do PDF**. O parser atual usa regex para ler operadores BT/ET do PDF binário. Isso funciona para ~5% dos PDFs reais. A maioria dos PDFs modernos usa streams comprimidos (FlateDecode), CIDFonts, e encoding complexo que o regex simplesmente não consegue ler. A IA recebe texto corrompido/incompleto e por isso a análise piora a cada iteração (adicionamos mais restrições a um input que já era ruim).
+### Problemas identificados
 
-### Solução: Usar Gemini com visão (multimodal)
+1. **Quantidade decimal**: O campo `quantity` aceita decimais (`step={0.1}`, `parseFloat`), causando confusão nos custos.
 
-Em vez de tentar extrair texto do PDF com regex, vou:
+2. **Cálculos de resultado circular**: A função `calculateSimulationResults` usa `suggestPricing` para derivar receita a partir dos custos. Ou seja, a receita é calculada como `custo / (1 - margem%)`. Em seguida, aplica impostos (~16.33%) sobre essa receita e subtrai os custos. O campo `proposedMonthlyValue` existe no tipo e no banco mas **nunca é usado nos cálculos** — o sistema sempre inventa a receita a partir dos custos. Se o usuário informou um valor de contrato, ele é ignorado.
 
-1. **Enviar o PDF diretamente como base64 para o Gemini 2.5 Pro** — o modelo é multimodal e consegue ler PDFs nativamente quando enviados como arquivo inline
-2. **Simplificar o prompt** — voltar a um prompt direto e eficaz, sem excesso de regras anti-alucinação que estão fazendo a IA ser conservadora demais
-3. **Manter o contexto de contratos e tabela salarial** — essas referências são úteis, o problema nunca foi esse
-4. **Remover completamente o parser regex de PDF** — ele é a causa raiz de todos os problemas
+3. **Cenários confusos**: A tabela de cenários mostra colunas técnicas (Overhead separado, Receita repetida) sem explicação do que cada cenário representa.
 
-### O que muda
+### O que será feito
+
+**1. Aba Recursos — `Step4Resources.tsx`**
+- Campo quantidade: trocar para `step={1}`, `min={1}`, `parseInt`, default = 1
+- Garantir que ao adicionar novo recurso, `quantity = 1`
+
+**2. Cálculos — `simulationEngine.ts`**
+- `calculateSimulationResults`: se `proposedMonthlyValue > 0`, usar como receita bruta em vez do valor sugerido. Isso permite que o usuário defina o valor real do contrato e veja margem real.
+- Se não houver valor proposto, continua usando `suggestPricing` como referência.
+
+**3. Aba Resultado — `Step5Results.tsx`**
+- Adicionar campo editável de "Valor mensal do contrato" no topo, vinculado a `proposedMonthlyValue`, para que o usuário possa informar o valor real e ver os cards recalcularem
+- Se vazio, usar o valor sugerido como referência
+- Cenários: adicionar descrição curta para cada (Conservador = "+10% custos", Base = "custos atuais", Otimista = "-10% custos"). Simplificar tabela removendo coluna Overhead separada.
+
+### Arquivos alterados
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/simulation-parse-document/index.ts` | Remover `extractTextFromPDF`/`validateTextQuality`; enviar PDF como base64 inline no payload multimodal do Gemini; simplificar prompt para ser direto e completo sem excesso de restrições |
+| `src/components/calculator/Step4Resources.tsx` | Quantidade inteira, default 1 |
+| `src/lib/simulationEngine.ts` | Usar `proposedMonthlyValue` como receita quando disponível |
+| `src/components/calculator/Step5Results.tsx` | Campo editável de receita, cenários mais claros |
 
-### Detalhes técnicos
-
-O Gemini aceita PDFs inline no formato:
-```json
-{
-  "role": "user",
-  "content": [
-    { "type": "file", "file": { "filename": "doc.pdf", "file_data": "data:application/pdf;base64,..." } },
-    { "type": "text", "text": "Analise este documento..." }
-  ]
-}
-```
-
-Isso elimina 100% dos problemas de extração — a IA lê o documento original, incluindo tabelas, formatação e imagens.
-
-O prompt será simplificado: instruções claras sobre o que extrair, a tabela salarial e contratos como contexto, sem as dezenas de "NUNCA faça X" que estão tornando a IA excessivamente conservadora. Para DOCX, mantemos o parser de XML tags (que funciona razoavelmente) como fallback.
