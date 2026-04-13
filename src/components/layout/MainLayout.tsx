@@ -8,7 +8,7 @@ import { Header } from './Header';
 import { CommandPalette } from './CommandPalette';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
-import AccessDeniedPage from '@/pages/AccessDeniedPage';
+import { MODULE_CATALOG } from '@/types/moduleAccess';
 
 export function MainLayout() {
   const { isAuthenticated, loading: authLoading, mustChangePassword } = useAuth();
@@ -97,6 +97,17 @@ export function MainLayout() {
 
   const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 72 : 260);
   const routeAllowed = canAccessRoute(location.pathname);
+
+  // Redirect to first accessible module instead of showing Access Denied
+  if (!routeAllowed) {
+    const firstAccessible = MODULE_CATALOG.find(
+      m => m.routes.length > 0 && !m.isSubmodule && canAccessRoute(m.routes[0])
+    );
+    const fallbackRoute = firstAccessible?.routes[0] || '/dashboard';
+    if (location.pathname !== fallbackRoute) {
+      return <Navigate to={fallbackRoute} replace />;
+    }
+  }
   
   return (
     <div className="min-h-screen bg-background">
@@ -118,7 +129,7 @@ export function MainLayout() {
         className="pt-16 min-h-screen"
       >
         <div className="p-4 sm:p-6">
-          {routeAllowed ? <Outlet /> : <AccessDeniedPage />}
+          <Outlet />
         </div>
       </motion.main>
 
