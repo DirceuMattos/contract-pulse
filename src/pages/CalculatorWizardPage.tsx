@@ -91,15 +91,15 @@ export default function CalculatorWizardPage() {
 
   const handleDocumentAnalysis = useCallback((result: Record<string, unknown>) => {
     const updates: Partial<ContractSimulation> = {};
-    if (result.name) updates.name = result.name as string;
-    if (result.clientName) updates.clientName = result.clientName as string;
-    if (result.contractType) updates.contractType = result.contractType as ContractSimulation['contractType'];
-    if (result.govSphere) updates.govSphere = result.govSphere as ContractSimulation['govSphere'];
-    if (result.termMonths) updates.termMonths = result.termMonths as number;
-    if (result.description) updates.description = result.description as string;
-    if (result.complexityLevel) updates.complexityLevel = result.complexityLevel as ContractSimulation['complexityLevel'];
-    if (result.responsavelCliente) updates.responsavelCliente = result.responsavelCliente as string;
-    if (result.consultancyCost) updates.consultancyCost = result.consultancyCost as number;
+    if (result.name != null && result.name !== '') updates.name = result.name as string;
+    if (result.clientName != null && result.clientName !== '') updates.clientName = result.clientName as string;
+    if (result.contractType != null) updates.contractType = result.contractType as ContractSimulation['contractType'];
+    if (result.govSphere != null) updates.govSphere = result.govSphere as ContractSimulation['govSphere'];
+    if (result.termMonths != null) updates.termMonths = result.termMonths as number;
+    if (result.description != null && result.description !== '') updates.description = result.description as string;
+    if (result.complexityLevel != null) updates.complexityLevel = result.complexityLevel as ContractSimulation['complexityLevel'];
+    if (result.responsavelCliente != null && result.responsavelCliente !== '') updates.responsavelCliente = result.responsavelCliente as string;
+    if (result.consultancyCost != null) updates.consultancyCost = result.consultancyCost as number;
     if (result.questionnaire) {
       updates.questionnaire = result.questionnaire as ContractSimulation['questionnaire'];
     }

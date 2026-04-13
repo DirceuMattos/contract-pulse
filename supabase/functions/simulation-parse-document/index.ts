@@ -48,20 +48,56 @@ function extractTextFromDOCX(buffer: Uint8Array): string {
   return matches.join(" ").slice(0, 100000);
 }
 
+async function fetchSalaryTable(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data: resources } = await supabaseAdmin
+      .from("resources")
+      .select("cargo, tipo, custo_base")
+      .not("cargo", "is", null)
+      .neq("cargo", "");
+
+    if (!resources || resources.length === 0) return "Nenhum dado salarial disponível.";
+
+    const grouped: Record<string, { tipo: string; values: number[] }> = {};
+    resources.forEach((r: Record<string, unknown>) => {
+      const key = `${r.cargo}|${r.tipo}`;
+      if (!grouped[key]) grouped[key] = { tipo: r.tipo as string, values: [] };
+      grouped[key].values.push(r.custo_base as number);
+    });
+
+    const lines = Object.entries(grouped)
+      .sort((a, b) => b[1].values.length - a[1].values.length)
+      .map(([key, data]) => {
+        const cargo = key.split("|")[0];
+        const avg = Math.round(data.values.reduce((s, v) => s + v, 0) / data.values.length);
+        const min = Math.round(Math.min(...data.values));
+        const max = Math.round(Math.max(...data.values));
+        return `  ${cargo} (${data.tipo}) | Média: R$ ${avg} | Min: R$ ${min} | Max: R$ ${max} | Qtd: ${data.values.length}`;
+      });
+
+    return lines.join("\n");
+  } catch (err) {
+    console.error("Error fetching salary table:", err);
+    return "Não foi possível carregar tabela salarial.";
+  }
+}
+
 async function fetchContractContext(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
   try {
     const { data: contracts } = await supabaseAdmin
       .from("contracts")
-      .select("nome, tipo, segmento, valor_mensal_referencia, status")
+      .select("id, nome, tipo, segmento, valor_mensal_referencia, status")
       .order("created_at", { ascending: false })
       .limit(20);
 
     if (!contracts || contracts.length === 0) return "Nenhum contrato cadastrado ainda.";
 
+    const contractIds = contracts.map((c: Record<string, unknown>) => c.id as string).filter(Boolean);
+
     const { data: resources } = await supabaseAdmin
       .from("resources")
       .select("nome, cargo, custo_base, tipo, contract_id")
-      .in("contract_id", contracts.map((c: Record<string, unknown>) => (c as Record<string, unknown>).id || "").filter(Boolean));
+      .in("contract_id", contractIds);
 
     const resourcesByContract: Record<string, Array<{ nome: string; cargo: string; custo: number; tipo: string }>> = {};
     (resources ?? []).forEach((r: Record<string, unknown>) => {
@@ -76,7 +112,7 @@ async function fetchContractContext(supabaseAdmin: ReturnType<typeof createClien
     });
 
     return contracts.map((c: Record<string, unknown>) => {
-      const id = (c as Record<string, unknown>).id as string;
+      const id = c.id as string;
       const res = resourcesByContract[id] || [];
       const resStr = res.length > 0
         ? res.map(r => `  - ${r.cargo || r.nome} (${r.tipo}): R$ ${r.custo}`).join("\n")
