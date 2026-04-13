@@ -614,11 +614,23 @@ export function validateImportedData(
   return { valid, errors };
 }
 
+// Value-sensitive column keys that should be hidden for non-privileged users
+const SENSITIVE_CONTRACT_KEYS = ['valorMensalReferencia', 'valorTotalContrato', 'percentualFixo', 'observacoesFinanceiras'];
+const SENSITIVE_RESOURCE_KEYS = ['custoBase', 'encargosOverride', 'impostosOverride'];
+
+function getFilteredColumns(entityType: EntityType, canViewValues: boolean) {
+  const allColumns = entityType === 'clients' ? clientColumns : 
+                     entityType === 'contracts' ? contractColumns : 
+                     resourceColumns;
+  if (canViewValues) return allColumns;
+  const sensitiveKeys = entityType === 'contracts' ? SENSITIVE_CONTRACT_KEYS :
+                        entityType === 'resources' ? SENSITIVE_RESOURCE_KEYS : [];
+  return allColumns.filter(c => !sensitiveKeys.includes(c.key));
+}
+
 // Export data to CSV
-export function exportToCSV<T extends Record<string, unknown>>(data: T[], entityType: EntityType): string {
-  const columns = entityType === 'clients' ? clientColumns : 
-                  entityType === 'contracts' ? contractColumns : 
-                  resourceColumns;
+export function exportToCSV<T extends Record<string, unknown>>(data: T[], entityType: EntityType, canViewValues = true): string {
+  const columns = getFilteredColumns(entityType, canViewValues);
 
   const headers = columns.map(c => c.label);
   const rows = data.map(row => {
@@ -646,10 +658,8 @@ export function exportToCSV<T extends Record<string, unknown>>(data: T[], entity
 }
 
 // Export data to Excel
-export function exportToExcel<T extends Record<string, unknown>>(data: T[], entityType: EntityType, filename: string): void {
-  const columns = entityType === 'clients' ? clientColumns : 
-                  entityType === 'contracts' ? contractColumns : 
-                  resourceColumns;
+export function exportToExcel<T extends Record<string, unknown>>(data: T[], entityType: EntityType, filename: string, canViewValues = true): void {
+  const columns = getFilteredColumns(entityType, canViewValues);
 
   const headers = columns.map(c => c.label);
   const rows = data.map(row => {

@@ -49,7 +49,7 @@ const entityLabels: Record<EntityType, string> = {
 
 export default function ImportExportPage() {
   const { clients, contracts, resources, addClient, addContract, addResource, jobTitles, teams } = useData();
-  const { canEdit, canViewHRCosts } = useAuth();
+  const { canEdit, canViewHRCosts, canViewValues } = useAuth();
   const { hrPeople } = useHR();
   const { toast } = useToast();
   
@@ -100,9 +100,9 @@ export default function ImportExportPage() {
     const exportData = data as unknown as Record<string, unknown>[];
     
     if (exportFormat === 'xlsx') {
-      exportToExcel(exportData, exportEntity, `${filename}.xlsx`);
+      exportToExcel(exportData, exportEntity, `${filename}.xlsx`, canViewValues);
     } else {
-      const csv = exportToCSV(exportData, exportEntity);
+      const csv = exportToCSV(exportData, exportEntity, canViewValues);
       downloadCSV(csv, `${filename}.csv`);
     }
     
