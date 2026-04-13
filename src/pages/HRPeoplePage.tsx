@@ -47,7 +47,8 @@ export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles } = useData();
-  const { canEdit, canViewHRCosts } = useAuth();
+  const { canEdit, canViewHRCosts, userRole } = useAuth();
+  const canViewComite = userRole === 'c-level' || userRole === 'rh';
 
   // Restore filters from sessionStorage
   const storedFilters = useMemo(() => {
@@ -280,15 +281,17 @@ export default function HRPeoplePage() {
                 {activeJobTitles.map(jt => <SelectItem key={jt.id} value={jt.id}>{jt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filterComite || 'all'} onValueChange={v => setFilterComite(v === 'all' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Comitê Gestor" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="__com">Com indicação</SelectItem>
-                <SelectItem value="__sem">Sem indicação</SelectItem>
-                {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {canViewComite && (
+              <Select value={filterComite || 'all'} onValueChange={v => setFilterComite(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Comitê Gestor" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="__com">Com indicação</SelectItem>
+                  <SelectItem value="__sem">Sem indicação</SelectItem>
+                  {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={filterMesAdmissao || 'all'} onValueChange={v => setFilterMesAdmissao(v === 'all' ? '' : v)}>
               <SelectTrigger><SelectValue placeholder="Mês admissão" /></SelectTrigger>
               <SelectContent>
@@ -364,7 +367,7 @@ export default function HRPeoplePage() {
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}><TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('tempo')}>Tempo de Casa <SortIcon field="tempo" /></TableHead></TableHead>
                       {canViewHRCosts && <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('custoTotal')}>Custo Total <SortIcon field="custoTotal" /></TableHead>}
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('situacao')}>Sit. <SortIcon field="situacao" /></TableHead>
-                      <TableHead className="text-xs cursor-pointer select-none sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]" onClick={() => handleSort('comiteGestor')}>Comitê <SortIcon field="comiteGestor" /></TableHead>
+                      {canViewComite && <TableHead className="text-xs cursor-pointer select-none sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]" onClick={() => handleSort('comiteGestor')}>Comitê <SortIcon field="comiteGestor" /></TableHead>}
                       <TableHead className="sticky right-0 bg-background z-10 w-[72px]" />
                     </TableRow>
                   </TableHeader>
@@ -409,25 +412,27 @@ export default function HRPeoplePage() {
                               {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
                             </Badge>
                           </TableCell>
-                          <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                            {canEdit ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="month"
-                                  value={p.comiteGestor || ''}
-                                  onChange={e => handleComiteChange(p.id, e.target.value)}
-                                  className="text-xs border rounded px-1.5 py-1 bg-background text-foreground w-[120px]"
-                                />
-                                {p.comiteGestor && (
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleComiteChange(p.id, '')}>
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-xs whitespace-nowrap">{p.comiteGestor ? formatComite(p.comiteGestor) : '—'}</span>
-                            )}
-                          </TableCell>
+                          {canViewComite && (
+                            <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+                              {canEdit ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="month"
+                                    value={p.comiteGestor || ''}
+                                    onChange={e => handleComiteChange(p.id, e.target.value)}
+                                    className="text-xs border rounded px-1.5 py-1 bg-background text-foreground w-[120px]"
+                                  />
+                                  {p.comiteGestor && (
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleComiteChange(p.id, '')}>
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs whitespace-nowrap">{p.comiteGestor ? formatComite(p.comiteGestor) : '—'}</span>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-0 bg-background z-10 w-[72px]">
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
