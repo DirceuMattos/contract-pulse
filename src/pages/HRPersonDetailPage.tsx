@@ -309,7 +309,7 @@ export default function HRPersonDetailPage() {
         <TabsList>
           <TabsTrigger value="resumo"><Briefcase className="h-4 w-4 mr-2" />Resumo</TabsTrigger>
           {canViewHRCosts && <TabsTrigger value="financeiro"><DollarSign className="h-4 w-4 mr-2" />Financeiro</TabsTrigger>}
-          <TabsTrigger value="timeline"><Clock className="h-4 w-4 mr-2" />Linha do Tempo</TabsTrigger>
+          {userRole === 'c-level' && <TabsTrigger value="timeline"><Clock className="h-4 w-4 mr-2" />Linha do Tempo</TabsTrigger>}
           <TabsTrigger value="alocacoes"><GitBranch className="h-4 w-4 mr-2" />Alocações</TabsTrigger>
         </TabsList>
 
