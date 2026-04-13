@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -5,20 +6,115 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Separator } from '@/components/ui/separator';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { Button } from '@/components/ui/button';
 import { formatPhoneInput } from '@/lib/utils';
+import { FileUp, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import type { ContractSimulation } from '@/types';
 
 interface Props {
   data: ContractSimulation;
   onChange: (updates: Partial<ContractSimulation>) => void;
+  onDocumentAnalysis?: (result: Record<string, unknown>) => void;
 }
 
-export function Step1Identification({ data, onChange }: Props) {
+export function Step1Identification({ data, onChange, onDocumentAnalysis }: Props) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'pdf' && ext !== 'docx') {
+      toast({ title: 'Formato inválido', description: 'Use PDF ou DOCX.', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Máximo 20MB.', variant: 'destructive' });
+      return;
+    }
+
+    setAnalyzing(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const fileBase64 = btoa(binary);
+
+      const { data: result, error } = await supabase.functions.invoke('simulation-parse-document', {
+        body: { fileBase64, fileName: file.name },
+      });
+
+      if (error) throw error;
+      if (result?.error) throw new Error(result.error);
+
+      onDocumentAnalysis?.(result);
+      toast({ title: 'Documento analisado!', description: 'Os campos foram preenchidos com base no documento.' });
+    } catch (err: unknown) {
+      console.error('Document analysis error:', err);
+      toast({
+        title: 'Erro na análise',
+        description: err instanceof Error ? err.message : 'Não foi possível analisar o documento.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAnalyzing(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h3 className="text-lg font-semibold text-foreground">Identificação e Contexto</h3>
         <p className="text-sm text-muted-foreground">Informações básicas da simulação.</p>
+      </div>
+
+      {/* AI Document Import */}
+      <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">📄 Importar TR/Edital com IA</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Faça upload de um PDF ou DOCX e a IA preencherá automaticamente todos os campos da simulação.
+            </p>
+          </div>
+          <div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.docx"
+              className="hidden"
+              onChange={handleFileSelect}
+              disabled={analyzing}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileRef.current?.click()}
+              disabled={analyzing}
+            >
+              {analyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analisando...
+                </>
+              ) : (
+                <>
+                  <FileUp className="w-4 h-4 mr-2" />
+                  Selecionar arquivo
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

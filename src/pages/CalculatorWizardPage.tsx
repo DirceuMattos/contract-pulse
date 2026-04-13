@@ -89,6 +89,42 @@ export default function CalculatorWizardPage() {
     });
   }, [settings.percentualEncargosCLT, settings.percentualImpostosPJ]);
 
+  const handleDocumentAnalysis = useCallback((result: Record<string, unknown>) => {
+    const updates: Partial<ContractSimulation> = {};
+    if (result.name) updates.name = result.name as string;
+    if (result.clientName) updates.clientName = result.clientName as string;
+    if (result.contractType) updates.contractType = result.contractType as ContractSimulation['contractType'];
+    if (result.govSphere) updates.govSphere = result.govSphere as ContractSimulation['govSphere'];
+    if (result.termMonths) updates.termMonths = result.termMonths as number;
+    if (result.description) updates.description = result.description as string;
+    if (result.complexityLevel) updates.complexityLevel = result.complexityLevel as ContractSimulation['complexityLevel'];
+    if (result.responsavelCliente) updates.responsavelCliente = result.responsavelCliente as string;
+    if (result.consultancyCost) updates.consultancyCost = result.consultancyCost as number;
+    if (result.questionnaire) {
+      updates.questionnaire = result.questionnaire as ContractSimulation['questionnaire'];
+    }
+    if (Array.isArray(result.hrProfiles) && result.hrProfiles.length > 0) {
+      updates.customHR = (result.hrProfiles as Array<Record<string, unknown>>).map(p => ({
+        id: crypto.randomUUID(),
+        role: (p.role as string) || 'Analista',
+        hiringType: (p.hiringType as 'clt' | 'pj') || 'pj',
+        quantity: (p.quantity as number) || 1,
+        grossMonthly: (p.grossMonthly as number) || 5000,
+        chargesPercent: (p.chargesPercent as number) || 6,
+      }));
+      updates.usingSuggested = false;
+    }
+    if (Array.isArray(result.otherCosts) && result.otherCosts.length > 0) {
+      updates.customOtherCosts = (result.otherCosts as Array<Record<string, unknown>>).map(c => ({
+        id: crypto.randomUUID(),
+        category: (c.category as string) || 'outro',
+        description: (c.description as string) || '',
+        valueMonthly: (c.valueMonthly as number) || 0,
+      }));
+    }
+    onChange(updates);
+  }, [onChange]);
+
   const goTo = (s: number) => {
     setStep(s);
     setMaxVisited(prev => Math.max(prev, s));
@@ -140,7 +176,7 @@ export default function CalculatorWizardPage() {
       <SimulationStepper currentStep={step} onStepClick={goTo} maxVisited={maxVisited} />
 
       <div className="min-h-[400px]">
-        {step === 0 && <Step1Identification data={data} onChange={onChange} />}
+        {step === 0 && <Step1Identification data={data} onChange={onChange} onDocumentAnalysis={handleDocumentAnalysis} />}
         {step === 1 && <Step3Questionnaire data={data} onChange={onChange} />}
         {step === 2 && <Step4Resources data={data} onChange={onChange} />}
         {step === 3 && <Step5Results data={data} onChange={onChange} />}
