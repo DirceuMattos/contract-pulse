@@ -161,6 +161,9 @@ export default function CalculatorPage() {
                   <Link to={`/calculadora/${sim.id}`} className="flex-1">
                     <Button variant="ghost" size="sm" className="w-full text-xs">Abrir</Button>
                   </Link>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRecalculateOne(sim)} title="Recalcular">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { duplicateSimulation(sim.id); toast.success('Simulação duplicada'); }}>
                     <Copy className="w-3.5 h-3.5" />
                   </Button>
