@@ -254,15 +254,17 @@ export function Step5Results({ data, onChange }: Props) {
 
       {/* Scenarios Table */}
       <Card className="p-4 space-y-3">
-        <h4 className="font-medium text-foreground">Comparativo de cenários</h4>
+        <div>
+          <h4 className="font-medium text-foreground">Comparativo de cenários</h4>
+          <p className="text-xs text-muted-foreground">Variação sobre os custos estimados mantendo a mesma receita.</p>
+        </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Cenário</TableHead>
-                <TableHead>Receita</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Overhead</TableHead>
+                <TableHead>Premissa</TableHead>
+                <TableHead>Custo total</TableHead>
                 <TableHead>Resultado</TableHead>
                 <TableHead>Margem</TableHead>
                 <TableHead>Status</TableHead>
@@ -272,9 +274,8 @@ export function Step5Results({ data, onChange }: Props) {
               {scenarios.map(s => (
                 <TableRow key={s.label}>
                   <TableCell className="font-medium">{s.label}</TableCell>
-                  <TableCell>{formatCurrency(s.receitaMensal)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{s.description}</TableCell>
                   <TableCell>{formatCurrency(s.custoMensal)}</TableCell>
-                  <TableCell>{formatCurrency(s.overheadMensal)}</TableCell>
                   <TableCell className={cn('font-medium', healthColor(s.healthStatus))}>{formatCurrency(s.resultadoMensal)}</TableCell>
                   <TableCell>{s.margemPercent.toFixed(1)}%</TableCell>
                   <TableCell><Badge className={healthBg(s.healthStatus)}>{healthLabel(s.healthStatus)}</Badge></TableCell>
