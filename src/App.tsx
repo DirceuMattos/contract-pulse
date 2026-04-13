@@ -33,6 +33,8 @@ import AccessLogsPage from "@/pages/AccessLogsPage";
 import CalculatorPage from "@/pages/CalculatorPage";
 import CalculatorWizardPage from "@/pages/CalculatorWizardPage";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import HRPeoplePage from "@/pages/HRPeoplePage";
 import HRPersonDetailPage from "@/pages/HRPersonDetailPage";
 import FeedzReconciliationPage from "@/pages/FeedzReconciliationPage";
@@ -65,6 +67,8 @@ const App = () => (
                       <Routes>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/trocar-senha" element={<ChangePasswordPage />} />
+                        <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+                        <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route element={<MainLayout />}>
                           <Route path="/dashboard" element={<DashboardPage />} />
