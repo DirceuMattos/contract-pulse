@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Percent, Activity, Sparkles, Info, Calendar, Target, AlertCircle, Receipt, FileText } from 'lucide-react';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { suggestPricing, calculateSimulationResults, generateScenarios } from '@/lib/simulationEngine';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
