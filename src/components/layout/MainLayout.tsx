@@ -8,7 +8,7 @@ import { Header } from './Header';
 import { CommandPalette } from './CommandPalette';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
-import AccessDeniedPage from '@/pages/AccessDeniedPage';
+import { MODULE_CATALOG } from '@/types/moduleAccess';
 
 export function MainLayout() {
   const { isAuthenticated, loading: authLoading, mustChangePassword } = useAuth();
