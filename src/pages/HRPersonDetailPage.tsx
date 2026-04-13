@@ -65,7 +65,7 @@ export default function HRPersonDetailPage() {
   const navigate = useNavigate();
   const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts, updateResource } = useData();
-  const { canEdit, canViewHRCosts, user } = useAuth();
+  const { canEdit, canViewHRCosts, user, userRole } = useAuth();
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
