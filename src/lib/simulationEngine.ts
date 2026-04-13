@@ -301,8 +301,11 @@ export function calculateSimulationResults(simulation: ContractSimulation, taxPe
   margemPercent: number;
   healthStatus: HealthStatus;
 } {
-  const pricing = suggestPricing(simulation);
-  const receitaBruta = pricing.suggestedMonthlyValue;
+  // Use proposed value when available, otherwise fall back to suggested pricing
+  const hasProposedValue = (simulation.proposedMonthlyValue ?? 0) > 0;
+  const receitaBruta = hasProposedValue
+    ? simulation.proposedMonthlyValue!
+    : suggestPricing(simulation).suggestedMonthlyValue;
   const percentualImpostos = taxPercent;
   const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
 
@@ -322,7 +325,7 @@ export function calculateSimulationResults(simulation: ContractSimulation, taxPe
 export function generateScenarios(simulation: ContractSimulation, taxPercent: number = 16.33): SimulationScenario[] {
   const base = calculateSimulationResults(simulation, taxPercent);
 
-  const makeScenario = (label: string, custoMultiplier: number): SimulationScenario => {
+  const makeScenario = (label: string, custoMultiplier: number, description: string): SimulationScenario => {
     const custoAjustado = (base.custoMensal - base.overheadMensal) * custoMultiplier;
     const overheadAjustado = base.overheadMensal * custoMultiplier;
     const custoTotal = custoAjustado + overheadAjustado;
@@ -333,6 +336,7 @@ export function generateScenarios(simulation: ContractSimulation, taxPercent: nu
     else if (margem < 15) health = 'atencao';
     return {
       label,
+      description,
       receitaMensal: base.receitaBruta,
       custoMensal: custoTotal,
       overheadMensal: overheadAjustado,
@@ -343,9 +347,9 @@ export function generateScenarios(simulation: ContractSimulation, taxPercent: nu
   };
 
   return [
-    makeScenario('Conservador', 1.1),
-    makeScenario('Base', 1.0),
-    makeScenario('Otimista', 0.9),
+    makeScenario('Conservador', 1.1, 'Custos +10% acima do estimado'),
+    makeScenario('Base', 1.0, 'Custos conforme estimado'),
+    makeScenario('Otimista', 0.9, 'Custos -10% abaixo do estimado'),
   ];
 }
 
