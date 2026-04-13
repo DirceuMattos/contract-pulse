@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Search, Calculator, Copy, Trash2, Archive, ShieldAlert, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { HealthStatus } from '@/types';
+import type { HealthStatus, ContractSimulation } from '@/types';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { healthConfig } from '@/lib/uiConstants';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
