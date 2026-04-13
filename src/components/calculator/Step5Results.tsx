@@ -205,6 +205,74 @@ export function Step5Results({ data, onChange }: Props) {
         </div>
       </Card>
 
+      {/* Recommendation Card — counterpoint */}
+      {(() => {
+        const proposedValue = data.proposedMonthlyValue && data.proposedMonthlyValue > 0 ? data.proposedMonthlyValue : 0;
+        const breakEven = pricing.breakEvenMonthly;
+        const idealValue = pricing.suggestedMonthlyValue;
+        const minViable = breakEven / (1 - taxPercent / 100); // minimum to cover costs after taxes
+        const isDeficitario = proposedValue > 0 && proposedValue < minViable;
+        const isBelowIdeal = proposedValue > 0 && proposedValue >= minViable && proposedValue < idealValue;
+
+        return (
+          <Card className={cn('p-5 border-l-4', isDeficitario ? 'border-l-[hsl(var(--health-critical))] bg-red-500/5' : isBelowIdeal ? 'border-l-[hsl(var(--health-attention))] bg-amber-500/5' : 'border-l-[hsl(var(--health-healthy))] bg-green-500/5')}>
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="w-5 h-5 text-primary" />
+              <h4 className="font-semibold text-foreground">Recomendação de Precificação</h4>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Comparativo entre o valor proposto pelo cliente e o valor que torna o contrato viável e interessante para ambas as partes.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Minimum viable */}
+              <div className="p-3 rounded-lg bg-background border">
+                <p className="text-xs text-muted-foreground mb-1">Mínimo viável (break-even)</p>
+                <p className="text-xl font-bold text-foreground">{formatCurrency(minViable)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Custo total + impostos, margem 0%</p>
+              </div>
+              {/* Recommended */}
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                <p className="text-xs text-muted-foreground mb-1">Valor recomendado (margem {pricing.targetMarginPercent}%)</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(idealValue)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Contrato saudável para ambas as partes</p>
+              </div>
+              {/* Client proposed */}
+              <div className={cn('p-3 rounded-lg border', isDeficitario ? 'bg-red-500/10 border-red-500/30' : isBelowIdeal ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30')}>
+                <p className="text-xs text-muted-foreground mb-1">Valor proposto pelo cliente</p>
+                <p className={cn('text-xl font-bold', isDeficitario ? 'text-[hsl(var(--health-critical))]' : isBelowIdeal ? 'text-[hsl(var(--health-attention))]' : 'text-[hsl(var(--health-healthy))]')}>
+                  {proposedValue > 0 ? formatCurrency(proposedValue) : '—'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {proposedValue <= 0 && 'Informe acima para comparar'}
+                  {isDeficitario && `Déficit de ${formatCurrency(minViable - proposedValue)}/mês`}
+                  {isBelowIdeal && `${formatCurrency(idealValue - proposedValue)}/mês abaixo do ideal`}
+                  {proposedValue > 0 && proposedValue >= idealValue && 'Acima do recomendado ✓'}
+                </p>
+              </div>
+            </div>
+            {/* Summary message */}
+            {proposedValue > 0 && (
+              <div className={cn('mt-3 p-3 rounded-lg text-sm', isDeficitario ? 'bg-red-500/10 text-[hsl(var(--health-critical))]' : isBelowIdeal ? 'bg-amber-500/10 text-[hsl(var(--health-attention))]' : 'bg-green-500/10 text-[hsl(var(--health-healthy))]')}>
+                {isDeficitario && (
+                  <>⚠️ O valor proposto não cobre os custos operacionais. Para tornar o contrato viável, o valor mensal mínimo deve ser <strong>{formatCurrency(minViable)}</strong>. Recomendamos <strong>{formatCurrency(idealValue)}</strong> para margem de {pricing.targetMarginPercent}%.</>
+                )}
+                {isBelowIdeal && (
+                  <>⚡ O valor proposto cobre os custos mas opera com margem reduzida. Para um contrato saudável para ambas as partes, sugerimos ajustar para <strong>{formatCurrency(idealValue)}</strong>.</>
+                )}
+                {proposedValue >= idealValue && (
+                  <>✅ O valor proposto está dentro ou acima da faixa recomendada. Contrato interessante para ambas as partes.</>
+                )}
+              </div>
+            )}
+          </Card>
+        );
+      })()}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <Card className="card-kpi">
