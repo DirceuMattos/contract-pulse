@@ -48,20 +48,56 @@ function extractTextFromDOCX(buffer: Uint8Array): string {
   return matches.join(" ").slice(0, 100000);
 }
 
+async function fetchSalaryTable(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data: resources } = await supabaseAdmin
+      .from("resources")
+      .select("cargo, tipo, custo_base")
+      .not("cargo", "is", null)
+      .neq("cargo", "");
+
+    if (!resources || resources.length === 0) return "Nenhum dado salarial disponível.";
+
+    const grouped: Record<string, { tipo: string; values: number[] }> = {};
+    resources.forEach((r: Record<string, unknown>) => {
+      const key = `${r.cargo}|${r.tipo}`;
+      if (!grouped[key]) grouped[key] = { tipo: r.tipo as string, values: [] };
+      grouped[key].values.push(r.custo_base as number);
+    });
+
+    const lines = Object.entries(grouped)
+      .sort((a, b) => b[1].values.length - a[1].values.length)
+      .map(([key, data]) => {
+        const cargo = key.split("|")[0];
+        const avg = Math.round(data.values.reduce((s, v) => s + v, 0) / data.values.length);
+        const min = Math.round(Math.min(...data.values));
+        const max = Math.round(Math.max(...data.values));
+        return `  ${cargo} (${data.tipo}) | Média: R$ ${avg} | Min: R$ ${min} | Max: R$ ${max} | Qtd: ${data.values.length}`;
+      });
+
+    return lines.join("\n");
+  } catch (err) {
+    console.error("Error fetching salary table:", err);
+    return "Não foi possível carregar tabela salarial.";
+  }
+}
+
 async function fetchContractContext(supabaseAdmin: ReturnType<typeof createClient>): Promise<string> {
   try {
     const { data: contracts } = await supabaseAdmin
       .from("contracts")
-      .select("nome, tipo, segmento, valor_mensal_referencia, status")
+      .select("id, nome, tipo, segmento, valor_mensal_referencia, status")
       .order("created_at", { ascending: false })
       .limit(20);
 
     if (!contracts || contracts.length === 0) return "Nenhum contrato cadastrado ainda.";
 
+    const contractIds = contracts.map((c: Record<string, unknown>) => c.id as string).filter(Boolean);
+
     const { data: resources } = await supabaseAdmin
       .from("resources")
       .select("nome, cargo, custo_base, tipo, contract_id")
-      .in("contract_id", contracts.map((c: Record<string, unknown>) => (c as Record<string, unknown>).id || "").filter(Boolean));
+      .in("contract_id", contractIds);
 
     const resourcesByContract: Record<string, Array<{ nome: string; cargo: string; custo: number; tipo: string }>> = {};
     (resources ?? []).forEach((r: Record<string, unknown>) => {
@@ -76,7 +112,7 @@ async function fetchContractContext(supabaseAdmin: ReturnType<typeof createClien
     });
 
     return contracts.map((c: Record<string, unknown>) => {
-      const id = (c as Record<string, unknown>).id as string;
+      const id = c.id as string;
       const res = resourcesByContract[id] || [];
       const resStr = res.length > 0
         ? res.map(r => `  - ${r.cargo || r.nome} (${r.tipo}): R$ ${r.custo}`).join("\n")
@@ -152,12 +188,15 @@ serve(async (req) => {
 
     const docText = extractedText.slice(0, 100000);
 
-    // Fetch existing contracts as real-world context
+    // Fetch existing contracts and salary data as real-world context
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const contractContext = await fetchContractContext(supabaseAdmin);
+    const [contractContext, salaryTable] = await Promise.all([
+      fetchContractContext(supabaseAdmin),
+      fetchSalaryTable(supabaseAdmin),
+    ]);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -171,12 +210,17 @@ serve(async (req) => {
 1. **EXTRAIA APENAS** dados que estão **EXPLICITAMENTE** escritos no documento fornecido.
 2. Se uma informação **NÃO consta** no texto, retorne **null** (para campos únicos) ou **array vazio []** (para listas). **NUNCA invente.**
 3. **NUNCA** invente nomes de órgãos, valores monetários, prazos, perfis profissionais ou quantidades que não estejam no texto.
-4. Para **salários/remuneração**: se o documento não menciona valores, use como referência os CONTRATOS DE REFERÊNCIA da empresa (fornecidos abaixo). Se não houver referência aplicável, use valores de mercado 2024/2025 — mas **MARQUE como estimativa** no campo confidence.
-5. Se o documento é **vago sobre quantidade** de profissionais, retorne a quantidade **MÍNIMA** explicitamente mencionada. Se nenhuma quantidade é mencionada, use 1.
-6. **NÃO infira** perfis profissionais que não são mencionados ou claramente implícitos no escopo descrito.
-7. Cada informação retornada deve poder ser **rastreada** a um trecho específico do documento.
+4. Para **salários/remuneração**: use OBRIGATORIAMENTE a TABELA SALARIAL DA EMPRESA como primeira referência. Os valores da tabela refletem o custo real praticado pela empresa. NUNCA subestime — em caso de dúvida, use o valor MÉDIO ou MÁXIMO da tabela, nunca o mínimo. Se não houver cargo equivalente na tabela, use mercado 2024/2025 mas MARQUE como estimativa.
+5. **IMPORTANTE**: Os salários da tabela já são valores reais pagos. Não aplique "desconto" ou "ajuste conservador" sobre eles.
+6. Se o documento é **vago sobre quantidade** de profissionais, retorne a quantidade **MÍNIMA** explicitamente mencionada. Se nenhuma quantidade é mencionada, use 1.
+7. **NÃO infira** perfis profissionais que não são mencionados ou claramente implícitos no escopo descrito.
+8. Cada informação retornada deve poder ser **rastreada** a um trecho específico do documento.
 
-## CONTRATOS DE REFERÊNCIA DA EMPRESA (dados reais para calibração)
+## TABELA SALARIAL DA EMPRESA (custos reais praticados — USE ESTES VALORES)
+
+${salaryTable}
+
+## CONTRATOS DE REFERÊNCIA DA EMPRESA (contexto adicional)
 
 ${contractContext}
 
