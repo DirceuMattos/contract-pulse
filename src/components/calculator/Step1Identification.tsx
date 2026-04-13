@@ -7,8 +7,10 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Separator } from '@/components/ui/separator';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { formatPhoneInput } from '@/lib/utils';
-import { FileUp, Loader2 } from 'lucide-react';
+import { FileUp, Loader2, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { ContractSimulation } from '@/types';
@@ -17,6 +19,14 @@ interface Props {
   data: ContractSimulation;
   onChange: (updates: Partial<ContractSimulation>) => void;
   onDocumentAnalysis?: (result: Record<string, unknown>) => void;
+}
+
+function ConfidenceBadge({ level }: { level?: string }) {
+  if (!level) return null;
+  if (level === 'documento') return <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-700 dark:text-green-400">📄 documento</Badge>;
+  if (level === 'referencia') return <Badge variant="outline" className="text-[10px] border-blue-500/50 text-blue-700 dark:text-blue-400">📊 referência</Badge>;
+  if (level === 'nao_identificado') return <Badge variant="outline" className="text-[10px] border-orange-500/50 text-orange-700 dark:text-orange-400">❓ pendente</Badge>;
+  return <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-700 dark:text-amber-400">⚡ estimativa</Badge>;
 }
 
 export function Step1Identification({ data, onChange, onDocumentAnalysis }: Props) {
@@ -70,6 +80,9 @@ export function Step1Identification({ data, onChange, onDocumentAnalysis }: Prop
     }
   };
 
+  const confidence = data.aiConfidence;
+  const coverage = data.aiCoverage;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -83,7 +96,7 @@ export function Step1Identification({ data, onChange, onDocumentAnalysis }: Prop
           <div className="flex-1">
             <p className="text-sm font-medium text-foreground">📄 Importar TR/Edital com IA</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Faça upload de um PDF ou DOCX e a IA preencherá automaticamente todos os campos da simulação.
+              Faça upload de um PDF ou DOCX e a IA preencherá os campos com base no documento.
             </p>
           </div>
           <div>
@@ -117,19 +130,56 @@ export function Step1Identification({ data, onChange, onDocumentAnalysis }: Prop
         </div>
       </div>
 
+      {/* Analysis Coverage Card */}
+      {coverage && (
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            {coverage.overallQuality === 'completa' && <CheckCircle2 className="w-5 h-5 text-green-600" />}
+            {coverage.overallQuality === 'parcial' && <AlertTriangle className="w-5 h-5 text-amber-600" />}
+            {coverage.overallQuality === 'limitada' && <XCircle className="w-5 h-5 text-red-600" />}
+            <h4 className="font-medium text-foreground text-sm">
+              Cobertura da análise: <span className="capitalize">{coverage.overallQuality}</span>
+            </h4>
+            <Badge variant="outline" className="text-xs">
+              {coverage.fieldsFound.length} encontrados / {coverage.fieldsNotFound.length} pendentes
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">{coverage.qualitySummary}</p>
+
+          {coverage.fieldsNotFound.length > 0 && (
+            <div className="flex items-start gap-2 p-2 rounded bg-amber-500/10 text-xs">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-amber-700 dark:text-amber-400">Campos pendentes de revisão: </span>
+                <span className="text-muted-foreground">{coverage.fieldsNotFound.join(', ')}</span>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2 md:col-span-2">
-          <Label>Nome da simulação *</Label>
+          <div className="flex items-center gap-2">
+            <Label>Nome da simulação *</Label>
+            <ConfidenceBadge level={confidence?.name} />
+          </div>
           <Input value={data.name} onChange={e => onChange({ name: e.target.value })} placeholder="Ex.: Prefeitura XPTO — Sistema de Iluminação" />
         </div>
 
         <div className="space-y-2">
-          <Label>Cliente *</Label>
+          <div className="flex items-center gap-2">
+            <Label>Cliente *</Label>
+            <ConfidenceBadge level={confidence?.clientName} />
+          </div>
           <Input value={data.clientName} onChange={e => onChange({ clientName: e.target.value })} placeholder="Nome do cliente" />
         </div>
 
         <div className="space-y-2">
-          <Label>Tipo de contrato *</Label>
+          <div className="flex items-center gap-2">
+            <Label>Tipo de contrato *</Label>
+            <ConfidenceBadge level={confidence?.contractType} />
+          </div>
           <Select value={data.contractType} onValueChange={v => onChange({ contractType: v as ContractSimulation['contractType'] })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -154,7 +204,10 @@ export function Step1Identification({ data, onChange, onDocumentAnalysis }: Prop
         )}
 
         <div className="space-y-2">
-          <Label>Prazo (meses) *</Label>
+          <div className="flex items-center gap-2">
+            <Label>Prazo (meses) *</Label>
+            <ConfidenceBadge level={confidence?.termMonths} />
+          </div>
           <Input type="number" min={1} value={data.termMonths || ''} onChange={e => onChange({ termMonths: parseInt(e.target.value) || 0 })} />
         </div>
 
@@ -168,6 +221,17 @@ export function Step1Identification({ data, onChange, onDocumentAnalysis }: Prop
           <Textarea rows={3} value={data.description} onChange={e => onChange({ description: e.target.value })} placeholder="Descreva brevemente o escopo do projeto..." />
         </div>
       </div>
+
+      {/* Complexity justification */}
+      {data.aiComplexityJustification && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-xs">
+          <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+          <div>
+            <span className="font-medium text-foreground">Justificativa de complexidade ({data.complexityLevel}): </span>
+            <span className="text-muted-foreground">{data.aiComplexityJustification}</span>
+          </div>
+        </div>
+      )}
 
       {/* Responsável no Cliente */}
       <div className="space-y-4">
