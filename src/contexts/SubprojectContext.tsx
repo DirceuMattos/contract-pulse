@@ -109,6 +109,7 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
   const setHasSubprojectsFn = useCallback(async (contractId: string, value: boolean) => {
     try {
       await supabase.from('contracts').update({ has_subprojects: value } as any).eq('id', contractId);
+      setContractFlags(prev => ({ ...prev, [contractId]: value }));
     } catch (e) {
       console.error('Failed to update has_subprojects', e);
     }
