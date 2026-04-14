@@ -56,16 +56,25 @@ function mapAllocation(row: any): SubprojectAllocation {
 export function SubprojectProvider({ children }: { children: ReactNode }) {
   const [subprojects, setSubprojects] = useState<ContractSubproject[]>([]);
   const [allocations, setAllocations] = useState<SubprojectAllocation[]>([]);
+  const [contractFlags, setContractFlags] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [spRes, allocRes] = await Promise.all([
+      const [spRes, allocRes, flagsRes] = await Promise.all([
         supabase.from('contract_subprojects').select('*').order('created_at'),
         supabase.from('subproject_allocations').select('*').order('created_at'),
+        supabase.from('contracts').select('id, has_subprojects').eq('has_subprojects', true),
       ]);
       if (spRes.data) setSubprojects(spRes.data.map(mapSubproject));
       if (allocRes.data) setAllocations(allocRes.data.map(mapAllocation));
+      if (flagsRes.data) {
+        const flags: Record<string, boolean> = {};
+        for (const row of flagsRes.data) {
+          flags[row.id] = true;
+        }
+        setContractFlags(flags);
+      }
     } catch (e) {
       console.error('SubprojectContext fetch error', e);
     } finally {
@@ -86,19 +95,21 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         setSubprojects([]);
         setAllocations([]);
+        setContractFlags({});
       }
     });
     return () => subscription.unsubscribe();
   }, [fetchData]);
 
-  // hasSubprojects checks the persisted flag on the contract OR actual subproject records
+  // hasSubprojects checks the persisted DB flag OR actual subproject records
   const hasSubprojectsFn = useCallback((contractId: string) => {
-    return subprojects.some(sp => sp.contractId === contractId);
-  }, [subprojects]);
+    return !!contractFlags[contractId] || subprojects.some(sp => sp.contractId === contractId);
+  }, [subprojects, contractFlags]);
 
   const setHasSubprojectsFn = useCallback(async (contractId: string, value: boolean) => {
     try {
       await supabase.from('contracts').update({ has_subprojects: value } as any).eq('id', contractId);
+      setContractFlags(prev => ({ ...prev, [contractId]: value }));
     } catch (e) {
       console.error('Failed to update has_subprojects', e);
     }
