@@ -120,6 +120,7 @@ export function contractFromDb(row: Record<string, unknown>): Contract {
     receivablesOpenAmount: (row.receivables_open_amount as number | null) ?? undefined,
     receivablesLastPaymentAt: (row.receivables_last_payment_at as string | null) ?? undefined,
     receivablesLastSyncAt: (row.receivables_last_sync_at as string | null) ?? undefined,
+    hasSubprojects: (row.has_subprojects as boolean) ?? false,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     ultimaAtualizacaoRecursos: (row.ultima_atualizacao_recursos as string | null) ?? undefined,
@@ -175,6 +176,7 @@ export function contractToDb(contract: Omit<Contract, 'id' | 'createdAt' | 'upda
     receivables_last_payment_at: contract.receivablesLastPaymentAt ?? null,
     receivables_last_sync_at: contract.receivablesLastSyncAt ?? null,
     ultima_atualizacao_recursos: contract.ultimaAtualizacaoRecursos ?? null,
+    has_subprojects: contract.hasSubprojects ?? false,
   };
 }
 

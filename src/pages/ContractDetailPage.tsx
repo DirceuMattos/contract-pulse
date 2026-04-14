@@ -99,7 +99,7 @@ export default function ContractDetailPage() {
   const contractAlerts = alerts.filter(a => a.contractId === id);
 
   // When subprojects exist, compute "Outros" cost from subproject allocations
-  const contractHasSubs = !!(id && hasSubprojects(id));
+  const contractHasSubs = !!(id && (hasSubprojects(id) || contract?.hasSubprojects));
   const subAllocations = useMemo(() => contractHasSubs && id ? getAllocationsByContract(id) : [], [contractHasSubs, id, getAllocationsByContract]);
   const resourceAllocations = useMemo(() => subAllocations.filter(a => a.resourceId), [subAllocations]);
 

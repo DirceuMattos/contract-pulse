@@ -396,6 +396,7 @@ export type Database = {
           data_inicio: string
           escopo_operacional: string | null
           gov_sphere: Database["public"]["Enums"]["gov_sphere"] | null
+          has_subprojects: boolean
           id: string
           indice_reajuste: string
           modelo_receita: Database["public"]["Enums"]["revenue_model"]
@@ -448,6 +449,7 @@ export type Database = {
           data_inicio?: string
           escopo_operacional?: string | null
           gov_sphere?: Database["public"]["Enums"]["gov_sphere"] | null
+          has_subprojects?: boolean
           id?: string
           indice_reajuste?: string
           modelo_receita?: Database["public"]["Enums"]["revenue_model"]
@@ -500,6 +502,7 @@ export type Database = {
           data_inicio?: string
           escopo_operacional?: string | null
           gov_sphere?: Database["public"]["Enums"]["gov_sphere"] | null
+          has_subprojects?: boolean
           id?: string
           indice_reajuste?: string
           modelo_receita?: Database["public"]["Enums"]["revenue_model"]

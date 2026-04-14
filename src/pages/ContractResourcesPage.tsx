@@ -105,7 +105,7 @@ export default function ContractResourcesPage() {
     [rawResources]
   );
 
-  const contractHasSubprojects = id ? hasSubprojectsFn(id) : false;
+  const contractHasSubprojects = id ? (hasSubprojectsFn(id) || !!contract?.hasSubprojects) : false;
   const subprojectAllocations = id ? getAllocationsByContract(id) : [];
 
   // When subprojects exist, compute "Outros" cost from subproject allocations

@@ -91,13 +91,17 @@ export function SubprojectProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchData]);
 
-  // hasSubprojects is now derived from actual data
+  // hasSubprojects checks the persisted flag on the contract OR actual subproject records
   const hasSubprojectsFn = useCallback((contractId: string) => {
     return subprojects.some(sp => sp.contractId === contractId);
   }, [subprojects]);
 
-  const setHasSubprojectsFn = useCallback((_contractId: string, _value: boolean) => {
-    // No-op: subprojects presence is now determined by actual records
+  const setHasSubprojectsFn = useCallback(async (contractId: string, value: boolean) => {
+    try {
+      await supabase.from('contracts').update({ has_subprojects: value } as any).eq('id', contractId);
+    } catch (e) {
+      console.error('Failed to update has_subprojects', e);
+    }
   }, []);
 
   const addSubproject = useCallback(async (data: Omit<ContractSubproject, 'id' | 'createdAt' | 'updatedAt'>): Promise<ContractSubproject> => {
