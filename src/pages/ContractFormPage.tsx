@@ -165,7 +165,7 @@ export default function ContractFormPage() {
 
       {/* Form */}
       <ContractForm
-        contract={contract ? { ...contract, hasSubprojects: hasSubprojectsFn(contract.id) } : undefined}
+        contract={contract ? { ...contract, hasSubprojects: contract.hasSubprojects || hasSubprojectsFn(contract.id) } : undefined}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={isLoading}
