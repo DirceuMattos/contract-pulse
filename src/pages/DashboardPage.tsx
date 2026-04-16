@@ -130,6 +130,7 @@ export default function DashboardPage() {
   const savedFilters = loadFilters();
   const [selectedClientId, setSelectedClientId] = useState(savedFilters.selectedClientId);
   const [selectedContractId, setSelectedContractId] = useState(savedFilters.selectedContractId);
+  const [selectedHealth, setSelectedHealth] = useState(savedFilters.selectedHealth);
   const [clientOpen, setClientOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
 
