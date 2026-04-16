@@ -136,8 +136,8 @@ export default function DashboardPage() {
 
   // Persist filters
   useEffect(() => {
-    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({ selectedClientId, selectedContractId }));
-  }, [selectedClientId, selectedContractId]);
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({ selectedClientId, selectedContractId, selectedHealth }));
+  }, [selectedClientId, selectedContractId, selectedHealth]);
 
   // Active contracts
   const activeContracts = useMemo(() =>
