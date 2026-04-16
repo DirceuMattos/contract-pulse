@@ -111,12 +111,12 @@ const alertCategoryColors: Record<string, string> = {
 
 const FILTERS_STORAGE_KEY = 'bnp_dashboard_filters';
 
-function loadFilters(): { selectedClientId: string; selectedContractId: string } {
+function loadFilters(): { selectedClientId: string; selectedContractId: string; selectedHealth: string } {
   try {
     const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) return { selectedHealth: 'all', ...JSON.parse(stored) };
   } catch {}
-  return { selectedClientId: 'all', selectedContractId: 'all' };
+  return { selectedClientId: 'all', selectedContractId: 'all', selectedHealth: 'all' };
 }
 
 export default function DashboardPage() {
@@ -130,13 +130,14 @@ export default function DashboardPage() {
   const savedFilters = loadFilters();
   const [selectedClientId, setSelectedClientId] = useState(savedFilters.selectedClientId);
   const [selectedContractId, setSelectedContractId] = useState(savedFilters.selectedContractId);
+  const [selectedHealth, setSelectedHealth] = useState(savedFilters.selectedHealth);
   const [clientOpen, setClientOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
 
   // Persist filters
   useEffect(() => {
-    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({ selectedClientId, selectedContractId }));
-  }, [selectedClientId, selectedContractId]);
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({ selectedClientId, selectedContractId, selectedHealth }));
+  }, [selectedClientId, selectedContractId, selectedHealth]);
 
   // Active contracts
   const activeContracts = useMemo(() =>
@@ -162,8 +163,8 @@ export default function DashboardPage() {
     return filtered.sort((a, b) => a.codigo.localeCompare(b.codigo));
   }, [activeContracts, selectedClientId]);
 
-  // Filtered contracts for dashboard
-  const filteredContracts = useMemo(() => {
+  // Filtered contracts for dashboard (before health filter)
+  const preHealthFilteredContracts = useMemo(() => {
     let result = activeContracts;
     if (selectedClientId !== 'all') {
       result = result.filter(c => c.clientId === selectedClientId);
@@ -181,6 +182,15 @@ export default function DashboardPage() {
     }
     return map;
   }, [overheadPoolResult]);
+
+  // Apply health filter
+  const filteredContracts = useMemo(() => {
+    if (selectedHealth === 'all') return preHealthFilteredContracts;
+    return preHealthFilteredContracts.filter(contract => {
+      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+      return health.status === selectedHealth;
+    });
+  }, [preHealthFilteredContracts, selectedHealth, resources, settings, centralOverheadMap]);
 
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
@@ -416,11 +426,47 @@ export default function DashboardPage() {
           </PopoverContent>
         </Popover>
 
-        {(selectedClientId !== 'all' || selectedContractId !== 'all') && (
+        {/* Health Filter */}
+        <div className="flex items-center gap-1 rounded-md border border-input p-1">
+          <Button
+            variant={selectedHealth === 'all' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setSelectedHealth('all')}
+          >
+            Todos
+          </Button>
+          <Button
+            variant={selectedHealth === 'saudavel' ? 'default' : 'ghost'}
+            size="sm"
+            className={cn('h-7 text-xs px-2', selectedHealth !== 'saudavel' && 'text-health-healthy hover:text-health-healthy')}
+            onClick={() => setSelectedHealth('saudavel')}
+          >
+            <CheckCircle2 className="w-3 h-3 mr-1" /> Saudável
+          </Button>
+          <Button
+            variant={selectedHealth === 'atencao' ? 'default' : 'ghost'}
+            size="sm"
+            className={cn('h-7 text-xs px-2', selectedHealth !== 'atencao' && 'text-health-attention hover:text-health-attention')}
+            onClick={() => setSelectedHealth('atencao')}
+          >
+            <AlertTriangle className="w-3 h-3 mr-1" /> Atenção
+          </Button>
+          <Button
+            variant={selectedHealth === 'critico' ? 'default' : 'ghost'}
+            size="sm"
+            className={cn('h-7 text-xs px-2', selectedHealth !== 'critico' && 'text-health-critical hover:text-health-critical')}
+            onClick={() => setSelectedHealth('critico')}
+          >
+            <AlertTriangle className="w-3 h-3 mr-1" /> Crítico
+          </Button>
+        </div>
+
+        {(selectedClientId !== 'all' || selectedContractId !== 'all' || selectedHealth !== 'all') && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setSelectedClientId('all'); setSelectedContractId('all'); }}
+            onClick={() => { setSelectedClientId('all'); setSelectedContractId('all'); setSelectedHealth('all'); }}
             className="text-muted-foreground"
           >
             Limpar filtros
