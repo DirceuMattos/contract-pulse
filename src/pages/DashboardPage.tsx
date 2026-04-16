@@ -111,12 +111,12 @@ const alertCategoryColors: Record<string, string> = {
 
 const FILTERS_STORAGE_KEY = 'bnp_dashboard_filters';
 
-function loadFilters(): { selectedClientId: string; selectedContractId: string } {
+function loadFilters(): { selectedClientId: string; selectedContractId: string; selectedHealth: string } {
   try {
     const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) return { selectedHealth: 'all', ...JSON.parse(stored) };
   } catch {}
-  return { selectedClientId: 'all', selectedContractId: 'all' };
+  return { selectedClientId: 'all', selectedContractId: 'all', selectedHealth: 'all' };
 }
 
 export default function DashboardPage() {
