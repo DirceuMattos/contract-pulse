@@ -163,8 +163,8 @@ export default function DashboardPage() {
     return filtered.sort((a, b) => a.codigo.localeCompare(b.codigo));
   }, [activeContracts, selectedClientId]);
 
-  // Filtered contracts for dashboard
-  const filteredContracts = useMemo(() => {
+  // Filtered contracts for dashboard (before health filter)
+  const preHealthFilteredContracts = useMemo(() => {
     let result = activeContracts;
     if (selectedClientId !== 'all') {
       result = result.filter(c => c.clientId === selectedClientId);
@@ -182,6 +182,15 @@ export default function DashboardPage() {
     }
     return map;
   }, [overheadPoolResult]);
+
+  // Apply health filter
+  const filteredContracts = useMemo(() => {
+    if (selectedHealth === 'all') return preHealthFilteredContracts;
+    return preHealthFilteredContracts.filter(contract => {
+      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+      return health.status === selectedHealth;
+    });
+  }, [preHealthFilteredContracts, selectedHealth, resources, settings, centralOverheadMap]);
 
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
