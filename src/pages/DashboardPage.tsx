@@ -426,11 +426,47 @@ export default function DashboardPage() {
           </PopoverContent>
         </Popover>
 
-        {(selectedClientId !== 'all' || selectedContractId !== 'all') && (
+        {/* Health Filter */}
+        <div className="flex items-center gap-1 rounded-md border border-input p-1">
+          <Button
+            variant={selectedHealth === 'all' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setSelectedHealth('all')}
+          >
+            Todos
+          </Button>
+          <Button
+            variant={selectedHealth === 'saudavel' ? 'default' : 'ghost'}
+            size="sm"
+            className={cn('h-7 text-xs px-2', selectedHealth !== 'saudavel' && 'text-health-healthy hover:text-health-healthy')}
+            onClick={() => setSelectedHealth('saudavel')}
+          >
+            <CheckCircle2 className="w-3 h-3 mr-1" /> Saudável
+          </Button>
+          <Button
+            variant={selectedHealth === 'atencao' ? 'default' : 'ghost'}
+            size="sm"
+            className={cn('h-7 text-xs px-2', selectedHealth !== 'atencao' && 'text-health-attention hover:text-health-attention')}
+            onClick={() => setSelectedHealth('atencao')}
+          >
+            <AlertTriangle className="w-3 h-3 mr-1" /> Atenção
+          </Button>
+          <Button
+            variant={selectedHealth === 'critico' ? 'default' : 'ghost'}
+            size="sm"
+            className={cn('h-7 text-xs px-2', selectedHealth !== 'critico' && 'text-health-critical hover:text-health-critical')}
+            onClick={() => setSelectedHealth('critico')}
+          >
+            <AlertTriangle className="w-3 h-3 mr-1" /> Crítico
+          </Button>
+        </div>
+
+        {(selectedClientId !== 'all' || selectedContractId !== 'all' || selectedHealth !== 'all') && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setSelectedClientId('all'); setSelectedContractId('all'); }}
+            onClick={() => { setSelectedClientId('all'); setSelectedContractId('all'); setSelectedHealth('all'); }}
             className="text-muted-foreground"
           >
             Limpar filtros
