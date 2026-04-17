@@ -16,7 +16,9 @@ import {
   Check,
   Info,
   ExternalLink,
+  Link2Off,
 } from 'lucide-react';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -127,6 +129,17 @@ export default function DashboardPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
   const { result: overheadPoolResult } = useOverheadPool();
+  const { canAccessModule } = useModuleAccess();
+  const canSeeReceivables = canAccessModule('receivables');
+
+  // Active contracts without Superlógica link (for banner)
+  const unlinkedActiveContracts = useMemo(() =>
+    contracts.filter(c =>
+      (c.status === 'operacao' || c.status === 'implantacao') &&
+      !c.superlogicaSubscriptionId
+    ),
+    [contracts]
+  );
   const savedFilters = loadFilters();
   const [selectedClientId, setSelectedClientId] = useState(savedFilters.selectedClientId);
   const [selectedContractId, setSelectedContractId] = useState(savedFilters.selectedContractId);
