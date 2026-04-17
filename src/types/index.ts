@@ -114,6 +114,7 @@ export interface Contract {
   
   // Superlógica / Recebíveis
   superlogicaCustomerCnpj?: string;
+  superlogicaCustomerId?: string;
   superlogicaCustomerName?: string;
   superlogicaSubscriptionId?: string;
   superlogicaSubscriptionLabel?: string;
