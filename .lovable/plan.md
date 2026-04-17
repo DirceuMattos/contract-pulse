@@ -1,31 +1,44 @@
 
+O usuário aprovou o item 2 (melhorias de código) e relatou que ao testar a conciliação manual de um contrato, recebeu "Nenhuma assinatura ativa com valor encontrada para este CNPJ" — ou seja, a busca por CNPJ no Superlógica não está encontrando o cliente.
 
-## Plano: Botão de recálculo para simulações salvas
+Olhando os logs da edge `superlogica-search-subscriptions`, vejo a busca para CNPJ `67693440000142` (OMEL) percorrendo 3 páginas e retornando "No client found". A função pagina apenas até 20 páginas, mas o problema real é que ela usa `apenasColunasPrincipais=1` e itera lentamente. Para uma base grande de clientes, o cliente pode simplesmente não estar nas primeiras páginas, OU pode existir com CNPJ formatado diferente.
 
-### Análise
+Preciso investigar:
+1. Como o Superlógica retorna CNPJs (com/sem máscara, em qual campo) — já comparamos via `onlyDigits`, ok.
+2. Se a API do Superlógica suporta filtro direto por CNPJ (`pesquisa=` ou `cgcSacado=`) — isso eliminaria a paginação.
+3. Quantas páginas de clientes existem ao todo.
 
-A listagem de simulações (`CalculatorPage.tsx`) já chama `calculateSimulationResults()` em cada render — ou seja, os cards já mostram valores atualizados com a nova lógica. O problema real é que simulações antigas podem ter:
-- Quantidades decimais (ex: `0.5`, `0.2`) que agora deveriam ser inteiras
-- Dados que precisam ser normalizados e re-persistidos no banco
+A solução é trocar a paginação cega por uma busca filtrada no endpoint de clientes (parâmetro `pesquisa` aceita CNPJ na API do Superlógica), com fallback para a paginação atual.
 
-### O que será feito
+## Plano
 
-**1. Botão "Recalcular todas" na página de listagem (`CalculatorPage.tsx`)**
-- Adicionar botão ao lado de "Nova simulação"
-- Ao clicar, percorre todas as simulações, normaliza quantidades (arredonda para cima, mínimo 1) e re-salva via `updateSimulation`
-- Mostra toast com quantidade de simulações atualizadas
+### Parte A — Corrigir busca de assinaturas por CNPJ (item urgente)
+Arquivo: `supabase/functions/superlogica-search-subscriptions/index.ts`
 
-**2. Botão "Recalcular" individual no card de cada simulação**
-- Ícone ao lado dos botões existentes (duplicar, arquivar, excluir)
-- Normaliza quantidades daquela simulação e re-salva
+- Substituir a busca paginada por uma chamada direta usando o parâmetro `pesquisa={cnpj}` (suportado pela API `/v2/financeiro/clientes`), que filtra no servidor.
+- Tentar também variações: somente dígitos, e CNPJ formatado `XX.XXX.XXX/XXXX-XX`.
+- Manter fallback com paginação aumentada (até 50 páginas) caso a busca direta não retorne.
+- Adicionar logs claros mostrando qual estratégia encontrou (ou não) o cliente.
 
-**3. Normalização na função de recálculo**
-- `quantity`: `Math.max(1, Math.ceil(value))` para cada HR item
-- Re-persiste a simulação com `updateSimulation`
+### Parte B — Banner de contratos sem vínculo no Dashboard principal
+Arquivo: `src/pages/DashboardPage.tsx`
+- Card/banner amarelo no topo (após filtros) contando contratos ativos sem `superlogicaSubscriptionId`, com botão "Conciliar agora" → `/receivables/reconcile`.
+- Visível apenas para perfis que veem Recebíveis.
 
-### Arquivos alterados
+### Parte C — Coluna "Vínculo Superlógica" na listagem de Contratos
+Arquivo: `src/pages/ContractsPage.tsx`
+- Pequeno badge na linha (ou ícone discreto na coluna do nome) indicando ✓ vinculado / ⚠ sem vínculo, com tooltip e link de atalho para conciliar.
 
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/CalculatorPage.tsx` | Botão "Recalcular todas" no header + botão individual por card |
+### Parte D — Fallback por valor no sync (resolve ambiguidade de múltiplos contratos por CNPJ)
+Arquivo: `supabase/functions/superlogica-sync/index.ts`
+- Quando uma cobrança chega sem `id_planocliente_plc`/`id_contrato_mens` e há vários contratos para o mesmo CNPJ, tentar casar `vl_total_recb` com `valor_mensal_referencia` (tolerância de ~1%) antes de descartar.
+- Log claro do match (ou da decisão de descarte).
 
+### Não altero
+RBAC, restrições financeiras, fluxo de subprojetos, filtro de saúde do Dashboard, fluxo de senhas — tudo permanece como está.
+
+### Arquivos tocados
+- `supabase/functions/superlogica-search-subscriptions/index.ts`
+- `supabase/functions/superlogica-sync/index.ts`
+- `src/pages/DashboardPage.tsx`
+- `src/pages/ContractsPage.tsx`
