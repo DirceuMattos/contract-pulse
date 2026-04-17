@@ -146,8 +146,9 @@ export default function ReceivablesReconcilePage() {
     }
 
     for (const [cnpj, contractGroup] of Object.entries(cnpjToContracts)) {
-      const subs = await searchSubscriptions(cnpj);
-      const activeSubs = subs.filter(s => s.amount > 0);
+      const firstClient = clients.find(cl => cl.id === contractGroup[0].clientId);
+      const result = await searchSubscriptions(cnpj, firstClient?.nomeFantasia || firstClient?.razaoSocial || '');
+      const activeSubs = result.subs.filter(s => s.amount > 0);
 
       if (activeSubs.length === 0) {
         noMatch += contractGroup.length;
