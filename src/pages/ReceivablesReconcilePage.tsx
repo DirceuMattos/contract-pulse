@@ -21,8 +21,12 @@ export default function ReceivablesReconcilePage() {
   const [linkedMap, setLinkedMap] = useState<Record<string, string>>({});
   const [searchDialogContract, setSearchDialogContract] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SubscriptionCandidate[]>([]);
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; name: string; cnpj: string }>>([]);
+  const [clientFound, setClientFound] = useState<boolean>(true);
+  const [totalScanned, setTotalScanned] = useState<number>(0);
   const [searching, setSearching] = useState(false);
   const [bulkLinking, setBulkLinking] = useState(false);
+  const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(null);
 
   const unlinkedContracts = useMemo(() => {
     return contracts.filter(c =>
