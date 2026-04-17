@@ -11,8 +11,10 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { formatCurrency } from '@/lib/calculations';
 import { supabase } from '@/integrations/supabase/client';
-import type { SubscriptionCandidate } from '@/types/receivables';
+import type { SubscriptionCandidate as BaseSubscriptionCandidate } from '@/types/receivables';
 import { toast } from 'sonner';
+
+type SubscriptionCandidate = BaseSubscriptionCandidate & { superlogicaClientId?: string };
 
 export default function ReceivablesReconcilePage() {
   const navigate = useNavigate();
@@ -44,13 +46,14 @@ export default function ReceivablesReconcilePage() {
     cnpj: string,
     clientName: string,
     overrideClientId?: string,
-  ): Promise<{ subs: SubscriptionCandidate[]; clientFound: boolean; suggestions: Array<{ id: string; name: string; cnpj: string }>; totalScanned: number }> => {
+  ): Promise<{ subs: SubscriptionCandidate[]; clientFound: boolean; suggestions: Array<{ id: string; name: string; cnpj: string }>; totalScanned: number; superlogicaClientId?: string }> => {
     const cnpjDigits = cnpj.replace(/\D/g, '');
     try {
       const { data, error } = await supabase.functions.invoke('superlogica-search-subscriptions', {
         body: { cnpj: cnpjDigits, clientName, superlogicaClientId: overrideClientId },
       });
       if (error) throw error;
+      const topClientId: string | undefined = data?.superlogicaClientId ?? overrideClientId ?? undefined;
       return {
         subs: (data?.subscriptions ?? []).map((s: any) => ({
           subscriptionId: s.superlogica_subscription_id,
@@ -58,10 +61,12 @@ export default function ReceivablesReconcilePage() {
           status: s.status,
           amount: s.amount,
           periodicidade: s.periodicity,
+          superlogicaClientId: s.superlogica_client_id ?? topClientId,
         })),
         clientFound: !!data?.clientFound,
         suggestions: data?.suggestions ?? [],
         totalScanned: data?.totalClientsScanned ?? 0,
+        superlogicaClientId: topClientId,
       };
     } catch {
       return { subs: [], clientFound: false, suggestions: [], totalScanned: 0 };
@@ -118,12 +123,17 @@ export default function ReceivablesReconcilePage() {
         superlogicaSubscriptionId: candidate.subscriptionId,
         superlogicaSubscriptionLabel: candidate.label,
         superlogicaCustomerCnpj: client?.cnpj ?? undefined,
+        superlogicaCustomerId: candidate.superlogicaClientId ?? undefined,
         receivablesStatus: 'sem_vinculo',
       });
       setLinkedMap(prev => ({ ...prev, [contractId]: candidate.subscriptionId }));
       setSearchDialogContract(null);
       setCandidates([]);
-      toast.success(`Contrato vinculado à assinatura "${candidate.label}".`);
+      toast.success(
+        candidate.superlogicaClientId
+          ? `Contrato vinculado à assinatura "${candidate.label}" (cliente API #${candidate.superlogicaClientId}).`
+          : `Contrato vinculado à assinatura "${candidate.label}".`
+      );
     } catch (err: any) {
       toast.error(`Erro ao vincular: ${err.message || err}`);
     }
@@ -163,6 +173,7 @@ export default function ReceivablesReconcilePage() {
             superlogicaSubscriptionId: topSub.subscriptionId,
             superlogicaSubscriptionLabel: topSub.label,
             superlogicaCustomerCnpj: cnpj,
+            superlogicaCustomerId: topSub.superlogicaClientId ?? result.superlogicaClientId ?? undefined,
             receivablesStatus: 'sem_vinculo',
           });
           setLinkedMap(prev => ({ ...prev, [c.id]: topSub.subscriptionId }));
