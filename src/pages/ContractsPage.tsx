@@ -565,6 +565,25 @@ export default function ContractsPage() {
                         {alerts.length > 0 && (
                           <AlertTriangle className="w-3.5 h-3.5 text-health-attention shrink-0" />
                         )}
+                        {(contract.status === 'operacao' || contract.status === 'implantacao') && !contract.superlogicaSubscriptionId && (
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); navigate('/receivables/reconcile'); }}
+                                  className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-health-attention/10 hover:bg-health-attention/20 transition-colors"
+                                  aria-label="Sem vínculo Superlógica"
+                                >
+                                  <Link2Off className="w-3 h-3 text-health-attention" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Sem vínculo Superlógica — clique para conciliar</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1 truncate">
