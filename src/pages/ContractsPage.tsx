@@ -17,7 +17,9 @@ import {
   Download,
   ArrowUpDown,
   AlertTriangle,
+  Link2Off,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useAuth } from '@/contexts/AuthContext';

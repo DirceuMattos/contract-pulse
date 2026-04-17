@@ -487,6 +487,38 @@ export default function DashboardPage() {
         )}
       </motion.div>
 
+      {/* Superlógica unlinked contracts banner */}
+      {canSeeReceivables && unlinkedActiveContracts.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-health-attention/30 bg-health-attention/5">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <div className="w-9 h-9 rounded-lg bg-health-attention/10 flex items-center justify-center shrink-0">
+                  <Link2Off className="w-5 h-5 text-health-attention" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {unlinkedActiveContracts.length} contrato{unlinkedActiveContracts.length > 1 ? 's' : ''} ativo{unlinkedActiveContracts.length > 1 ? 's' : ''} sem vínculo Superlógica
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Vincule esses contratos para sincronizar faturas e acompanhar recebíveis automaticamente.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/receivables/reconcile')}
+                className="gap-2 shrink-0 self-start sm:self-auto"
+              >
+                Conciliar agora
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* KPI Cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Contracts */}
