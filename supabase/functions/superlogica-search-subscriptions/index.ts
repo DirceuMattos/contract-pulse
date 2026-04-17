@@ -15,11 +15,6 @@ function onlyDigits(x: string) {
   return (x || "").replace(/\D/g, "");
 }
 
-function formatCnpj(d: string): string {
-  if (d.length !== 14) return d;
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
-}
-
 function normalizeBase(raw: string): string {
   if (!raw || !raw.startsWith("http")) {
     return "https://api.superlogica.net";
@@ -53,79 +48,144 @@ async function superlogicaGet(path: string) {
   return await res.json();
 }
 
-/**
- * Try to find the customer using the server-side `pesquisa` filter,
- * which accepts CNPJ in different formats. Tests both digits-only
- * and the formatted CNPJ. Returns the first match (by CNPJ equality).
- */
-async function searchClientByPesquisa(cnpjDigits: string): Promise<string | null> {
-  const variants = [cnpjDigits, formatCnpj(cnpjDigits)];
-  for (const term of variants) {
-    try {
-      const data = await superlogicaGet(
-        `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=50&pesquisa=${encodeURIComponent(term)}`
-      );
-      const items = Array.isArray(data) ? data : (data?.data ?? []);
-      console.log(`[superlogica] pesquisa="${term}" returned ${items.length} candidate(s)`);
-      for (const c of items) {
-        const cgc = onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "");
-        if (cgc === cnpjDigits) {
-          const id = String(c.id_sacado_sac ?? "");
-          console.log(`[superlogica] ✓ Match via pesquisa("${term}"): client id=${id}`);
-          return id;
-        }
-      }
-    } catch (e) {
-      console.warn(`[superlogica] pesquisa="${term}" failed: ${String(e)}`);
-    }
-  }
-  return null;
+interface ClientRow {
+  id_sacado_sac?: string | number;
+  st_nome_sac?: string;
+  st_cgc_sac?: string;
+  st_cpf_sac?: string;
 }
 
-/** Fallback: brute-force pagination (up to 50 pages) when pesquisa fails. */
-async function findClientByPagination(cnpjDigits: string): Promise<string | null> {
-  let page = 1;
+/**
+ * Loads ALL clients from Superlógica via pagination.
+ * The Superlógica API does not actually filter clients server-side by CNPJ
+ * (the `pesquisa` param matches on name only, and `CGC` is ignored), so we
+ * cache the full list per request and search locally.
+ */
+async function loadAllClients(): Promise<ClientRow[]> {
+  const all: ClientRow[] = [];
   const perPage = 50;
-  const maxPages = 50;
-
+  const maxPages = 100; // safety cap (5,000 clients)
+  let page = 1;
   while (page <= maxPages) {
     const data = await superlogicaGet(
       `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=${perPage}&pagina=${page}`
     );
-
-    const items = Array.isArray(data) ? data : (data?.data ?? []);
+    const items: ClientRow[] = Array.isArray(data) ? data : (data?.data ?? []);
     if (!items.length) break;
-
-    for (const c of items) {
-      const cgc = onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "");
-      if (cgc === cnpjDigits) {
-        const id = String(c.id_sacado_sac ?? "");
-        console.log(`[superlogica] ✓ Match via pagination (page ${page}): client id=${id}`);
-        return id;
-      }
-    }
-
+    all.push(...items);
     if (items.length < perPage) break;
     page++;
   }
+  console.log(`[superlogica] Loaded ${all.length} client(s) across ${page} page(s)`);
+  return all;
+}
 
-  console.log(`[superlogica] ✗ Pagination scanned ${page} page(s), no match for CNPJ ${cnpjDigits}`);
+function findClientByCnpj(clients: ClientRow[], cnpjDigits: string): string | null {
+  for (const c of clients) {
+    const cgc = onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "");
+    if (cgc === cnpjDigits) {
+      const id = String(c.id_sacado_sac ?? "");
+      console.log(`[superlogica] ✓ Match by CNPJ: client id=${id} name="${c.st_nome_sac}"`);
+      return id;
+    }
+  }
   return null;
 }
 
-async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
-  // Strategy 1 (fast): server-side `pesquisa` filter
-  const fromSearch = await searchClientByPesquisa(cnpjDigits);
-  if (fromSearch) return fromSearch;
+function normalizeName(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  // Strategy 2 (fallback): brute pagination
-  console.log(`[superlogica] pesquisa returned no match — falling back to pagination`);
-  return await findClientByPagination(cnpjDigits);
+/** Returns up to N name suggestions whose normalized name contains any token of the search name. */
+function findNameSuggestions(clients: ClientRow[], rawName: string, limit = 8): Array<{ id: string; name: string; cnpj: string }> {
+  const norm = normalizeName(rawName);
+  if (!norm) return [];
+  const tokens = norm.split(" ").filter((t) => t.length >= 3);
+  if (!tokens.length) return [];
+
+  const scored: Array<{ id: string; name: string; cnpj: string; score: number }> = [];
+  for (const c of clients) {
+    const cn = normalizeName(c.st_nome_sac ?? "");
+    if (!cn) continue;
+    let score = 0;
+    for (const t of tokens) {
+      if (cn.includes(t)) score += t.length;
+    }
+    if (score > 0) {
+      scored.push({
+        id: String(c.id_sacado_sac ?? ""),
+        name: c.st_nome_sac ?? "",
+        cnpj: onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? ""),
+        score,
+      });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(({ id, name, cnpj }) => ({ id, name, cnpj }));
 }
 
 function isEmptyDate(v: unknown): boolean {
   const s = String(v ?? "").trim();
-  return !s || s === "0000-00-00" || s === "";
+  return !s || s === "0000-00-00";
+}
+
+async function fetchSubscriptionsForClient(clientId: string, cnpjNorm: string) {
+  const data = await superlogicaGet(
+    `/v2/financeiro/assinaturas?idSacado=${clientId}&itensPorPagina=100`
+  );
+  const items = Array.isArray(data) ? data : (data?.data ?? []);
+  console.log(`[superlogica] Found ${items.length} raw item(s) for client ${clientId}`);
+
+  const groups: Record<string, {
+    id: string;
+    label: string;
+    amount: number;
+    periodicity: string;
+    cancelled: boolean;
+  }> = {};
+
+  for (const s of items) {
+    const subId = String(s.id_planocliente_plc ?? "");
+    if (!subId) continue;
+
+    const cancelled = !isEmptyDate(s.dt_cancelamento_plc);
+    const amount = Number(s.total ?? s.mrr ?? s.vl_aproxrenovacao_plc ?? 0);
+
+    if (!groups[subId]) {
+      groups[subId] = {
+        id: subId,
+        label: s.st_nome_pla ?? s.st_identificador_plc ?? "Assinatura",
+        amount: 0,
+        periodicity: String(s.fl_periodicidade_pla ?? ""),
+        cancelled,
+      };
+    }
+    groups[subId].amount += amount;
+    if (!cancelled) groups[subId].cancelled = false;
+  }
+
+  const periodicityMap: Record<string, string> = {
+    "0": "Mensal", "1": "Bimestral", "2": "Trimestral", "3": "Semestral", "4": "Anual",
+  };
+
+  const all = Object.values(groups).map((g) => ({
+    superlogica_subscription_id: g.id,
+    label: g.label,
+    status: g.cancelled ? "cancelada" : "ativa",
+    amount: g.amount,
+    periodicity: periodicityMap[g.periodicity] ?? g.periodicity,
+    cnpj: cnpjNorm,
+  }));
+
+  return all
+    .filter((s) => s.status === "ativa" && s.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
 }
 
 Deno.serve(async (req) => {
@@ -135,85 +195,45 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST required" }, 405);
 
   try {
-    const { cnpj } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const cnpj: string = body.cnpj ?? "";
+    const clientName: string = body.clientName ?? "";
+    const overrideClientId: string = body.superlogicaClientId ?? "";
+
     const cnpjNorm = onlyDigits(cnpj);
-    if (!cnpjNorm) return json({ error: "cnpj required" }, 400);
+    console.log(`[superlogica] === Search request: CNPJ="${cnpjNorm}" name="${clientName}" override="${overrideClientId}" ===`);
 
-    console.log(`[superlogica] === Searching subscriptions for CNPJ ${cnpjNorm} ===`);
+    // If caller already knows the Superlógica client id, skip the lookup.
+    if (overrideClientId) {
+      const subs = await fetchSubscriptionsForClient(overrideClientId, cnpjNorm);
+      return json({ ok: true, cnpj: cnpjNorm, subscriptions: subs, clientFound: true, suggestions: [] });
+    }
 
-    const clientId = await findClientByCnpj(cnpjNorm);
+    if (!cnpjNorm && !clientName) {
+      return json({ error: "cnpj or clientName required" }, 400);
+    }
+
+    // Load full client list once and search locally.
+    const allClients = await loadAllClients();
+
+    let clientId: string | null = null;
+    if (cnpjNorm) clientId = findClientByCnpj(allClients, cnpjNorm);
+
     if (!clientId) {
-      console.log(`[superlogica] No client found for CNPJ ${cnpjNorm}`);
-      return json({ ok: true, cnpj: cnpjNorm, subscriptions: [], clientFound: false });
-    }
-
-    const data = await superlogicaGet(
-      `/v2/financeiro/assinaturas?idSacado=${clientId}&itensPorPagina=100`
-    );
-
-    const items = Array.isArray(data) ? data : (data?.data ?? []);
-    console.log(`[superlogica] Found ${items.length} raw item(s) for client ${clientId}`);
-
-    const groups: Record<string, {
-      id: string;
-      label: string;
-      amount: number;
-      periodicity: string;
-      cancelled: boolean;
-    }> = {};
-
-    for (const s of items) {
-      const subId = String(s.id_planocliente_plc ?? "");
-      if (!subId) continue;
-
-      const cancelled = !isEmptyDate(s.dt_cancelamento_plc);
-      const amount = Number(s.total ?? s.mrr ?? s.vl_aproxrenovacao_plc ?? 0);
-
-      if (!groups[subId]) {
-        groups[subId] = {
-          id: subId,
-          label: s.st_nome_pla ?? s.st_identificador_plc ?? "Assinatura",
-          amount: 0,
-          periodicity: String(s.fl_periodicidade_pla ?? ""),
-          cancelled,
-        };
-      }
-
-      groups[subId].amount += amount;
-
-      if (!cancelled) {
-        groups[subId].cancelled = false;
-      }
-    }
-
-    const allSubscriptions = Object.values(groups).map((g) => {
-      const periodicityMap: Record<string, string> = {
-        "0": "Mensal",
-        "1": "Bimestral",
-        "2": "Trimestral",
-        "3": "Semestral",
-        "4": "Anual",
-      };
-
-      return {
-        superlogica_subscription_id: g.id,
-        label: g.label,
-        status: g.cancelled ? "cancelada" : "ativa",
-        amount: g.amount,
-        periodicity: periodicityMap[g.periodicity] ?? g.periodicity,
+      const suggestions = clientName ? findNameSuggestions(allClients, clientName) : [];
+      console.log(`[superlogica] ✗ No CNPJ match for "${cnpjNorm}". Returning ${suggestions.length} name suggestion(s).`);
+      return json({
+        ok: true,
         cnpj: cnpjNorm,
-      };
-    });
+        subscriptions: [],
+        clientFound: false,
+        totalClientsScanned: allClients.length,
+        suggestions,
+      });
+    }
 
-    console.log(`[superlogica] Grouped into ${allSubscriptions.length} subscription(s): ${allSubscriptions.map(s => `${s.label}=R$${s.amount}(${s.status})`).join(', ')}`);
-
-    const subscriptions = allSubscriptions
-      .filter((s) => s.status === "ativa" && s.amount > 0)
-      .sort((a, b) => b.amount - a.amount);
-
-    console.log(`[superlogica] Filtered to ${subscriptions.length} active subscriptions with amount > 0`);
-
-    return json({ ok: true, cnpj: cnpjNorm, subscriptions, clientFound: true });
+    const subs = await fetchSubscriptionsForClient(clientId, cnpjNorm);
+    return json({ ok: true, cnpj: cnpjNorm, subscriptions: subs, clientFound: true, suggestions: [] });
   } catch (err) {
     console.error("superlogica-search-subscriptions error:", err);
     return json({ ok: false, error: String(err) }, 500);

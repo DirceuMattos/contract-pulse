@@ -21,8 +21,12 @@ export default function ReceivablesReconcilePage() {
   const [linkedMap, setLinkedMap] = useState<Record<string, string>>({});
   const [searchDialogContract, setSearchDialogContract] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SubscriptionCandidate[]>([]);
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; name: string; cnpj: string }>>([]);
+  const [clientFound, setClientFound] = useState<boolean>(true);
+  const [totalScanned, setTotalScanned] = useState<number>(0);
   const [searching, setSearching] = useState(false);
   const [bulkLinking, setBulkLinking] = useState(false);
+  const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(null);
 
   const unlinkedContracts = useMemo(() => {
     return contracts.filter(c =>
@@ -36,24 +40,31 @@ export default function ReceivablesReconcilePage() {
     return contracts.filter(c => linkedMap[c.id]);
   }, [contracts, linkedMap]);
 
-  const searchSubscriptions = async (cnpj: string): Promise<SubscriptionCandidate[]> => {
+  const searchSubscriptions = async (
+    cnpj: string,
+    clientName: string,
+    overrideClientId?: string,
+  ): Promise<{ subs: SubscriptionCandidate[]; clientFound: boolean; suggestions: Array<{ id: string; name: string; cnpj: string }>; totalScanned: number }> => {
     const cnpjDigits = cnpj.replace(/\D/g, '');
-    if (!cnpjDigits) return [];
-
     try {
       const { data, error } = await supabase.functions.invoke('superlogica-search-subscriptions', {
-        body: { cnpj: cnpjDigits },
+        body: { cnpj: cnpjDigits, clientName, superlogicaClientId: overrideClientId },
       });
       if (error) throw error;
-      return (data?.subscriptions ?? []).map((s: any) => ({
-        subscriptionId: s.superlogica_subscription_id,
-        label: s.label,
-        status: s.status,
-        amount: s.amount,
-        periodicidade: s.periodicity,
-      }));
+      return {
+        subs: (data?.subscriptions ?? []).map((s: any) => ({
+          subscriptionId: s.superlogica_subscription_id,
+          label: s.label,
+          status: s.status,
+          amount: s.amount,
+          periodicidade: s.periodicity,
+        })),
+        clientFound: !!data?.clientFound,
+        suggestions: data?.suggestions ?? [],
+        totalScanned: data?.totalClientsScanned ?? 0,
+      };
     } catch {
-      return [];
+      return { subs: [], clientFound: false, suggestions: [], totalScanned: 0 };
     }
   };
 
@@ -64,10 +75,40 @@ export default function ReceivablesReconcilePage() {
 
     setSearchDialogContract(contractId);
     setSearching(true);
+    setCandidates([]);
+    setSuggestions([]);
+    setClientFound(true);
 
-    const results = await searchSubscriptions(client?.cnpj || '');
-    setCandidates(results);
+    const result = await searchSubscriptions(
+      client?.cnpj || '',
+      client?.nomeFantasia || client?.razaoSocial || '',
+    );
+    setCandidates(result.subs);
+    setClientFound(result.clientFound);
+    setSuggestions(result.suggestions);
+    setTotalScanned(result.totalScanned);
     setSearching(false);
+  };
+
+  const handleUseSuggestion = async (superlogicaClientId: string) => {
+    if (!searchDialogContract) return;
+    const contract = contracts.find(c => c.id === searchDialogContract);
+    if (!contract) return;
+    const client = clients.find(cl => cl.id === contract.clientId);
+
+    setLoadingSuggestion(superlogicaClientId);
+    const result = await searchSubscriptions(
+      client?.cnpj || '',
+      client?.nomeFantasia || client?.razaoSocial || '',
+      superlogicaClientId,
+    );
+    setLoadingSuggestion(null);
+    setCandidates(result.subs);
+    setClientFound(true);
+    setSuggestions([]);
+    if (result.subs.length === 0) {
+      toast.info('Cliente encontrado, mas sem assinaturas ativas com valor.');
+    }
   };
 
   const handleLink = async (contractId: string, candidate: SubscriptionCandidate) => {
@@ -105,8 +146,9 @@ export default function ReceivablesReconcilePage() {
     }
 
     for (const [cnpj, contractGroup] of Object.entries(cnpjToContracts)) {
-      const subs = await searchSubscriptions(cnpj);
-      const activeSubs = subs.filter(s => s.amount > 0);
+      const firstClient = clients.find(cl => cl.id === contractGroup[0].clientId);
+      const result = await searchSubscriptions(cnpj, firstClient?.nomeFantasia || firstClient?.razaoSocial || '');
+      const activeSubs = result.subs.filter(s => s.amount > 0);
 
       if (activeSubs.length === 0) {
         noMatch += contractGroup.length;
@@ -247,8 +289,60 @@ export default function ReceivablesReconcilePage() {
           )}
           {searching ? (
             <div className="py-8 text-center text-muted-foreground">Buscando assinaturas no Superlógica...</div>
+          ) : !clientFound ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-3 text-sm">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  Cliente não encontrado no Superlógica pelo CNPJ
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                  Varremos {totalScanned} cliente(s) cadastrado(s) e nenhum tem o CNPJ {currentClient?.cnpj || '—'}.
+                  O cadastro pode estar com CNPJ diferente, ou o cliente ainda não foi criado lá.
+                </p>
+              </div>
+              {suggestions.length > 0 ? (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Sugestões por similaridade de nome:
+                  </p>
+                  <div className="space-y-2">
+                    {suggestions.map(sug => (
+                      <div
+                        key={sug.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{sug.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            CNPJ/CPF: {sug.cnpj || '—'} · ID Superlógica: {sug.id}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingSuggestion === sug.id}
+                          onClick={() => handleUseSuggestion(sug.id)}
+                        >
+                          {loadingSuggestion === sug.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Usar este cliente'
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Nenhuma sugestão por nome encontrada. Cadastre o cliente no Superlógica ou ajuste o CNPJ.
+                </p>
+              )}
+            </div>
           ) : candidates.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">Nenhuma assinatura ativa com valor encontrada para este CNPJ</div>
+            <div className="py-8 text-center text-muted-foreground">
+              Cliente encontrado no Superlógica, mas sem assinaturas ativas com valor.
+            </div>
           ) : (
             <div className="space-y-2">
               {candidates.map(cand => (
