@@ -176,6 +176,7 @@ async function fetchSubscriptionsForClient(clientId: string, cnpjNorm: string) {
 
   const all = Object.values(groups).map((g) => ({
     superlogica_subscription_id: g.id,
+    superlogica_client_id: clientId,
     label: g.label,
     status: g.cancelled ? "cancelada" : "ativa",
     amount: g.amount,
@@ -206,7 +207,14 @@ Deno.serve(async (req) => {
     // If caller already knows the Superlógica client id, skip the lookup.
     if (overrideClientId) {
       const subs = await fetchSubscriptionsForClient(overrideClientId, cnpjNorm);
-      return json({ ok: true, cnpj: cnpjNorm, subscriptions: subs, clientFound: true, suggestions: [] });
+      return json({
+        ok: true,
+        cnpj: cnpjNorm,
+        subscriptions: subs,
+        clientFound: true,
+        superlogicaClientId: overrideClientId,
+        suggestions: [],
+      });
     }
 
     if (!cnpjNorm && !clientName) {
@@ -227,13 +235,21 @@ Deno.serve(async (req) => {
         cnpj: cnpjNorm,
         subscriptions: [],
         clientFound: false,
+        superlogicaClientId: null,
         totalClientsScanned: allClients.length,
         suggestions,
       });
     }
 
     const subs = await fetchSubscriptionsForClient(clientId, cnpjNorm);
-    return json({ ok: true, cnpj: cnpjNorm, subscriptions: subs, clientFound: true, suggestions: [] });
+    return json({
+      ok: true,
+      cnpj: cnpjNorm,
+      subscriptions: subs,
+      clientFound: true,
+      superlogicaClientId: clientId,
+      suggestions: [],
+    });
   } catch (err) {
     console.error("superlogica-search-subscriptions error:", err);
     return json({ ok: false, error: String(err) }, 500);

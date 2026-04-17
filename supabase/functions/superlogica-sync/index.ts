@@ -98,6 +98,7 @@ interface ContractRow {
   superlogica_subscription_id: string;
   superlogica_subscription_label: string | null;
   superlogica_customer_cnpj: string | null;
+  superlogica_customer_id: string | null;
   valor_mensal_referencia: number | null;
 }
 
@@ -149,7 +150,7 @@ Deno.serve(async (req) => {
     const { data: contracts, error: cErr } = await sb
       .from("contracts")
       .select(
-        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, valor_mensal_referencia"
+        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, superlogica_customer_id, valor_mensal_referencia"
       )
       .not("superlogica_subscription_id", "is", null);
     if (cErr) throw new Error(cErr.message);
@@ -160,24 +161,40 @@ Deno.serve(async (req) => {
 
     console.log(`[superlogica-sync] ${linked.length} linked contracts`);
 
-    // 3) Group contracts by CNPJ to minimize API calls
-    const byBnpj: Record<string, ContractRow[]> = {};
+    // 3) Group contracts by Superlógica customer ID (preferred) or CNPJ (fallback)
+    //    The group key is "id:<customerId>" or "cnpj:<digits>" so we never mix them up.
+    const groupsMap: Record<string, { customerId: string | null; cnpj: string; contracts: ContractRow[] }> = {};
     for (const c of linked as ContractRow[]) {
+      const customerId = String(c.superlogica_customer_id ?? "").trim() || null;
       const cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
-      if (!cnpj) {
+      if (!customerId && !cnpj) {
         errorsCount++;
-        errors.push(`Contrato ${c.codigo || c.id}: sem CNPJ vinculado`);
+        errors.push(`Contrato ${c.codigo || c.id}: sem cliente Superlógica nem CNPJ vinculado`);
         continue;
       }
-      if (!byBnpj[cnpj]) byBnpj[cnpj] = [];
-      byBnpj[cnpj].push(c);
+      const key = customerId ? `id:${customerId}` : `cnpj:${cnpj}`;
+      if (!groupsMap[key]) groupsMap[key] = { customerId, cnpj, contracts: [] };
+      groupsMap[key].contracts.push(c);
     }
 
-    // 4) For each CNPJ group: resolve customer ID, fetch invoices, distribute
-    for (const [cnpj, groupContracts] of Object.entries(byBnpj)) {
+    // 4) For each group: resolve customer ID (use stored, fallback to CNPJ), fetch invoices, distribute
+    for (const [, group] of Object.entries(groupsMap)) {
+      const groupContracts = group.contracts;
+      const cnpj = group.cnpj;
       try {
-        // Resolve CNPJ → customer ID
-        const customerId = await findClientByCnpj(cnpj);
+        // Prefer stored customer ID; only re-discover via CNPJ if absent.
+        let customerId: string | null = group.customerId;
+        if (!customerId) {
+          customerId = await findClientByCnpj(cnpj);
+          if (customerId) {
+            // Backfill the stored customer_id so future syncs skip the lookup.
+            const ids = groupContracts.map((c) => c.id);
+            await sb.from("contracts").update({ superlogica_customer_id: customerId }).in("id", ids);
+            console.log(`[superlogica-sync] Backfilled superlogica_customer_id=${customerId} for ${ids.length} contract(s)`);
+          }
+        } else {
+          console.log(`[superlogica-sync] Using stored customer id=${customerId} for ${groupContracts.length} contract(s)`);
+        }
         if (!customerId) {
           for (const c of groupContracts) {
             errorsCount++;
