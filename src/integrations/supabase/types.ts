@@ -427,6 +427,7 @@ export type Database = {
           status: Database["public"]["Enums"]["contract_status"]
           status_renovacao: Database["public"]["Enums"]["renewal_status"]
           superlogica_customer_cnpj: string | null
+          superlogica_customer_id: string | null
           superlogica_match_hint: string | null
           superlogica_subscription_id: string | null
           superlogica_subscription_label: string | null
@@ -480,6 +481,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["contract_status"]
           status_renovacao?: Database["public"]["Enums"]["renewal_status"]
           superlogica_customer_cnpj?: string | null
+          superlogica_customer_id?: string | null
           superlogica_match_hint?: string | null
           superlogica_subscription_id?: string | null
           superlogica_subscription_label?: string | null
@@ -533,6 +535,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["contract_status"]
           status_renovacao?: Database["public"]["Enums"]["renewal_status"]
           superlogica_customer_cnpj?: string | null
+          superlogica_customer_id?: string | null
           superlogica_match_hint?: string | null
           superlogica_subscription_id?: string | null
           superlogica_subscription_label?: string | null
