@@ -289,8 +289,60 @@ export default function ReceivablesReconcilePage() {
           )}
           {searching ? (
             <div className="py-8 text-center text-muted-foreground">Buscando assinaturas no Superlógica...</div>
+          ) : !clientFound ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-3 text-sm">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  Cliente não encontrado no Superlógica pelo CNPJ
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                  Varremos {totalScanned} cliente(s) cadastrado(s) e nenhum tem o CNPJ {currentClient?.cnpj || '—'}.
+                  O cadastro pode estar com CNPJ diferente, ou o cliente ainda não foi criado lá.
+                </p>
+              </div>
+              {suggestions.length > 0 ? (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Sugestões por similaridade de nome:
+                  </p>
+                  <div className="space-y-2">
+                    {suggestions.map(sug => (
+                      <div
+                        key={sug.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{sug.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            CNPJ/CPF: {sug.cnpj || '—'} · ID Superlógica: {sug.id}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingSuggestion === sug.id}
+                          onClick={() => handleUseSuggestion(sug.id)}
+                        >
+                          {loadingSuggestion === sug.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Usar este cliente'
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Nenhuma sugestão por nome encontrada. Cadastre o cliente no Superlógica ou ajuste o CNPJ.
+                </p>
+              )}
+            </div>
           ) : candidates.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">Nenhuma assinatura ativa com valor encontrada para este CNPJ</div>
+            <div className="py-8 text-center text-muted-foreground">
+              Cliente encontrado no Superlógica, mas sem assinaturas ativas com valor.
+            </div>
           ) : (
             <div className="space-y-2">
               {candidates.map(cand => (
