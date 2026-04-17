@@ -1,88 +1,86 @@
 
-Objetivo: voltar ao ponto correto do vínculo com a API, restaurando o identificador do cliente/assinatura como fonte de verdade do contrato, sem mexer em outras áreas já estabilizadas.
 
-Diagnóstico
-- O fluxo histórico definido no chat era: buscar cliente/assinaturas no Superlógica, escolher uma assinatura, gravar o vínculo no contrato e depois sincronizar cobranças a partir desse vínculo.
-- Hoje o sistema grava apenas `superlogicaSubscriptionId`, `superlogicaSubscriptionLabel` e `superlogicaCustomerCnpj`.
-- O identificador do cliente no Superlógica usado na busca (`id_sacado_sac`) não está sendo persistido no contrato.
-- Isso quebra o elo principal: mesmo quando a UI encontra um cliente por sugestão/manual override, o sync posterior volta a depender de nova busca por CNPJ.
-- Os logs mostram que a busca atual só está enxergando 125 clientes em 3 páginas, então o lookup por CNPJ não está sendo uma base confiável para sustentar o vínculo.
-- O erro de build mostrado agora parece infra de upload (`R2 credentials timeout`), não evidência de erro de TypeScript. Ainda assim, o problema funcional a corrigir é o vínculo incompleto.
+## Diagnóstico
 
-Plano de implementação
+A pista do usuário ("esses contratos pertencem a outra assinatura vinculada a outra API") + os logs ("125 clientes em 3 páginas") confirmam que a Superlógica está configurada como **multi-instância**: o grupo tem **mais de uma conta Superlógica** (outra "franquia"/empresa), cada uma com seu próprio par `APP_TOKEN`+`ACCESS_TOKEN` (e possivelmente outro `API_BASE`/subdomínio). Hoje temos credenciais de apenas uma instância configuradas, então qualquer CNPJ que esteja cadastrado na outra conta retorna "não encontrado", independentemente do quanto melhoremos a busca local.
 
-1. Restaurar o vínculo completo no banco
-- Criar migração para adicionar um campo persistente de cliente Superlógica no contrato, por exemplo `superlogica_customer_id`.
-- Manter os campos já existentes; não remover nada.
-- Se fizer sentido, também gravar esse mesmo identificador no snapshot de assinaturas para auditoria.
+A correção estrutural é tornar a integração **multi-conta**: cadastrar N pares de credenciais e, na busca/sync, varrer todas as contas até localizar o cliente. Quando achar, persistir em qual conta esse contrato vive (`superlogica_account`), para que o sync futuro vá direto à conta certa.
 
-2. Corrigir a edge de busca para devolver o elo completo
-Arquivo: `supabase/functions/superlogica-search-subscriptions/index.ts`
-- Fazer a resposta incluir explicitamente o `superlogicaClientId` encontrado/usado.
-- Em cada assinatura candidata, retornar também o `clientId` do cliente Superlógica correspondente.
-- Preservar a busca por nome/sugestões, mas tratá-la como fallback operacional, não como fonte primária do vínculo.
-- Revisar a estratégia de leitura de clientes para não depender só do recorte atual que está retornando 125 registros.
+## Plano
 
-3. Corrigir a tela de conciliação para persistir o cliente Superlógica junto com a assinatura
-Arquivo: `src/pages/ReceivablesReconcilePage.tsx`
-- Ao clicar em “Vincular”, salvar no contrato:
-  - `superlogicaSubscriptionId`
-  - `superlogicaSubscriptionLabel`
-  - `superlogicaCustomerCnpj`
-  - novo `superlogicaCustomerId`
-- Quando o usuário usar uma sugestão manual, garantir que o vínculo persistido use o `clientId` realmente escolhido, e não apenas o CNPJ local.
-- Ajustar a mensagem de sucesso/estado da tela para refletir que o cliente API também ficou vinculado.
+### 1. Suporte a múltiplas contas Superlógica (secrets)
+Introduzir um conjunto de secrets numerado (mantendo retrocompatibilidade):
+- Conta principal: `SUPERLOGICA_API_BASE`, `SUPERLOGICA_APP_TOKEN`, `SUPERLOGICA_ACCESS_TOKEN` (já existentes — vira "conta default").
+- Conta secundária: `SUPERLOGICA_API_BASE_2`, `SUPERLOGICA_APP_TOKEN_2`, `SUPERLOGICA_ACCESS_TOKEN_2` (a serem solicitados via `add_secret` ao usuário).
+- Estrutura preparada para adicionar uma 3ª no futuro só configurando os secrets `_3`.
 
-4. Fazer o sync usar primeiro o vínculo salvo, e só depois tentar CNPJ
-Arquivo: `supabase/functions/superlogica-sync/index.ts`
-- Alterar a resolução do cliente para:
-  1. usar `superlogica_customer_id` salvo no contrato;
-  2. só se ausente, tentar achar por CNPJ.
-- Isso elimina a dependência da redescoberta do cliente em cada sincronização.
-- Manter o fallback por valor entre contratos do mesmo CNPJ que já foi planejado.
+Vou pedir os secrets da segunda conta antes de qualquer edição de código.
 
-5. Ajustar mapeamentos e carregamento do front
-Arquivos:
-- `src/lib/dbMappers.ts`
-- tipos relacionados em `src/types/index.ts`
-- qualquer uso em `DataContext`
-- Mapear o novo campo snake_case/camelCase corretamente para leitura e update.
-- Garantir que `updateContract()` persista esse novo elo sem regressão.
+### 2. Banco — registrar a conta de origem por contrato
+Migração para adicionar:
+- `contracts.superlogica_account` (text, null) — slug curto da conta usada para esse contrato (ex.: `default`, `account2`).
 
-6. Backfill mínimo e seguro
-- Para contratos que já têm `superlogicaSubscriptionId` mas não têm `superlogicaCustomerId`, manter o sistema funcional com fallback por CNPJ.
-- Não tentar adivinhar em massa no escuro nesta etapa.
-- O preenchimento pode ocorrer naturalmente ao relink manual dos casos pendentes, ou em passo separado se necessário.
+Sem alterar nenhuma outra coluna ou política.
 
-Validação após implementar
-- Testar um contrato hoje problemático na conciliação.
-- Confirmar que a busca retorna candidatos e que o vínculo grava assinatura + cliente API.
-- Reabrir a tela e verificar que o contrato saiu de “sem vínculo”.
-- Rodar sincronização e confirmar que ela usa o `superlogicaCustomerId` salvo, sem depender de nova busca por CNPJ.
-- Revalidar especificamente um caso com sugestão manual por nome.
-- Se o build falhar novamente apenas por timeout de upload, repetir publicação, pois isso é separado da correção funcional.
+### 3. Edge `superlogica-search-subscriptions`
+- Iterar pelas contas configuradas (na ordem default → 2 → 3…).
+- Para cada conta: carregar clientes e tentar match por CNPJ.
+- Quando achar, retornar também o `account` usado.
+- Manter sugestões por nome como fallback, agora considerando todas as contas.
+- Se um `superlogicaClientId` (override manual) for passado, exigir o `account` correspondente.
 
-Arquivos previstos
-- `supabase/migrations/...sql`
+### 4. Tela `ReceivablesReconcilePage.tsx`
+- Persistir o novo campo `superlogicaAccount` no `updateContract` (junto com `superlogicaCustomerId`, `superlogicaSubscriptionId`).
+- Exibir badge discreto da conta vinculada nas linhas já vinculadas.
+- Mensagens deixam claro a conta encontrada ("vinculado à conta X").
+
+### 5. Edge `superlogica-sync`
+- Ao agrupar contratos, agrupar também por `superlogica_account`.
+- Para cada grupo, chamar a API usando as credenciais daquela conta.
+- Se um contrato antigo não tem `superlogica_account` mas tem `superlogica_customer_id`, usar a conta default (retrocompatibilidade) e tentar; se falhar, varrer outras contas e fazer backfill do `superlogica_account` automaticamente.
+
+### 6. Mappers e tipos
+- `src/types/index.ts`: adicionar `superlogicaAccount?: string` em `Contract`.
+- `src/lib/dbMappers.ts`: mapear `superlogica_account` ↔ `superlogicaAccount` em `contractFromDb`/`contractToDb`.
+
+### Arquivos tocados
+- `supabase/migrations/...sql` (nova coluna)
 - `supabase/functions/superlogica-search-subscriptions/index.ts`
 - `supabase/functions/superlogica-sync/index.ts`
 - `src/pages/ReceivablesReconcilePage.tsx`
 - `src/lib/dbMappers.ts`
 - `src/types/index.ts`
 
-Não vou alterar
-- RBAC
-- subprojetos
-- filtros do Dashboard
-- fluxo de senha/login
-- regras financeiras já existentes
+### Não alterar
+RBAC, subprojetos, filtro de saúde do Dashboard, fluxo de senhas, regras financeiras, layout/colunas existentes.
 
-Detalhes técnicos
+### Pré-requisito (você precisa fornecer antes da implementação)
+Os 3 secrets da **segunda conta Superlógica**:
+- `SUPERLOGICA_API_BASE_2` (ex.: `https://api.superlogica.net` — geralmente o mesmo, mas confirme)
+- `SUPERLOGICA_APP_TOKEN_2`
+- `SUPERLOGICA_ACCESS_TOKEN_2`
+
+Onde achar: no painel da outra empresa Superlógica → Configurações → API → Tokens.
+
+### Detalhes técnicos
 ```text
-Fluxo corrigido:
-Buscar cliente/assinaturas -> escolher assinatura -> salvar subscription_id + customer_id no contrato
--> sync usa customer_id persistido -> busca cobranças -> distribui por assinatura/valor
+Fluxo multi-conta:
+Buscar cliente:
+  para cada conta em [default, 2, 3…]:
+    carregar clientes
+    se CNPJ bater → retorna {clientId, account}
+  se nenhum bater → sugestões por nome em todas as contas
+
+Vincular:
+  salva subscription_id + customer_id + account no contrato
+
+Sync:
+  agrupa contratos por account
+  para cada grupo, usa as credenciais daquela conta
+  busca cobranças → distribui (resolve ambiguidade por valor como antes)
 ```
 
-Risco principal
-- O problema atual parece menos “CNPJ inexistente” e mais “vínculo incompleto com a API”. Persistir o `customer_id` é a correção estrutural para parar de redescobrir o cliente toda vez.
+### Risco / mitigação
+- Se o usuário informar credenciais erradas da 2ª conta, o sync apenas pulará aquele grupo com erro claro no `error_summary` da run; nada do que já funciona quebra.
+- Contratos antigos sem `superlogica_account` continuam funcionando via conta default + backfill automático.
+
