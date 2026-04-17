@@ -130,7 +130,7 @@ export default function DashboardPage() {
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
   const { result: overheadPoolResult } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
-  const canSeeReceivables = canAccessModule('receivables');
+  const canSeeReceivables = canAccessModule('RECEIVABLES');
 
   // Active contracts without Superlógica link (for banner)
   const unlinkedActiveContracts = useMemo(() =>
