@@ -98,6 +98,30 @@ interface ContractRow {
   superlogica_subscription_id: string;
   superlogica_subscription_label: string | null;
   superlogica_customer_cnpj: string | null;
+  valor_mensal_referencia: number | null;
+}
+
+/**
+ * Try to disambiguate which contract an invoice belongs to by matching its
+ * amount against each candidate contract's `valor_mensal_referencia`.
+ * Returns the contract with the closest match within tolerance, or null.
+ */
+function matchContractByAmount(
+  invoiceAmount: number,
+  candidates: ContractRow[],
+  tolerance = 0.02 // 2%
+): ContractRow | null {
+  if (!invoiceAmount || invoiceAmount <= 0) return null;
+  let best: { contract: ContractRow; diff: number } | null = null;
+  for (const c of candidates) {
+    const ref = Number(c.valor_mensal_referencia ?? 0);
+    if (!ref || ref <= 0) continue;
+    const diff = Math.abs(ref - invoiceAmount) / ref;
+    if (diff <= tolerance && (!best || diff < best.diff)) {
+      best = { contract: c, diff };
+    }
+  }
+  return best ? best.contract : null;
 }
 
 Deno.serve(async (req) => {
@@ -125,7 +149,7 @@ Deno.serve(async (req) => {
     const { data: contracts, error: cErr } = await sb
       .from("contracts")
       .select(
-        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj"
+        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, valor_mensal_referencia"
       )
       .not("superlogica_subscription_id", "is", null);
     if (cErr) throw new Error(cErr.message);
@@ -198,20 +222,33 @@ Deno.serve(async (req) => {
           let contractId: string | null = null;
           const matches = invoiceSubId ? (subIdToContracts[invoiceSubId] ?? []) : [];
 
+          const invoiceAmount = Number(x.vl_total_recb ?? x.vl_emitido_recb ?? 0);
+
           if (invoiceSubId && matches.length === 1) {
             contractId = matches[0].id;
           } else if (!invoiceSubId && groupContracts.length === 1) {
             contractId = groupContracts[0].id;
           } else {
-            const ambiguityKey = invoiceSubId || "without_subscription_id";
-            if (!reportedAmbiguity.has(ambiguityKey)) {
-              reportedAmbiguity.add(ambiguityKey);
-              errorsCount++;
-              errors.push(
-                `CNPJ ${cnpj}: cobrança não vinculada por ambiguidade (subId=${ambiguityKey}, contratos=${groupContracts.length})`
+            // Ambiguity: try to resolve by matching invoice amount to contract's valor_mensal_referencia
+            const candidates = invoiceSubId && matches.length > 0 ? matches : groupContracts;
+            const matchedByAmount = matchContractByAmount(invoiceAmount, candidates);
+
+            if (matchedByAmount) {
+              contractId = matchedByAmount.id;
+              console.log(
+                `[superlogica-sync] Ambiguity resolved by amount match: invoice=R$${invoiceAmount} → contract ${matchedByAmount.codigo} (ref=R$${matchedByAmount.valor_mensal_referencia})`
               );
+            } else {
+              const ambiguityKey = invoiceSubId || "without_subscription_id";
+              if (!reportedAmbiguity.has(ambiguityKey)) {
+                reportedAmbiguity.add(ambiguityKey);
+                errorsCount++;
+                errors.push(
+                  `CNPJ ${cnpj}: cobrança não vinculada por ambiguidade (subId=${ambiguityKey}, contratos=${candidates.length}, valor=R$${invoiceAmount})`
+                );
+              }
+              continue;
             }
-            continue;
           }
 
           // fl_status_recb: 0=pending, 1=paid, 2=cancelled, 3=renegotiated
@@ -219,7 +256,7 @@ Deno.serve(async (req) => {
           const statusMap: Record<string, string> = { "0": "open", "1": "paid", "2": "canceled", "3": "renegotiated" };
           const status = statusMap[rawStatus] ?? normalizeInvoiceStatus(x.st_status_recb ?? "");
 
-          const amount = Number(x.vl_total_recb ?? x.vl_emitido_recb ?? 0);
+          const amount = invoiceAmount;
           const paidAmount = status === "paid" ? amount : 0;
           const dueDate = x.dt_vencimento_recb || null;
           const paidAt = x.dt_liquidacao_recb || (status === "paid" ? (x.dt_recebimento_recb || null) : null);

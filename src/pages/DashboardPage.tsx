@@ -16,7 +16,9 @@ import {
   Check,
   Info,
   ExternalLink,
+  Link2Off,
 } from 'lucide-react';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -127,6 +129,17 @@ export default function DashboardPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
   const { result: overheadPoolResult } = useOverheadPool();
+  const { canAccessModule } = useModuleAccess();
+  const canSeeReceivables = canAccessModule('RECEIVABLES');
+
+  // Active contracts without Superlógica link (for banner)
+  const unlinkedActiveContracts = useMemo(() =>
+    contracts.filter(c =>
+      (c.status === 'operacao' || c.status === 'implantacao') &&
+      !c.superlogicaSubscriptionId
+    ),
+    [contracts]
+  );
   const savedFilters = loadFilters();
   const [selectedClientId, setSelectedClientId] = useState(savedFilters.selectedClientId);
   const [selectedContractId, setSelectedContractId] = useState(savedFilters.selectedContractId);
@@ -473,6 +486,38 @@ export default function DashboardPage() {
           </Button>
         )}
       </motion.div>
+
+      {/* Superlógica unlinked contracts banner */}
+      {canSeeReceivables && unlinkedActiveContracts.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-health-attention/30 bg-health-attention/5">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <div className="w-9 h-9 rounded-lg bg-health-attention/10 flex items-center justify-center shrink-0">
+                  <Link2Off className="w-5 h-5 text-health-attention" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {unlinkedActiveContracts.length} contrato{unlinkedActiveContracts.length > 1 ? 's' : ''} ativo{unlinkedActiveContracts.length > 1 ? 's' : ''} sem vínculo Superlógica
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Vincule esses contratos para sincronizar faturas e acompanhar recebíveis automaticamente.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/receivables/reconcile')}
+                className="gap-2 shrink-0 self-start sm:self-auto"
+              >
+                Conciliar agora
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* KPI Cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
