@@ -40,24 +40,31 @@ export default function ReceivablesReconcilePage() {
     return contracts.filter(c => linkedMap[c.id]);
   }, [contracts, linkedMap]);
 
-  const searchSubscriptions = async (cnpj: string): Promise<SubscriptionCandidate[]> => {
+  const searchSubscriptions = async (
+    cnpj: string,
+    clientName: string,
+    overrideClientId?: string,
+  ): Promise<{ subs: SubscriptionCandidate[]; clientFound: boolean; suggestions: Array<{ id: string; name: string; cnpj: string }>; totalScanned: number }> => {
     const cnpjDigits = cnpj.replace(/\D/g, '');
-    if (!cnpjDigits) return [];
-
     try {
       const { data, error } = await supabase.functions.invoke('superlogica-search-subscriptions', {
-        body: { cnpj: cnpjDigits },
+        body: { cnpj: cnpjDigits, clientName, superlogicaClientId: overrideClientId },
       });
       if (error) throw error;
-      return (data?.subscriptions ?? []).map((s: any) => ({
-        subscriptionId: s.superlogica_subscription_id,
-        label: s.label,
-        status: s.status,
-        amount: s.amount,
-        periodicidade: s.periodicity,
-      }));
+      return {
+        subs: (data?.subscriptions ?? []).map((s: any) => ({
+          subscriptionId: s.superlogica_subscription_id,
+          label: s.label,
+          status: s.status,
+          amount: s.amount,
+          periodicidade: s.periodicity,
+        })),
+        clientFound: !!data?.clientFound,
+        suggestions: data?.suggestions ?? [],
+        totalScanned: data?.totalClientsScanned ?? 0,
+      };
     } catch {
-      return [];
+      return { subs: [], clientFound: false, suggestions: [], totalScanned: 0 };
     }
   };
 
@@ -68,10 +75,40 @@ export default function ReceivablesReconcilePage() {
 
     setSearchDialogContract(contractId);
     setSearching(true);
+    setCandidates([]);
+    setSuggestions([]);
+    setClientFound(true);
 
-    const results = await searchSubscriptions(client?.cnpj || '');
-    setCandidates(results);
+    const result = await searchSubscriptions(
+      client?.cnpj || '',
+      client?.nomeFantasia || client?.razaoSocial || '',
+    );
+    setCandidates(result.subs);
+    setClientFound(result.clientFound);
+    setSuggestions(result.suggestions);
+    setTotalScanned(result.totalScanned);
     setSearching(false);
+  };
+
+  const handleUseSuggestion = async (superlogicaClientId: string) => {
+    if (!searchDialogContract) return;
+    const contract = contracts.find(c => c.id === searchDialogContract);
+    if (!contract) return;
+    const client = clients.find(cl => cl.id === contract.clientId);
+
+    setLoadingSuggestion(superlogicaClientId);
+    const result = await searchSubscriptions(
+      client?.cnpj || '',
+      client?.nomeFantasia || client?.razaoSocial || '',
+      superlogicaClientId,
+    );
+    setLoadingSuggestion(null);
+    setCandidates(result.subs);
+    setClientFound(true);
+    setSuggestions([]);
+    if (result.subs.length === 0) {
+      toast.info('Cliente encontrado, mas sem assinaturas ativas com valor.');
+    }
   };
 
   const handleLink = async (contractId: string, candidate: SubscriptionCandidate) => {
