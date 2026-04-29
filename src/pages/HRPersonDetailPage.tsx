@@ -26,6 +26,7 @@ import { HRPerson, HRTimelineEvent, Contract } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
 import { differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 function calcularTempoDeCasa(dataAdmissao: string, dataDesligamento?: string): string {
   const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
