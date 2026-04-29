@@ -6,6 +6,7 @@ export const MODULE_KEYS = [
   'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
   'SETTINGS', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS',
   'RECEIVABLES',
+  'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS',
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
@@ -39,6 +40,10 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'AI', label: 'IA / Análises', description: 'Análises inteligentes, insights e geração de minutas', routes: ['/ai', '/ai/contracts-analysis', '/ai/resources-analysis', '/ai/drafts'], roleRestrictions: [] },
   { key: 'AI_LOGS', label: 'IA Logs', description: 'Fontes e logs das análises de IA', routes: ['/ai/logs'], isSubmodule: true, parentModule: 'AI', roleRestrictions: ['c-level'] },
   { key: 'RECEIVABLES', label: 'Recebíveis', description: 'Posição de pagamentos e inadimplência por contrato', routes: ['/receivables', '/receivables/reconcile'], roleRestrictions: [] },
+  { key: 'OVERTIME', label: 'Adm Horas Extras', description: 'Administração de horas extras', routes: ['/horas-extras'], roleRestrictions: [] },
+  { key: 'TRANSPORT', label: 'Adm Transportes', description: 'Administração de transportes', routes: ['/transportes'], roleRestrictions: [] },
+  { key: 'JOB_REQUESTS', label: 'Requisição de Vagas', description: 'Abertura e acompanhamento de vagas', routes: ['/requisicao-vagas'], roleRestrictions: [] },
+  { key: 'JOB_SKILLS', label: 'Skills de Vagas', description: 'Catálogo de skills para vagas', routes: ['/skills-vagas'], roleRestrictions: [] },
 ];
 
 /**
@@ -48,11 +53,11 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 // Default modules enabled per role (modules not listed default to false for these roles)
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   comercial: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
-  lider_tribo: ['DASHBOARD', 'SQUADS', 'CONTRACT_DETAIL', 'RESOURCES'],
+  lider_tribo: ['DASHBOARD', 'SQUADS', 'JOB_REQUESTS'],
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
-  rh: ['DASHBOARD', 'SQUADS', 'HR'],
-  administrativo: [], // all managed via flags
-  intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR', 'RECEIVABLES'],
+  rh: ['DASHBOARD', 'SQUADS', 'HR', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  administrativo: [], // all managed via flags — OVERTIME and TRANSPORT inherit the legacy "all enabled" branch
+  intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
 };
 
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
