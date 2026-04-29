@@ -12,6 +12,8 @@ interface AuthContextType {
   logout: () => void;
   canViewValues: boolean;
   canEdit: boolean;
+  canCreate: boolean;
+  canDelete: boolean;
   canViewHRCosts: boolean;
   userRole: UserRole | null;
   modulePermissions: Record<ModuleKey, boolean> | null;
@@ -119,7 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canViewValues = userRole === 'c-level' || userRole === 'administrativo';
-  const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh';
+  const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo';
+  const canCreate = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh');
+  const canDelete = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh');
   const canViewHRCosts = userRole === 'c-level' || userRole === 'administrativo';
 
   return (
@@ -131,6 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       canViewValues,
       canEdit,
+      canCreate,
+      canDelete,
       canViewHRCosts,
       userRole,
       modulePermissions,
