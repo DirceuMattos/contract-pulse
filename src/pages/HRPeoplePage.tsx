@@ -210,6 +210,14 @@ export default function HRPeoplePage() {
     exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx');
   };
 
+  const isCLevel = userRole === 'c-level';
+  const totals = useMemo(() => {
+    const ativos = filtered.filter(p => p.situacao === 'ativo');
+    const totalSalarios = ativos.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
+    const totalBeneficios = ativos.reduce((sum, p) => sum + (p.beneficios || 0), 0);
+    return { totalSalarios, totalBeneficios, count: ativos.length };
+  }, [filtered]);
+
   return (
     <div className="space-y-6">
       <PageHeader
