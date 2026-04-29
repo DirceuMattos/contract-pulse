@@ -100,6 +100,24 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'role' | 'status' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (col: 'name' | 'role' | 'status') => {
+    if (sortBy === col) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: 'name' | 'role' | 'status' }) => {
+    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1" />
+      : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
 
   // Only c-level can access this page
   if (currentUser?.role !== 'c-level') {
