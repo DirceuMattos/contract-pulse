@@ -141,6 +141,21 @@ export default function UsersPage() {
     user.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  const sortedUsers = React.useMemo(() => {
+    if (!sortBy) return filteredUsers;
+    const arr = [...filteredUsers];
+    arr.sort((a, b) => {
+      let av = '';
+      let bv = '';
+      if (sortBy === 'name') { av = a.name; bv = b.name; }
+      else if (sortBy === 'role') { av = roleLabels[a.role]; bv = roleLabels[b.role]; }
+      else if (sortBy === 'status') { av = a.active ? '1' : '0'; bv = b.active ? '1' : '0'; }
+      const cmp = av.localeCompare(bv, 'pt-BR');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [filteredUsers, sortBy, sortDir]);
+
   const handleEdit = (user: SystemUser) => {
     setEditingUser(user);
     setFormOpen(true);
