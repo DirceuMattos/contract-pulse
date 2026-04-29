@@ -48,7 +48,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 // Default modules enabled per role (modules not listed default to false for these roles)
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   comercial: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
-  lider_tribo: ['DASHBOARD', 'SQUADS'],
+  lider_tribo: ['DASHBOARD', 'SQUADS', 'CONTRACT_DETAIL', 'RESOURCES'],
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
   rh: ['DASHBOARD', 'SQUADS', 'HR'],
   administrativo: [], // all managed via flags
