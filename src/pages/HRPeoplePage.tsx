@@ -207,7 +207,7 @@ export default function HRPeoplePage() {
   };
 
   const handleExport = () => {
-    exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx');
+    exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx', hrTimeline);
   };
 
   const isCLevel = userRole === 'c-level';
