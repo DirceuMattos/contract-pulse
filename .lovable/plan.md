@@ -1,15 +1,14 @@
-## Preservar quebras de linha em observações (HR)
+## Adicionar labels visíveis aos filtros (HR)
 
-Em `src/pages/HRPersonDetailPage.tsx`, linha 467, o campo `person.observacoes` é renderizado em modo leitura como:
+Em `src/pages/HRPeoplePage.tsx`, dentro do `CardContent` de filtros (linhas 245-312), envolver cada um dos 6 Selects em uma `<div className="flex flex-col gap-1">` com um `<span className="text-xs font-medium text-muted-foreground">…</span>` acima:
 
-```tsx
-<p className="text-sm">{person.observacoes || '—'}</p>
-```
+| Select | Label |
+|---|---|
+| `filterSituacao` | Situação |
+| `filterTeam` | Departamento |
+| `filterVinculo` | Vínculo |
+| `filterCargo` | Cargo |
+| `filterComite` (mantém o `canViewComite &&` envolvendo o wrapper) | Comitê Gestor |
+| `filterMesAdmissao` | Mês de Admissão |
 
-Adicionar a classe `whitespace-pre-wrap` para preservar quebras de linha e parágrafos:
-
-```tsx
-<p className="text-sm whitespace-pre-wrap">{person.observacoes || '—'}</p>
-```
-
-Nenhuma outra alteração no arquivo ou no projeto. O campo `observacoesDesligamento` (linha 452) é renderizado via componente `Row` e está fora do escopo desta mudança.
+Nenhum estado, valor, callback, lógica de filtro ou layout do grid externo é alterado. Os campos de busca e os checkboxes (Talentos/Guardiões/Em Avaliação) também ficam intocados.
