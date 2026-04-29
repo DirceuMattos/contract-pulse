@@ -6,6 +6,7 @@ export const MODULE_KEYS = [
   'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
   'SETTINGS', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS',
   'RECEIVABLES',
+  'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS',
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
