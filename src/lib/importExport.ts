@@ -757,7 +757,8 @@ export function exportHRPeople(
   teams: Team[],
   jobTitles: JobTitle[],
   canViewFinanceiro: boolean,
-  format: FileFormat
+  format: FileFormat,
+  timeline?: HRTimelineEvent[]
 ): void {
   const getTeamName = (teamId?: string) => teams.find(t => t.id === teamId)?.name || '';
   const getCargoLabel = (cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label || '';
@@ -796,7 +797,32 @@ export function exportHRPeople(
 
   const timestamp = new Date().toISOString().split('T')[0];
   if (format === 'xlsx') {
-    writeXlsxFile(headers, rows, `rh_pessoas_${timestamp}.xlsx`);
+    if (timeline) {
+      const tlHeaders = ['Nome', 'Data', 'Tipo de Evento', 'Descrição', 'Remuneração Após'];
+      const formatDate = (iso: string) => {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('T')[0].split('-');
+        return d && m && y ? `${d}/${m}/${y}` : iso;
+      };
+      const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+      const tlRows = timeline.map(ev => {
+        const person = people.find(p => p.id === ev.personId);
+        return [
+          person?.nome || '',
+          formatDate(ev.eventDate),
+          capitalize(ev.ocorrencia),
+          ev.descricao || '',
+          ev.remuneracaoApos != null ? Number(ev.remuneracaoApos) : '',
+        ];
+      });
+      const blob = buildMultiSheetXlsx([
+        { name: 'Pessoas', headers, rows },
+        { name: 'Linha do Tempo', headers: tlHeaders, rows: tlRows },
+      ]);
+      downloadBlob(blob, `rh_pessoas_${timestamp}.xlsx`);
+    } else {
+      writeXlsxFile(headers, rows, `rh_pessoas_${timestamp}.xlsx`);
+    }
   } else {
     const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     downloadCSV(content, `rh_pessoas_${timestamp}.csv`);
