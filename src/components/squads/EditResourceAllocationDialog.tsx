@@ -31,7 +31,14 @@ interface EditResourceAllocationDialogProps {
 
 export function EditResourceAllocationDialog({ open, onOpenChange, allocation, personName }: EditResourceAllocationDialogProps) {
   const { contracts, updateResource, deleteResource } = useData();
+  const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, updateAllocation, deleteAllocation, addAllocation } = useSubprojects();
+
+  const isInactivePerson = useMemo(() => {
+    if (!allocation.hrPersonId) return false;
+    const person = hrPeople.find(p => p.id === allocation.hrPersonId);
+    return person?.situacao === 'inativo';
+  }, [hrPeople, allocation.hrPersonId]);
 
   const [dedication, setDedication] = useState(allocation.percentualDedicacao);
   const [targetContractId, setTargetContractId] = useState('same');
