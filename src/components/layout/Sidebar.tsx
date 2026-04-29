@@ -11,6 +11,7 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Bell,
   UserCog,
@@ -22,6 +23,9 @@ import {
   Truck,
   ClipboardList,
   Sparkles,
+  Briefcase,
+  UserCircle2,
+  Cog,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
