@@ -212,10 +212,9 @@ export default function HRPeoplePage() {
 
   const isCLevel = userRole === 'c-level';
   const totals = useMemo(() => {
-    const ativos = filtered.filter(p => p.situacao === 'ativo');
-    const totalSalarios = ativos.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
-    const totalBeneficios = ativos.reduce((sum, p) => sum + (p.beneficios || 0), 0);
-    return { totalSalarios, totalBeneficios, count: ativos.length };
+    const totalSalarios = filtered.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
+    const totalBeneficios = filtered.reduce((sum, p) => sum + (p.beneficios || 0), 0);
+    return { totalSalarios, totalBeneficios, count: filtered.length };
   }, [filtered]);
 
   return (
