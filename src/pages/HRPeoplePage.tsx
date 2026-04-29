@@ -268,9 +268,9 @@ export default function HRPeoplePage() {
                 <Wallet className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Salários / Contrato</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Salários / Contratos</p>
                 <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalSalarios)}</p>
-                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} ativa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
               </div>
             </CardContent>
           </Card>
