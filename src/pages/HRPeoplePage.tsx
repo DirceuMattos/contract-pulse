@@ -248,68 +248,86 @@ export default function HRPeoplePage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome, matrícula ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <Select value={filterSituacao} onValueChange={(v: any) => setFilterSituacao(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="ativo">Ativo</SelectItem>
-                <SelectItem value="inativo">Inativo</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterTeam || 'all'} onValueChange={v => setFilterTeam(v === 'all' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Departamento" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos dept.</SelectItem>
-                {activeTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterVinculo || 'all'} onValueChange={v => setFilterVinculo(v === 'all' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Vínculo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="clt">CLT</SelectItem>
-                <SelectItem value="pj">PJ</SelectItem>
-                <SelectItem value="cooperado">Cooperado</SelectItem>
-                <SelectItem value="socio">Sócio</SelectItem>
-                <SelectItem value="estagio">Estagiário</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos cargos</SelectItem>
-                {activeJobTitles.map(jt => <SelectItem key={jt.id} value={jt.id}>{jt.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {canViewComite && (
-              <Select value={filterComite || 'all'} onValueChange={v => setFilterComite(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Comitê Gestor" /></SelectTrigger>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Situação</span>
+              <Select value={filterSituacao} onValueChange={(v: any) => setFilterSituacao(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="__com">Com indicação</SelectItem>
-                  <SelectItem value="__sem">Sem indicação</SelectItem>
-                  {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="inativo">Inativo</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Departamento</span>
+              <Select value={filterTeam || 'all'} onValueChange={v => setFilterTeam(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Departamento" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos dept.</SelectItem>
+                  {activeTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Vínculo</span>
+              <Select value={filterVinculo || 'all'} onValueChange={v => setFilterVinculo(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Vínculo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="clt">CLT</SelectItem>
+                  <SelectItem value="pj">PJ</SelectItem>
+                  <SelectItem value="cooperado">Cooperado</SelectItem>
+                  <SelectItem value="socio">Sócio</SelectItem>
+                  <SelectItem value="estagio">Estagiário</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Cargo</span>
+              <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos cargos</SelectItem>
+                  {activeJobTitles.map(jt => <SelectItem key={jt.id} value={jt.id}>{jt.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {canViewComite && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground">Comitê Gestor</span>
+                <Select value={filterComite || 'all'} onValueChange={v => setFilterComite(v === 'all' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="Comitê Gestor" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="__com">Com indicação</SelectItem>
+                    <SelectItem value="__sem">Sem indicação</SelectItem>
+                    {comiteOptions.map(c => <SelectItem key={c} value={c}>{formatComite(c)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
-            <Select value={filterMesAdmissao || 'all'} onValueChange={v => setFilterMesAdmissao(v === 'all' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Mês admissão" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os meses</SelectItem>
-                <SelectItem value="1">Janeiro</SelectItem>
-                <SelectItem value="2">Fevereiro</SelectItem>
-                <SelectItem value="3">Março</SelectItem>
-                <SelectItem value="4">Abril</SelectItem>
-                <SelectItem value="5">Maio</SelectItem>
-                <SelectItem value="6">Junho</SelectItem>
-                <SelectItem value="7">Julho</SelectItem>
-                <SelectItem value="8">Agosto</SelectItem>
-                <SelectItem value="9">Setembro</SelectItem>
-                <SelectItem value="10">Outubro</SelectItem>
-                <SelectItem value="11">Novembro</SelectItem>
-                <SelectItem value="12">Dezembro</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Mês de Admissão</span>
+              <Select value={filterMesAdmissao || 'all'} onValueChange={v => setFilterMesAdmissao(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Mês admissão" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os meses</SelectItem>
+                  <SelectItem value="1">Janeiro</SelectItem>
+                  <SelectItem value="2">Fevereiro</SelectItem>
+                  <SelectItem value="3">Março</SelectItem>
+                  <SelectItem value="4">Abril</SelectItem>
+                  <SelectItem value="5">Maio</SelectItem>
+                  <SelectItem value="6">Junho</SelectItem>
+                  <SelectItem value="7">Julho</SelectItem>
+                  <SelectItem value="8">Agosto</SelectItem>
+                  <SelectItem value="9">Setembro</SelectItem>
+                  <SelectItem value="10">Outubro</SelectItem>
+                  <SelectItem value="11">Novembro</SelectItem>
+                  <SelectItem value="12">Dezembro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                 <input type="checkbox" checked={filterTalento} onChange={e => setFilterTalento(e.target.checked)} className="rounded border-primary" />
