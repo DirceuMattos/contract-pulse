@@ -585,7 +585,13 @@ export default function HRPersonDetailPage() {
         </TabsContent>
 
         {/* Alocações */}
-        <TabsContent value="alocacoes">
+        <TabsContent value="alocacoes" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" disabled={refreshing} onClick={async () => { setRefreshing(true); await refreshResources(); setRefreshing(false); }}>
+              <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
+              {refreshing ? 'Atualizando...' : 'Atualizar alocações'}
+            </Button>
+          </div>
           {alocacoes.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
