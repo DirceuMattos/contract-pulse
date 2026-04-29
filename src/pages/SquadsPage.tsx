@@ -59,6 +59,7 @@ interface ResourceViewData {
   nome: string;
   cargo: string;
   teamName: string;
+  isVacant: boolean;
   totalDedicacao: number;
   allocations: {
     resourceId: string;
