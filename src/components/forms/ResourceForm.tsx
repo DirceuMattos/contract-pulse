@@ -494,6 +494,12 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                         </span>
                       </div>
                     )}
+                    {linkedPerson?.situacao === 'inativo' && (
+                      <div className="mt-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>Este colaborador está inativo no RH. Considere atualizar ou remover esta alocação.</span>
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />
