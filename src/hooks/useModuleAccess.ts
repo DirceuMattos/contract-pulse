@@ -10,8 +10,11 @@ export function useModuleAccess() {
     // 1. Check role-level restriction first
     if (!isRoleAllowedForModule(userRole, moduleKey)) return false;
     
-    // 2. Check user-specific moduleAccess from DB permissions
-    const access = modulePermissions ?? getDefaultModuleAccess(userRole);
+    // 2. Check user-specific moduleAccess from DB permissions, merged with defaults
+    // (defaults fill in any keys not explicitly set in DB, so newly-added module
+    // permissions take effect for existing users without manual reconfiguration)
+    const defaults = getDefaultModuleAccess(userRole);
+    const access = modulePermissions ? { ...defaults, ...modulePermissions } : defaults;
     if (access[moduleKey] === false) return false;
     
     return true;
