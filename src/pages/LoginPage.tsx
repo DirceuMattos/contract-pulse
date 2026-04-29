@@ -88,13 +88,8 @@ export default function LoginPage() {
         <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
-              Squads, Contratos,
-              <br />
-              <span className="text-emerald-400">Resultados Financeiros</span>
+              <span className="text-emerald-400">BNP</span> Hub Administrativo
             </h1>
-            <p className="text-white/70 text-lg max-w-md">
-              Saiba a qualquer momento - Status dos Contratos, Recursos Utilizados, Margem Operacional
-            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
