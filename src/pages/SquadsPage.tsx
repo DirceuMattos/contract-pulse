@@ -527,10 +527,10 @@ export default function SquadsPage() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge variant="destructive" className="text-[9px] gap-0.5">
-                            <AlertTriangle className="w-2.5 h-2.5" /> Vago
+                            <AlertTriangle className="w-2.5 h-2.5" /> Colaborador Inativo
                           </Badge>
                         </TooltipTrigger>
-                        <TooltipContent>Profissional desligado — designar substituto</TooltipContent>
+                        <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                       </Tooltip>
                     )}
                     {isBrokenLink && !isVacant && (
