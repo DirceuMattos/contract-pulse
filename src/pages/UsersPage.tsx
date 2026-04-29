@@ -285,10 +285,37 @@ export default function UsersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Usuário</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => handleSort('name')}
+                  className="inline-flex items-center font-medium hover:text-foreground transition-colors"
+                >
+                  Usuário
+                  <SortIcon col="name" />
+                </button>
+              </TableHead>
               <TableHead>E-mail</TableHead>
-              <TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => handleSort('role')}
+                  className="inline-flex items-center font-medium hover:text-foreground transition-colors"
+                >
+                  Perfil
+                  <SortIcon col="role" />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => handleSort('status')}
+                  className="inline-flex items-center font-medium hover:text-foreground transition-colors"
+                >
+                  Status
+                  <SortIcon col="status" />
+                </button>
+              </TableHead>
               <TableHead>Criado em</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
