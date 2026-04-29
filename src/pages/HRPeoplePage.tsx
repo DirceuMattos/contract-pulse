@@ -45,7 +45,7 @@ type SortField = 'nome' | 'tipoVinculo' | 'cargo' | 'team' | 'localAtuacao' | 'd
 
 export default function HRPeoplePage() {
   const navigate = useNavigate();
-  const { hrPeople, addPerson, updatePerson, addTimelineEvent } = useHR();
+  const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles } = useData();
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
@@ -207,7 +207,7 @@ export default function HRPeoplePage() {
   };
 
   const handleExport = () => {
-    exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx');
+    exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx', hrTimeline);
   };
 
   const isCLevel = userRole === 'c-level';

@@ -1,17 +1,19 @@
-## Timeline: gerar evento de "reajuste" para mudanças em remuneração/benefícios
+## Exportação RH com aba de Linha do Tempo
 
-Alterar apenas `src/pages/HRPersonDetailPage.tsx`, dentro de `handleEdit` (linhas 153–172).
+### 1. `src/lib/importExport.ts` — `exportHRPeople`
+- Importar `HRTimelineEvent` de `@/types` (adicionar ao import já existente).
+- Adicionar parâmetro opcional `timeline?: HRTimelineEvent[]` na assinatura.
+- Manter geração atual de `headers` e `rows` (aba "Pessoas").
+- Quando `format === 'xlsx'` E `timeline` fornecido (mesmo vazio? — só quando definido):
+  - Construir aba "Linha do Tempo" com colunas: `Nome`, `Data`, `Tipo de Evento`, `Descrição`, `Remuneração Após`.
+  - Para cada evento: nome buscado em `people` por `personId`; data convertida para `dd/mm/yyyy` a partir de `eventDate` (string ISO `yyyy-mm-dd`); tipo = `ocorrencia` capitalizada; descrição = `descricao`; remuneração após = `remuneracaoApos` numérico ou `''`.
+  - Usar `buildMultiSheetXlsx([{ name: 'Pessoas', headers, rows }, { name: 'Linha do Tempo', headers: tlHeaders, rows: tlRows }])` e baixar via `downloadBlob` com o mesmo padrão de nome `rh_pessoas_${timestamp}.xlsx`.
+- Caso contrário (xlsx sem timeline ou csv): manter comportamento atual.
 
-### Comportamento atual
-Toda mudança detectada (incluindo remuneração e benefícios) entra na lista `changes` e é gravada como evento `ocorrencia: 'observacao'`.
+Conversão de data segura: `eventDate` é `yyyy-mm-dd` → `split('-')` e remontar `dd/mm/yyyy`, evitando timezone shift.
 
-### Mudança
-1. Capturar separadamente a string da mudança de remuneração (`remuneracaoChange`) e a de benefícios (`beneficiosChange`), continuando a empurrá-las em `changes`.
-2. No loop de criação de eventos, para cada `change`:
-   - Se for `remuneracaoChange` ou `beneficiosChange` → `ocorrencia: 'reajuste'`; caso contrário → mantém `'observacao'`.
-   - Se for `remuneracaoChange` → incluir `remuneracaoApos: data.remuneracaoMensal`.
-   - Se for `beneficiosChange` → incluir `beneficiosApos: data.beneficios`.
-   - `atualizarRemuneracao: false` mantido (pois `updatePerson` já foi chamado antes).
-   - `descricao` permanece exatamente a mesma já gerada.
+### 2. `src/pages/HRPeoplePage.tsx`
+- Trocar `const { hrPeople, addPerson, updatePerson, addTimelineEvent } = useHR();` por `const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();`.
+- Atualizar `handleExport` para `exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx', hrTimeline)`.
 
-Nenhuma outra parte da `handleEdit` ou de qualquer outro arquivo será modificada.
+Nenhuma outra função, import ou parte do sistema é alterada.
