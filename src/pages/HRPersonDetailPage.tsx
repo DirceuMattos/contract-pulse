@@ -88,6 +88,7 @@ export default function HRPersonDetailPage() {
 
   // Reativar state
   const [reativarOpen, setReativarOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   if (!person) {
     return (
