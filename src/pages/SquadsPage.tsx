@@ -634,9 +634,19 @@ export default function SquadsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                {rd.nome}
+                <span className={cn(rd.isVacant && 'text-destructive')}>{rd.nome}</span>
+                {rd.isVacant && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="destructive" className="text-[10px] gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Colaborador Inativo
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
+                  </Tooltip>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">{rd.cargo}</span>
