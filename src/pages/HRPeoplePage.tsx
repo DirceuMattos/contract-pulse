@@ -338,6 +338,15 @@ export default function HRPeoplePage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Benefício</span>
+              <Select value={filterBeneficio || 'all'} onValueChange={v => setFilterBeneficio(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {beneficioOptions.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                 <input type="checkbox" checked={filterTalento} onChange={e => setFilterTalento(e.target.checked)} className="rounded border-primary" />
