@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { Client, Contract, Resource, HRPerson, Team, JobTitle } from '@/types';
+import { Client, Contract, Resource, HRPerson, Team, JobTitle, HRTimelineEvent } from '@/types';
 import { differenceInMonths } from 'date-fns';
 
 // Column definitions for each entity type
