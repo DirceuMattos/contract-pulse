@@ -1,17 +1,17 @@
-## Destaque visual de contratos Encerrados/Suspensos
+## Filtro de Benefício em HRPeoplePage
 
-### 1. `src/pages/ContractsPage.tsx` (linhas 547–601)
-- Adicionar `cn(...)` à `<Card>`: quando `contract.status === 'encerrado' || 'suspenso'` → `bg-neutral-900 border-neutral-700`.
-- Aplicar `text-neutral-300` (condicional) ao `<h3>` do nome (linha 561) e ao `<div>` com cliente/datas/responsável (linha 588).
-- Inserir, logo após o `<h3>` do nome (antes do Badge de código), badges:
-  - `Encerrado` → `bg-red-900 text-red-100 border-red-800`
-  - `Suspenso` → `bg-yellow-900 text-yellow-100 border-yellow-800`
+Em `src/pages/HRPeoplePage.tsx`:
 
-### 2. `src/pages/HRPersonDetailPage.tsx` (linhas 602–613)
-- Na `TableCell` do nome do contrato (linha 606), envolver em flex e adicionar Badge pequeno quando `contract?.status === 'encerrado'` (vermelho) ou `'suspenso'` (amarelo).
+1. **Estado** (após linha 67): `const [filterBeneficio, setFilterBeneficio] = useState(storedFilters?.filterBeneficio ?? '');`
 
-### 3. `src/pages/SquadsPage.tsx` (linhas 568–572)
-- Buscar `const contract = contracts.find(c => c.id === cd.contractId);` no escopo do card.
-- Ao lado do `<CardTitle>`, adicionar Badge `text-[10px]` quando `contract?.status === 'encerrado'` (vermelho) ou `'suspenso'` (amarelo).
+2. **Persistência sessionStorage** (linhas 75–76): incluir `filterBeneficio` no objeto salvo e no array de dependências.
 
-Nenhuma lógica de filtragem, ordenação, cálculo ou navegação é alterada. `Badge` já está importado nos três arquivos; `cn` já em uso em ContractsPage.
+3. **hasActiveFilters / handleClearFilters** (linhas 78–79): incluir `filterBeneficio !== ''` na condição e `setFilterBeneficio('')` no clear.
+
+4. **`beneficioOptions`** (após `comiteOptions`, linha 98): useMemo que coleta nomes únicos de `p.beneficiosLista[].nome`, ordenados alfabeticamente.
+
+5. **`filtered`** (linhas 100–118): adicionar `matchBeneficio = !filterBeneficio || (p.beneficiosLista?.some(b => b.nome === filterBeneficio) ?? false)` e incluir no return + dependências.
+
+6. **UI**: novo bloco `<div className="flex flex-col gap-1">` com label "Benefício" e Select listando `beneficioOptions`, posicionado junto aos demais filtros do Card (após o filtro de Mês de Admissão).
+
+Nenhum outro estado, lógica ou layout é alterado.
