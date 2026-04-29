@@ -603,7 +603,17 @@ export default function HRPersonDetailPage() {
                       const contract = contracts.find(c => c.id === r.contractId);
                       return (
                       <TableRow key={r.id}>
-                        <TableCell className="text-sm font-medium">{contract?.nome || contract?.codigo || r.contractId}</TableCell>
+                        <TableCell className="text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{contract?.nome || contract?.codigo || r.contractId}</span>
+                            {contract?.status === 'encerrado' && (
+                              <Badge className="text-[10px] bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
+                            )}
+                            {contract?.status === 'suspenso' && (
+                              <Badge className="text-[10px] bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{r.cargo || '—'}</TableCell>
                         <TableCell><Badge variant="outline">{r.percentualDedicacao}%</Badge></TableCell>
                         <TableCell className="text-sm text-muted-foreground">{person.localAtuacao || '—'}</TableCell>

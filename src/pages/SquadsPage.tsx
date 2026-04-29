@@ -561,6 +561,8 @@ export default function SquadsPage() {
     const sortedCardTeams = sortTeamsByFixedOrder(cd.teams);
     const cardData = { ...cd, teams: sortedCardTeams };
 
+    const cardContract = contracts.find(c => c.id === cd.contractId);
+
     return (
       <Card key={cd.subprojectId || cd.contractId} className={`overflow-hidden border-l-4 ${cardColor}`}>
         <CardHeader className="pb-3">
@@ -568,6 +570,12 @@ export default function SquadsPage() {
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-base">{cd.contractNome || cd.contractCodigo}</CardTitle>
+                {cardContract?.status === 'encerrado' && (
+                  <Badge className="text-[10px] bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
+                )}
+                {cardContract?.status === 'suspenso' && (
+                  <Badge className="text-[10px] bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
+                )}
                 <span className="text-sm text-muted-foreground">· {cd.contractCodigo}</span>
               </div>
               <p className="text-sm text-muted-foreground">{cd.clientName}</p>
