@@ -447,7 +447,7 @@ Deno.serve(async (req) => {
             })
 
             // Timeline: Admissão
-            await db.from('hr_timeline').insert({
+            await insertTimelineIdempotent(db, {
               person_id: inserted.id, event_date: dbPayload.data_admissao,
               ocorrencia: 'admissao', descricao: `Admissão sincronizada via Feedz (matrícula ${matricula}). tipo_vinculo=clt (padrão — campo indisponível na API Feedz).`,
               atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
