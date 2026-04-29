@@ -48,6 +48,20 @@ function normalizePhone(phone: string | null | undefined): string | null {
   return digits
 }
 
+// ─── TIMELINE IDEMPOTENT INSERT ──────────────────────────────────────────────
+async function insertTimelineIdempotent(db: any, novoEvento: Record<string, any>): Promise<void> {
+  const { data: existing } = await db
+    .from('hr_timeline')
+    .select('id')
+    .eq('person_id', novoEvento.person_id)
+    .eq('event_date', novoEvento.event_date)
+    .eq('ocorrencia', novoEvento.ocorrencia)
+    .eq('descricao', novoEvento.descricao)
+    .maybeSingle()
+  if (existing) return
+  await db.from('hr_timeline').insert(novoEvento)
+}
+
 // ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
 function computePayloadHash(data: Record<string, any>): string {
   const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento', 'remuneracao_mensal']
