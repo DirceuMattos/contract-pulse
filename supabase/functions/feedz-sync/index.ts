@@ -611,7 +611,7 @@ Deno.serve(async (req) => {
               payload_hash: payloadHash,
             })
 
-            await db.from('hr_timeline').insert({
+            await insertTimelineIdempotent(db, {
               person_id: existing.id, event_date: effectiveDate,
               ocorrencia: 'desligamento',
               descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data: ${effectiveDate} (fonte: ${dateSource}).${turnoverInfo?.reason ? ` Motivo: ${turnoverInfo.reason}` : ''}`,
