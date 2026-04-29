@@ -107,7 +107,14 @@ export default function HRPersonDetailPage() {
   const tempoCasa = calcularTempoDeCasa(person.dataAdmissao, isFrozen ? person.dataDesligamento : undefined);
   const tempoCasaMeses = calcularTempoDeCasaMeses(person.dataAdmissao, isFrozen ? person.dataDesligamento : undefined);
   
-  const alocacoes = resources.filter(r => r.hrPersonId === person.id);
+  const resourceAlocacoes = resources.filter(r => r.hrPersonId === person.id);
+  const subprojectAlocacoes = subprojectAllocations
+    .filter(a => a.hrPersonId === person.id)
+    .map(a => {
+      const sp = contractSubprojects.find(s => s.id === a.subprojectId);
+      return { allocation: a, subproject: sp, contractId: sp?.contractId };
+    });
+  const totalAlocacoes = resourceAlocacoes.length + subprojectAlocacoes.length;
   const activeHrPeople = useHR().hrPeople.filter(p => p.situacao === 'ativo' && p.id !== person.id).sort((a, b) => a.nome.localeCompare(b.nome));
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
