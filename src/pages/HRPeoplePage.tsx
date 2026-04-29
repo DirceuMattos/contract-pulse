@@ -47,7 +47,7 @@ export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles } = useData();
-  const { canEdit, canViewHRCosts, userRole } = useAuth();
+  const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
 
   // Restore filters from sessionStorage
@@ -248,10 +248,12 @@ export default function HRPeoplePage() {
                   <MapPin className="h-4 w-4 mr-2" />
                   Endereços
                 </Button>
-                <Button onClick={() => { setEditingPerson(undefined); setDialogOpen(true); }}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Pessoa
-                </Button>
+                {canCreate && (
+                  <Button onClick={() => { setEditingPerson(undefined); setDialogOpen(true); }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Pessoa
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -423,8 +425,8 @@ export default function HRPeoplePage() {
           icon={UsersRound}
           title="Nenhuma pessoa encontrada"
           description="Cadastre pessoas ou ajuste os filtros."
-          actionLabel={canEdit ? 'Adicionar pessoa' : undefined}
-          onAction={canEdit ? () => { setEditingPerson(undefined); setDialogOpen(true); } : undefined}
+          actionLabel={canCreate ? 'Adicionar pessoa' : undefined}
+          onAction={canCreate ? () => { setEditingPerson(undefined); setDialogOpen(true); } : undefined}
           actionIcon={Plus}
         />
       ) : (

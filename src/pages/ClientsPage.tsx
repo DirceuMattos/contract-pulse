@@ -75,7 +75,7 @@ const cardColors = [
 export default function ClientsPage() {
   const navigate = useNavigate();
   const { clients, contracts, deleteClient } = useData();
-  const { canEdit } = useAuth();
+  const { canEdit, canCreate, canDelete } = useAuth();
   
   const [search, setSearch] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
@@ -116,7 +116,7 @@ export default function ClientsPage() {
       <PageHeader
         title="Clientes"
         description="Gerencie sua base de clientes"
-        actions={canEdit ? (
+        actions={canCreate ? (
           <Button onClick={() => navigate('/clientes/novo')} className="gap-2">
             <Plus className="w-4 h-4" />
             Novo Cliente
@@ -204,14 +204,18 @@ export default function ClientsPage() {
                                 <Pencil className="w-4 h-4 mr-2" />
                                 Editar
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => setDeleteId(client.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Excluir
-                              </DropdownMenuItem>
+                              {canDelete && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => setDeleteId(client.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </>
                           )}
                         </DropdownMenuContent>
@@ -272,7 +276,7 @@ export default function ClientsPage() {
                   : 'Comece cadastrando seu primeiro cliente'
                 }
               </p>
-              {canEdit && !search && segmentFilter === 'all' && (
+              {canCreate && !search && segmentFilter === 'all' && (
                 <Button onClick={() => navigate('/clientes/novo')} className="gap-2">
                   <Plus className="w-4 h-4" />
                   Cadastrar Cliente
