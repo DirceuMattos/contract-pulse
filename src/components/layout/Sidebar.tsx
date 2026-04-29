@@ -57,6 +57,7 @@ type NavItem = {
 
 type NavGroup = {
   label?: string;
+  icon?: any;
   items: NavItem[];
 };
 
@@ -69,6 +70,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Adm Clientes e Contratos',
+    icon: Briefcase,
     items: [
       { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
       { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
@@ -78,6 +80,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Adm Recursos e Pessoas',
+    icon: UserCircle2,
     items: [
       { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
       { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
@@ -95,6 +98,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Setup',
+    icon: Cog,
     items: [
       { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
       { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
