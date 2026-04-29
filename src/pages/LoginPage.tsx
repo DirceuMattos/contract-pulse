@@ -77,7 +77,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex items-start justify-between">
           <img src={logoBnp} alt="BNP Logo" className="w-[280px] h-auto object-contain" />
           <div className="flex items-center gap-3">
-            <img src={logoSystem} alt="BNPHub" className="w-28 h-28 object-contain" />
+            <img src={logoSystem} alt="BNPHub" className="w-80 h-80 object-contain" />
             <div>
               <span className="text-5xl font-bold text-white">BNP</span>
               <span className="text-5xl font-semibold text-emerald-400">Hub</span>
@@ -120,7 +120,7 @@ export default function LoginPage() {
           <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
             <img src={logoBnp} alt="BNP Logo" className="w-24 h-auto object-contain" />
             <div className="flex items-center gap-2">
-              <img src={logoSystem} alt="BNPHub" className="w-16 h-16 object-contain" />
+              <img src={logoSystem} alt="BNPHub" className="w-48 h-48 object-contain" />
               <div>
                 <span className="text-2xl font-bold text-foreground">BNP</span>
                 <span className="text-2xl font-semibold text-accent">Hub</span>
