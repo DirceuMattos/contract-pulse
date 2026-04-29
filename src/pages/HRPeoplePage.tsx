@@ -282,7 +282,7 @@ export default function HRPeoplePage() {
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Benefícios</p>
                 <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalBeneficios)}</p>
-                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} ativa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
               </div>
             </CardContent>
           </Card>
