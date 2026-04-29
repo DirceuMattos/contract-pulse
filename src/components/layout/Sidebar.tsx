@@ -11,6 +11,7 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Bell,
   UserCog,
@@ -22,6 +23,9 @@ import {
   Truck,
   ClipboardList,
   Sparkles,
+  Briefcase,
+  UserCircle2,
+  Cog,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
@@ -53,6 +57,7 @@ type NavItem = {
 
 type NavGroup = {
   label?: string;
+  icon?: any;
   items: NavItem[];
 };
 
@@ -65,6 +70,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Adm Clientes e Contratos',
+    icon: Briefcase,
     items: [
       { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
       { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
@@ -74,6 +80,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Adm Recursos e Pessoas',
+    icon: UserCircle2,
     items: [
       { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
       { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
@@ -91,6 +98,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Setup',
+    icon: Cog,
     items: [
       { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
       { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
@@ -117,6 +125,28 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const visibleGroups = navGroups
     .map((g) => ({ ...g, items: g.items.filter(isItemVisible) }))
     .filter((g) => g.items.length > 0);
+
+  // Estado de abertura por grupo (apenas para grupos com label).
+  // Inicializa com o grupo que contém a rota ativa aberto; demais fechados.
+  const initialOpen = React.useMemo(() => {
+    const map: Record<string, boolean> = {};
+    visibleGroups.forEach((g) => {
+      if (!g.label) return;
+      map[g.label] = g.items.some(
+        (it) =>
+          !it.comingSoon &&
+          !it.external &&
+          it.path !== '#' &&
+          (location.pathname === it.path ||
+            (it.path !== '/dashboard' && location.pathname.startsWith(it.path))),
+      );
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(initialOpen);
+  const toggleGroup = (label: string) =>
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
 
   const isActiveItem = (item: NavItem) =>
     !item.comingSoon &&
@@ -178,48 +208,105 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
 
   const renderGroups = (opts: { showLabels: boolean; onNavigate?: () => void; useTooltip?: boolean }) => {
     const { showLabels, onNavigate, useTooltip } = opts;
+
+    const renderItemsList = (items: NavItem[]) => (
+      <ul className="space-y-1">
+        {items.map((item) => {
+          const body = renderItemBody(item, showLabels, onNavigate);
+          return (
+            <li key={`${item.label}-${item.path}`}>
+              {useTooltip && !showLabels ? (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>{body}</TooltipTrigger>
+                  <TooltipContent side="right" className="font-medium">
+                    {item.label}
+                    {item.comingSoon ? ' (Em breve)' : ''}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                body
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    );
+
     return (
       <ul className="space-y-1">
-        {visibleGroups.map((group, gIdx) => (
-          <React.Fragment key={`group-${gIdx}`}>
-            {gIdx > 0 && (
-              <li aria-hidden="true" className="px-3 pt-3 pb-1">
-                {showLabels && group.label ? (
-                  <span className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/50">
-                    {group.label}
-                  </span>
-                ) : (
-                  <div className="border-t border-sidebar-border/60" />
+        {visibleGroups.map((group, gIdx) => {
+          // Grupos sem label: itens sempre visíveis (Dashboard/Alertas/Ajuda)
+          if (!group.label) {
+            return (
+              <li key={`group-${gIdx}`}>
+                {gIdx > 0 && !showLabels && (
+                  <div className="mx-3 mb-2 border-t border-sidebar-border/60" />
                 )}
+                {renderItemsList(group.items)}
               </li>
-            )}
-            {gIdx === 0 && showLabels && group.label && (
-              <li aria-hidden="true" className="px-3 pb-1">
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/50">
-                  {group.label}
-                </span>
+            );
+          }
+
+          // Grupos com label: accordion (somente quando a sidebar está expandida)
+          if (!showLabels) {
+            // Sidebar colapsada: mostra apenas ícones dos itens (com tooltip)
+            return (
+              <li key={`group-${gIdx}`}>
+                {gIdx > 0 && <div className="mx-3 mb-2 border-t border-sidebar-border/60" />}
+                {renderItemsList(group.items)}
               </li>
-            )}
-            {group.items.map((item) => {
-              const body = renderItemBody(item, showLabels, onNavigate);
-              return (
-                <li key={`${item.label}-${item.path}`}>
-                  {useTooltip && !showLabels ? (
-                    <Tooltip delayDuration={0}>
-                      <TooltipTrigger asChild>{body}</TooltipTrigger>
-                      <TooltipContent side="right" className="font-medium">
-                        {item.label}
-                        {item.comingSoon ? ' (Em breve)' : ''}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    body
+            );
+          }
+
+          const open = !!openGroups[group.label];
+          const GroupIcon = group.icon;
+          const groupContainsActive = group.items.some(
+            (it) =>
+              !it.comingSoon &&
+              !it.external &&
+              it.path !== '#' &&
+              (location.pathname === it.path ||
+                (it.path !== '/dashboard' && location.pathname.startsWith(it.path))),
+          );
+
+          return (
+            <li key={`group-${gIdx}`} className="pt-1">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label!)}
+                aria-expanded={open}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all duration-200',
+                  'text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent',
+                  groupContainsActive && 'text-sidebar-foreground',
+                )}
+              >
+                {GroupIcon && <GroupIcon className="w-5 h-5 shrink-0" />}
+                <span className="text-sm font-semibold flex-1 text-left truncate">{group.label}</span>
+                <ChevronDown
+                  className={cn(
+                    'w-4 h-4 shrink-0 transition-transform duration-200',
+                    open ? 'rotate-0' : '-rotate-90',
                   )}
-                </li>
-              );
-            })}
-          </React.Fragment>
-        ))}
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {open && (
+                  <motion.div
+                    key="content"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pl-4 pt-1">{renderItemsList(group.items)}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </li>
+          );
+        })}
       </ul>
     );
   };
