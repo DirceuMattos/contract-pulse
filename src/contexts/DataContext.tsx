@@ -325,6 +325,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getResourcesByContract = useCallback((contractId: string) => resources.filter(r => r.contractId === contractId), [resources]);
 
+  const refreshResources = useCallback(async () => {
+    const { data } = await supabase.from('resources').select('*').order('created_at');
+    if (data) setResources(data.map(r => resourceFromDb(r as unknown as Record<string, unknown>)));
+  }, []);
+
   // ─── SETTINGS ─────────────────────────────────────────────────────────────────
   const updateSettings = useCallback(async (data: Partial<Settings>): Promise<void> => {
     const prev = settings;
