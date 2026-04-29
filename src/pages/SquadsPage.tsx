@@ -367,7 +367,7 @@ export default function SquadsPage() {
 
     for (const cd of squadsData) {
       for (const td of cd.teams) {
-        for (const { resource: r, resolvedNome, resolvedCargo } of td.resources) {
+        for (const { resource: r, resolvedNome, resolvedCargo, isVacant } of td.resources) {
           const key = r.hrPersonId
             ? `hr:${r.hrPersonId}`
             : `${resolvedNome.toLowerCase().trim()}||${resolvedCargo.toLowerCase().trim()}`;
@@ -378,12 +378,14 @@ export default function SquadsPage() {
               nome: resolvedNome || 'Sem nome',
               cargo: resolvedCargo || 'Sem cargo',
               teamName: td.teamName,
+              isVacant: !!isVacant,
               totalDedicacao: 0,
               allocations: [],
             });
           }
 
           const entry = resourceMap.get(key)!;
+          if (isVacant) entry.isVacant = true;
           entry.totalDedicacao += r.percentualDedicacao;
           entry.allocations.push({
             resourceId: r.id,
