@@ -321,7 +321,7 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers.length === 0 ? (
+            {sortedUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12">
                   <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -329,7 +329,7 @@ export default function UsersPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((user) => {
+              sortedUsers.map((user) => {
                 const RoleIcon = roleIcons[user.role];
                 return (
                   <TableRow key={user.id}>
