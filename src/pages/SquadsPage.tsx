@@ -485,6 +485,7 @@ export default function SquadsPage() {
   const renderTeamBar = (td: SquadTeamData, cd: ContractSquadData) => {
     const totalResources = cd.teams.reduce((s, t) => s + t.resources.length, 0);
     const resourcePercent = totalResources > 0 ? (td.resources.length / totalResources) * 100 : 0;
+    const inactiveNames = td.resources.filter(r => r.isVacant).map(r => r.resolvedNome || 'Sem nome');
 
     return (
       <div key={td.teamName} className="flex items-center gap-2 text-sm">
@@ -494,6 +495,21 @@ export default function SquadsPage() {
         <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
           <div className="h-full bg-primary/70 rounded-full transition-all" style={{ width: `${Math.min(viewMode === 'compact' ? resourcePercent : td.percent, 100)}%` }} />
         </div>
+        {inactiveNames.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="destructive" className="text-[9px] gap-0.5 shrink-0">
+                <AlertTriangle className="w-2.5 h-2.5" /> {inactiveNames.length} inativo{inactiveNames.length > 1 ? 's' : ''}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-xs">
+                <p className="font-medium mb-1">Colaborador(es) inativo(s) no RH:</p>
+                {inactiveNames.map((n, i) => <div key={i}>• {n}</div>)}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
         {viewMode === 'compact' ? (
           <>
             <span className="w-20 text-right text-muted-foreground tabular-nums">{td.resources.length} rec.</span>
