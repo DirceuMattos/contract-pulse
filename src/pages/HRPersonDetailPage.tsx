@@ -22,6 +22,7 @@ import { useHR } from '@/contexts/HRContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { HRPerson, HRTimelineEvent, Contract } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
 import { differenceInMonths } from 'date-fns';
@@ -67,6 +68,7 @@ export default function HRPersonDetailPage() {
   const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts, updateResource, refreshResources } = useData();
   const { canEdit, canViewHRCosts, user, userRole } = useAuth();
+  const { allocations: subprojectAllocations, subprojects: contractSubprojects, refreshData: refreshSubprojectData } = useSubprojects();
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
