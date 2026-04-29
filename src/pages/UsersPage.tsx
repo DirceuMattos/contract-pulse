@@ -16,6 +16,9 @@ import {
   Eye,
   MoreHorizontal,
   Activity,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
