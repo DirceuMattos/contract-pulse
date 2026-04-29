@@ -1,35 +1,63 @@
-## Renomear marca: BNPContractCore → BNPHub
+## Reestruturar Sidebar com grupos visuais
 
-Substituições somente de texto e atributos `alt`. Nenhuma lógica, rota, classe CSS, nome de variável/arquivo ou módulo é alterado. Itens funcionais que contêm a palavra "Contratos" (rotas, labels de navegação, KPIs, mocks, módulos de acesso) são preservados.
+Refatoro `src/components/layout/Sidebar.tsx` para organizar a navegação em grupos rotulados, mantendo `canAccessModule`, comportamento de colapso, mobile drawer e tooltips.
 
-### Arquivos e mudanças
+### Estrutura de grupos (nesta ordem)
 
-1. `index.html`
-  - `<title>BNPContractCore - Gestão de Contratos</title>` → `BNPHub - Gestão de Contratos`
-  - `meta description` "BNPContractCore - ..." → "BNPHub - ..."
-  - `og:title` e `twitter:title`: `BNPContractCore` → `BNPHub`
-2. `src/pages/LoginPage.tsx`
-  - `alt="BNPContractCore"` (2x) → `alt="BNPHub"`
-  - Texto do logo (2x): `<span>BNPContract</span><span>Core</span>` → `<span>BNP</span><span>Hub</span>`
-3. `src/pages/ChangePasswordPage.tsx`
-  - `alt="BNPContractCore"` → `alt="BNPHub"`
-  - `<span>BNPContract</span><span>Core</span>` → `<span>BNP</span><span>Hub</span>`
-4. `src/pages/ResetPasswordPage.tsx`
-  - `alt="BNPContractCore"` → `alt="BNPHub"`
-  - `<span>BNPContract</span><span>Core</span>` → `<span>BNP</span><span>Hub</span>`
-5. `src/pages/ForgotPasswordPage.tsx`
-  - `alt="BNPContractCore"` → `alt="BNPHub"`
-  - `<span>BNPContract</span><span>Core</span>` → `<span>BNP</span><span>Hub</span>`
-6. `src/components/layout/Sidebar.tsx`
-  - `alt="BNPContractCore"` (3x) → `alt="BNPHub"`
-  - Texto do logo (2x): `<span>BNP</span><span>Contratos</span>` → `<span>BNP</span><span>Hub</span>`
-  - Mantém intacto o item de menu "Contratos" (rota `/contratos`).
+1. (sem rótulo) — Dashboard, Alertas
+2. **Adm Clientes e Contratos** — Clientes, Contratos, Recebíveis, Simulador de Contratos
+3. **Adm Recursos e Pessoas** — Recursos Humanos, Squads, Adm Horas Extras (Em breve), Adm Transportes (Em breve), Requisição de Vagas (link externo, restrito), Skills de Vagas (Em breve)
+4. **Setup** — Configurações, Usuários, Importar/Exportar
+5. (sem rótulo) — Ajuda
 
-### Não alterado
+"Análises com IA" (`/ai`) é removido do menu; rotas continuam acessíveis por URL/CommandPalette.
 
-- Comentário em `src/index.css` ("BNPContratos Design System") — não aparece em tela.
-- Toda label/módulo/KPI/rota com a palavra "Contratos" (Sidebar menu, Dashboard, ContractsPage, ImportExport, AILogs, etc.) — são funcionais, não a marca.
-- Nomes de arquivos, componentes, variáveis, classes CSS.
-- Logos (imagens) permanecem os mesmos; apenas o `alt` muda.
+### Modelo de dados
 
-Não altere mais nada.
+Substituo o array plano `navItems` por uma lista de grupos:
+
+```ts
+type NavItem = {
+  path: string; label: string; icon: any;
+  moduleKey?: ModuleKey;
+  comingSoon?: boolean;        // desabilitado + badge "Em breve"
+  external?: boolean;          // <a target="_blank">
+  allowedRoles?: UserRole[];   // restrição extra por papel
+};
+type NavGroup = { label?: string; items: NavItem[] };
+```
+
+Restrição "Requisição de Vagas": `allowedRoles: ['c-level', 'intermediario', 'lider_tribo']` (confirmado em `src/types/index.ts`). `path: '#'`, `external: true`.
+
+### Renderização
+
+- Função `renderGroups({ showLabels, useTooltip, onNavigate })` reutilizada em mobile e desktop.
+- Rótulo da seção: `text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/50` no topo do grupo.
+- Entre grupos, quando colapsado (sem labels), mostra um separador fino (`border-t border-sidebar-border/60`) no lugar do rótulo, preservando agrupamento visual.
+- Itens "Em breve": `<div>` não-clicável (sem `<Link>`), com badge à direita (`Em breve`) e cor esmaecida (`text-sidebar-foreground/40 cursor-not-allowed`). No estado colapsado, tooltip mostra "Label (Em breve)".
+- Itens externos: `<a href target="_blank" rel="noopener noreferrer">`.
+- Itens normais: `<Link>` mantendo a lógica `isActive` atual.
+
+### Visibilidade
+
+Filtro por grupo:
+
+- `moduleKey` → `canAccessModule(moduleKey)` (mantido).
+- `allowedRoles` → checa `userRole` do `useAuth`.
+- Grupos cujos itens visíveis = 0 são omitidos (incluindo seu rótulo).
+
+### Compatibilidade
+
+- Comportamento de colapso (`collapsed`/`onToggle`), mobile drawer, footer (user/logout/toggle) preservados.
+- Tooltips no estado colapsado preservadas para todos os itens (inclusive desabilitados).
+- Nenhuma mudança em rotas, `moduleAccess`, ou outras telas.
+
+### Ícones novos do `lucide-react`
+
+`Clock` (Horas Extras), `Truck` (Transportes), `ClipboardList` (Requisição de Vagas), `Sparkles` (Skills de Vagas — reaproveitado). Remoção do uso de `Sparkles` para "Análises com IA" no menu.
+
+### Arquivos
+
+- `src/components/layout/Sidebar.tsx` — única edição.
+
+Não altere mais nada no sistema
