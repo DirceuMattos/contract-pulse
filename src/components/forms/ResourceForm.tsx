@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Building, Box, Calculator, Info, Link2 } from 'lucide-react';
+import { User, Building, Box, Calculator, Info, Link2, AlertTriangle } from 'lucide-react';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
