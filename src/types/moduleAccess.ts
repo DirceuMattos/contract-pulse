@@ -53,11 +53,11 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 // Default modules enabled per role (modules not listed default to false for these roles)
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   comercial: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
-  lider_tribo: ['DASHBOARD', 'SQUADS', 'CONTRACT_DETAIL', 'RESOURCES'],
+  lider_tribo: ['DASHBOARD', 'SQUADS', 'JOB_REQUESTS'],
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
-  rh: ['DASHBOARD', 'SQUADS', 'HR'],
-  administrativo: [], // all managed via flags
-  intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR', 'RECEIVABLES'],
+  rh: ['DASHBOARD', 'SQUADS', 'HR', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  administrativo: [], // all managed via flags — OVERTIME and TRANSPORT inherit the legacy "all enabled" branch
+  intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
 };
 
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
