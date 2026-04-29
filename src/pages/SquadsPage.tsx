@@ -112,7 +112,7 @@ export default function SquadsPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
-  const { canEdit } = useAuth();
+  const { canEdit, canCreate } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -641,7 +641,7 @@ export default function SquadsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {canEdit && rd.resourceKey.startsWith('hr:') && (
+              {canCreate && rd.resourceKey.startsWith('hr:') && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
