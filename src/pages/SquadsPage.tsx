@@ -59,6 +59,7 @@ interface ResourceViewData {
   nome: string;
   cargo: string;
   teamName: string;
+  isVacant: boolean;
   totalDedicacao: number;
   allocations: {
     resourceId: string;
@@ -366,7 +367,7 @@ export default function SquadsPage() {
 
     for (const cd of squadsData) {
       for (const td of cd.teams) {
-        for (const { resource: r, resolvedNome, resolvedCargo } of td.resources) {
+        for (const { resource: r, resolvedNome, resolvedCargo, isVacant } of td.resources) {
           const key = r.hrPersonId
             ? `hr:${r.hrPersonId}`
             : `${resolvedNome.toLowerCase().trim()}||${resolvedCargo.toLowerCase().trim()}`;
@@ -377,12 +378,14 @@ export default function SquadsPage() {
               nome: resolvedNome || 'Sem nome',
               cargo: resolvedCargo || 'Sem cargo',
               teamName: td.teamName,
+              isVacant: !!isVacant,
               totalDedicacao: 0,
               allocations: [],
             });
           }
 
           const entry = resourceMap.get(key)!;
+          if (isVacant) entry.isVacant = true;
           entry.totalDedicacao += r.percentualDedicacao;
           entry.allocations.push({
             resourceId: r.id,
@@ -527,10 +530,10 @@ export default function SquadsPage() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge variant="destructive" className="text-[9px] gap-0.5">
-                            <AlertTriangle className="w-2.5 h-2.5" /> Vago
+                            <AlertTriangle className="w-2.5 h-2.5" /> Colaborador Inativo
                           </Badge>
                         </TooltipTrigger>
-                        <TooltipContent>Profissional desligado — designar substituto</TooltipContent>
+                        <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                       </Tooltip>
                     )}
                     {isBrokenLink && !isVacant && (
@@ -631,9 +634,19 @@ export default function SquadsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                {rd.nome}
+                <span className={cn(rd.isVacant && 'text-destructive')}>{rd.nome}</span>
+                {rd.isVacant && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="destructive" className="text-[10px] gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Colaborador Inativo
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
+                  </Tooltip>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">{rd.cargo}</span>

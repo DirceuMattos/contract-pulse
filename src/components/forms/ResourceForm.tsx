@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Building, Box, Calculator, Info, Link2 } from 'lucide-react';
+import { User, Building, Box, Calculator, Info, Link2, AlertTriangle } from 'lucide-react';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -492,6 +492,12 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
                           {linkedPerson.tipoVinculo === 'clt' ? 'CLT' : 'PJ'}
                         </span>
+                      </div>
+                    )}
+                    {linkedPerson?.situacao === 'inativo' && (
+                      <div className="mt-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>Este colaborador está inativo no RH. Considere atualizar ou remover esta alocação.</span>
                       </div>
                     )}
                   </FormItem>

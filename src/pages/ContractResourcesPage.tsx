@@ -638,10 +638,10 @@ export default function ContractResourcesPage() {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Badge variant="destructive" className="text-[10px] gap-1">
-                                      <AlertTriangle className="w-3 h-3" /> Vago
+                                      <AlertTriangle className="w-3 h-3" /> Colaborador Inativo
                                     </Badge>
                                   </TooltipTrigger>
-                                  <TooltipContent>Profissional desligado — designar substituto</TooltipContent>
+                                  <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                                 </Tooltip>
                               ) : resolved.isBrokenLink ? (
                                 <Tooltip>

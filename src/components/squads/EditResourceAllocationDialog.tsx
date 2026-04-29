@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useData } from '@/contexts/DataContext';
+import { useHR } from '@/contexts/HRContext';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { toast } from 'sonner';
 
@@ -29,7 +31,14 @@ interface EditResourceAllocationDialogProps {
 
 export function EditResourceAllocationDialog({ open, onOpenChange, allocation, personName }: EditResourceAllocationDialogProps) {
   const { contracts, updateResource, deleteResource } = useData();
+  const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, updateAllocation, deleteAllocation, addAllocation } = useSubprojects();
+
+  const isInactivePerson = useMemo(() => {
+    if (!allocation.hrPersonId) return false;
+    const person = hrPeople.find(p => p.id === allocation.hrPersonId);
+    return person?.situacao === 'inativo';
+  }, [hrPeople, allocation.hrPersonId]);
 
   const [dedication, setDedication] = useState(allocation.percentualDedicacao);
   const [targetContractId, setTargetContractId] = useState('same');
@@ -123,6 +132,12 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
             <Label className="text-muted-foreground text-xs">Recurso</Label>
             <p className="font-medium">{personName}</p>
           </div>
+          {isInactivePerson && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>Este colaborador está inativo no RH. Considere atualizar ou remover esta alocação.</span>
+            </div>
+          )}
           <div>
             <Label className="text-muted-foreground text-xs">Contrato atual</Label>
             <p className="text-sm">
