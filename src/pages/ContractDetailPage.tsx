@@ -211,9 +211,21 @@ export default function ContractDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground">{contract.nome}</h1>
               <Badge variant="secondary">{contract.codigo}</Badge>
+              {contract.status === 'encerrado' && (
+                <Badge className="bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
+              )}
+              {contract.status === 'suspenso' && (
+                <Badge className="bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
+              )}
+              {contract.status === 'implantacao' && (
+                <Badge variant="outline">Em Implantação</Badge>
+              )}
+              {contract.status === 'operacao' && (
+                <Badge variant="outline" className="border-emerald-600 text-emerald-700 dark:text-emerald-400">Em Operação</Badge>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <button 
