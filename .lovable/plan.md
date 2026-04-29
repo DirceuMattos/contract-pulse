@@ -1,29 +1,17 @@
-## Adicionar novos ModuleKeys para módulos planejados
+## Timeline: gerar evento de "reajuste" para mudanças em remuneração/benefícios
 
-Alterar apenas `src/types/moduleAccess.ts`:
+Alterar apenas `src/pages/HRPersonDetailPage.tsx`, dentro de `handleEdit` (linhas 153–172).
 
-### 1. `MODULE_KEYS`
-Acrescentar ao final do array:
-`'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'`
+### Comportamento atual
+Toda mudança detectada (incluindo remuneração e benefícios) entra na lista `changes` e é gravada como evento `ocorrencia: 'observacao'`.
 
-### 2. `MODULE_CATALOG`
-Adicionar 4 entradas ao final:
-- `OVERTIME` → "Adm Horas Extras", rota `/horas-extras`
-- `TRANSPORT` → "Adm Transportes", rota `/transportes`
-- `JOB_REQUESTS` → "Requisição de Vagas", rota `/requisicao-vagas`
-- `JOB_SKILLS` → "Skills de Vagas", rota `/skills-vagas`
+### Mudança
+1. Capturar separadamente a string da mudança de remuneração (`remuneracaoChange`) e a de benefícios (`beneficiosChange`), continuando a empurrá-las em `changes`.
+2. No loop de criação de eventos, para cada `change`:
+   - Se for `remuneracaoChange` ou `beneficiosChange` → `ocorrencia: 'reajuste'`; caso contrário → mantém `'observacao'`.
+   - Se for `remuneracaoChange` → incluir `remuneracaoApos: data.remuneracaoMensal`.
+   - Se for `beneficiosChange` → incluir `beneficiosApos: data.beneficios`.
+   - `atualizarRemuneracao: false` mantido (pois `updatePerson` já foi chamado antes).
+   - `descricao` permanece exatamente a mesma já gerada.
 
-Todos com `roleRestrictions: []`.
-
-### 3. `ROLE_DEFAULT_MODULES`
-- `lider_tribo`: `['DASHBOARD', 'SQUADS', 'JOB_REQUESTS']` (conforme instrução literal — observação: isso remove `CONTRACT_DETAIL` e `RESOURCES` adicionados anteriormente; o acesso desses dois para Líder de Tribo continua garantido pelo `FORCED_GRANTS` no hook `useModuleAccess`)
-- `intermediario`: acrescentar `'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'`
-- `administrativo`: trocar `[]` por `['OVERTIME', 'TRANSPORT']`
-- `rh`: acrescentar `'JOB_REQUESTS', 'JOB_SKILLS'`
-
-### Observação sobre `administrativo`
-O comentário atual diz "all managed via flags" e a lista vazia hoje significa que o `getDefaultModuleAccess` cai no branch "todos os módulos permitidos habilitados". Ao passar a lista para `['OVERTIME', 'TRANSPORT']`, o branch muda para "apenas listados habilitados", o que **desabilitaria todos os outros módulos para esse perfil**.
-
-Para honrar a instrução de "não alterar comportamento existente", manterei o comportamento atual de `administrativo` adicionando os dois novos módulos via outro mecanismo: deixarei a lista de `administrativo` como `[]` (mantendo o branch legado de "todos habilitados") — assim `OVERTIME` e `TRANSPORT` já ficam habilitados por padrão para esse perfil sem efeito colateral. Confirme se prefere mesmo trocar para a lista explícita (que vai restringir o perfil aos dois módulos novos apenas).
-
-Nenhum outro arquivo será alterado.
+Nenhuma outra parte da `handleEdit` ou de qualquer outro arquivo será modificada.
