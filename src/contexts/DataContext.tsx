@@ -56,6 +56,7 @@ interface DataContextType {
   updateResource: (id: string, data: Partial<Resource>) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;
   getResourcesByContract: (contractId: string) => Resource[];
+  refreshResources: () => Promise<void>;
 
   updateSettings: (data: Partial<Settings>) => Promise<void>;
 
@@ -323,6 +324,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [resources, handleError, updateContract]);
 
   const getResourcesByContract = useCallback((contractId: string) => resources.filter(r => r.contractId === contractId), [resources]);
+
+  const refreshResources = useCallback(async () => {
+    const { data } = await supabase.from('resources').select('*').order('created_at');
+    if (data) setResources(data.map(r => resourceFromDb(r as unknown as Record<string, unknown>)));
+  }, []);
 
   // ─── SETTINGS ─────────────────────────────────────────────────────────────────
   const updateSettings = useCallback(async (data: Partial<Settings>): Promise<void> => {
@@ -646,7 +652,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       jobTitles, teams, distinctHRNames, loading,
       addClient, updateClient, deleteClient, getClient,
       addContract, updateContract, deleteContract, getContract, getContractsByClient,
-      addResource, updateResource, deleteResource, getResourcesByContract,
+      addResource, updateResource, deleteResource, getResourcesByContract, refreshResources,
       updateSettings,
       addSnapshot, getSnapshotsByContract,
       addOverheadItem, updateOverheadItem, deleteOverheadItem, getOverheadByContract,

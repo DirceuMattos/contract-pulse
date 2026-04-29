@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,7 @@ import { HRPerson, HRTimelineEvent, Contract } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
 import { differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 function calcularTempoDeCasa(dataAdmissao: string, dataDesligamento?: string): string {
   const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
@@ -64,7 +65,7 @@ export default function HRPersonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
-  const { teams, jobTitles, resources, contracts, updateResource } = useData();
+  const { teams, jobTitles, resources, contracts, updateResource, refreshResources } = useData();
   const { canEdit, canViewHRCosts, user, userRole } = useAuth();
 
   const person = getPerson(id!);
@@ -87,6 +88,7 @@ export default function HRPersonDetailPage() {
 
   // Reativar state
   const [reativarOpen, setReativarOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   if (!person) {
     return (
@@ -583,7 +585,13 @@ export default function HRPersonDetailPage() {
         </TabsContent>
 
         {/* Alocações */}
-        <TabsContent value="alocacoes">
+        <TabsContent value="alocacoes" className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" disabled={refreshing} onClick={async () => { setRefreshing(true); await refreshResources(); setRefreshing(false); }}>
+              <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
+              {refreshing ? 'Atualizando...' : 'Atualizar alocações'}
+            </Button>
+          </div>
           {alocacoes.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
