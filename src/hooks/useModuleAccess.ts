@@ -10,9 +10,14 @@ export function useModuleAccess() {
     // 1. Check role-level restriction first
     if (!isRoleAllowedForModule(userRole, moduleKey)) return false;
     
-    // 2. Check user-specific moduleAccess from DB permissions, merged with defaults
-    // (defaults fill in any keys not explicitly set in DB, so newly-added module
-    // permissions take effect for existing users without manual reconfiguration)
+    // 2. Role-based forced grants — modules that a role must always access,
+    // regardless of stale per-user DB permissions.
+    const FORCED_GRANTS: Partial<Record<string, ModuleKey[]>> = {
+      lider_tribo: ['DASHBOARD', 'SQUADS', 'CONTRACT_DETAIL', 'RESOURCES'],
+    };
+    if (FORCED_GRANTS[userRole]?.includes(moduleKey)) return true;
+
+    // 3. Check user-specific moduleAccess from DB permissions, merged with defaults
     const defaults = getDefaultModuleAccess(userRole);
     const access = modulePermissions ? { ...defaults, ...modulePermissions } : defaults;
     if (access[moduleKey] === false) return false;
