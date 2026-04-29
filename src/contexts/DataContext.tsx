@@ -56,6 +56,7 @@ interface DataContextType {
   updateResource: (id: string, data: Partial<Resource>) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;
   getResourcesByContract: (contractId: string) => Resource[];
+  refreshResources: () => Promise<void>;
 
   updateSettings: (data: Partial<Settings>) => Promise<void>;
 
