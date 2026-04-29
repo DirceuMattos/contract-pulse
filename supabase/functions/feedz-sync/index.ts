@@ -48,6 +48,20 @@ function normalizePhone(phone: string | null | undefined): string | null {
   return digits
 }
 
+// ─── TIMELINE IDEMPOTENT INSERT ──────────────────────────────────────────────
+async function insertTimelineIdempotent(db: any, novoEvento: Record<string, any>): Promise<void> {
+  const { data: existing } = await db
+    .from('hr_timeline')
+    .select('id')
+    .eq('person_id', novoEvento.person_id)
+    .eq('event_date', novoEvento.event_date)
+    .eq('ocorrencia', novoEvento.ocorrencia)
+    .eq('descricao', novoEvento.descricao)
+    .maybeSingle()
+  if (existing) return
+  await db.from('hr_timeline').insert(novoEvento)
+}
+
 // ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
 function computePayloadHash(data: Record<string, any>): string {
   const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento', 'remuneracao_mensal']
@@ -433,7 +447,7 @@ Deno.serve(async (req) => {
             })
 
             // Timeline: Admissão
-            await db.from('hr_timeline').insert({
+            await insertTimelineIdempotent(db, {
               person_id: inserted.id, event_date: dbPayload.data_admissao,
               ocorrencia: 'admissao', descricao: `Admissão sincronizada via Feedz (matrícula ${matricula}). tipo_vinculo=clt (padrão — campo indisponível na API Feedz).`,
               atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
@@ -515,7 +529,7 @@ Deno.serve(async (req) => {
 
             // Timeline events for sensitive changes
             if (existing.situacao !== 'ativo' && dbPayload.situacao === 'ativo') {
-              await db.from('hr_timeline').insert({
+              await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
                 ocorrencia: 'reativacao', descricao: `Reativação sincronizada via Feedz (matrícula ${matricula})`,
                 atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
@@ -526,7 +540,7 @@ Deno.serve(async (req) => {
               const oldLabel = (existingJobs || []).find((j: any) => j.id === existing.cargo_id)?.label || 'Sem cargo'
               const newLabel = feedzJob || 'Sem cargo'
               await db.from('hr_people').update({ cargo_antigo: oldLabel }).eq('id', existing.id)
-              await db.from('hr_timeline').insert({
+              await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
                 ocorrencia: 'mudanca-cargo', descricao: `Cargo alterado via Feedz: ${oldLabel} → ${newLabel}`,
                 atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
@@ -535,7 +549,7 @@ Deno.serve(async (req) => {
 
             if (fieldsChanged.some(f => f.field === 'remuneracao_mensal') && remuneracaoValid && rawRemuneracao !== null) {
               const oldR = Number(existing.remuneracao_mensal)
-              await db.from('hr_timeline').insert({
+              await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
                 ocorrencia: 'reajuste', descricao: `Remuneração alterada via Feedz: R$ ${oldR.toFixed(2)} → R$ ${rawRemuneracao.toFixed(2)}`,
                 valor: rawRemuneracao - oldR, remuneracao_apos: rawRemuneracao,
@@ -597,7 +611,7 @@ Deno.serve(async (req) => {
               payload_hash: payloadHash,
             })
 
-            await db.from('hr_timeline').insert({
+            await insertTimelineIdempotent(db, {
               person_id: existing.id, event_date: effectiveDate,
               ocorrencia: 'desligamento',
               descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data: ${effectiveDate} (fonte: ${dateSource}).${turnoverInfo?.reason ? ` Motivo: ${turnoverInfo.reason}` : ''}`,
