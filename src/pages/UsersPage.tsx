@@ -16,6 +16,9 @@ import {
   Eye,
   MoreHorizontal,
   Activity,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
@@ -97,6 +100,24 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'role' | 'status' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (col: 'name' | 'role' | 'status') => {
+    if (sortBy === col) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: 'name' | 'role' | 'status' }) => {
+    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1" />
+      : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
 
   // Only c-level can access this page
   if (currentUser?.role !== 'c-level') {
@@ -119,6 +140,21 @@ export default function UsersPage() {
     user.name.toLowerCase().includes(search.toLowerCase()) ||
     user.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  const sortedUsers = React.useMemo(() => {
+    if (!sortBy) return filteredUsers;
+    const arr = [...filteredUsers];
+    arr.sort((a, b) => {
+      let av = '';
+      let bv = '';
+      if (sortBy === 'name') { av = a.name; bv = b.name; }
+      else if (sortBy === 'role') { av = roleLabels[a.role]; bv = roleLabels[b.role]; }
+      else if (sortBy === 'status') { av = a.active ? '1' : '0'; bv = b.active ? '1' : '0'; }
+      const cmp = av.localeCompare(bv, 'pt-BR');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [filteredUsers, sortBy, sortDir]);
 
   const handleEdit = (user: SystemUser) => {
     setEditingUser(user);
@@ -249,16 +285,43 @@ export default function UsersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Usuário</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => handleSort('name')}
+                  className="inline-flex items-center font-medium hover:text-foreground transition-colors"
+                >
+                  Usuário
+                  <SortIcon col="name" />
+                </button>
+              </TableHead>
               <TableHead>E-mail</TableHead>
-              <TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => handleSort('role')}
+                  className="inline-flex items-center font-medium hover:text-foreground transition-colors"
+                >
+                  Perfil
+                  <SortIcon col="role" />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() => handleSort('status')}
+                  className="inline-flex items-center font-medium hover:text-foreground transition-colors"
+                >
+                  Status
+                  <SortIcon col="status" />
+                </button>
+              </TableHead>
               <TableHead>Criado em</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers.length === 0 ? (
+            {sortedUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12">
                   <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -266,7 +329,7 @@ export default function UsersPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((user) => {
+              sortedUsers.map((user) => {
                 const RoleIcon = roleIcons[user.role];
                 return (
                   <TableRow key={user.id}>
