@@ -105,7 +105,7 @@ export default function ContractsPage() {
   const navigate = useNavigate();
   const { contracts, clients, resources: _rawResources, settings, deleteContract } = useData();
   const { resolvedResources: resources } = useResolvedResources();
-  const { canEdit, canViewValues } = useAuth();
+  const { canEdit, canCreate, canDelete, canViewValues } = useAuth();
   const { getAlertsForContract } = useAlerts();
   const { getAllocation } = useOverheadPool();
   
@@ -316,7 +316,7 @@ export default function ContractsPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {canEdit && (
+            {canCreate && (
               <Button onClick={() => navigate('/contratos/novo')} className="gap-2">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Novo Contrato</span>
@@ -690,14 +690,18 @@ export default function ContractsPage() {
                               <Users className="w-4 h-4 mr-2" />
                               Recursos
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => setDeleteId(contract.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
+                            {canDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => setDeleteId(contract.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>
@@ -722,7 +726,7 @@ export default function ContractsPage() {
                   : 'Comece cadastrando seu primeiro contrato'
                 }
               </p>
-              {canEdit && !search && activeFiltersCount === 0 && (
+              {canCreate && !search && activeFiltersCount === 0 && (
                 <Button onClick={() => navigate('/contratos/novo')} className="gap-2">
                   <Plus className="w-4 h-4" />
                   Cadastrar Contrato
