@@ -549,7 +549,7 @@ Deno.serve(async (req) => {
 
             if (fieldsChanged.some(f => f.field === 'remuneracao_mensal') && remuneracaoValid && rawRemuneracao !== null) {
               const oldR = Number(existing.remuneracao_mensal)
-              await db.from('hr_timeline').insert({
+              await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
                 ocorrencia: 'reajuste', descricao: `Remuneração alterada via Feedz: R$ ${oldR.toFixed(2)} → R$ ${rawRemuneracao.toFixed(2)}`,
                 valor: rawRemuneracao - oldR, remuneracao_apos: rawRemuneracao,
