@@ -540,7 +540,7 @@ Deno.serve(async (req) => {
               const oldLabel = (existingJobs || []).find((j: any) => j.id === existing.cargo_id)?.label || 'Sem cargo'
               const newLabel = feedzJob || 'Sem cargo'
               await db.from('hr_people').update({ cargo_antigo: oldLabel }).eq('id', existing.id)
-              await db.from('hr_timeline').insert({
+              await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
                 ocorrencia: 'mudanca-cargo', descricao: `Cargo alterado via Feedz: ${oldLabel} → ${newLabel}`,
                 atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
