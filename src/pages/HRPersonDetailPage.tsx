@@ -464,7 +464,7 @@ export default function HRPersonDetailPage() {
                 <Row label="Comitê Gestor" value={person.comiteGestor ? new Date(person.comiteGestor + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '—'} />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Observações</p>
-                  <p className="text-sm">{person.observacoes || '—'}</p>
+                  <p className="text-sm whitespace-pre-wrap">{person.observacoes || '—'}</p>
                 </div>
               </CardContent>
             </Card>
