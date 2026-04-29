@@ -138,8 +138,6 @@ export function EditResourceAllocationDialog({ open, onOpenChange, allocation, p
               <span>Este colaborador está inativo no RH. Considere atualizar ou remover esta alocação.</span>
             </div>
           )}
-          <div style={{ display: 'none' }}>
-          </div>
           <div>
             <Label className="text-muted-foreground text-xs">Contrato atual</Label>
             <p className="text-sm">
