@@ -98,6 +98,14 @@ export default function HRPeoplePage() {
     return Array.from(values).sort();
   }, [hrPeople]);
 
+  const beneficioOptions = useMemo(() => {
+    const values = new Set<string>();
+    hrPeople.forEach(p => {
+      p.beneficiosLista?.forEach(b => { if (b?.nome) values.add(b.nome); });
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [hrPeople]);
+
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
@@ -111,12 +119,13 @@ export default function HRPeoplePage() {
       if (filterComite === '__com') matchComite = !!p.comiteGestor;
       else if (filterComite === '__sem') matchComite = !p.comiteGestor;
       else if (filterComite) matchComite = p.comiteGestor === filterComite;
+      const matchBeneficio = !filterBeneficio || (p.beneficiosLista?.some(b => b.nome === filterBeneficio) ?? false);
       const matchTalento = !filterTalento || !!p.isTalento;
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchTalento && matchGuardiao && matchEmAvaliacao;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterTalento, filterGuardiao, filterEmAvaliacao]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
