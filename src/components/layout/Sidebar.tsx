@@ -17,8 +17,11 @@ import {
   Calculator,
   X,
   UsersRound,
-  Sparkles,
   Receipt,
+  Clock,
+  Truck,
+  ClipboardList,
+  Sparkles,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
@@ -29,6 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { ModuleKey } from '@/types/moduleAccess';
+import { UserRole } from '@/types';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -37,28 +41,188 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
-const navItems: { path: string; label: string; icon: any; moduleKey?: ModuleKey }[] = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
-  { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
-  { path: '/calculadora', label: 'Simulador de Contratos', icon: Calculator, moduleKey: 'CALCULATOR' },
-  { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
-  { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
-  { path: '/receivables', label: 'Recebíveis', icon: Receipt, moduleKey: 'RECEIVABLES' },
-  { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
-  { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
-  { path: '/ai', label: 'Análises com IA', icon: Sparkles, moduleKey: 'AI' },
-  { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
-  { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
-  { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
-  
-  { path: '/ajuda', label: 'Ajuda', icon: HelpCircle },
+type NavItem = {
+  path: string;
+  label: string;
+  icon: any;
+  moduleKey?: ModuleKey;
+  comingSoon?: boolean;
+  external?: boolean;
+  allowedRoles?: UserRole[];
+};
+
+type NavGroup = {
+  label?: string;
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+  {
+    items: [
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
+      { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
+    ],
+  },
+  {
+    label: 'Adm Clientes e Contratos',
+    items: [
+      { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
+      { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
+      { path: '/receivables', label: 'Recebíveis', icon: Receipt, moduleKey: 'RECEIVABLES' },
+      { path: '/calculadora', label: 'Simulador de Contratos', icon: Calculator, moduleKey: 'CALCULATOR' },
+    ],
+  },
+  {
+    label: 'Adm Recursos e Pessoas',
+    items: [
+      { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
+      { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
+      { path: '#', label: 'Adm Horas Extras', icon: Clock, comingSoon: true },
+      { path: '#', label: 'Adm Transportes', icon: Truck, comingSoon: true },
+      {
+        path: '#',
+        label: 'Requisição de Vagas',
+        icon: ClipboardList,
+        external: true,
+        allowedRoles: ['c-level', 'intermediario', 'lider_tribo'],
+      },
+      { path: '#', label: 'Skills de Vagas', icon: Sparkles, comingSoon: true },
+    ],
+  },
+  {
+    label: 'Setup',
+    items: [
+      { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
+      { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
+      { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
+    ],
+  },
+  {
+    items: [{ path: '/ajuda', label: 'Ajuda', icon: HelpCircle }],
+  },
 ];
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, userRole } = useAuth();
   const isMobile = useIsMobile();
   const { canAccessModule } = useModuleAccess();
+
+  const isItemVisible = (item: NavItem): boolean => {
+    if (item.moduleKey && !canAccessModule(item.moduleKey)) return false;
+    if (item.allowedRoles && (!userRole || !item.allowedRoles.includes(userRole))) return false;
+    return true;
+  };
+
+  const visibleGroups = navGroups
+    .map((g) => ({ ...g, items: g.items.filter(isItemVisible) }))
+    .filter((g) => g.items.length > 0);
+
+  const isActiveItem = (item: NavItem) =>
+    !item.comingSoon &&
+    !item.external &&
+    (location.pathname === item.path ||
+      (item.path !== '/dashboard' && item.path !== '#' && location.pathname.startsWith(item.path)));
+
+  const renderItemBody = (item: NavItem, showLabel: boolean, onNavigate?: () => void) => {
+    const Icon = item.icon;
+    const active = isActiveItem(item);
+
+    const baseClasses = cn(
+      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 w-full',
+      active && 'bg-sidebar-accent text-sidebar-primary',
+      !active && !item.comingSoon && 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
+      item.comingSoon && 'text-sidebar-foreground/40 cursor-not-allowed',
+    );
+
+    const inner = (
+      <>
+        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary')} />
+        {showLabel && <span className="text-sm font-medium flex-1 truncate">{item.label}</span>}
+        {showLabel && item.comingSoon && (
+          <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-sidebar-foreground/10 text-sidebar-foreground/60 shrink-0">
+            Em breve
+          </span>
+        )}
+      </>
+    );
+
+    if (item.comingSoon) {
+      return (
+        <div className={baseClasses} aria-disabled="true">
+          {inner}
+        </div>
+      );
+    }
+
+    if (item.external) {
+      return (
+        <a
+          href={item.path}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onNavigate}
+          className={baseClasses}
+        >
+          {inner}
+        </a>
+      );
+    }
+
+    return (
+      <Link to={item.path} onClick={onNavigate} className={baseClasses}>
+        {inner}
+      </Link>
+    );
+  };
+
+  const renderGroups = (opts: { showLabels: boolean; onNavigate?: () => void; useTooltip?: boolean }) => {
+    const { showLabels, onNavigate, useTooltip } = opts;
+    return (
+      <ul className="space-y-1">
+        {visibleGroups.map((group, gIdx) => (
+          <React.Fragment key={`group-${gIdx}`}>
+            {gIdx > 0 && (
+              <li aria-hidden="true" className="px-3 pt-3 pb-1">
+                {showLabels && group.label ? (
+                  <span className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/50">
+                    {group.label}
+                  </span>
+                ) : (
+                  <div className="border-t border-sidebar-border/60" />
+                )}
+              </li>
+            )}
+            {gIdx === 0 && showLabels && group.label && (
+              <li aria-hidden="true" className="px-3 pb-1">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-sidebar-foreground/50">
+                  {group.label}
+                </span>
+              </li>
+            )}
+            {group.items.map((item) => {
+              const body = renderItemBody(item, showLabels, onNavigate);
+              return (
+                <li key={`${item.label}-${item.path}`}>
+                  {useTooltip && !showLabels ? (
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>{body}</TooltipTrigger>
+                      <TooltipContent side="right" className="font-medium">
+                        {item.label}
+                        {item.comingSoon ? ' (Em breve)' : ''}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    body
+                  )}
+                </li>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </ul>
+    );
+  };
 
   // Mobile drawer overlay
   if (isMobile) {
@@ -66,7 +230,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       <AnimatePresence>
         {mobileOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -74,7 +237,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               onClick={onMobileClose}
               className="fixed inset-0 bg-black/50 z-40"
             />
-            {/* Drawer */}
             <motion.aside
               initial={{ x: -280 }}
               animate={{ x: 0 }}
@@ -82,7 +244,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="fixed left-0 top-0 h-screen w-[280px] bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
             >
-              {/* Mobile Header */}
               <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
                 <div className="flex items-center gap-2">
                   <img src={logoBnp} alt="BNP Logo" className="w-16 h-auto object-contain" />
@@ -97,38 +258,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 </Button>
               </div>
 
-              {/* Navigation */}
               <nav className="flex-1 py-4 px-2 overflow-y-auto scrollbar-thin">
-                <ul className="space-y-1">
-                {navItems
-                    .filter(item => !item.moduleKey || canAccessModule(item.moduleKey))
-                    .map((item) => {
-                      const isActive = location.pathname === item.path || 
-                        (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
-                      const Icon = item.icon;
-                      
-                      return (
-                        <li key={item.path}>
-                          <Link
-                            to={item.path}
-                            onClick={onMobileClose}
-                            className={cn(
-                              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-                              'hover:bg-sidebar-accent',
-                              isActive && 'bg-sidebar-accent text-sidebar-primary',
-                              !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
-                            )}
-                          >
-                            <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-sidebar-primary')} />
-                            <span className="text-sm font-medium">{item.label}</span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                </ul>
+                {renderGroups({ showLabels: true, onNavigate: onMobileClose })}
               </nav>
 
-              {/* User & Logout */}
               <div className="border-t border-sidebar-border p-2 space-y-2">
                 {user && (
                   <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
@@ -141,7 +274,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                     </div>
                   </div>
                 )}
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -161,7 +294,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       </AnimatePresence>
     );
   }
-  
+
   // Desktop sidebar
   return (
     <motion.aside
@@ -170,7 +303,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       transition={{ duration: 0.2, ease: 'easeInOut' }}
       className="fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-40 flex flex-col"
     >
-      {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
           <motion.div
@@ -193,69 +325,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           </div>
         )}
       </div>
-      
-      {/* Navigation */}
+
       <nav className="flex-1 py-4 px-2 overflow-y-auto scrollbar-thin">
-        <ul className="space-y-1">
-          {navItems
-            .filter(item => !item.moduleKey || canAccessModule(item.moduleKey))
-            .map((item) => {
-              const isActive = location.pathname === item.path || 
-                (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
-              const Icon = item.icon;
-              
-              const linkContent = (
-                <Link
-                  to={item.path}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-                    'hover:bg-sidebar-accent',
-                    isActive && 'bg-sidebar-accent text-sidebar-primary',
-                    !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
-                  )}
-                >
-                  <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-sidebar-primary')} />
-                  {!collapsed && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-sm font-medium"
-                    >
-                      {item.label}
-                    </motion.span>
-                  )}
-                </Link>
-              );
-              
-              return (
-                <li key={item.path}>
-                  {collapsed ? (
-                    <Tooltip delayDuration={0}>
-                      <TooltipTrigger asChild>
-                        {linkContent}
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="font-medium">
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    linkContent
-                  )}
-                </li>
-              );
-            })}
-        </ul>
+        {renderGroups({ showLabels: !collapsed, useTooltip: true })}
       </nav>
-      
-      {/* User & Collapse */}
+
       <div className="border-t border-sidebar-border p-2 space-y-2">
-        {/* User info */}
         {user && (
-          <div className={cn(
-            'flex items-center gap-3 px-3 py-2 rounded-lg',
-            collapsed ? 'justify-center' : ''
-          )}>
+          <div className={cn('flex items-center gap-3 px-3 py-2 rounded-lg', collapsed ? 'justify-center' : '')}>
             <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary font-semibold text-sm">
               {user.name.charAt(0).toUpperCase()}
             </div>
@@ -267,8 +344,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
             )}
           </div>
         )}
-        
-        {/* Logout button */}
+
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Button
@@ -277,26 +353,23 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               onClick={logout}
               className={cn(
                 'w-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
-                collapsed ? 'px-0 justify-center' : 'justify-start'
+                collapsed ? 'px-0 justify-center' : 'justify-start',
               )}
             >
               <LogOut className="w-4 h-4" />
               {!collapsed && <span className="ml-2">Sair</span>}
             </Button>
           </TooltipTrigger>
-          {collapsed && (
-            <TooltipContent side="right">Sair</TooltipContent>
-          )}
+          {collapsed && <TooltipContent side="right">Sair</TooltipContent>}
         </Tooltip>
-        
-        {/* Collapse toggle */}
+
         <Button
           variant="ghost"
           size="sm"
           onClick={onToggle}
           className={cn(
             'w-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
-            collapsed ? 'px-0 justify-center' : 'justify-start'
+            collapsed ? 'px-0 justify-center' : 'justify-start',
           )}
         >
           {collapsed ? (
