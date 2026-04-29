@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -210,6 +210,14 @@ export default function HRPeoplePage() {
     exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx');
   };
 
+  const isCLevel = userRole === 'c-level';
+  const totals = useMemo(() => {
+    const ativos = filtered.filter(p => p.situacao === 'ativo');
+    const totalSalarios = ativos.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
+    const totalBeneficios = ativos.reduce((sum, p) => sum + (p.beneficios || 0), 0);
+    return { totalSalarios, totalBeneficios, count: ativos.length };
+  }, [filtered]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -250,14 +258,55 @@ export default function HRPeoplePage() {
         }
       />
 
+      {/* Totais (apenas C-Level) */}
+      {isCLevel && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-11 w-11 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Salários / Contrato</p>
+                <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalSalarios)}</p>
+                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} ativa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-sky-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-11 w-11 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
+                <Gift className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Benefícios</p>
+                <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalBeneficios)}</p>
+                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} ativa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="relative">
+        <CardContent className="pt-4 space-y-3">
+          {/* Linha 1: Busca + ações de filtros */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome, matrícula ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={handleClearFilters} className="gap-2 shrink-0">
+                <X className="h-4 w-4" />
+                Limpar filtros
+              </Button>
+            )}
+          </div>
+
+          {/* Linha 2: Selects de filtro */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Situação</span>
               <Select value={filterSituacao} onValueChange={(v: any) => setFilterSituacao(v)}>
@@ -348,26 +397,23 @@ export default function HRPeoplePage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <input type="checkbox" checked={filterTalento} onChange={e => setFilterTalento(e.target.checked)} className="rounded border-primary" />
-                ⭐ Talentos
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <input type="checkbox" checked={filterGuardiao} onChange={e => setFilterGuardiao(e.target.checked)} className="rounded border-primary" />
-                🛡️ Guardiões
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <input type="checkbox" checked={filterEmAvaliacao} onChange={e => setFilterEmAvaliacao(e.target.checked)} className="rounded border-primary" />
-                <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /> Em Avaliação
-              </label>
-            </div>
-            {hasActiveFilters && (
-              <Button variant="outline" onClick={handleClearFilters} className="gap-2">
-                <X className="h-4 w-4" />
-                Limpar
-              </Button>
-            )}
+          </div>
+
+          {/* Linha 3: Toggles rápidos */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Marcadores:</span>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input type="checkbox" checked={filterTalento} onChange={e => setFilterTalento(e.target.checked)} className="rounded border-primary" />
+              ⭐ Talentos
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input type="checkbox" checked={filterGuardiao} onChange={e => setFilterGuardiao(e.target.checked)} className="rounded border-primary" />
+              🛡️ Guardiões
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input type="checkbox" checked={filterEmAvaliacao} onChange={e => setFilterEmAvaliacao(e.target.checked)} className="rounded border-primary" />
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /> Em Avaliação
+            </label>
           </div>
         </CardContent>
       </Card>
