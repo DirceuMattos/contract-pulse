@@ -529,7 +529,7 @@ Deno.serve(async (req) => {
 
             // Timeline events for sensitive changes
             if (existing.situacao !== 'ativo' && dbPayload.situacao === 'ativo') {
-              await db.from('hr_timeline').insert({
+              await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
                 ocorrencia: 'reativacao', descricao: `Reativação sincronizada via Feedz (matrícula ${matricula})`,
                 atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
