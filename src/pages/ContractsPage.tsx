@@ -544,7 +544,10 @@ export default function ContractsPage() {
         <motion.div variants={containerVariants} className="space-y-3">
           {sortedContracts.map(({ contract, health, client, alerts }) => (
             <motion.div key={contract.id} variants={itemVariants}>
-              <Card className="card-elevated hover:shadow-md transition-shadow">
+              <Card className={cn(
+                "card-elevated hover:shadow-md transition-shadow",
+                (contract.status === 'encerrado' || contract.status === 'suspenso') && 'bg-neutral-900 border-neutral-700'
+              )}>
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     {/* Health indicator */}
@@ -558,7 +561,16 @@ export default function ContractsPage() {
                     {/* Main info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-foreground truncate text-sm sm:text-base">{contract.nome}</h3>
+                        <h3 className={cn(
+                          "font-semibold text-foreground truncate text-sm sm:text-base",
+                          (contract.status === 'encerrado' || contract.status === 'suspenso') && 'text-neutral-300'
+                        )}>{contract.nome}</h3>
+                        {contract.status === 'encerrado' && (
+                          <Badge className="text-xs shrink-0 bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
+                        )}
+                        {contract.status === 'suspenso' && (
+                          <Badge className="text-xs shrink-0 bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
+                        )}
                         <Badge variant="secondary" className="text-xs shrink-0 hidden sm:inline-flex">
                           {contract.codigo}
                         </Badge>
@@ -585,7 +597,10 @@ export default function ContractsPage() {
                           </TooltipProvider>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                      <div className={cn(
+                        "flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap",
+                        (contract.status === 'encerrado' || contract.status === 'suspenso') && 'text-neutral-300'
+                      )}>
                         <span className="flex items-center gap-1 truncate">
                           <Users className="w-3.5 h-3.5 shrink-0" />
                           {client?.nomeFantasia || client?.razaoSocial}
