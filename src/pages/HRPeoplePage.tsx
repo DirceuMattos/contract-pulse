@@ -212,10 +212,9 @@ export default function HRPeoplePage() {
 
   const isCLevel = userRole === 'c-level';
   const totals = useMemo(() => {
-    const ativos = filtered.filter(p => p.situacao === 'ativo');
-    const totalSalarios = ativos.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
-    const totalBeneficios = ativos.reduce((sum, p) => sum + (p.beneficios || 0), 0);
-    return { totalSalarios, totalBeneficios, count: ativos.length };
+    const totalSalarios = filtered.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
+    const totalBeneficios = filtered.reduce((sum, p) => sum + (p.beneficios || 0), 0);
+    return { totalSalarios, totalBeneficios, count: filtered.length };
   }, [filtered]);
 
   return (
@@ -269,9 +268,9 @@ export default function HRPeoplePage() {
                 <Wallet className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Salários / Contrato</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Salários / Contratos</p>
                 <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalSalarios)}</p>
-                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} ativa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
               </div>
             </CardContent>
           </Card>
@@ -283,7 +282,7 @@ export default function HRPeoplePage() {
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Benefícios</p>
                 <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalBeneficios)}</p>
-                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} ativa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+                <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
               </div>
             </CardContent>
           </Card>
