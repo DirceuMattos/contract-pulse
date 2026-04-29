@@ -150,11 +150,15 @@ export default function HRPersonDetailPage() {
     if ((person.trilha || '') !== (data.trilha || '')) {
       changes.push(`Trilha alterada de "${person.trilha || '—'}" para "${data.trilha || '—'}"`);
     }
+    let remuneracaoChange: string | null = null;
+    let beneficiosChange: string | null = null;
     if (person.remuneracaoMensal !== data.remuneracaoMensal) {
-      changes.push(`Remuneração mensal alterada de ${formatCurrency(person.remuneracaoMensal)} para ${formatCurrency(data.remuneracaoMensal)}`);
+      remuneracaoChange = `Remuneração mensal alterada de ${formatCurrency(person.remuneracaoMensal)} para ${formatCurrency(data.remuneracaoMensal)}`;
+      changes.push(remuneracaoChange);
     }
     if (person.beneficios !== data.beneficios) {
-      changes.push(`Benefícios alterado de ${formatCurrency(person.beneficios)} para ${formatCurrency(data.beneficios)}`);
+      beneficiosChange = `Benefícios alterado de ${formatCurrency(person.beneficios)} para ${formatCurrency(data.beneficios)}`;
+      changes.push(beneficiosChange);
     }
 
     // Save person first
@@ -162,12 +166,15 @@ export default function HRPersonDetailPage() {
 
     // Create one timeline event per change
     for (const change of changes) {
+      const isReajuste = change === remuneracaoChange || change === beneficiosChange;
       await addTimelineEvent({
         personId: person.id,
         eventDate: today,
-        ocorrencia: 'observacao',
+        ocorrencia: isReajuste ? 'reajuste' : 'observacao',
         descricao: change,
         atualizarRemuneracao: false,
+        ...(change === remuneracaoChange ? { remuneracaoApos: data.remuneracaoMensal } : {}),
+        ...(change === beneficiosChange ? { beneficiosApos: data.beneficios } : {}),
       });
     }
 
