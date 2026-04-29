@@ -258,14 +258,6 @@ export default function HRPeoplePage() {
         }
       />
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nome, matrícula ou observação..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
       {/* Totais (apenas C-Level) */}
       {isCLevel && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
