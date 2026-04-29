@@ -596,12 +596,12 @@ export default function HRPersonDetailPage() {
         {/* Alocações */}
         <TabsContent value="alocacoes" className="space-y-4">
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" disabled={refreshing} onClick={async () => { setRefreshing(true); await refreshResources(); setRefreshing(false); }}>
+            <Button variant="outline" size="sm" disabled={refreshing} onClick={async () => { setRefreshing(true); await Promise.all([refreshResources(), refreshSubprojectData()]); setRefreshing(false); }}>
               <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
               {refreshing ? 'Atualizando...' : 'Atualizar alocações'}
             </Button>
           </div>
-          {alocacoes.length === 0 ? (
+          {totalAlocacoes === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 Nenhuma alocação ativa encontrada em contratos.
@@ -609,7 +609,7 @@ export default function HRPersonDetailPage() {
             </Card>
           ) : (
             <Card>
-              <CardHeader><CardTitle className="text-base">{alocacoes.length} alocação{alocacoes.length !== 1 ? 'ões' : ''} em contratos</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">{totalAlocacoes} alocação{totalAlocacoes !== 1 ? 'ões' : ''} em contratos</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -644,6 +644,33 @@ export default function HRPersonDetailPage() {
                         <TableCell className="text-sm">{new Date(r.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell className="text-sm">{r.dataFim ? new Date(r.dataFim + 'T12:00:00').toLocaleDateString('pt-BR') : 'Em aberto'}</TableCell>
                       </TableRow>
+                      );
+                    })}
+                    {subprojectAlocacoes.map(({ allocation, subproject, contractId }) => {
+                      const contract = contracts.find(c => c.id === contractId);
+                      return (
+                        <TableRow key={allocation.id}>
+                          <TableCell className="text-sm font-medium">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{contract?.nome || contract?.codigo || contractId || '—'}</span>
+                              {subproject && (
+                                <span className="text-xs text-primary">→ {subproject.name}</span>
+                              )}
+                              <Badge variant="secondary" className="text-[10px]">Subprojeto</Badge>
+                              {contract?.status === 'encerrado' && (
+                                <Badge className="text-[10px] bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
+                              )}
+                              {contract?.status === 'suspenso' && (
+                                <Badge className="text-[10px] bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{cargoLabel || '—'}</TableCell>
+                          <TableCell><Badge variant="outline">{allocation.dedicationPercent}%</Badge></TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{person.localAtuacao || '—'}</TableCell>
+                          <TableCell className="text-sm">—</TableCell>
+                          <TableCell className="text-sm">Em aberto</TableCell>
+                        </TableRow>
                       );
                     })}
                   </TableBody>
