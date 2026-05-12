@@ -2327,6 +2327,10 @@ export type Database = {
         | "AI"
         | "AI_LOGS"
         | "RECEIVABLES"
+        | "OVERTIME"
+        | "TRANSPORT"
+        | "JOB_REQUESTS"
+        | "JOB_SKILLS"
       other_cost_category:
         | "cloud"
         | "licenca"
@@ -2533,6 +2537,10 @@ export const Constants = {
         "AI",
         "AI_LOGS",
         "RECEIVABLES",
+        "OVERTIME",
+        "TRANSPORT",
+        "JOB_REQUESTS",
+        "JOB_SKILLS",
       ],
       other_cost_category: [
         "cloud",
