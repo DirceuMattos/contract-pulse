@@ -81,10 +81,12 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (id: string, data: Partial<SystemUserFormData>): Promise<boolean> => {
     try {
+      const existingUser = users.find(u => u.id === id);
+      const emailChanged = data.email && existingUser?.email?.toLowerCase() !== data.email.toLowerCase();
       const result = await invokeManageUsers('update', {
         userId: id,
         name: data.name,
-        email: data.email,
+        email: emailChanged ? data.email : undefined,
         role: data.role,
         password: data.password || undefined,
         moduleAccess: data.moduleAccess,
