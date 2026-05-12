@@ -196,6 +196,27 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST required" }, 405);
 
   try {
+    // --- Auth: require c-level ---
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(
+      authHeader.replace("Bearer ", "")
+    );
+    if (claimsErr || !claimsData?.claims) return json({ error: "Unauthorized" }, 401);
+    const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: roleRow } = await sb
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", claimsData.claims.sub)
+      .eq("role", "c-level")
+      .maybeSingle();
+    if (!roleRow) return json({ error: "Forbidden" }, 403);
+
     const body = await req.json().catch(() => ({}));
     const cnpj: string = body.cnpj ?? "";
     const clientName: string = body.clientName ?? "";

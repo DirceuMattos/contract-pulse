@@ -13,6 +13,29 @@ serve(async (req) => {
   }
 
   try {
+    // --- Auth check ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseUrlAuth = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authClient = createClient(supabaseUrlAuth, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const callerId = claimsData.claims.sub as string;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -30,21 +53,26 @@ serve(async (req) => {
       variant,      // 'govtech' | 'privado'
       answers,      // questionnaire answers
       doc_ids,      // selected document IDs
-      user_id,
-      user_role,
       search_query, // optional keywords for chunk retrieval
       replay_of_run_id, // optional: ID of original run being replayed
     } = await req.json();
 
-    if (!type || !answers || !user_id) {
+    if (!type || !answers) {
       return new Response(
-        JSON.stringify({ error: "type, answers, and user_id are required" }),
+        JSON.stringify({ error: "type and answers are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Determine redaction level
-    const redactionLevel = user_role === "c-level" ? "full" : "aggregated";
+    // Always derive identity and role from verified JWT, never from request body
+    const user_id = callerId;
+    const { data: roleRow } = await authClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId)
+      .eq("role", "c-level")
+      .maybeSingle();
+    const redactionLevel = roleRow ? "full" : "aggregated";
 
     // Retrieve relevant chunks from selected documents
     let contextChunks: { chunk_text: string; document_id: string; chunk_index: number; page_start: number | null; file_name?: string }[] = [];
