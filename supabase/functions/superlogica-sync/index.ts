@@ -130,6 +130,24 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // --- Auth: require c-level ---
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+  const authClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(
+    authHeader.replace("Bearer ", "")
+  );
+  if (claimsErr || !claimsData?.claims) return json({ error: "Unauthorized" }, 401);
+  const { data: roleRow } = await sb
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", claimsData.claims.sub)
+    .eq("role", "c-level")
+    .maybeSingle();
+  if (!roleRow) return json({ error: "Forbidden" }, 403);
+
   // 1) Create sync run
   const { data: run, error: runErr } = await sb
     .from("superlogica_sync_run")
