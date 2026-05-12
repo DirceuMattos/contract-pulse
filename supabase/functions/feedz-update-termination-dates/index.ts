@@ -113,6 +113,16 @@ Deno.serve(async (req) => {
     // Service role client for updates
     const admin = createClient(supabaseUrl, serviceRoleKey)
 
+    // Role check: only c-level or rh
+    const { data: roleRows } = await admin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', claimsData.user.id)
+      .in('role', ['c-level', 'rh'])
+    if (!roleRows?.length) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     // 1. Fetch turnover map from Feedz
     console.log('[update-dates] Starting termination date update...')
     const turnoverMap = await fetchTurnoverMap(feedzToken)
