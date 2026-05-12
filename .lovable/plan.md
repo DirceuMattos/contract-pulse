@@ -1,19 +1,45 @@
-## Exportação RH com aba de Linha do Tempo
+## Objetivo
 
-### 1. `src/lib/importExport.ts` — `exportHRPeople`
-- Importar `HRTimelineEvent` de `@/types` (adicionar ao import já existente).
-- Adicionar parâmetro opcional `timeline?: HRTimelineEvent[]` na assinatura.
-- Manter geração atual de `headers` e `rows` (aba "Pessoas").
-- Quando `format === 'xlsx'` E `timeline` fornecido (mesmo vazio? — só quando definido):
-  - Construir aba "Linha do Tempo" com colunas: `Nome`, `Data`, `Tipo de Evento`, `Descrição`, `Remuneração Após`.
-  - Para cada evento: nome buscado em `people` por `personId`; data convertida para `dd/mm/yyyy` a partir de `eventDate` (string ISO `yyyy-mm-dd`); tipo = `ocorrencia` capitalizada; descrição = `descricao`; remuneração após = `remuneracaoApos` numérico ou `''`.
-  - Usar `buildMultiSheetXlsx([{ name: 'Pessoas', headers, rows }, { name: 'Linha do Tempo', headers: tlHeaders, rows: tlRows }])` e baixar via `downloadBlob` com o mesmo padrão de nome `rh_pessoas_${timestamp}.xlsx`.
-- Caso contrário (xlsx sem timeline ou csv): manter comportamento atual.
+Permitir que usuários com perfil **Líder de Tribo** editem dedicação e movam recursos entre squads/subprojetos, **sem** ganhar acesso a valores ou edição de contratos/recursos.
 
-Conversão de data segura: `eventDate` é `yyyy-mm-dd` → `split('-')` e remontar `dd/mm/yyyy`, evitando timezone shift.
+## Diagnóstico
 
-### 2. `src/pages/HRPeoplePage.tsx`
-- Trocar `const { hrPeople, addPerson, updatePerson, addTimelineEvent } = useHR();` por `const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();`.
-- Atualizar `handleExport` para `exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx', hrTimeline)`.
+A UI de Squads já exibe os botões de edição para Líder de Tribo (`canEdit=true` no `AuthContext`), mas as gravações falham porque as políticas RLS no banco **não incluem** o role `lider_tribo` nas tabelas:
 
-Nenhuma outra função, import ou parte do sistema é alterada.
+- `resources` (UPDATE) — usado ao alterar % de dedicação e ao mover recurso entre contratos sem subprojeto
+- `subproject_allocations` (UPDATE / INSERT / DELETE) — usado ao alterar % e ao mover entre subprojetos
+
+Demais restrições já estão garantidas:
+- `contracts` UPDATE não inclui `lider_tribo` → não consegue alterar contratos ✓
+- `canViewValues=false` e `canViewHRCosts=false` para `lider_tribo` → não vê valores ✓
+- Página Squads não exibe custos ✓
+
+## Mudança proposta
+
+### 1. Migração SQL (única alteração)
+
+Atualizar as políticas RLS adicionando `'lider_tribo'::app_role` ao array de roles permitidos:
+
+- `resources_update` → `has_any_role([..., 'lider_tribo'])`
+- `spa_update` → `has_any_role([..., 'lider_tribo'])`
+- `spa_insert` → `has_any_role([..., 'lider_tribo'])` (necessário ao mover para outro subprojeto, que faz `addAllocation`)
+- `spa_delete` → permitir `lider_tribo` (necessário ao mover para fora de um subprojeto, que faz `deleteAllocation`)
+
+`resources_delete` e `contracts_*` permanecem **inalterados** — Líder de Tribo continua sem poder excluir recursos nem mexer em contratos.
+
+### 2. Sem mudanças de UI/código
+
+- `AuthContext`: `canEdit=true` (já está), `canCreate=false`, `canDelete=false`, `canViewValues=false`, `canViewHRCosts=false` permanecem como hoje.
+- `SquadsPage`, `EditResourceAllocationDialog` e `SubprojectManagementPanel` permanecem como estão — eles já gateiam por `canEdit` e os fluxos de "alterar dedicação" e "mover entre projetos/subprojetos" funcionarão assim que o RLS permitir.
+
+## Resultado esperado
+
+Líder de Tribo poderá, na tela de Squads:
+- Ajustar o % de dedicação dos recursos
+- Mover recursos entre contratos e entre subprojetos
+
+E continuará **sem** poder:
+- Ver valores financeiros (contratos ou recursos)
+- Editar dados de contratos
+- Editar cadastro/valores dos recursos no detalhe do contrato
+- Excluir recursos
