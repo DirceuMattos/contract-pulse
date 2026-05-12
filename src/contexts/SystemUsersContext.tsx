@@ -81,7 +81,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (id: string, data: Partial<SystemUserFormData>): Promise<boolean> => {
     try {
-      await invokeManageUsers('update', {
+      const result = await invokeManageUsers('update', {
         userId: id,
         name: data.name,
         email: data.email,
@@ -89,11 +89,12 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         password: data.password || undefined,
         moduleAccess: data.moduleAccess,
       });
+      if (result?.error) throw new Error(result.error);
       await refreshUsers();
       return true;
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to update user:', e);
-      return false;
+      throw e;
     }
   };
 
