@@ -41,6 +41,8 @@ const hrPersonSchema = z.object({
   beneficioSomaRemuneracao: z.boolean().optional(),
   remuneracaoII: z.number().min(0).optional(),
   localAtuacao: z.string().optional(),
+  regimeTrabalho: z.enum(['remoto', 'hibrido', 'presencial']).optional(),
+  regimeObservacoes: z.string().optional(),
   dataAdmissao: z.string().min(1, 'Data de admissão é obrigatória'),
   situacao: z.enum(['ativo', 'inativo']),
   observacoes: z.string().optional(),
@@ -103,6 +105,8 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       beneficioSomaRemuneracao: person?.beneficioSomaRemuneracao || false,
       remuneracaoII: person?.remuneracaoII || 0,
       localAtuacao: person?.localAtuacao || '',
+      regimeTrabalho: person?.regimeTrabalho,
+      regimeObservacoes: person?.regimeObservacoes || '',
       dataAdmissao: person?.dataAdmissao || new Date().toISOString().split('T')[0],
       situacao: person?.situacao || 'ativo',
       observacoes: person?.observacoes || '',
@@ -165,6 +169,8 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
       beneficiosLista,
       remuneracaoII: hasSoma ? remuneracaoTotal : (data.remuneracaoII || undefined),
       localAtuacao: data.localAtuacao || undefined,
+      regimeTrabalho: data.regimeTrabalho || undefined,
+      regimeObservacoes: data.regimeObservacoes || undefined,
       dataAdmissao: data.dataAdmissao,
       situacao: data.situacao,
       observacoes: data.observacoes || undefined,
@@ -271,6 +277,31 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
               <FormItem>
                 <FormLabel>Local de Atuação</FormLabel>
                 <FormControl><Input placeholder="Ex: Remoto, São Paulo..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="regimeTrabalho" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Regime de Trabalho</FormLabel>
+                <Select
+                  onValueChange={(v) => field.onChange(v === 'none' ? undefined : v)}
+                  value={field.value || 'none'}
+                >
+                  <FormControl><SelectTrigger><SelectValue placeholder="Não informado" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">Não informado</SelectItem>
+                    <SelectItem value="remoto">Remoto / Home Office</SelectItem>
+                    <SelectItem value="hibrido">Híbrido</SelectItem>
+                    <SelectItem value="presencial">Presencial</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="regimeObservacoes" render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Observações do Regime</FormLabel>
+                <FormControl><Textarea placeholder="Ex: Híbrido com presença no cliente 2x por semana" rows={2} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

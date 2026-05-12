@@ -426,6 +426,12 @@ export default function HRPersonDetailPage() {
               <CardContent className="space-y-3">
                 <Row label="Departamento" value={teamName || '—'} />
                 <Row label="Local de Atuação" value={person.localAtuacao || '—'} />
+                <Row label="Regime de Trabalho" value={
+                  person.regimeTrabalho === 'remoto' ? 'Remoto / Home Office' :
+                  person.regimeTrabalho === 'hibrido' ? 'Híbrido' :
+                  person.regimeTrabalho === 'presencial' ? 'Presencial' : '—'
+                } />
+                {person.regimeObservacoes && <Row label="Observações do Regime" value={person.regimeObservacoes} />}
                 {person.trilha && <Row label="Trilha" value={person.trilha} />}
                 {person.email && <Row label="E-mail" value={person.email} />}
 

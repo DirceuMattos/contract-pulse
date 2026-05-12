@@ -1,45 +1,36 @@
-## Objetivo
+## Campo "Regime de Trabalho" em RH
 
-Permitir que usuários com perfil **Líder de Tribo** editem dedicação e movam recursos entre squads/subprojetos, **sem** ganhar acesso a valores ou edição de contratos/recursos.
+Adiciona dois novos campos opcionais ao cadastro de colaboradores: **Regime de Trabalho** (Remoto / Híbrido / Presencial) e **Observações do Regime**, com filtro correspondente na listagem.
 
-## Diagnóstico
+### 1. Banco de dados (migração)
+Adicionar duas colunas na tabela `hr_people`:
+- `regime_trabalho` (text, nullable) — valores aceitos: `remoto`, `hibrido`, `presencial`
+- `regime_observacoes` (text, nullable)
 
-A UI de Squads já exibe os botões de edição para Líder de Tribo (`canEdit=true` no `AuthContext`), mas as gravações falham porque as políticas RLS no banco **não incluem** o role `lider_tribo` nas tabelas:
+Sem alterações em RLS ou triggers.
 
-- `resources` (UPDATE) — usado ao alterar % de dedicação e ao mover recurso entre contratos sem subprojeto
-- `subproject_allocations` (UPDATE / INSERT / DELETE) — usado ao alterar % e ao mover entre subprojetos
+### 2. Tipos — `src/types/index.ts`
+- Novo tipo `HRRegimeTrabalho = 'remoto' | 'hibrido' | 'presencial'` antes da interface `HRPerson`.
+- Em `HRPerson`, após `localAtuacao`, adicionar `regimeTrabalho?` e `regimeObservacoes?`.
 
-Demais restrições já estão garantidas:
-- `contracts` UPDATE não inclui `lider_tribo` → não consegue alterar contratos ✓
-- `canViewValues=false` e `canViewHRCosts=false` para `lider_tribo` → não vê valores ✓
-- Página Squads não exibe custos ✓
+### 3. Mapeadores — `src/lib/dbMappers.ts`
+- `hrPersonFromDb`: ler `regime_trabalho` e `regime_observacoes` (null → undefined).
+- `hrPersonToDb`: gravar `regime_trabalho` e `regime_observacoes` (undefined → null).
 
-## Mudança proposta
+### 4. Formulário — `src/components/hr/HRPersonForm.tsx`
+Após o campo `localAtuacao`, adicionar:
+- `Select` "Regime de Trabalho" com opções: Não informado (''), Remoto / Home Office, Híbrido, Presencial.
+- `Textarea` "Observações do Regime" com placeholder de exemplo.
 
-### 1. Migração SQL (única alteração)
+### 5. Detalhe — `src/pages/HRPersonDetailPage.tsx`
+Mostrar "Regime de Trabalho" e "Observações do Regime" próximos a `localAtuacao` na aba de dados.
 
-Atualizar as políticas RLS adicionando `'lider_tribo'::app_role` ao array de roles permitidos:
+### 6. Lista/Filtros — `src/pages/HRPeoplePage.tsx`
+- Estado `filterRegime` persistido em sessionStorage junto aos demais filtros.
+- `matchRegime` no `useMemo` de `filtered`.
+- `Select` "Regime" na barra de filtros (Todos / Remoto / Híbrido / Presencial).
+- Incluir em `handleClearFilters` e `hasActiveFilters`.
 
-- `resources_update` → `has_any_role([..., 'lider_tribo'])`
-- `spa_update` → `has_any_role([..., 'lider_tribo'])`
-- `spa_insert` → `has_any_role([..., 'lider_tribo'])` (necessário ao mover para outro subprojeto, que faz `addAllocation`)
-- `spa_delete` → permitir `lider_tribo` (necessário ao mover para fora de um subprojeto, que faz `deleteAllocation`)
-
-`resources_delete` e `contracts_*` permanecem **inalterados** — Líder de Tribo continua sem poder excluir recursos nem mexer em contratos.
-
-### 2. Sem mudanças de UI/código
-
-- `AuthContext`: `canEdit=true` (já está), `canCreate=false`, `canDelete=false`, `canViewValues=false`, `canViewHRCosts=false` permanecem como hoje.
-- `SquadsPage`, `EditResourceAllocationDialog` e `SubprojectManagementPanel` permanecem como estão — eles já gateiam por `canEdit` e os fluxos de "alterar dedicação" e "mover entre projetos/subprojetos" funcionarão assim que o RLS permitir.
-
-## Resultado esperado
-
-Líder de Tribo poderá, na tela de Squads:
-- Ajustar o % de dedicação dos recursos
-- Mover recursos entre contratos e entre subprojetos
-
-E continuará **sem** poder:
-- Ver valores financeiros (contratos ou recursos)
-- Editar dados de contratos
-- Editar cadastro/valores dos recursos no detalhe do contrato
-- Excluir recursos
+### Escopo / não-objetivos
+- Não alterar nenhum outro campo, tela, regra de negócio, importação/exportação, sincronização Feedz, ou cálculos.
+- Sem novas permissões, RLS, ou validação obrigatória — ambos os campos são opcionais.

@@ -69,15 +69,16 @@ export default function HRPeoplePage() {
   const [filterTalento, setFilterTalento] = useState(storedFilters?.filterTalento ?? false);
   const [filterGuardiao, setFilterGuardiao] = useState(storedFilters?.filterGuardiao ?? false);
   const [filterEmAvaliacao, setFilterEmAvaliacao] = useState(storedFilters?.filterEmAvaliacao ?? false);
+  const [filterRegime, setFilterRegime] = useState(storedFilters?.filterRegime ?? '');
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
-    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao }));
-  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao]);
+    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime }));
+  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime]);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao;
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); sessionStorage.removeItem('hr-filters'); };
+  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterRegime !== '';
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterRegime(''); sessionStorage.removeItem('hr-filters'); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
@@ -123,9 +124,10 @@ export default function HRPeoplePage() {
       const matchTalento = !filterTalento || !!p.isTalento;
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao;
+      const matchRegime = !filterRegime || p.regimeTrabalho === filterRegime;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchRegime;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -340,6 +342,18 @@ export default function HRPeoplePage() {
                   <SelectItem value="cooperado">Cooperado</SelectItem>
                   <SelectItem value="socio">Sócio</SelectItem>
                   <SelectItem value="estagio">Estagiário</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Regime</span>
+              <Select value={filterRegime || 'all'} onValueChange={v => setFilterRegime(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Regime" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="remoto">Remoto / Home Office</SelectItem>
+                  <SelectItem value="hibrido">Híbrido</SelectItem>
+                  <SelectItem value="presencial">Presencial</SelectItem>
                 </SelectContent>
               </Select>
             </div>

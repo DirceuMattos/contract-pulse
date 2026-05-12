@@ -406,6 +406,7 @@ export type HRTipoVinculo = 'clt' | 'pj' | 'cooperado' | 'socio' | 'estagio';
 export type HRSituacao = 'ativo' | 'inativo';
 export type HRTipoDesligamento = 'dispensado' | 'solicitou-dispensa' | 'transferido-grupo' | 'outro';
 export type HROcorrencia = 'reajuste' | 'bonificacao' | 'beneficio' | 'mudanca-cargo' | 'observacao' | 'desligamento' | 'outro';
+export type HRRegimeTrabalho = 'remoto' | 'hibrido' | 'presencial';
 
 export interface BeneficioItem {
   nome: string;
@@ -422,6 +423,8 @@ export interface HRPerson {
   remuneracaoMensal: number;
   beneficios: number;
   localAtuacao?: string;
+  regimeTrabalho?: HRRegimeTrabalho;
+  regimeObservacoes?: string;
   dataAdmissao: string;
   situacao: HRSituacao;
   observacoes?: string;

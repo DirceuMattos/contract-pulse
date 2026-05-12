@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_people ADD COLUMN IF NOT EXISTS regime_trabalho text, ADD COLUMN IF NOT EXISTS regime_observacoes text;
