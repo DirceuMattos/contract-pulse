@@ -199,18 +199,17 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         updateData.password = data.password;
       }
 
-      const success = await updateUser(editingUser.id, updateData);
-      
-      if (success) {
+      try {
+        await updateUser(editingUser.id, updateData);
         toast({
           title: 'Usuário atualizado',
           description: `${data.name} foi atualizado com sucesso.`,
         });
         onClose();
-      } else {
+      } catch (e: any) {
         toast({
           title: 'Erro ao atualizar',
-          description: 'Este e-mail já está em uso por outro usuário.',
+          description: e?.message || 'Não foi possível atualizar o usuário.',
           variant: 'destructive',
         });
       }
