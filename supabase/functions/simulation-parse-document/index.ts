@@ -141,6 +141,24 @@ serve(async (req) => {
       });
     }
 
+    // Role check: c-level only
+    const adminCheck = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: roleRow } = await adminCheck
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", claimsData.claims.sub)
+      .eq("role", "c-level")
+      .maybeSingle();
+    if (!roleRow) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { fileBase64, fileName } = await req.json();
     if (!fileBase64 || !fileName) {
       return new Response(JSON.stringify({ error: "fileBase64 and fileName are required" }), {
