@@ -1,0 +1,1 @@
+CREATE POLICY "dc_select" ON public.doc_chunks FOR SELECT TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['c-level'::app_role, 'intermediario'::app_role]));
