@@ -1291,6 +1291,8 @@ export type Database = {
           observacoes_desligamento: string | null
           phone_norm: string | null
           projeto: string | null
+          regime_observacoes: string | null
+          regime_trabalho: string | null
           remuneracao_ii: number | null
           remuneracao_mensal: number
           situacao: string
@@ -1340,6 +1342,8 @@ export type Database = {
           observacoes_desligamento?: string | null
           phone_norm?: string | null
           projeto?: string | null
+          regime_observacoes?: string | null
+          regime_trabalho?: string | null
           remuneracao_ii?: number | null
           remuneracao_mensal?: number
           situacao?: string
@@ -1389,6 +1393,8 @@ export type Database = {
           observacoes_desligamento?: string | null
           phone_norm?: string | null
           projeto?: string | null
+          regime_observacoes?: string | null
+          regime_trabalho?: string | null
           remuneracao_ii?: number | null
           remuneracao_mensal?: number
           situacao?: string
