@@ -423,6 +423,8 @@ export interface HRPerson {
   remuneracaoMensal: number;
   beneficios: number;
   localAtuacao?: string;
+  regimeTrabalho?: HRRegimeTrabalho;
+  regimeObservacoes?: string;
   dataAdmissao: string;
   situacao: HRSituacao;
   observacoes?: string;
