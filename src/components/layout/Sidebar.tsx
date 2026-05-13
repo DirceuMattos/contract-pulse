@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { useToast } from '@/hooks/use-toast';
 import { ModuleKey } from '@/types/moduleAccess';
 import { UserRole } from '@/types';
 
