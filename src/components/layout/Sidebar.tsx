@@ -115,6 +115,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const { user, logout, userRole } = useAuth();
   const isMobile = useIsMobile();
   const { canAccessModule } = useModuleAccess();
+  const { toast } = useToast();
+
+  const handleComingSoonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    toast({
+      title: 'Em breve',
+      description: 'Este módulo está em desenvolvimento e será disponibilizado em breve.',
+    });
+  };
 
   const isItemVisible = (item: NavItem): boolean => {
     if (item.moduleKey && !canAccessModule(item.moduleKey)) return false;
