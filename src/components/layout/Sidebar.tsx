@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { useToast } from '@/hooks/use-toast';
 import { ModuleKey } from '@/types/moduleAccess';
 import { UserRole } from '@/types';
 
@@ -90,7 +91,7 @@ const navGroups: NavGroup[] = [
         path: '#',
         label: 'Requisição de Vagas',
         icon: ClipboardList,
-        external: true,
+        comingSoon: true,
         allowedRoles: ['c-level', 'intermediario', 'lider_tribo'],
       },
       { path: '#', label: 'Skills de Vagas', icon: Sparkles, comingSoon: true },
@@ -115,6 +116,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const { user, logout, userRole } = useAuth();
   const isMobile = useIsMobile();
   const { canAccessModule } = useModuleAccess();
+  const { toast } = useToast();
+
+  const handleComingSoonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    toast({
+      title: 'Em breve',
+      description: 'Este módulo está em desenvolvimento e será disponibilizado em breve.',
+    });
+  };
 
   const isItemVisible = (item: NavItem): boolean => {
     if (item.moduleKey && !canAccessModule(item.moduleKey)) return false;
@@ -179,9 +189,17 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
 
     if (item.comingSoon) {
       return (
-        <div className={baseClasses} aria-disabled="true">
+        <button
+          type="button"
+          onClick={(e) => {
+            handleComingSoonClick(e);
+            onNavigate?.();
+          }}
+          className={cn(baseClasses, 'text-left')}
+          aria-disabled="true"
+        >
           {inner}
-        </div>
+        </button>
       );
     }
 
