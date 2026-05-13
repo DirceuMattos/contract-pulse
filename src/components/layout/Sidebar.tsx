@@ -189,9 +189,17 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
 
     if (item.comingSoon) {
       return (
-        <div className={baseClasses} aria-disabled="true">
+        <button
+          type="button"
+          onClick={(e) => {
+            handleComingSoonClick(e);
+            onNavigate?.();
+          }}
+          className={cn(baseClasses, 'text-left')}
+          aria-disabled="true"
+        >
           {inner}
-        </div>
+        </button>
       );
     }
 
