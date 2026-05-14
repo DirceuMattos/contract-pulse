@@ -395,6 +395,59 @@ Deno.serve(async (req) => {
       console.log(`[superlogica-sync][autolink] step failed: ${String(e)}`);
     }
 
+    // 0) Auto-link: tentar vincular contratos sem superlogica_subscription_id
+    const KNOWN_SUBSCRIPTION_IDS = [
+      '00cd4eb5-0b4a-4550-8e58-97accaa102b7',
+      'ac940ed7-ed2b-4f16-9135-475991c58183',
+      '9945029c-f0fc-4c72-9a8d-32203e2b0845',
+      'b9188b9a-8c1c-444c-b819-28310ce3168f',
+      '357a735f-0ead-46d9-a0cc-28f2361f292e',
+      '4b59ab9c-22a4-42ea-ac46-82eec2efa5bb',
+      'b5706280-6839-4965-9d3d-f3fe2bf2ae49',
+      '9e33bb6d-eb4c-45bf-8df0-bcd2c5ebb7fe',
+      '135bc51b-504e-43c6-9fcf-5919607308b8',
+    ];
+
+    const { data: unlinked } = await sb
+      .from('contracts')
+      .select('id, codigo, valor_mensal_referencia')
+      .is('superlogica_subscription_id', null);
+
+    if (unlinked && unlinked.length > 0) {
+      console.log(`[superlogica-sync] Auto-link: ${unlinked.length} contracts without subscription_id`);
+
+      for (const subId of KNOWN_SUBSCRIPTION_IDS) {
+        try {
+          // Buscar dados da assinatura no Superlógica
+          const subData = await superlogicaGet(`/v2/financeiro/cobranca?idContrato=${subId}&itensPorPagina=5`);
+          const items = Array.isArray(subData) ? subData : (subData?.data ?? []);
+          if (!items.length) continue;
+
+          // Pegar o valor da primeira cobrança para matching
+          const invoiceAmount = Number(items[0]?.vl_total_recb ?? items[0]?.vl_emitido_recb ?? 0);
+          const label = items[0]?.st_descricao_cont ?? subId;
+          const customerId = String(items[0]?.id_sacado_sac ?? '').trim() || null;
+
+          // Tentar casar com contrato sem vínculo pelo valor (tolerância 5%)
+          const stillUnlinked = unlinked.filter((c: any) => !c._linked);
+          const matched = matchContractByAmount(invoiceAmount, stillUnlinked as any, 0.05);
+
+          if (matched) {
+            await sb.from('contracts').update({
+              superlogica_subscription_id: subId,
+              superlogica_subscription_label: label,
+              superlogica_customer_id: customerId,
+            }).eq('id', matched.id);
+
+            (matched as any)._linked = true;
+            console.log(`[superlogica-sync] Auto-linked: contract ${matched.codigo} → subscription ${subId} (amount R$${invoiceAmount})`);
+          }
+        } catch (e) {
+          console.log(`[superlogica-sync] Auto-link failed for ${subId}: ${String(e)}`);
+        }
+      }
+    }
+
     // 2) Load linked contracts
     const { data: contracts, error: cErr } = await sb
       .from("contracts")
