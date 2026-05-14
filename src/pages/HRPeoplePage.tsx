@@ -112,7 +112,7 @@ export default function HRPeoplePage() {
       const q = search.toLowerCase();
       const matchSearch = !q || p.nome.toLowerCase().includes(q) || (p.observacoes || '').toLowerCase().includes(q) || (p.matricula || '').toLowerCase().includes(q);
       const matchSituacao = filterSituacao === 'todos' || p.situacao === filterSituacao;
-      const matchTeam = !filterTeam || p.teamId === filterTeam;
+      const matchTeam = !filterTeam || !p.teamId || p.teamId === filterTeam;
       const matchCargo = !filterCargo || p.cargoId === filterCargo;
       const matchVinculo = !filterVinculo || p.tipoVinculo === filterVinculo;
       const matchMesAdmissao = !filterMesAdmissao || (new Date(p.dataAdmissao + 'T12:00:00').getMonth() + 1).toString() === filterMesAdmissao;
