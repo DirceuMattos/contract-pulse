@@ -51,10 +51,30 @@ async function superlogicaGet(path: string) {
   return await res.json();
 }
 
-/** Resolve CNPJ → Superlógica customer ID (id_sacado_sac) */
-async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
+/** Normalize a string for name matching (lowercase, no accents/punctuation). */
+function normalizeNameStr(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const NAME_STOPLIST = new Set([
+  "ltda", "me", "eireli", "sa", "s", "comercio", "industria",
+  "do", "da", "de", "dos", "das", "e",
+]);
+
+/** Resolve CNPJ → Superlógica customer ID (id_sacado_sac), with optional name fallback. */
+async function findClientByCnpj(
+  cnpjDigits: string,
+  razaoSocial?: string
+): Promise<string | null> {
   let page = 1;
   const perPage = 50;
+  const allClients: Array<{ id: string; name: string }> = [];
 
   while (page <= 20) {
     const data = await superlogicaGet(
@@ -71,10 +91,41 @@ async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
         console.log(`[superlogica-sync] Found customer id=${id} for CNPJ ${cnpjDigits}`);
         return id;
       }
+      allClients.push({
+        id: String(c.id_sacado_sac ?? ""),
+        name: String(c.st_nome_sac ?? ""),
+      });
     }
 
     if (items.length < perPage) break;
     page++;
+  }
+
+  // Fallback: try matching by company name (razão social)
+  if (razaoSocial && razaoSocial.trim()) {
+    const normRazao = normalizeNameStr(razaoSocial);
+    const tokens = normRazao
+      .split(" ")
+      .filter((t) => t.length >= 4 && !NAME_STOPLIST.has(t));
+
+    if (tokens.length) {
+      const matches = allClients.filter((c) => {
+        const n = normalizeNameStr(c.name);
+        return tokens.every((t) => n.includes(t));
+      });
+
+      if (matches.length === 1) {
+        console.log(
+          `[superlogica-sync] Fallback by name matched id=${matches[0].id} for "${razaoSocial}" (CNPJ ${cnpjDigits} not found)`
+        );
+        return matches[0].id;
+      }
+      if (matches.length > 1) {
+        console.log(
+          `[superlogica-sync] Ambiguous name match for "${razaoSocial}": ${matches.length} candidates`
+        );
+      }
+    }
   }
 
   console.log(`[superlogica-sync] No customer found for CNPJ ${cnpjDigits}`);
