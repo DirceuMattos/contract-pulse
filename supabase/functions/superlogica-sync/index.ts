@@ -503,7 +503,7 @@ Deno.serve(async (req) => {
     const { data: contracts, error: cErr } = await sb
       .from("contracts")
       .select(
-        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, superlogica_customer_id, valor_mensal_referencia"
+        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, superlogica_customer_id, valor_mensal_referencia, clients(razao_social)"
       )
       .not("superlogica_subscription_id", "is", null);
     if (cErr) throw new Error(cErr.message);
