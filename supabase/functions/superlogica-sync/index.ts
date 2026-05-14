@@ -388,6 +388,13 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
 
   try {
+    // 1.5) Auto-link unlinked contracts before main sync
+    try {
+      await autoLinkUnlinkedContracts();
+    } catch (e) {
+      console.log(`[superlogica-sync][autolink] step failed: ${String(e)}`);
+    }
+
     // 2) Load linked contracts
     const { data: contracts, error: cErr } = await sb
       .from("contracts")
