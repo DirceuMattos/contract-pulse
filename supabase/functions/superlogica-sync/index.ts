@@ -358,12 +358,15 @@ async function autoLinkUnlinkedContracts(): Promise<number> {
   for (const [, g] of Object.entries(groups)) {
     try {
       let customerId = g.customerId;
+      let activeCredentials: SLCredentials = getAllCredentials()[0];
       if (!customerId && g.cnpj) {
-        customerId = await findClientByCnpj(g.cnpj);
+        const result = await findClientByCnpj(g.cnpj);
+        customerId = result?.customerId ?? null;
+        activeCredentials = result?.credentials ?? activeCredentials;
       }
       if (!customerId) continue;
 
-      const subs = await fetchActiveSubscriptionsForCustomer(customerId);
+      const subs = await fetchActiveSubscriptionsForCustomer(customerId, activeCredentials);
       if (!subs.length) continue;
 
       // For each subscription, find the closest still-unlinked contract in this group.
