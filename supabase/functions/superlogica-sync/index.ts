@@ -310,10 +310,11 @@ async function fetchSubscriptionById(subId: string, credentials: SLCredentials):
 }
 
 /** Resolve a Superlógica customer's CNPJ from its id. */
-async function fetchCustomerCnpjById(customerId: string): Promise<string | null> {
+async function fetchCustomerCnpjById(customerId: string, credentials: SLCredentials): Promise<string | null> {
   try {
     const data = await superlogicaGet(
-      `/v2/financeiro/clientes?id=${encodeURIComponent(customerId)}&itensPorPagina=1`
+      `/v2/financeiro/clientes?id=${encodeURIComponent(customerId)}&itensPorPagina=1`,
+      credentials
     );
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     if (!items.length) return null;
