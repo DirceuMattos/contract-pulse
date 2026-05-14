@@ -277,7 +277,7 @@ async function fetchActiveSubscriptionsForCustomer(customerId: string, credentia
 }
 
 /** Fetch a single subscription by id (used for KNOWN_SUBSCRIPTION_IDS fallback). */
-async function fetchSubscriptionById(subId: string): Promise<{
+async function fetchSubscriptionById(subId: string, credentials: SLCredentials): Promise<{
   id: string;
   label: string;
   amount: number;
@@ -285,7 +285,8 @@ async function fetchSubscriptionById(subId: string): Promise<{
 } | null> {
   try {
     const data = await superlogicaGet(
-      `/v2/financeiro/assinaturas?id=${encodeURIComponent(subId)}&itensPorPagina=100`
+      `/v2/financeiro/assinaturas?id=${encodeURIComponent(subId)}&itensPorPagina=100`,
+      credentials
     );
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     if (!items.length) return null;
