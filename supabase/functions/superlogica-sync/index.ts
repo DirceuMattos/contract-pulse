@@ -508,7 +508,7 @@ Deno.serve(async (req) => {
       for (const subId of KNOWN_SUBSCRIPTION_IDS) {
         try {
           // Buscar dados da assinatura no Superlógica
-          const subData = await superlogicaGet(`/v2/financeiro/cobranca?idContrato=${subId}&itensPorPagina=5`);
+          const subData = await superlogicaGet(`/v2/financeiro/cobranca?idContrato=${subId}&itensPorPagina=5`, getAllCredentials()[0]);
           const items = Array.isArray(subData) ? subData : (subData?.data ?? []);
           if (!items.length) continue;
 
