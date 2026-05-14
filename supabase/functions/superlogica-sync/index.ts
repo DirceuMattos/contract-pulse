@@ -32,22 +32,42 @@ function onlyDigits(x: string) {
   return (x || "").replace(/\D/g, "");
 }
 
-async function superlogicaGet(path: string) {
-  const API_BASE = normalizeBase(Deno.env.get("SUPERLOGICA_API_BASE") || "");
-  const APP_TOKEN = Deno.env.get("SUPERLOGICA_APP_TOKEN")!;
-  const ACCESS_TOKEN = Deno.env.get("SUPERLOGICA_ACCESS_TOKEN")!;
+function getAllCredentials() {
+  const base1 = normalizeBase(Deno.env.get("SUPERLOGICA_API_BASE") || Deno.env.get("Superlogica_api_base") || "");
+  const base2 = normalizeBase(Deno.env.get("Superlogica_api_base2") || "");
+  const base3 = normalizeBase(Deno.env.get("Superlogica_api_base3") || "");
+  return [
+    {
+      apiBase: base1,
+      appToken: Deno.env.get("SUPERLOGICA_APP_TOKEN") || Deno.env.get("Superlogica_App_Token") || "",
+      accessToken: Deno.env.get("SUPERLOGICA_ACCESS_TOKEN") || Deno.env.get("Superlogica_access_Token") || "",
+    },
+    {
+      apiBase: base2 || base1,
+      appToken: Deno.env.get("Superlogica_App_Token2") || "",
+      accessToken: Deno.env.get("Superlogica_access_Token2") || "",
+    },
+    {
+      apiBase: base3 || base1,
+      appToken: Deno.env.get("Superlogica_App_Token3") || "",
+      accessToken: Deno.env.get("Superlogica_access_Token3") || "",
+    },
+  ].filter(c => c.appToken && c.accessToken);
+}
 
-  const url = `${API_BASE}${path}`;
+type SLCredentials = { apiBase: string; appToken: string; accessToken: string };
+
+async function superlogicaGet(path: string, credentials: SLCredentials) {
+  const url = `${credentials.apiBase}${path}`;
   console.log(`[superlogica-sync] GET ${url}`);
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
-      app_token: APP_TOKEN,
-      access_token: ACCESS_TOKEN,
+      app_token: credentials.appToken,
+      access_token: credentials.accessToken,
     },
   });
-  if (!res.ok)
-    throw new Error(`Superlógica HTTP ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Superlógica HTTP ${res.status}: ${await res.text()}`);
   return await res.json();
 }
 
