@@ -140,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canCreate,
       canDelete,
       canViewHRCosts,
+      canAllocate,
       userRole,
       modulePermissions,
       mustChangePassword,
