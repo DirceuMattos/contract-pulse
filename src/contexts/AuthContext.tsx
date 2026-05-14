@@ -125,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo';
   const canCreate = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh');
   const canDelete = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh');
+  const canAllocate = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo';
   const canViewHRCosts = userRole === 'c-level' || userRole === 'administrativo';
 
   return (
