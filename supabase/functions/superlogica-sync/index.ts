@@ -400,10 +400,11 @@ async function autoLinkUnlinkedContracts(): Promise<number> {
 
   // --- Attempt B: known subscription IDs fallback ---
   const stillUnlinked = () => unlinked.filter((c) => !c._linked) as ContractRow[];
+  const defaultCredentials: SLCredentials = getAllCredentials()[0];
   for (const subId of KNOWN_SUBSCRIPTION_IDS) {
     const remaining = stillUnlinked();
     if (!remaining.length) break;
-    const sub = await fetchSubscriptionById(subId);
+    const sub = await fetchSubscriptionById(subId, defaultCredentials);
     if (!sub) continue;
     const best = findBestContractByAmount(sub.amount, remaining);
     if (!best) {
@@ -413,7 +414,7 @@ async function autoLinkUnlinkedContracts(): Promise<number> {
     const c = best.contract as any;
     let cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
     if (!cnpj && sub.customerId) {
-      cnpj = (await fetchCustomerCnpjById(sub.customerId)) ?? "";
+      cnpj = (await fetchCustomerCnpjById(sub.customerId, defaultCredentials)) ?? "";
     }
     const update: Record<string, unknown> = {
       superlogica_subscription_id: sub.id,
