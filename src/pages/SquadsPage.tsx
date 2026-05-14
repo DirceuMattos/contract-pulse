@@ -670,7 +670,7 @@ export default function SquadsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {canCreate && rd.resourceKey.startsWith('hr:') && (
+              {canAllocate && rd.resourceKey.startsWith('hr:') && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
