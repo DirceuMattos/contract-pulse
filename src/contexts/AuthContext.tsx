@@ -14,6 +14,7 @@ interface AuthContextType {
   canEdit: boolean;
   canCreate: boolean;
   canDelete: boolean;
+  canAllocate: boolean;
   canViewHRCosts: boolean;
   userRole: UserRole | null;
   modulePermissions: Record<ModuleKey, boolean> | null;
