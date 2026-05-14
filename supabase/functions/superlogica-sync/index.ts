@@ -125,6 +125,230 @@ function matchContractByAmount(
   return best ? best.contract : null;
 }
 
+/** Inverse of matchContractByAmount: given a subscription amount, find the closest contract by valor_mensal_referencia. */
+function findBestContractByAmount(
+  subscriptionAmount: number,
+  candidates: ContractRow[],
+  tolerance = 0.02
+): { contract: ContractRow; diff: number } | null {
+  if (!subscriptionAmount || subscriptionAmount <= 0) return null;
+  let best: { contract: ContractRow; diff: number } | null = null;
+  for (const c of candidates) {
+    const ref = Number(c.valor_mensal_referencia ?? 0);
+    if (!ref || ref <= 0) continue;
+    const diff = Math.abs(ref - subscriptionAmount) / ref;
+    if (diff <= tolerance && (!best || diff < best.diff)) {
+      best = { contract: c, diff };
+    }
+  }
+  return best;
+}
+
+const KNOWN_SUBSCRIPTION_IDS = [
+  '00cd4eb5-0b4a-4550-8e58-97accaa102b7',
+  'ac940ed7-ed2b-4f16-9135-475991c58183',
+  '9945029c-f0fc-4c72-9a8d-32203e2b0845',
+  'b9188b9a-8c1c-444c-b819-28310ce3168f',
+  '357a735f-0ead-46d9-a0cc-28f2361f292e',
+  '4b59ab9c-22a4-42ea-ac46-82eec2efa5bb',
+  'b5706280-6839-4965-9d3d-f3fe2bf2ae49',
+  '9e33bb6d-eb4c-45bf-8df0-bcd2c5ebb7fe',
+  '135bc51b-504e-43c6-9fcf-5919607308b8',
+];
+
+function isEmptyDate(v: unknown): boolean {
+  const s = String(v ?? "").trim();
+  return !s || s === "0000-00-00";
+}
+
+/** Aggregate active subscriptions for a Superlógica customer. */
+async function fetchActiveSubscriptionsForCustomer(customerId: string): Promise<Array<{
+  id: string;
+  label: string;
+  amount: number;
+}>> {
+  const data = await superlogicaGet(
+    `/v2/financeiro/assinaturas?idSacado=${customerId}&itensPorPagina=100`
+  );
+  const items = Array.isArray(data) ? data : (data?.data ?? []);
+  const groups: Record<string, { id: string; label: string; amount: number; cancelled: boolean }> = {};
+  for (const s of items) {
+    const subId = String(s.id_planocliente_plc ?? "");
+    if (!subId) continue;
+    const cancelled = !isEmptyDate(s.dt_cancelamento_plc);
+    const amount = Number(s.total ?? s.mrr ?? s.vl_aproxrenovacao_plc ?? 0);
+    if (!groups[subId]) {
+      groups[subId] = {
+        id: subId,
+        label: s.st_nome_pla ?? s.st_identificador_plc ?? "Assinatura",
+        amount: 0,
+        cancelled,
+      };
+    }
+    groups[subId].amount += amount;
+    if (!cancelled) groups[subId].cancelled = false;
+  }
+  return Object.values(groups)
+    .filter((g) => !g.cancelled && g.amount > 0)
+    .map(({ id, label, amount }) => ({ id, label, amount }));
+}
+
+/** Fetch a single subscription by id (used for KNOWN_SUBSCRIPTION_IDS fallback). */
+async function fetchSubscriptionById(subId: string): Promise<{
+  id: string;
+  label: string;
+  amount: number;
+  customerId: string | null;
+} | null> {
+  try {
+    const data = await superlogicaGet(
+      `/v2/financeiro/assinaturas?id=${encodeURIComponent(subId)}&itensPorPagina=100`
+    );
+    const items = Array.isArray(data) ? data : (data?.data ?? []);
+    if (!items.length) return null;
+    let amount = 0;
+    let label = "Assinatura";
+    let customerId: string | null = null;
+    let anyActive = false;
+    for (const s of items) {
+      const cancelled = !isEmptyDate(s.dt_cancelamento_plc);
+      if (!cancelled) anyActive = true;
+      amount += Number(s.total ?? s.mrr ?? s.vl_aproxrenovacao_plc ?? 0);
+      label = s.st_nome_pla ?? s.st_identificador_plc ?? label;
+      customerId = String(s.id_sacado_sac ?? customerId ?? "") || customerId;
+    }
+    if (!anyActive || amount <= 0) return null;
+    return { id: subId, label, amount, customerId };
+  } catch (e) {
+    console.log(`[autolink] fetchSubscriptionById ${subId} failed: ${String(e)}`);
+    return null;
+  }
+}
+
+/** Resolve a Superlógica customer's CNPJ from its id. */
+async function fetchCustomerCnpjById(customerId: string): Promise<string | null> {
+  try {
+    const data = await superlogicaGet(
+      `/v2/financeiro/clientes?id=${encodeURIComponent(customerId)}&itensPorPagina=1`
+    );
+    const items = Array.isArray(data) ? data : (data?.data ?? []);
+    if (!items.length) return null;
+    const c = items[0];
+    return onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "") || null;
+  } catch (e) {
+    console.log(`[autolink] fetchCustomerCnpjById ${customerId} failed: ${String(e)}`);
+    return null;
+  }
+}
+
+/** Auto-link contracts that don't yet have a superlogica_subscription_id. */
+async function autoLinkUnlinkedContracts(): Promise<number> {
+  const { data: unlinkedRaw, error } = await sb
+    .from("contracts")
+    .select("id, codigo, valor_mensal_referencia, superlogica_customer_cnpj, superlogica_customer_id, superlogica_subscription_id, superlogica_subscription_label")
+    .is("superlogica_subscription_id", null);
+  if (error) {
+    console.log(`[autolink] failed to load unlinked contracts: ${error.message}`);
+    return 0;
+  }
+  let unlinked = (unlinkedRaw ?? []) as any[];
+  const total = unlinked.length;
+  console.log(`[autolink] starting with ${total} unlinked contract(s)`);
+  if (!total) return 0;
+
+  let linked = 0;
+
+  // --- Attempt A: by CNPJ already on the contract ---
+  // Group unlinked contracts by customerId/CNPJ to avoid duplicate API calls.
+  const groups: Record<string, { customerId: string | null; cnpj: string; contracts: any[] }> = {};
+  for (const c of unlinked) {
+    const customerId = String(c.superlogica_customer_id ?? "").trim() || null;
+    const cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
+    if (!customerId && !cnpj) continue;
+    const key = customerId ? `id:${customerId}` : `cnpj:${cnpj}`;
+    if (!groups[key]) groups[key] = { customerId, cnpj, contracts: [] };
+    groups[key].contracts.push(c);
+  }
+
+  for (const [, g] of Object.entries(groups)) {
+    try {
+      let customerId = g.customerId;
+      if (!customerId && g.cnpj) {
+        customerId = await findClientByCnpj(g.cnpj);
+      }
+      if (!customerId) continue;
+
+      const subs = await fetchActiveSubscriptionsForCustomer(customerId);
+      if (!subs.length) continue;
+
+      // For each subscription, find the closest still-unlinked contract in this group.
+      for (const sub of subs) {
+        const candidates = g.contracts.filter((c) => !c._linked);
+        if (!candidates.length) break;
+        const best = findBestContractByAmount(sub.amount, candidates as ContractRow[]);
+        if (!best) continue;
+        const c = best.contract as any;
+        const update: Record<string, unknown> = {
+          superlogica_subscription_id: sub.id,
+          superlogica_subscription_label: sub.label,
+          superlogica_customer_id: customerId,
+        };
+        if (!c.superlogica_customer_cnpj && g.cnpj) update.superlogica_customer_cnpj = g.cnpj;
+        const { error: upErr } = await sb.from("contracts").update(update).eq("id", c.id);
+        if (upErr) {
+          console.log(`[autolink] update failed for contract ${c.codigo}: ${upErr.message}`);
+          continue;
+        }
+        c._linked = true;
+        linked++;
+        console.log(
+          `[autolink] contract=${c.codigo} ← subId=${sub.id} (R$${sub.amount} vs ref R$${c.valor_mensal_referencia}, diff ${(best.diff * 100).toFixed(2)}%) [via CNPJ]`
+        );
+      }
+    } catch (e) {
+      console.log(`[autolink] group ${g.customerId ?? g.cnpj} failed: ${String(e)}`);
+    }
+  }
+
+  // --- Attempt B: known subscription IDs fallback ---
+  const stillUnlinked = () => unlinked.filter((c) => !c._linked) as ContractRow[];
+  for (const subId of KNOWN_SUBSCRIPTION_IDS) {
+    const remaining = stillUnlinked();
+    if (!remaining.length) break;
+    const sub = await fetchSubscriptionById(subId);
+    if (!sub) continue;
+    const best = findBestContractByAmount(sub.amount, remaining);
+    if (!best) {
+      console.log(`[autolink] knownSub=${subId} (R$${sub.amount}) no contract match`);
+      continue;
+    }
+    const c = best.contract as any;
+    let cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
+    if (!cnpj && sub.customerId) {
+      cnpj = (await fetchCustomerCnpjById(sub.customerId)) ?? "";
+    }
+    const update: Record<string, unknown> = {
+      superlogica_subscription_id: sub.id,
+      superlogica_subscription_label: sub.label,
+    };
+    if (sub.customerId) update.superlogica_customer_id = sub.customerId;
+    if (!c.superlogica_customer_cnpj && cnpj) update.superlogica_customer_cnpj = cnpj;
+    const { error: upErr } = await sb.from("contracts").update(update).eq("id", c.id);
+    if (upErr) {
+      console.log(`[autolink] knownSub update failed for contract ${c.codigo}: ${upErr.message}`);
+      continue;
+    }
+    c._linked = true;
+    linked++;
+    console.log(
+      `[autolink] contract=${c.codigo} ← subId=${sub.id} (R$${sub.amount} vs ref R$${c.valor_mensal_referencia}, diff ${(best.diff * 100).toFixed(2)}%) [via KNOWN_SUBSCRIPTION_IDS]`
+    );
+  }
+
+  console.log(`[superlogica-sync][autolink] vinculados=${linked} total_tentados=${total}`);
+  return linked;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
