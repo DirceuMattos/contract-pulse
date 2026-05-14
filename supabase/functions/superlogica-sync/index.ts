@@ -516,7 +516,7 @@ Deno.serve(async (req) => {
 
     // 3) Group contracts by Superlógica customer ID (preferred) or CNPJ (fallback)
     //    The group key is "id:<customerId>" or "cnpj:<digits>" so we never mix them up.
-    const groupsMap: Record<string, { customerId: string | null; cnpj: string; contracts: ContractRow[] }> = {};
+    const groupsMap: Record<string, { customerId: string | null; cnpj: string; razaoSocial?: string; contracts: ContractRow[] }> = {};
     for (const c of linked as ContractRow[]) {
       const customerId = String(c.superlogica_customer_id ?? "").trim() || null;
       const cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
@@ -526,7 +526,9 @@ Deno.serve(async (req) => {
         continue;
       }
       const key = customerId ? `id:${customerId}` : `cnpj:${cnpj}`;
-      if (!groupsMap[key]) groupsMap[key] = { customerId, cnpj, contracts: [] };
+      const razao = (c as any).clients?.razao_social ?? undefined;
+      if (!groupsMap[key]) groupsMap[key] = { customerId, cnpj, razaoSocial: razao, contracts: [] };
+      else if (!groupsMap[key].razaoSocial && razao) groupsMap[key].razaoSocial = razao;
       groupsMap[key].contracts.push(c);
     }
 
@@ -538,7 +540,7 @@ Deno.serve(async (req) => {
         // Prefer stored customer ID; only re-discover via CNPJ if absent.
         let customerId: string | null = group.customerId;
         if (!customerId) {
-          customerId = await findClientByCnpj(cnpj);
+          customerId = await findClientByCnpj(cnpj, group.razaoSocial);
           if (customerId) {
             // Backfill the stored customer_id so future syncs skip the lookup.
             const ids = groupContracts.map((c) => c.id);
