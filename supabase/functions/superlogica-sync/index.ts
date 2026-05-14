@@ -32,22 +32,42 @@ function onlyDigits(x: string) {
   return (x || "").replace(/\D/g, "");
 }
 
-async function superlogicaGet(path: string) {
-  const API_BASE = normalizeBase(Deno.env.get("SUPERLOGICA_API_BASE") || "");
-  const APP_TOKEN = Deno.env.get("SUPERLOGICA_APP_TOKEN")!;
-  const ACCESS_TOKEN = Deno.env.get("SUPERLOGICA_ACCESS_TOKEN")!;
+function getAllCredentials() {
+  const base1 = normalizeBase(Deno.env.get("SUPERLOGICA_API_BASE") || Deno.env.get("Superlogica_api_base") || "");
+  const base2 = normalizeBase(Deno.env.get("Superlogica_api_base2") || "");
+  const base3 = normalizeBase(Deno.env.get("Superlogica_api_base3") || "");
+  return [
+    {
+      apiBase: base1,
+      appToken: Deno.env.get("SUPERLOGICA_APP_TOKEN") || Deno.env.get("Superlogica_App_Token") || "",
+      accessToken: Deno.env.get("SUPERLOGICA_ACCESS_TOKEN") || Deno.env.get("Superlogica_access_Token") || "",
+    },
+    {
+      apiBase: base2 || base1,
+      appToken: Deno.env.get("Superlogica_App_Token2") || "",
+      accessToken: Deno.env.get("Superlogica_access_Token2") || "",
+    },
+    {
+      apiBase: base3 || base1,
+      appToken: Deno.env.get("Superlogica_App_Token3") || "",
+      accessToken: Deno.env.get("Superlogica_access_Token3") || "",
+    },
+  ].filter(c => c.appToken && c.accessToken);
+}
 
-  const url = `${API_BASE}${path}`;
+type SLCredentials = { apiBase: string; appToken: string; accessToken: string };
+
+async function superlogicaGet(path: string, credentials: SLCredentials) {
+  const url = `${credentials.apiBase}${path}`;
   console.log(`[superlogica-sync] GET ${url}`);
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
-      app_token: APP_TOKEN,
-      access_token: ACCESS_TOKEN,
+      app_token: credentials.appToken,
+      access_token: credentials.accessToken,
     },
   });
-  if (!res.ok)
-    throw new Error(`Superlógica HTTP ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Superlógica HTTP ${res.status}: ${await res.text()}`);
   return await res.json();
 }
 
@@ -67,68 +87,79 @@ const NAME_STOPLIST = new Set([
   "do", "da", "de", "dos", "das", "e",
 ]);
 
-/** Resolve CNPJ → Superlógica customer ID (id_sacado_sac), with optional name fallback. */
+/** Resolve CNPJ → Superlógica customer ID, trying all configured credential sets in sequence. */
 async function findClientByCnpj(
   cnpjDigits: string,
   razaoSocial?: string
-): Promise<string | null> {
-  let page = 1;
-  const perPage = 50;
-  const allClients: Array<{ id: string; name: string }> = [];
+): Promise<{ customerId: string; credentials: SLCredentials } | null> {
+  for (const credentials of getAllCredentials()) {
+    let page = 1;
+    const perPage = 50;
+    const allClients: Array<{ id: string; name: string }> = [];
+    let credentialFailed = false;
 
-  while (page <= 20) {
-    const data = await superlogicaGet(
-      `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=${perPage}&pagina=${page}`
-    );
+    while (page <= 20) {
+      try {
+        const data = await superlogicaGet(
+          `/v2/financeiro/clientes?apenasColunasPrincipais=1&itensPorPagina=${perPage}&pagina=${page}`,
+          credentials
+        );
+        const items = Array.isArray(data) ? data : (data?.data ?? []);
+        if (!items.length) break;
 
-    const items = Array.isArray(data) ? data : (data?.data ?? []);
-    if (!items.length) break;
+        for (const c of items) {
+          const cgc = onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "");
+          if (cgc === cnpjDigits) {
+            const id = String(c.id_sacado_sac ?? "");
+            console.log(`[superlogica-sync] Found customer id=${id} for CNPJ ${cnpjDigits}`);
+            return { customerId: id, credentials };
+          }
+          allClients.push({
+            id: String(c.id_sacado_sac ?? ""),
+            name: String(c.st_nome_sac ?? ""),
+          });
+        }
 
-    for (const c of items) {
-      const cgc = onlyDigits(c.st_cgc_sac ?? c.st_cpf_sac ?? "");
-      if (cgc === cnpjDigits) {
-        const id = String(c.id_sacado_sac ?? "");
-        console.log(`[superlogica-sync] Found customer id=${id} for CNPJ ${cnpjDigits}`);
-        return id;
+        if (items.length < perPage) break;
+        page++;
+      } catch (e) {
+        console.log(`[superlogica-sync] Credential set failed for CNPJ ${cnpjDigits}: ${String(e)}`);
+        credentialFailed = true;
+        break;
       }
-      allClients.push({
-        id: String(c.id_sacado_sac ?? ""),
-        name: String(c.st_nome_sac ?? ""),
-      });
     }
 
-    if (items.length < perPage) break;
-    page++;
-  }
+    if (credentialFailed) continue;
 
-  // Fallback: try matching by company name (razão social)
-  if (razaoSocial && razaoSocial.trim()) {
-    const normRazao = normalizeNameStr(razaoSocial);
-    const tokens = normRazao
-      .split(" ")
-      .filter((t) => t.length >= 4 && !NAME_STOPLIST.has(t));
+    // Fallback: try matching by company name (razão social) within this credential set
+    if (razaoSocial && razaoSocial.trim()) {
+      const normRazao = normalizeNameStr(razaoSocial);
+      const tokens = normRazao
+        .split(" ")
+        .filter((t) => t.length >= 4 && !NAME_STOPLIST.has(t));
 
-    if (tokens.length) {
-      const matches = allClients.filter((c) => {
-        const n = normalizeNameStr(c.name);
-        return tokens.every((t) => n.includes(t));
-      });
+      if (tokens.length) {
+        const matches = allClients.filter((c) => {
+          const n = normalizeNameStr(c.name);
+          return tokens.every((t) => n.includes(t));
+        });
 
-      if (matches.length === 1) {
-        console.log(
-          `[superlogica-sync] Fallback by name matched id=${matches[0].id} for "${razaoSocial}" (CNPJ ${cnpjDigits} not found)`
-        );
-        return matches[0].id;
-      }
-      if (matches.length > 1) {
-        console.log(
-          `[superlogica-sync] Ambiguous name match for "${razaoSocial}": ${matches.length} candidates`
-        );
+        if (matches.length === 1) {
+          console.log(
+            `[superlogica-sync] Fallback by name matched id=${matches[0].id} for "${razaoSocial}" (CNPJ ${cnpjDigits} not found)`
+          );
+          return { customerId: matches[0].id, credentials };
+        }
+        if (matches.length > 1) {
+          console.log(
+            `[superlogica-sync] Ambiguous name match for "${razaoSocial}": ${matches.length} candidates`
+          );
+        }
       }
     }
   }
 
-  console.log(`[superlogica-sync] No customer found for CNPJ ${cnpjDigits}`);
+  console.log(`[superlogica-sync] No customer found for CNPJ ${cnpjDigits} in any credential set`);
   return null;
 }
 
@@ -213,13 +244,14 @@ function isEmptyDate(v: unknown): boolean {
 }
 
 /** Aggregate active subscriptions for a Superlógica customer. */
-async function fetchActiveSubscriptionsForCustomer(customerId: string): Promise<Array<{
+async function fetchActiveSubscriptionsForCustomer(customerId: string, credentials: SLCredentials): Promise<Array<{
   id: string;
   label: string;
   amount: number;
 }>> {
   const data = await superlogicaGet(
-    `/v2/financeiro/assinaturas?idSacado=${customerId}&itensPorPagina=100`
+    `/v2/financeiro/assinaturas?idSacado=${customerId}&itensPorPagina=100`,
+    credentials
   );
   const items = Array.isArray(data) ? data : (data?.data ?? []);
   const groups: Record<string, { id: string; label: string; amount: number; cancelled: boolean }> = {};
@@ -245,7 +277,7 @@ async function fetchActiveSubscriptionsForCustomer(customerId: string): Promise<
 }
 
 /** Fetch a single subscription by id (used for KNOWN_SUBSCRIPTION_IDS fallback). */
-async function fetchSubscriptionById(subId: string): Promise<{
+async function fetchSubscriptionById(subId: string, credentials: SLCredentials): Promise<{
   id: string;
   label: string;
   amount: number;
@@ -253,7 +285,8 @@ async function fetchSubscriptionById(subId: string): Promise<{
 } | null> {
   try {
     const data = await superlogicaGet(
-      `/v2/financeiro/assinaturas?id=${encodeURIComponent(subId)}&itensPorPagina=100`
+      `/v2/financeiro/assinaturas?id=${encodeURIComponent(subId)}&itensPorPagina=100`,
+      credentials
     );
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     if (!items.length) return null;
@@ -277,10 +310,11 @@ async function fetchSubscriptionById(subId: string): Promise<{
 }
 
 /** Resolve a Superlógica customer's CNPJ from its id. */
-async function fetchCustomerCnpjById(customerId: string): Promise<string | null> {
+async function fetchCustomerCnpjById(customerId: string, credentials: SLCredentials): Promise<string | null> {
   try {
     const data = await superlogicaGet(
-      `/v2/financeiro/clientes?id=${encodeURIComponent(customerId)}&itensPorPagina=1`
+      `/v2/financeiro/clientes?id=${encodeURIComponent(customerId)}&itensPorPagina=1`,
+      credentials
     );
     const items = Array.isArray(data) ? data : (data?.data ?? []);
     if (!items.length) return null;
@@ -324,12 +358,15 @@ async function autoLinkUnlinkedContracts(): Promise<number> {
   for (const [, g] of Object.entries(groups)) {
     try {
       let customerId = g.customerId;
+      let activeCredentials: SLCredentials = getAllCredentials()[0];
       if (!customerId && g.cnpj) {
-        customerId = await findClientByCnpj(g.cnpj);
+        const result = await findClientByCnpj(g.cnpj);
+        customerId = result?.customerId ?? null;
+        activeCredentials = result?.credentials ?? activeCredentials;
       }
       if (!customerId) continue;
 
-      const subs = await fetchActiveSubscriptionsForCustomer(customerId);
+      const subs = await fetchActiveSubscriptionsForCustomer(customerId, activeCredentials);
       if (!subs.length) continue;
 
       // For each subscription, find the closest still-unlinked contract in this group.
@@ -363,10 +400,11 @@ async function autoLinkUnlinkedContracts(): Promise<number> {
 
   // --- Attempt B: known subscription IDs fallback ---
   const stillUnlinked = () => unlinked.filter((c) => !c._linked) as ContractRow[];
+  const defaultCredentials: SLCredentials = getAllCredentials()[0];
   for (const subId of KNOWN_SUBSCRIPTION_IDS) {
     const remaining = stillUnlinked();
     if (!remaining.length) break;
-    const sub = await fetchSubscriptionById(subId);
+    const sub = await fetchSubscriptionById(subId, defaultCredentials);
     if (!sub) continue;
     const best = findBestContractByAmount(sub.amount, remaining);
     if (!best) {
@@ -376,7 +414,7 @@ async function autoLinkUnlinkedContracts(): Promise<number> {
     const c = best.contract as any;
     let cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
     if (!cnpj && sub.customerId) {
-      cnpj = (await fetchCustomerCnpjById(sub.customerId)) ?? "";
+      cnpj = (await fetchCustomerCnpjById(sub.customerId, defaultCredentials)) ?? "";
     }
     const update: Record<string, unknown> = {
       superlogica_subscription_id: sub.id,
@@ -470,7 +508,7 @@ Deno.serve(async (req) => {
       for (const subId of KNOWN_SUBSCRIPTION_IDS) {
         try {
           // Buscar dados da assinatura no Superlógica
-          const subData = await superlogicaGet(`/v2/financeiro/cobranca?idContrato=${subId}&itensPorPagina=5`);
+          const subData = await superlogicaGet(`/v2/financeiro/cobranca?idContrato=${subId}&itensPorPagina=5`, getAllCredentials()[0]);
           const items = Array.isArray(subData) ? subData : (subData?.data ?? []);
           if (!items.length) continue;
 
@@ -539,8 +577,11 @@ Deno.serve(async (req) => {
       try {
         // Prefer stored customer ID; only re-discover via CNPJ if absent.
         let customerId: string | null = group.customerId;
+        let activeCredentials: SLCredentials = getAllCredentials()[0];
         if (!customerId) {
-          customerId = await findClientByCnpj(cnpj, group.razaoSocial);
+          const result = await findClientByCnpj(cnpj, group.razaoSocial);
+          customerId = result?.customerId ?? null;
+          activeCredentials = result?.credentials ?? activeCredentials;
           if (customerId) {
             // Backfill the stored customer_id so future syncs skip the lookup.
             const ids = groupContracts.map((c) => c.id);
@@ -562,7 +603,8 @@ Deno.serve(async (req) => {
         fetchedSubs++;
         console.log(`[superlogica-sync] Fetching invoices for customer ${customerId} (CNPJ ${cnpj})`);
         const inv = await superlogicaGet(
-          `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`
+          `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`,
+          activeCredentials
         );
 
         const allItemsRaw = inv?.data ?? inv ?? [];
