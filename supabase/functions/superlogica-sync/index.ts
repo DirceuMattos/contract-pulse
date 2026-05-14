@@ -51,10 +51,30 @@ async function superlogicaGet(path: string) {
   return await res.json();
 }
 
-/** Resolve CNPJ → Superlógica customer ID (id_sacado_sac) */
-async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
+/** Normalize a string for name matching (lowercase, no accents/punctuation). */
+function normalizeNameStr(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const NAME_STOPLIST = new Set([
+  "ltda", "me", "eireli", "sa", "s", "comercio", "industria",
+  "do", "da", "de", "dos", "das", "e",
+]);
+
+/** Resolve CNPJ → Superlógica customer ID (id_sacado_sac), with optional name fallback. */
+async function findClientByCnpj(
+  cnpjDigits: string,
+  razaoSocial?: string
+): Promise<string | null> {
   let page = 1;
   const perPage = 50;
+  const allClients: Array<{ id: string; name: string }> = [];
 
   while (page <= 20) {
     const data = await superlogicaGet(
@@ -71,10 +91,41 @@ async function findClientByCnpj(cnpjDigits: string): Promise<string | null> {
         console.log(`[superlogica-sync] Found customer id=${id} for CNPJ ${cnpjDigits}`);
         return id;
       }
+      allClients.push({
+        id: String(c.id_sacado_sac ?? ""),
+        name: String(c.st_nome_sac ?? ""),
+      });
     }
 
     if (items.length < perPage) break;
     page++;
+  }
+
+  // Fallback: try matching by company name (razão social)
+  if (razaoSocial && razaoSocial.trim()) {
+    const normRazao = normalizeNameStr(razaoSocial);
+    const tokens = normRazao
+      .split(" ")
+      .filter((t) => t.length >= 4 && !NAME_STOPLIST.has(t));
+
+    if (tokens.length) {
+      const matches = allClients.filter((c) => {
+        const n = normalizeNameStr(c.name);
+        return tokens.every((t) => n.includes(t));
+      });
+
+      if (matches.length === 1) {
+        console.log(
+          `[superlogica-sync] Fallback by name matched id=${matches[0].id} for "${razaoSocial}" (CNPJ ${cnpjDigits} not found)`
+        );
+        return matches[0].id;
+      }
+      if (matches.length > 1) {
+        console.log(
+          `[superlogica-sync] Ambiguous name match for "${razaoSocial}": ${matches.length} candidates`
+        );
+      }
+    }
   }
 
   console.log(`[superlogica-sync] No customer found for CNPJ ${cnpjDigits}`);
@@ -452,7 +503,7 @@ Deno.serve(async (req) => {
     const { data: contracts, error: cErr } = await sb
       .from("contracts")
       .select(
-        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, superlogica_customer_id, valor_mensal_referencia"
+        "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, superlogica_customer_id, valor_mensal_referencia, clients(razao_social)"
       )
       .not("superlogica_subscription_id", "is", null);
     if (cErr) throw new Error(cErr.message);
@@ -465,7 +516,7 @@ Deno.serve(async (req) => {
 
     // 3) Group contracts by Superlógica customer ID (preferred) or CNPJ (fallback)
     //    The group key is "id:<customerId>" or "cnpj:<digits>" so we never mix them up.
-    const groupsMap: Record<string, { customerId: string | null; cnpj: string; contracts: ContractRow[] }> = {};
+    const groupsMap: Record<string, { customerId: string | null; cnpj: string; razaoSocial?: string; contracts: ContractRow[] }> = {};
     for (const c of linked as ContractRow[]) {
       const customerId = String(c.superlogica_customer_id ?? "").trim() || null;
       const cnpj = onlyDigits(c.superlogica_customer_cnpj ?? "");
@@ -475,7 +526,9 @@ Deno.serve(async (req) => {
         continue;
       }
       const key = customerId ? `id:${customerId}` : `cnpj:${cnpj}`;
-      if (!groupsMap[key]) groupsMap[key] = { customerId, cnpj, contracts: [] };
+      const razao = (c as any).clients?.razao_social ?? undefined;
+      if (!groupsMap[key]) groupsMap[key] = { customerId, cnpj, razaoSocial: razao, contracts: [] };
+      else if (!groupsMap[key].razaoSocial && razao) groupsMap[key].razaoSocial = razao;
       groupsMap[key].contracts.push(c);
     }
 
@@ -487,7 +540,7 @@ Deno.serve(async (req) => {
         // Prefer stored customer ID; only re-discover via CNPJ if absent.
         let customerId: string | null = group.customerId;
         if (!customerId) {
-          customerId = await findClientByCnpj(cnpj);
+          customerId = await findClientByCnpj(cnpj, group.razaoSocial);
           if (customerId) {
             // Backfill the stored customer_id so future syncs skip the lookup.
             const ids = groupContracts.map((c) => c.id);

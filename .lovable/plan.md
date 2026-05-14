@@ -1,28 +1,42 @@
-## Adicionar bloco de auto-vinculação em `superlogica-sync/index.ts`
+## Fallback de busca por nome em `superlogica-sync/index.ts`
 
-### Localização
-Inserir o bloco exatamente entre os comentários existentes:
-- Após `// 1) Create sync run` (e seu bloco)
-- Antes de `// 2) Load linked contracts`
+### 1. Atualizar `findClientByCnpj` (linha 55)
+Adicionar segundo parâmetro opcional:
 
-### Conteúdo a inserir
-Bloco `// 0) Auto-link: tentar vincular contratos sem superlogica_subscription_id` exatamente como descrito pelo usuário, contendo:
+```ts
+async function findClientByCnpj(
+  cnpjDigits: string,
+  razaoSocial?: string
+): Promise<string | null>
+```
 
-1. `KNOWN_SUBSCRIPTION_IDS` — lista com os 9 UUIDs fornecidos.
-2. `SELECT id, codigo, valor_mensal_referencia FROM contracts WHERE superlogica_subscription_id IS NULL` via `sb`.
-3. Para cada `subId`:
-   - `superlogicaGet('/v2/financeiro/cobranca?idContrato=<subId>&itensPorPagina=5')`
-   - Extrai `invoiceAmount` de `vl_total_recb` ou `vl_emitido_recb` do primeiro item
-   - Extrai `label` de `st_descricao_cont`
-   - Extrai `customerId` de `id_sacado_sac`
-   - Filtra `unlinked` removendo já marcados com `_linked`
-   - Chama `matchContractByAmount(invoiceAmount, stillUnlinked, 0.05)`
-   - Se houver match: `UPDATE contracts SET superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_id WHERE id = matched.id`, marca `_linked = true` e loga
-   - Erros logados em `console.log` sem interromper o loop
+Manter o loop de páginas atual. Enquanto carrega as páginas, acumular todos os clientes em um array local `allClients` (id + nome) para reutilizar no fallback. Ao final do loop sem match por CNPJ, antes do `return null`:
+
+- Se `razaoSocial` foi informado:
+  - Normalizar: `toLowerCase`, `normalize("NFD").replace(/[\u0300-\u036f]/g, "")`, remover pontuação, colapsar espaços.
+  - Tokenizar e filtrar tokens com tamanho ≥ 4 que não estejam na stoplist: `LTDA, ME, EIRELI, SA, COMERCIO, INDUSTRIA` (também versão normalizada).
+  - Para cada cliente acumulado, normalizar `st_nome_sac` e considerar match se contiver TODOS os tokens significativos.
+  - Se exatamente 1 match → log `Fallback by name matched id=...` e retornar id.
+  - Se >1 → log `Ambiguous name match for "<razao>": N candidates` e retornar null.
+  - Se 0 → seguir para `return null` original.
+
+### 2. Passar razão social na chamada do passo 2 (linha 490)
+Alterar o SELECT (linhas 452–457) para incluir o join:
+
+```ts
+.select(
+  "id, codigo, superlogica_subscription_id, superlogica_subscription_label, superlogica_customer_cnpj, superlogica_customer_id, valor_mensal_referencia, clients(razao_social)"
+)
+```
+
+Ao montar `groupsMap` (linha 468–480), capturar `razaoSocial` do primeiro contrato do grupo (`c.clients?.razao_social`) e armazenar no grupo. Ajustar o tipo do `groupsMap` para incluir `razaoSocial?: string`.
+
+Na chamada (linha 490), passar:
+```ts
+customerId = await findClientByCnpj(cnpj, group.razaoSocial);
+```
 
 ### Restrições
-- Nenhuma outra alteração em qualquer parte do arquivo.
-- Não remover nem ajustar a auto-vinculação anterior (`autoLinkUnlinkedContracts()`) já existente — apenas inserir este novo bloco no local indicado. Se essa chamada anterior estiver justamente no ponto entre `// 1) Create sync run` e `// 2) Load linked contracts`, ela permanece e o novo bloco é adicionado logo abaixo dela (ainda antes do comentário `// 2)`).
-
-### Arquivo
-- `supabase/functions/superlogica-sync/index.ts` (deploy automático após edição).
+- Não alterar a chamada em `autoLinkUnlinkedContracts` (linha 277) — o usuário pediu somente "no loop de grupos" do passo 2.
+- Não modificar nenhuma outra lógica, função, comentário ou processamento.
+- Arquivo: `supabase/functions/superlogica-sync/index.ts` (deploy automático).
