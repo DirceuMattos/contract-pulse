@@ -577,8 +577,11 @@ Deno.serve(async (req) => {
       try {
         // Prefer stored customer ID; only re-discover via CNPJ if absent.
         let customerId: string | null = group.customerId;
+        let activeCredentials: SLCredentials = getAllCredentials()[0];
         if (!customerId) {
-          customerId = await findClientByCnpj(cnpj, group.razaoSocial);
+          const result = await findClientByCnpj(cnpj, group.razaoSocial);
+          customerId = result?.customerId ?? null;
+          activeCredentials = result?.credentials ?? activeCredentials;
           if (customerId) {
             // Backfill the stored customer_id so future syncs skip the lookup.
             const ids = groupContracts.map((c) => c.id);
@@ -600,7 +603,8 @@ Deno.serve(async (req) => {
         fetchedSubs++;
         console.log(`[superlogica-sync] Fetching invoices for customer ${customerId} (CNPJ ${cnpj})`);
         const inv = await superlogicaGet(
-          `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`
+          `/v2/financeiro/cobranca?idSacado=${customerId}&itensPorPagina=200`,
+          activeCredentials
         );
 
         const allItemsRaw = inv?.data ?? inv ?? [];
