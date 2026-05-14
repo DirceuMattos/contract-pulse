@@ -244,13 +244,14 @@ function isEmptyDate(v: unknown): boolean {
 }
 
 /** Aggregate active subscriptions for a Superlógica customer. */
-async function fetchActiveSubscriptionsForCustomer(customerId: string): Promise<Array<{
+async function fetchActiveSubscriptionsForCustomer(customerId: string, credentials: SLCredentials): Promise<Array<{
   id: string;
   label: string;
   amount: number;
 }>> {
   const data = await superlogicaGet(
-    `/v2/financeiro/assinaturas?idSacado=${customerId}&itensPorPagina=100`
+    `/v2/financeiro/assinaturas?idSacado=${customerId}&itensPorPagina=100`,
+    credentials
   );
   const items = Array.isArray(data) ? data : (data?.data ?? []);
   const groups: Record<string, { id: string; label: string; amount: number; cancelled: boolean }> = {};
