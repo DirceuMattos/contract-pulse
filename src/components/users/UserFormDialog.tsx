@@ -348,6 +348,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                       <SelectItem value="juridico">Jurídico</SelectItem>
                       <SelectItem value="rh">RH</SelectItem>
                       <SelectItem value="administrativo">Administrativo</SelectItem>
+                      <SelectItem value="demo">Demo</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
