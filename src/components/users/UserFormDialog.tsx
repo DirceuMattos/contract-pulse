@@ -77,6 +77,18 @@ interface UserFormDialogProps {
   editingUser: SystemUser | null;
 }
 
+const roleLabels: Record<UserRole, string> = {
+  'c-level': 'C-Level / Admin',
+  'intermediario': 'Intermediário',
+  'leitor': 'Leitor',
+  'comercial': 'Comercial',
+  'lider_tribo': 'Líder de Tribo',
+  'juridico': 'Jurídico',
+  'rh': 'RH',
+  'administrativo': 'Administrativo',
+  'demo': 'Demo',
+};
+
 const roleDescriptions: Record<UserRole, string> = {
   'c-level': 'Acesso total com visualização de valores financeiros e gestão de usuários',
   'intermediario': 'Edição de dados operacionais sem visualização de valores',
