@@ -66,6 +66,7 @@ const roleLabels: Record<UserRole, string> = {
   'juridico': 'Jurídico',
   'rh': 'RH',
   'administrativo': 'Administrativo',
+  'demo': 'Demonstração',
 };
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -77,6 +78,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   'juridico': Shield,
   'rh': Shield,
   'administrativo': Shield,
+  'demo': Eye,
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -88,6 +90,7 @@ const roleColors: Record<UserRole, string> = {
   'juridico': 'bg-amber-500/10 text-amber-700 border-amber-500/20',
   'rh': 'bg-violet-500/10 text-violet-700 border-violet-500/20',
   'administrativo': 'bg-slate-500/10 text-slate-700 border-slate-500/20',
+  'demo': 'bg-muted text-muted-foreground border-border',
 };
 
 export default function UsersPage() {

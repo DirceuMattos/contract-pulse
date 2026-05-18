@@ -63,7 +63,7 @@ const userFormSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
   email: z.string().email('E-mail inválido').max(255),
   password: passwordSchema,
-  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo'] as const),
+  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo', 'demo'] as const),
   active: z.boolean(),
 });
 
@@ -86,6 +86,7 @@ const roleDescriptions: Record<UserRole, string> = {
   'juridico': 'Visão de contratos, squads e dashboard sem valores financeiros',
   'rh': 'Visão de RH, squads e dashboard sem valores financeiros',
   'administrativo': 'Acesso controlado por flags de módulo',
+  'demo': 'Acesso de demonstração apenas para visualização',
 };
 
 export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogProps) {
