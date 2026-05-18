@@ -1,23 +1,24 @@
-## Alteração no filtro de departamento da tela de RH
+## Mudança em `src/types/moduleAccess.ts`
 
-### Objetivo
-Fazer com que colaboradores sem departamento (`team_id` nulo ou indefinido) sempre apareçam na listagem, mesmo quando um filtro de departamento está selecionado.
+Substituir a lista atual do perfil `demo` em `ROLE_DEFAULT_MODULES` pela lista solicitada (adiciona `SETTINGS`, `USERS_ADMIN`, `IMPORT_EXPORT`):
 
-### Mudança
-No arquivo `src/pages/HRPeoplePage.tsx`, no `useMemo` da variável `filtered` (linha 115), alterar a condição `matchTeam`:
-
-**De:**
-```
-const matchTeam = !filterTeam || p.teamId === filterTeam;
+```ts
+demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'HR', 'CALCULATOR', 'HISTORY', 'DOCUMENTS', 'RESOURCES', 'SETTINGS', 'USERS_ADMIN', 'IMPORT_EXPORT', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
 ```
 
-**Para:**
-```
-const matchTeam = !filterTeam || !p.teamId || p.teamId === filterTeam;
-```
+## Sobre os itens 2 e 3 — nenhuma alteração necessária
 
-A nova condição adiciona `!p.teamId` como um critério de inclusão: se o colaborador não tiver departamento cadastrado, ele sempre passa no filtro de departamento.
+**Item 2 (fallback):** A função `getDefaultModuleAccess` já trata `demo` explicitamente. A lógica é:
+1. `roleRestrictions` do módulo (prioridade máxima)
+2. Se `customDefaults !== undefined` (caso do `demo`), usa exatamente a lista declarada
+3. Só cai no branch "todos habilitados" para roles sem entrada em `ROLE_DEFAULT_MODULES` (c-level, leitor)
 
-### Escopo
-- Apenas a linha de `matchTeam` no arquivo `HRPeoplePage.tsx` será alterada.
-- Nenhuma outra lógica de filtro será modificada.
+Como `demo` está em `ROLE_DEFAULT_MODULES`, ele nunca cai em fallback. Nenhuma correção necessária.
+
+**Item 3 (useModuleAccess):** O hook lê `userRole` direto do `AuthContext` (que já tipa `UserRole` incluindo `'demo'`) e o passa para `getDefaultModuleAccess`. Nenhuma correção necessária.
+
+## ⚠️ Observação importante
+
+Os módulos `SETTINGS` e `USERS_ADMIN` no `MODULE_CATALOG` têm `roleRestrictions: ['c-level']`. Isso significa que, mesmo incluindo-os na lista do `demo`, eles serão forçados a `false` pela regra de prioridade #1 (role restriction). O `IMPORT_EXPORT` não tem restrição, então funcionará.
+
+**Quer que eu também remova `'c-level'` exclusivo das restrições de `SETTINGS`/`USERS_ADMIN` para liberar acesso ao demo?** Isso afetaria a regra existente. Por padrão, vou apenas atualizar a lista do `demo` conforme pedido, e os dois módulos restritos continuarão bloqueados pela restriction — me avise se quiser mudar isso também.
