@@ -90,7 +90,7 @@ const roleColors: Record<UserRole, string> = {
   'juridico': 'bg-amber-500/10 text-amber-700 border-amber-500/20',
   'rh': 'bg-violet-500/10 text-violet-700 border-violet-500/20',
   'administrativo': 'bg-slate-500/10 text-slate-700 border-slate-500/20',
-  'demo': 'bg-muted text-muted-foreground border-border',
+  'demo': 'bg-orange-500/10 text-orange-700 border-orange-500/20',
 };
 
 export default function UsersPage() {
