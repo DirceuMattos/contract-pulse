@@ -16,7 +16,7 @@ export interface JobTitle {
 }
 
 // User and Auth Types
-export type UserRole = 'c-level' | 'intermediario' | 'leitor' | 'comercial' | 'lider_tribo' | 'juridico' | 'rh' | 'administrativo';
+export type UserRole = 'c-level' | 'intermediario' | 'leitor' | 'comercial' | 'lider_tribo' | 'juridico' | 'rh' | 'administrativo' | 'demo';
 
 export interface User {
   id: string;
