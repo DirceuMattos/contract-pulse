@@ -32,9 +32,9 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'ALERTS', label: 'Alertas', description: 'Central de alertas e notificações', routes: ['/alertas'], roleRestrictions: [] },
   { key: 'SQUADS', label: 'Squads', description: 'Distribuição de equipes por contrato', routes: ['/squads'], roleRestrictions: [] },
   { key: 'CALCULATOR', label: 'Simulador de Contratos', description: 'Simulador para precificação e viabilidade de contratos', routes: ['/calculadora', '/calculadora/nova', '/calculadora/:id'], roleRestrictions: [] },
-  { key: 'USERS_ADMIN', label: 'Usuários', description: 'Administração de usuários do sistema', routes: ['/usuarios'], roleRestrictions: ['c-level'] },
+  { key: 'USERS_ADMIN', label: 'Usuários', description: 'Administração de usuários do sistema', routes: ['/usuarios'], roleRestrictions: ['c-level', 'demo'] },
   { key: 'ACCESS_LOGS', label: 'Logs de Acesso', description: 'Registro de acessos ao sistema', routes: ['/usuarios/logs'], roleRestrictions: ['c-level'] },
-  { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes'], roleRestrictions: ['c-level'] },
+  { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes'], roleRestrictions: ['c-level', 'demo'] },
   { key: 'IMPORT_EXPORT', label: 'Importar/Exportar', description: 'Importação e exportação de dados', routes: ['/importar-exportar'], roleRestrictions: [] },
   { key: 'HR', label: 'Recursos Humanos', description: 'Cadastro mestre de pessoas, cargos e equipes', routes: ['/rh', '/rh/cargos', '/rh/equipes'], roleRestrictions: [] },
   { key: 'AI', label: 'IA / Análises', description: 'Análises inteligentes, insights e geração de minutas', routes: ['/ai', '/ai/contracts-analysis', '/ai/resources-analysis', '/ai/drafts'], roleRestrictions: [] },
@@ -52,7 +52,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
  */
 // Default modules enabled per role (modules not listed default to false for these roles)
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
-  demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'HR', 'CALCULATOR', 'HISTORY', 'DOCUMENTS', 'RESOURCES', 'SETTINGS', 'USERS_ADMIN', 'IMPORT_EXPORT', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'HR', 'CALCULATOR', 'HISTORY', 'DOCUMENTS', 'RESOURCES', 'IMPORT_EXPORT', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
   lider_tribo: ['DASHBOARD', 'SQUADS', 'JOB_REQUESTS'],
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
