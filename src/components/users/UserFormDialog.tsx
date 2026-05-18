@@ -77,6 +77,18 @@ interface UserFormDialogProps {
   editingUser: SystemUser | null;
 }
 
+const roleLabels: Record<UserRole, string> = {
+  'c-level': 'C-Level / Admin',
+  'intermediario': 'Intermediário',
+  'leitor': 'Leitor',
+  'comercial': 'Comercial',
+  'lider_tribo': 'Líder de Tribo',
+  'juridico': 'Jurídico',
+  'rh': 'RH',
+  'administrativo': 'Administrativo',
+  'demo': 'Demo',
+};
+
 const roleDescriptions: Record<UserRole, string> = {
   'c-level': 'Acesso total com visualização de valores financeiros e gestão de usuários',
   'intermediario': 'Edição de dados operacionais sem visualização de valores',
@@ -340,15 +352,9 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="c-level">C-Level / Admin</SelectItem>
-                      <SelectItem value="intermediario">Intermediário</SelectItem>
-                      <SelectItem value="leitor">Leitor</SelectItem>
-                      <SelectItem value="comercial">Comercial</SelectItem>
-                      <SelectItem value="lider_tribo">Líder de Tribo</SelectItem>
-                      <SelectItem value="juridico">Jurídico</SelectItem>
-                      <SelectItem value="rh">RH</SelectItem>
-                      <SelectItem value="administrativo">Administrativo</SelectItem>
-                      <SelectItem value="demo">Demo</SelectItem>
+                      {(Object.entries(roleLabels) as [UserRole, string][]).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormDescription>
