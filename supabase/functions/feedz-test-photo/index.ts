@@ -24,14 +24,26 @@ Deno.serve(async (req) => {
 
     while (next && pages < 30 && !found) {
       pages++;
-      const resp = await fetch(next, {
-        headers: {
-          'Authorization': `Bearer ${feedzToken}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'BNP-Contratos/1.0',
-        },
-      });
+      let resp: Response | null = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        resp = await fetch(next, {
+          headers: {
+            'Authorization': `Bearer ${feedzToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'User-Agent': 'BNP-Contratos/1.0',
+          },
+        });
+        if (resp.ok) break;
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+      }
+      if (!resp || !resp.ok) {
+        const txt = resp ? await resp.text() : 'no response';
+        return new Response(JSON.stringify({ error: 'feedz error', status: resp?.status, body: txt.slice(0, 500) }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (!resp.ok) {
         const txt = await resp.text();
         return new Response(JSON.stringify({ error: 'feedz error', status: resp.status, body: txt.slice(0, 500) }), {
