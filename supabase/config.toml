@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.simulation-parse-document]
 verify_jwt = false
+
+[functions.feedz-test-photo]
+verify_jwt = false
