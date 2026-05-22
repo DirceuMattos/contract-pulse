@@ -15,7 +15,9 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const targetId = Number(url.searchParams.get('id') ?? '2051079');
 
-    let next: string | null = 'https://app.feedz.com.br/v2/integracao/employees';
+    const statuses = ['Ativo', 'Desligado', 'Desativado'];
+    const statusParams = statuses.map(s => `status[]=${encodeURIComponent(s)}`).join('&');
+    let next: string | null = `https://app.feedz.com.br/v2/integracao/employees?${statusParams}`;
     let pages = 0;
     let found: unknown = null;
     let sampleKeys: string[] = [];
