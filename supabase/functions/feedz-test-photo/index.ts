@@ -44,12 +44,6 @@ Deno.serve(async (req) => {
           status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (!resp.ok) {
-        const txt = await resp.text();
-        return new Response(JSON.stringify({ error: 'feedz error', status: resp.status, body: txt.slice(0, 500) }), {
-          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
       const body = await resp.json();
       const records: any[] = Array.isArray(body) ? body : (body.data ?? []);
       if (records.length && !sampleKeys.length) sampleKeys = Object.keys(records[0]);
