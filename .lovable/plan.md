@@ -1,27 +1,32 @@
 ## Objetivo
-Inspecionar o payload completo da API Feedz para o colaborador `id_externo=2051079`, identificando quais campos estão disponíveis (especialmente relacionados a foto/avatar).
+Descobrir todos os campos que a API Feedz retorna para o colaborador `id_externo=2051079` — especialmente campos relacionados a foto/avatar — usando o próprio `feedz-sync` (que já passa pelo Cloudflare com sucesso).
+
+A função temporária `feedz-test-photo` foi bloqueada por Cloudflare nas tentativas anteriores. Em vez de seguir batendo nela, vamos instrumentar o `feedz-sync` real (que funciona) para logar o JSON cru do colaborador alvo.
 
 ## Passos
 
-1. **Criar Edge Function temporária `feedz-test-photo`**
-   - Arquivo: `supabase/functions/feedz-test-photo/index.ts`
-   - Faz GET em `https://app.feedz.com.br/v2/integracao/employees/2051079` usando o secret `FEEDZ_API_TOKEN` (já configurado).
-   - Inclui CORS headers e validação de JWT (proteção mínima — só usuários autenticados podem chamar).
-   - Retorna o JSON cru da Feedz.
+1. **Instrumentar `feedz-sync`** (`supabase/functions/feedz-sync/index.ts`)
+   - Logo após o `fetchAllFeedzEmployees(...)` retornar a lista, adicionar um bloco que:
+     - Procura o registro com `employeeId === 2051079` (ou `profile.id === 2051079`).
+     - Faz `console.log('[feedz-sync][DEBUG-2051079] keys:', Object.keys(emp))`.
+     - Faz `console.log('[feedz-sync][DEBUG-2051079] payload:', JSON.stringify(emp, null, 2))`.
+   - Comportamento do sync permanece idêntico — é apenas logging adicional, não altera mapeamento nem escrita no banco.
 
-2. **Configurar `supabase/config.toml`**
-   - Adicionar bloco `[functions.feedz-test-photo]` com `verify_jwt = false` (alinhado às outras funções `feedz-*` do projeto).
+2. **Deploy** automático pelo Lovable Cloud.
 
-3. **Deploy automático** da função (feito pelo Lovable Cloud ao salvar).
+3. **Você dispara o `feedz-sync` pela UI** (página de RH / sincronização Feedz) como faz normalmente.
 
-4. **Executar a função** via `supabase--curl_edge_functions` usando a sessão autenticada do preview, e retornar o JSON completo no chat para análise dos campos.
+4. **Eu leio os logs** com `supabase--edge_function_logs` filtrando por `DEBUG-2051079` e devolvo aqui o JSON completo + lista dos campos disponíveis.
 
-5. **Próximo passo (após análise)**: com base nos campos encontrados (provavelmente `photo`, `avatar_url`, `picture` ou similar), decidir se vamos:
-   - Adicionar coluna `foto_url` em `hr_people`, ou
-   - Mapear no `feedz-sync` existente, ou
-   - Remover a função temporária após o uso.
+5. **Próximo passo (após análise, em outro plano)**: decidir o nome real do campo de foto (ex: `photo`, `avatar`, `foto_url`) e:
+   - Adicionar coluna `foto_url` em `hr_people` via migration.
+   - Mapear o campo no `feedz-sync`.
+   - Remover o bloco de debug e a função temporária `feedz-test-photo` (+ entrada no `config.toml`).
 
 ## Detalhes técnicos
-- Endpoint Feedz: `GET /v2/integracao/employees/{id}` (singular, diferente do `/employees` paginado usado no sync atual).
-- Token: secret `FEEDZ_API_TOKEN` (já existe).
-- Função é temporária — será removida após identificarmos o campo correto.
+- Não removo a `feedz-test-photo` agora — fica para o cleanup final junto com o debug.
+- O log do JSON pode aparecer truncado nos logs; se passar do limite, dividimos em chunks ao ler.
+- Nenhuma alteração de schema, RLS, ou comportamento de negócio neste plano.
+
+## Arquivos afetados
+- `supabase/functions/feedz-sync/index.ts` (apenas adição de 2 `console.log` condicionais)
