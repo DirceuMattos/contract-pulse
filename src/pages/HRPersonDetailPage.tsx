@@ -94,6 +94,29 @@ export default function HRPersonDetailPage() {
   const [reativarOpen, setReativarOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !person) return;
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${person.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('hr-avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('hr-avatars').getPublicUrl(path);
+      const publicUrl = `${pub.publicUrl}?t=${Date.now()}`;
+      await updatePerson(person.id, { fotoUrl: publicUrl });
+      toast.success('Foto atualizada com sucesso');
+    } catch (err: any) {
+      toast.error('Erro ao enviar foto', { description: err?.message });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   if (!person) {
     return (
       <div className="space-y-6">
