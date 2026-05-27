@@ -1275,6 +1275,7 @@ export type Database = {
           endereco_numero: string | null
           endereco_sem_numero: boolean | null
           endereco_uf: string | null
+          foto_url: string | null
           id: string
           id_externo: string | null
           is_em_avaliacao: boolean
@@ -1326,6 +1327,7 @@ export type Database = {
           endereco_numero?: string | null
           endereco_sem_numero?: boolean | null
           endereco_uf?: string | null
+          foto_url?: string | null
           id?: string
           id_externo?: string | null
           is_em_avaliacao?: boolean
@@ -1377,6 +1379,7 @@ export type Database = {
           endereco_numero?: string | null
           endereco_sem_numero?: boolean | null
           endereco_uf?: string | null
+          foto_url?: string | null
           id?: string
           id_externo?: string | null
           is_em_avaliacao?: boolean

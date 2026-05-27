@@ -1,32 +1,24 @@
-## Objetivo
-Descobrir todos os campos que a API Feedz retorna para o colaborador `id_externo=2051079` — especialmente campos relacionados a foto/avatar — usando o próprio `feedz-sync` (que já passa pelo Cloudflare com sucesso).
+## Infraestrutura para foto de colaboradores
 
-A função temporária `feedz-test-photo` foi bloqueada por Cloudflare nas tentativas anteriores. Em vez de seguir batendo nela, vamos instrumentar o `feedz-sync` real (que funciona) para logar o JSON cru do colaborador alvo.
+3 alterações isoladas, sem tocar em nenhuma outra lógica.
 
-## Passos
+### 1. `src/types/index.ts`
+Adicionar campo opcional na interface `HRPerson`:
+```ts
+fotoUrl?: string;
+```
 
-1. **Instrumentar `feedz-sync`** (`supabase/functions/feedz-sync/index.ts`)
-   - Logo após o `fetchAllFeedzEmployees(...)` retornar a lista, adicionar um bloco que:
-     - Procura o registro com `employeeId === 2051079` (ou `profile.id === 2051079`).
-     - Faz `console.log('[feedz-sync][DEBUG-2051079] keys:', Object.keys(emp))`.
-     - Faz `console.log('[feedz-sync][DEBUG-2051079] payload:', JSON.stringify(emp, null, 2))`.
-   - Comportamento do sync permanece idêntico — é apenas logging adicional, não altera mapeamento nem escrita no banco.
+### 2. `src/lib/dbMappers.ts`
+- Em `hrPersonFromDb`: `fotoUrl: (row.foto_url as string | null) ?? undefined`
+- Em `hrPersonToDb`: `foto_url: p.fotoUrl ?? null`
 
-2. **Deploy** automático pelo Lovable Cloud.
+### 3. Migration Supabase
+```sql
+ALTER TABLE public.hr_people ADD COLUMN IF NOT EXISTS foto_url TEXT;
+```
+Coluna nullable, sem alteração de RLS/GRANTs (já existentes na tabela).
 
-3. **Você dispara o `feedz-sync` pela UI** (página de RH / sincronização Feedz) como faz normalmente.
-
-4. **Eu leio os logs** com `supabase--edge_function_logs` filtrando por `DEBUG-2051079` e devolvo aqui o JSON completo + lista dos campos disponíveis.
-
-5. **Próximo passo (após análise, em outro plano)**: decidir o nome real do campo de foto (ex: `photo`, `avatar`, `foto_url`) e:
-   - Adicionar coluna `foto_url` em `hr_people` via migration.
-   - Mapear o campo no `feedz-sync`.
-   - Remover o bloco de debug e a função temporária `feedz-test-photo` (+ entrada no `config.toml`).
-
-## Detalhes técnicos
-- Não removo a `feedz-test-photo` agora — fica para o cleanup final junto com o debug.
-- O log do JSON pode aparecer truncado nos logs; se passar do limite, dividimos em chunks ao ler.
-- Nenhuma alteração de schema, RLS, ou comportamento de negócio neste plano.
-
-## Arquivos afetados
-- `supabase/functions/feedz-sync/index.ts` (apenas adição de 2 `console.log` condicionais)
+### Fora de escopo
+- UI de upload/exibição de foto
+- Preenchimento via `feedz-sync` (a API Feedz não retorna campo de foto)
+- Remoção do bloco DEBUG e da função `feedz-test-photo` (fica para um plano de cleanup separado)

@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_people ADD COLUMN IF NOT EXISTS foto_url TEXT;
