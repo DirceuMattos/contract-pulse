@@ -1,24 +1,29 @@
-## Infraestrutura para foto de colaboradores
+Create a single component file `src/components/hr/HRAvatar.tsx` with the exact logic and props specified by the user.
 
-3 alterações isoladas, sem tocar em nenhuma outra lógica.
+**Props interface:**
+- nome: string
+- email?: string
+- fotoUrl?: string
+- size?: 'sm' | 'md' | 'lg' (default 'md')
+- className?: string
 
-### 1. `src/types/index.ts`
-Adicionar campo opcional na interface `HRPerson`:
-```ts
-fotoUrl?: string;
-```
+**Display logic (priority order):**
+1. If `fotoUrl` is provided, render `<AvatarImage src={fotoUrl} />`
+2. Else if `email` is provided, compute MD5 hash of trimmed lowercase email, build Gravatar URL `https://www.gravatar.com/avatar/{md5}?s=200&d=404`, render `<AvatarImage>` with `onError` to hide broken image and fall through to fallback.
+3. Final fallback: render `<AvatarFallback>` with colored initials.
 
-### 2. `src/lib/dbMappers.ts`
-- Em `hrPersonFromDb`: `fotoUrl: (row.foto_url as string | null) ?? undefined`
-- Em `hrPersonToDb`: `foto_url: p.fotoUrl ?? null`
+**Initials generation:**
+- Extract first letter of first word and first letter of last word from `nome`, uppercase.
 
-### 3. Migration Supabase
-```sql
-ALTER TABLE public.hr_people ADD COLUMN IF NOT EXISTS foto_url TEXT;
-```
-Coluna nullable, sem alteração de RLS/GRANTs (já existentes na tabela).
+**Color picker:**
+- Simple function that hashes the name string and picks one of 8 HSL colors from the project's design system.
 
-### Fora de escopo
-- UI de upload/exibição de foto
-- Preenchimento via `feedz-sync` (a API Feedz não retorna campo de foto)
-- Remoção do bloco DEBUG e da função `feedz-test-photo` (fica para um plano de cleanup separado)
+**Size mapping:**
+- sm: w-8 h-8, text-xs
+- md: w-12 h-12, text-sm
+- lg: w-20 h-20, text-lg
+
+**MD5:**
+- Include a minimal inline MD5 implementation (no new dependencies), since none exist in the project.
+
+**No other files will be modified.**
