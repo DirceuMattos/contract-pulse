@@ -463,6 +463,7 @@ export interface HRPerson {
   isGuardiao?: boolean;
   isEmAvaliacao?: boolean;
   nomeNormalizado?: string;
+  fotoUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
