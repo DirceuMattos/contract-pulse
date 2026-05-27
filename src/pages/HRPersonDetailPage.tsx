@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw, Camera } from 'lucide-react';
+import { HRAvatar } from '@/components/hr/HRAvatar';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -322,6 +324,29 @@ export default function HRPersonDetailPage() {
           </div>
         }
       />
+
+      <div className="flex items-center gap-3">
+        <HRAvatar nome={person.nome} email={person.email} fotoUrl={person.fotoUrl} size="lg" />
+        {canEdit && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              title="Alterar foto"
+            >
+              <Camera className="h-4 w-4" />
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </>
+        )}
+      </div>
 
       <Tabs defaultValue="resumo" className="space-y-4">
         <TabsList>
