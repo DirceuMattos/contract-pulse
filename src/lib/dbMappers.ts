@@ -620,6 +620,7 @@ export function hrPersonFromDb(row: Record<string, unknown>): HRPerson {
     enderecoBairro: (row.endereco_bairro as string | null) ?? undefined,
     enderecoMunicipio: (row.endereco_municipio as string | null) ?? undefined,
     enderecoUf: (row.endereco_uf as string | null) ?? undefined,
+    fotoUrl: (row.foto_url as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -672,6 +673,7 @@ export function hrPersonToDb(p: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>
     endereco_bairro: p.enderecoBairro ?? null,
     endereco_municipio: p.enderecoMunicipio ?? null,
     endereco_uf: p.enderecoUf ?? null,
+    foto_url: p.fotoUrl ?? null,
   };
 }
 
