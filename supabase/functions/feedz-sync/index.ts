@@ -105,9 +105,34 @@ async function fetchAllFeedzEmployees(feedzToken: string): Promise<FeedzEmployee
   }
 
   const data = await response.json()
-  if (Array.isArray(data)) return data
-  if (data.data && Array.isArray(data.data)) return data.data
-  throw new Error('Unexpected Feedz API response format')
+  const list: FeedzEmployee[] = Array.isArray(data)
+    ? data
+    : (data.data && Array.isArray(data.data) ? data.data : null)
+  if (!list) throw new Error('Unexpected Feedz API response format')
+
+  // ─── DEBUG: dump raw payload for employee 2051079 (temporary) ───────────────
+  try {
+    const target = list.find((e: any) =>
+      Number(e?.employeeId) === 2051079 ||
+      Number(e?.id) === 2051079 ||
+      Number(e?.profile?.id) === 2051079
+    )
+    if (target) {
+      console.log('[feedz-sync][DEBUG-2051079] keys:', JSON.stringify(Object.keys(target as any)))
+      const json = JSON.stringify(target, null, 2)
+      // Chunk to avoid log truncation (8KB chunks)
+      const chunkSize = 8000
+      for (let i = 0; i < json.length; i += chunkSize) {
+        console.log(`[feedz-sync][DEBUG-2051079] payload[${i}]:`, json.slice(i, i + chunkSize))
+      }
+    } else {
+      console.log('[feedz-sync][DEBUG-2051079] NOT FOUND in', list.length, 'employees')
+    }
+  } catch (e) {
+    console.log('[feedz-sync][DEBUG-2051079] error:', (e as Error).message)
+  }
+
+  return list
 }
 
 // ─── FEEDZ TURNOVER API ─────────────────────────────────────────────────────
