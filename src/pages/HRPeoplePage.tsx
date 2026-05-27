@@ -15,6 +15,7 @@ import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRImportDialog } from '@/components/hr/HRImportDialog';
 import { HRCorrectionsDialog, HRCorrectionRunsDialog } from '@/components/hr/HRCorrectionsDialog';
 import { HRAddressImportDialog } from '@/components/hr/HRAddressImportDialog';
+import { HRAvatar } from '@/components/hr/HRAvatar';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -456,6 +457,7 @@ export default function HRPeoplePage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="text-xs w-[40px]" />
                       <TableHead className="text-xs w-[18px]" />
                       <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('nome')}>Nome <SortIcon field="nome" /></TableHead>
                       <TableHead className="text-xs">Matrícula</TableHead>
@@ -478,6 +480,9 @@ export default function HRPeoplePage() {
                       const borderColor = p.isEmAvaliacao ? 'border-l-yellow-500' : p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : '';
                       return (
                         <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                          <TableCell className="py-2 px-1 w-[40px]" onClick={(e) => e.stopPropagation()}>
+                            <HRAvatar nome={p.nome} email={p.email} fotoUrl={p.fotoUrl} size="sm" />
+                          </TableCell>
                           <TableCell className="py-2 px-1 w-[18px] text-center">
                             {p.isEmAvaliacao && <span title="Em Avaliação"><AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /></span>}
                             {p.isTalento && <span title="Talento" className="text-[11px]">⭐</span>}

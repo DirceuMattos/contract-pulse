@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw, Camera } from 'lucide-react';
+import { HRAvatar } from '@/components/hr/HRAvatar';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,6 +93,29 @@ export default function HRPersonDetailPage() {
   // Reativar state
   const [reativarOpen, setReativarOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !person) return;
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${person.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('hr-avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('hr-avatars').getPublicUrl(path);
+      const publicUrl = `${pub.publicUrl}?t=${Date.now()}`;
+      await updatePerson(person.id, { fotoUrl: publicUrl });
+      toast.success('Foto atualizada com sucesso');
+    } catch (err: any) {
+      toast.error('Erro ao enviar foto', { description: err?.message });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   if (!person) {
     return (
@@ -322,6 +347,29 @@ export default function HRPersonDetailPage() {
           </div>
         }
       />
+
+      <div className="flex items-center gap-3">
+        <HRAvatar nome={person.nome} email={person.email} fotoUrl={person.fotoUrl} size="lg" />
+        {canEdit && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              title="Alterar foto"
+            >
+              <Camera className="h-4 w-4" />
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </>
+        )}
+      </div>
 
       <Tabs defaultValue="resumo" className="space-y-4">
         <TabsList>
