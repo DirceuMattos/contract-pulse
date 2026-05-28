@@ -429,6 +429,26 @@ export default function HRPeoplePage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Local de Atuação</span>
+              <Select value={filterLocalAtuacao || 'all'} onValueChange={v => setFilterLocalAtuacao(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {localAtuacaoOptions.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Projeto</span>
+              <Select value={filterProjeto || 'all'} onValueChange={v => setFilterProjeto(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {projetoOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Linha 3: Toggles rápidos */}
