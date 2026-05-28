@@ -140,9 +140,11 @@ export default function HRPeoplePage() {
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
       const matchRegime = !filterRegime || p.regimeTrabalho === filterRegime;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchRegime;
+      const matchLocalAtuacao = !filterLocalAtuacao || p.localAtuacao === filterLocalAtuacao;
+      const matchProjeto = !filterProjeto || resources.some(r => r.hrPersonId === p.id && r.contractId === filterProjeto);
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchRegime && matchLocalAtuacao && matchProjeto;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, resources]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
