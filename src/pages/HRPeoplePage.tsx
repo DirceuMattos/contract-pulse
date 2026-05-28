@@ -47,7 +47,7 @@ type SortField = 'nome' | 'tipoVinculo' | 'cargo' | 'team' | 'localAtuacao' | 'd
 export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();
-  const { teams, jobTitles } = useData();
+  const { teams, jobTitles, resources, contracts } = useData();
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
 
@@ -71,15 +71,17 @@ export default function HRPeoplePage() {
   const [filterGuardiao, setFilterGuardiao] = useState(storedFilters?.filterGuardiao ?? false);
   const [filterEmAvaliacao, setFilterEmAvaliacao] = useState(storedFilters?.filterEmAvaliacao ?? false);
   const [filterRegime, setFilterRegime] = useState(storedFilters?.filterRegime ?? '');
+  const [filterLocalAtuacao, setFilterLocalAtuacao] = useState(storedFilters?.filterLocalAtuacao ?? '');
+  const [filterProjeto, setFilterProjeto] = useState(storedFilters?.filterProjeto ?? '');
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
-    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime }));
-  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime]);
+    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto }));
+  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto]);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterRegime !== '';
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterRegime(''); sessionStorage.removeItem('hr-filters'); };
+  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterRegime !== '' || filterLocalAtuacao !== '' || filterProjeto !== '';
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterRegime(''); setFilterLocalAtuacao(''); setFilterProjeto(''); sessionStorage.removeItem('hr-filters'); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
@@ -108,6 +110,18 @@ export default function HRPeoplePage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [hrPeople]);
 
+  const localAtuacaoOptions = useMemo(() =>
+    [...new Set(hrPeople.map(p => p.localAtuacao).filter(Boolean))].sort() as string[]
+  , [hrPeople]);
+
+  const projetoOptions = useMemo(() => {
+    const contractIds = new Set(resources.filter(r => r.hrPersonId).map(r => r.contractId));
+    return contracts
+      .filter(c => contractIds.has(c.id))
+      .map(c => ({ id: c.id, nome: c.nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [resources, contracts]);
+
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
@@ -126,9 +140,11 @@ export default function HRPeoplePage() {
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
       const matchRegime = !filterRegime || p.regimeTrabalho === filterRegime;
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchRegime;
+      const matchLocalAtuacao = !filterLocalAtuacao || p.localAtuacao === filterLocalAtuacao;
+      const matchProjeto = !filterProjeto || resources.some(r => r.hrPersonId === p.id && r.contractId === filterProjeto);
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchRegime && matchLocalAtuacao && matchProjeto;
     });
-  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime]);
+  }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, resources]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -410,6 +426,26 @@ export default function HRPeoplePage() {
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {beneficioOptions.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Local de Atuação</span>
+              <Select value={filterLocalAtuacao || 'all'} onValueChange={v => setFilterLocalAtuacao(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {localAtuacaoOptions.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Projeto</span>
+              <Select value={filterProjeto || 'all'} onValueChange={v => setFilterProjeto(v === 'all' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {projetoOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
