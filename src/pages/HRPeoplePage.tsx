@@ -110,6 +110,18 @@ export default function HRPeoplePage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [hrPeople]);
 
+  const localAtuacaoOptions = useMemo(() =>
+    [...new Set(hrPeople.map(p => p.localAtuacao).filter(Boolean))].sort() as string[]
+  , [hrPeople]);
+
+  const projetoOptions = useMemo(() => {
+    const contractIds = new Set(resources.filter(r => r.hrPersonId).map(r => r.contractId));
+    return contracts
+      .filter(c => contractIds.has(c.id))
+      .map(c => ({ id: c.id, nome: c.nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [resources, contracts]);
+
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
