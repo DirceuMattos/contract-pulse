@@ -86,7 +86,7 @@ const navGroups: NavGroup[] = [
       { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
       { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
       { path: '#', label: 'Adm Horas Extras', icon: Clock, comingSoon: true },
-      { path: '#', label: 'Adm Transportes', icon: Truck, comingSoon: true },
+      { path: '/adm-transportes', label: 'Adm Transportes', icon: Truck },
       {
         path: '#',
         label: 'Requisição de Vagas',
@@ -178,7 +178,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
     const inner = (
       <>
         <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary')} />
-        {showLabel && <span className="text-sm font-medium flex-1 truncate">{item.label}</span>}
+        {showLabel && <span title={item.label} className="text-sm font-medium truncate min-w-0 flex-1">{item.label}</span>}
         {showLabel && item.comingSoon && (
           <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-sidebar-foreground/10 text-sidebar-foreground/60 shrink-0">
             Em breve
