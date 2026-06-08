@@ -106,6 +106,8 @@ const App = () => (
                           <Route path="/ai/logs" element={<AILogsPage />} />
                           <Route path="/receivables" element={<ReceivablesDashboardPage />} />
                           <Route path="/receivables/reconcile" element={<ReceivablesReconcilePage />} />
+                          <Route path="/adm-transportes" element={<TransportPage />} />
+                          
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>
