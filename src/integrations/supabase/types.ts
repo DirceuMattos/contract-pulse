@@ -2186,6 +2186,72 @@ export type Database = {
         }
         Relationships: []
       }
+      transport_rides: {
+        Row: {
+          category: string | null
+          collaborator_email: string | null
+          collaborator_id_external: string | null
+          collaborator_name: string
+          created_at: string | null
+          destination_address: string | null
+          distance_km: number | null
+          id: string
+          month: number | null
+          origin_address: string | null
+          origin_city: string | null
+          ride_end_at: string | null
+          ride_id: string
+          ride_start_at: string | null
+          supervisor_email: string | null
+          supervisor_name: string | null
+          updated_at: string | null
+          value: number
+          year: number | null
+        }
+        Insert: {
+          category?: string | null
+          collaborator_email?: string | null
+          collaborator_id_external?: string | null
+          collaborator_name: string
+          created_at?: string | null
+          destination_address?: string | null
+          distance_km?: number | null
+          id?: string
+          month?: number | null
+          origin_address?: string | null
+          origin_city?: string | null
+          ride_end_at?: string | null
+          ride_id: string
+          ride_start_at?: string | null
+          supervisor_email?: string | null
+          supervisor_name?: string | null
+          updated_at?: string | null
+          value?: number
+          year?: number | null
+        }
+        Update: {
+          category?: string | null
+          collaborator_email?: string | null
+          collaborator_id_external?: string | null
+          collaborator_name?: string
+          created_at?: string | null
+          destination_address?: string | null
+          distance_km?: number | null
+          id?: string
+          month?: number | null
+          origin_address?: string | null
+          origin_city?: string | null
+          ride_end_at?: string | null
+          ride_id?: string
+          ride_start_at?: string | null
+          supervisor_email?: string | null
+          supervisor_name?: string | null
+          updated_at?: string | null
+          value?: number
+          year?: number | null
+        }
+        Relationships: []
+      }
       user_module_permissions: {
         Row: {
           created_at: string
