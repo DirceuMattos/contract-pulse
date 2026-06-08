@@ -10,6 +10,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported?: () => void;
+  modelo?: '99corp' | 'uber';
 }
 
 // ─── ZIP entry extraction (cópia local do parser nativo do projeto) ────────────
