@@ -10,6 +10,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported?: () => void;
+  modelo?: '99corp' | 'uber';
 }
 
 // ─── ZIP entry extraction (cópia local do parser nativo do projeto) ────────────
@@ -251,8 +252,86 @@ function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
   };
 }
 
+// ─── CSV Uber (separator ; ; skip 5 header rows) ───────────────────────────────
+function parseCsvUber(text: string): { headers: string[]; rows: Record<string, string>[] } {
+  const allLines = text.split(/\r?\n/);
+  // descartar 5 primeiras linhas; 6ª é o cabeçalho
+  const lines = allLines.slice(5).filter((l) => l.trim().length > 0);
+  if (!lines.length) return { headers: [], rows: [] };
+  const sep = ';';
+  const split = (line: string) => {
+    const out: string[] = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQ = !inQ;
+      } else if (c === sep && !inQ) {
+        out.push(cur);
+        cur = '';
+      } else cur += c;
+    }
+    out.push(cur);
+    return out;
+  };
+  const headers = split(lines[0]).map((h) => h.trim());
+  const rows = lines.slice(1).map((line) => {
+    const cols = split(line);
+    const o: Record<string, string> = {};
+    headers.forEach((h, i) => (o[h] = (cols[i] ?? '').trim()));
+    return o;
+  });
+  return { headers, rows };
+}
+
+function pickExact(row: Record<string, string>, lowerMap: Map<string, string>, name: string): string | null {
+  const key = lowerMap.get(name.toLowerCase());
+  if (!key) return null;
+  const v = row[key];
+  return v === undefined || v === '' ? null : v;
+}
+
+function buildRowUber(row: Record<string, string>, lowerMap: Map<string, string>) {
+  const data = pickExact(row, lowerMap, 'Data da solicitação (UTC)');
+  const hora = pickExact(row, lowerMap, 'Hora da solicitação (UTC)');
+  const nome = pickExact(row, lowerMap, 'Nome');
+  const sobrenome = pickExact(row, lowerMap, 'Sobrenome');
+  const valorRaw = pickExact(row, lowerMap, 'Valor da transação: BRL');
+
+  const ride_id =
+    data || hora || nome || sobrenome || valorRaw
+      ? [data ?? '', hora ?? '', nome ?? '', sobrenome ?? '', valorRaw ?? ''].join('_')
+      : null;
+
+  const start = toISO(data && hora ? `${data} ${hora}` : data);
+  const startDate = start ? new Date(start) : null;
+
+  return {
+    ride_id,
+    collaborator_name: [nome, sobrenome].filter(Boolean).join(' ') || null,
+    collaborator_email: null,
+    collaborator_id_external: pickExact(row, lowerMap, 'ID do funcionário'),
+    value: toNumber(valorRaw),
+    distance_km: null,
+    origin_address: pickExact(row, lowerMap, 'Endereço de partida'),
+    destination_address: pickExact(row, lowerMap, 'Endereço de destino'),
+    origin_city: pickExact(row, lowerMap, 'Cidade'),
+    ride_start_at: start,
+    ride_end_at: null,
+    category: pickExact(row, lowerMap, 'Serviço'),
+    supervisor_name: null,
+    supervisor_email: null,
+    month: startDate ? startDate.getMonth() + 1 : null,
+    year: startDate ? startDate.getFullYear() : null,
+  };
+}
+
 // ─── Componente ────────────────────────────────────────────────────────────────
-export function TransportImportDialog({ open, onOpenChange, onImported }: Props) {
+export function TransportImportDialog({ open, onOpenChange, onImported, modelo = '99corp' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
@@ -270,8 +349,13 @@ export function TransportImportDialog({ open, onOpenChange, onImported }: Props)
     setFile(f);
     setParsed(null);
     try {
-      const isXlsx = /\.xlsx$/i.test(f.name);
-      const data = isXlsx ? await parseXlsx(f) : parseCsv(await f.text());
+      let data: { headers: string[]; rows: Record<string, string>[] };
+      if (modelo === 'uber') {
+        data = parseCsvUber(await f.text());
+      } else {
+        const isXlsx = /\.xlsx$/i.test(f.name);
+        data = isXlsx ? await parseXlsx(f) : parseCsv(await f.text());
+      }
       setParsed(data);
     } catch (e: any) {
       toast.error('Erro ao ler arquivo', { description: e.message ?? String(e) });
@@ -284,7 +368,8 @@ export function TransportImportDialog({ open, onOpenChange, onImported }: Props)
     setProgress(0);
     try {
       const lowerMap = new Map(parsed.headers.map((h) => [h.toLowerCase(), h]));
-      const all = parsed.rows.map((r) => buildRow(r, lowerMap));
+      const mapper = modelo === 'uber' ? buildRowUber : buildRow;
+      const all = parsed.rows.map((r) => mapper(r, lowerMap));
       const valid = all.filter((r) => r.ride_id);
       const ignored = all.length - valid.length;
 
@@ -333,13 +418,22 @@ export function TransportImportDialog({ open, onOpenChange, onImported }: Props)
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Importar Planilha de Corridas</DialogTitle>
+          <DialogTitle>
+            Importar Planilha de Corridas
+            {modelo === 'uber' ? ' — Uber for Business' : ' — 99Corp'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Aceita o arquivo CSV exportado diretamente do app de corridas (99, Uber, etc.) ou planilha .xlsx no
-            mesmo formato. Sheet preferida: <span className="font-mono">MatrizMovimentoTotal</span>.
+            {modelo === 'uber'
+              ? 'Aceita o arquivo CSV exportado do painel Uber for Business. Atenção: o relatório da Uber não inclui distância percorrida nem informações de supervisor.'
+              : (
+                <>
+                  Aceita o arquivo CSV exportado diretamente do app 99Corp ou planilha XLSX no mesmo formato.
+                  Sheet preferida: <span className="font-mono">MatrizMovimentoTotal</span>.
+                </>
+              )}
           </p>
 
           <div
@@ -363,7 +457,7 @@ export function TransportImportDialog({ open, onOpenChange, onImported }: Props)
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,.xlsx"
+              accept={modelo === 'uber' ? '.csv' : '.csv,.xlsx'}
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />

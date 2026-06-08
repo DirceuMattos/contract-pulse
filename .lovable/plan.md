@@ -1,53 +1,47 @@
-Plano: substituir `TransportImportDialog.tsx` com nova versão completa.
+## Objetivo
+Permitir importar planilhas tanto do **99Corp** quanto do **Uber for Business**, com parsing específico para cada modelo, mantendo o upsert atual.
 
-## Estratégia
+## Mudanças
 
-Reutilizar `parseFile` de `src/lib/importExport.ts` (parser nativo XLSX + Papa Parse para CSV — já consistente com o resto do projeto). Não adicionar SheetJS.
+### 1. `src/pages/TransportPage.tsx`
+Substituir o botão único "Importar planilha" por um `DropdownMenu` com:
+- **99Corp** → abre o dialog com `modelo="99corp"`
+- **Uber for Business** → abre o dialog com `modelo="uber"`
 
-Limitação aceita: o parser nativo lê `xl/worksheets/sheet1.xml` (primeira sheet). Para suporte ao nome "MatrizMovimentoTotal" estendo o dialog com um helper local que, antes de cair em `parseFile`, abre o `.xlsx`, lê `xl/workbook.xml` + `xl/_rels/workbook.xml.rels` e, se existir uma sheet com aquele nome, extrai a sheet correspondente; senão usa a primeira. Implementação reaproveita a função `extractZipEntry` (cópia local da que está em `importExport.ts`).
+Guardar o modelo selecionado em estado (`modelo`) e passar como prop para `TransportImportDialog`.
 
-## Conteúdo do novo arquivo
+### 2. `src/components/transport/TransportImportDialog.tsx`
 
-`src/components/transport/TransportImportDialog.tsx`:
+**Props**: adicionar `modelo: '99corp' | 'uber'`.
 
-1. **UI**
-   - `Dialog` com título "Importar Planilha de Corridas".
-   - Área de drag-and-drop estilizada (border-dashed, hover) + botão "Selecionar arquivo" (input file oculto). Aceita `.csv,.xlsx`.
-   - Texto explicativo: aceita CSV exportado de 99/Uber ou XLSX no mesmo formato; sheet preferida `MatrizMovimentoTotal`.
-   - Preview: nome do arquivo + nº de linhas detectadas (após parse inicial).
-   - `Progress` (shadcn) durante a importação, mostrando `processed/total`.
-   - Botão "Importar" (disabled se sem arquivo ou processando).
+**Texto explicativo dinâmico**:
+- `99corp`: "Aceita o arquivo CSV exportado diretamente do app 99Corp ou planilha XLSX no mesmo formato. Sheet preferida: MatrizMovimentoTotal."
+- `uber`: "Aceita o arquivo CSV exportado do painel Uber for Business. Atenção: o relatório da Uber não inclui distância percorrida nem informações de supervisor."
 
-2. **Parsing**
-   - CSV: ler texto, descartar linha 0 se começa com `sep=`, dividir por linha respeitando aspas, separador `,` (fallback `;`).
-   - XLSX: extrair sheet com nome `MatrizMovimentoTotal` se presente, senão sheet1; converter shared strings e células para array `Record<string,string>`.
-   - Resultado normalizado: `{ headers, rows }`.
+**Título do dialog**: manter "Importar Planilha de Corridas" (com sufixo opcional " — 99Corp" / " — Uber for Business" para feedback visual).
 
-3. **Mapeamento** (helper `mapRow`) — busca case-insensitive em uma lista de aliases para cada campo:
-   - `ride_id`: "Corrida" | "Id da Corrida"
-   - `collaborator_name`: "Nome do Colaborador" | "Nome Colaborador"
-   - `collaborator_email`: "E-mail do colaborador" | "Email Colaborador"
-   - `collaborator_id_external`: "Matrícula" | "Matricula"
-   - `value`: "Valor da Corrida" | "Tarifa" (trim, troca `,` por `.`, `Number`)
-   - `distance_km`: "Distancia (KM)" | "Odometro (km)" (mesmo tratamento)
-   - `origin_address`: "Endereço de Origem" | "Endereço de Origem Real"
-   - `destination_address`: "Endereço de Destino" | "Endereço Final Real"
-   - `origin_city`: "Cidade de Origem" | "Cidade Origem"
-   - `ride_start_at`: "Data de Início da Corrida" | "Data Origem"
-   - `ride_end_at`: "Data de Fim da Corrida" | "Data Final"
-   - `category`: "Categoria"
-   - `supervisor_name`: "Nome do Supervisor" | "Nome Supervisor"
-   - `supervisor_email`: "E-mail do Supervisor" | "Email Supervisor"
-   - Datas (suporte a `DD/MM/YYYY HH:MM`, `YYYY-MM-DD HH:MM` e ISO) → ISO; `month` = mês da data, `year` = ano.
+**Parser Uber** (novo, usado quando `modelo === 'uber'`):
+- Sempre CSV com separador `;`
+- Descartar as primeiras 5 linhas; a 6ª é o header.
+- Reaproveitar o splitter de campos existente (com suporte a aspas), forçando `;`.
+- Mapeamento:
+  - `ride_id`: `${data}_${hora}_${nome}_${sobrenome}_${valor}` (string determinística; sem hash externo)
+  - `collaborator_name`: `Nome + " " + Sobrenome`
+  - `collaborator_id_external`: `ID do funcionário`
+  - `value`: `Valor da transação: BRL` (vírgula → ponto, `Number`)
+  - `distance_km`: `null`
+  - `origin_address`: `Endereço de partida`
+  - `destination_address`: `Endereço de destino`
+  - `origin_city`: `Cidade`
+  - `ride_start_at`: `toISO("Data da solicitação (UTC)" + " " + "Hora da solicitação (UTC)")`
+  - `ride_end_at`, `category` = `Serviço`, `supervisor_name`, `supervisor_email`, `collaborator_email`: `null` (exceto `category`)
+- `month`/`year` derivados de `ride_start_at` como hoje.
 
-4. **Upsert**
-   - Linhas sem `ride_id` vão para `ignored` (contador).
-   - `supabase.from('transport_rides').upsert(batch, { onConflict: 'ride_id' })` em lotes de 100.
-   - Para distinguir "importadas vs atualizadas", consultar previamente os `ride_id` existentes do payload (`select ride_id ... in (...)`) e calcular `updated = intersecção` e `imported = payload.length − updated − ignored`.
-   - Atualizar `Progress` a cada lote concluído.
+**Fluxo `handleFile`**:
+- `modelo === '99corp'`: comportamento atual (XLSX nativo ou CSV genérico via `FIELD_ALIASES`).
+- `modelo === 'uber'`: ler como texto e usar o parser Uber dedicado. Bloquear `.xlsx` no input (`accept=".csv"`) quando Uber.
 
-5. **Resultado**
-   - Toast (sonner) sucesso: `"X importadas, Y atualizadas, Z ignoradas (sem ride_id)"`.
-   - `onImported?.()` para refetch; fecha dialog; reset estado.
+**Upsert**: inalterado, `onConflict: 'ride_id'`, lotes de 100, contagem `imported/updated/ignored` igual.
 
-Nenhum outro arquivo é modificado.
+### Não alterar
+- Lógica de extração ZIP, parser XLSX, parser CSV genérico do 99Corp, `FIELD_ALIASES`, helpers `toNumber`/`toISO`, fluxo de upsert, callbacks `onImported`, qualquer outro arquivo.

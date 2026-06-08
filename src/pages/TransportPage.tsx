@@ -45,6 +45,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TransportImportDialog } from '@/components/transport/TransportImportDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useTransportData, TransportRide } from '@/hooks/useTransportData';
 
 const MONTHS = [
@@ -78,6 +84,7 @@ export default function TransportPage() {
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importModelo, setImportModelo] = useState<'99corp' | 'uber'>('99corp');
   const [vehicleCost, setVehicleCost] = useState<number>(() => {
     const v = Number(localStorage.getItem(VEHICLE_COST_KEY));
     return v > 0 ? v : 3000;
@@ -222,10 +229,32 @@ export default function TransportPage() {
         title="Adm Deslocamento por Aplicativo"
         description="Gestão de gastos com deslocamento de colaboradores"
         actions={
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" />
-            Importar planilha
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Upload className="w-4 h-4 mr-2" />
+                Importar planilha
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setImportModelo('99corp');
+                  setImportOpen(true);
+                }}
+              >
+                99Corp
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setImportModelo('uber');
+                  setImportOpen(true);
+                }}
+              >
+                Uber for Business
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
@@ -516,7 +545,7 @@ export default function TransportPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-      <TransportImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} />
+      <TransportImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} modelo={importModelo} />
     </motion.div>
   );
 }
