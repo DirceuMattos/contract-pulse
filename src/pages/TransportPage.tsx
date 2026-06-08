@@ -81,7 +81,7 @@ const VEHICLE_COST_KEY = 'transport-vehicle-cost';
 
 export default function TransportPage() {
   const now = new Date();
-  const [year, setYear] = useState<number>(now.getFullYear());
+  const [year, setYear] = useState<number | null>(now.getFullYear());
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importModelo, setImportModelo] = useState<'99corp' | 'uber'>('99corp');
