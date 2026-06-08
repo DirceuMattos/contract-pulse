@@ -1,38 +1,53 @@
-Plano: criar página `Adm Transportes`
+Plano: substituir `TransportImportDialog.tsx` com nova versão completa.
 
-## Arquivos a criar
+## Estratégia
 
-1. **`src/hooks/useTransportData.ts`** — hook que recebe `{ year, month }` e busca em `transport_rides`:
-   - Lista do período selecionado.
-   - Lista do período anterior (mesmo intervalo deslocado) p/ variação %.
-   - Últimos 3 meses (para análise "vale ter veículo").
-   - Últimos 3 anos agregados por mês (para gráfico ano a ano).
-   - Lista de anos distintos disponíveis (para popular o filtro).
-   - Retorna `{ rides, previousRides, last3Months, yearlyComparison, availableYears, isLoading }`.
+Reutilizar `parseFile` de `src/lib/importExport.ts` (parser nativo XLSX + Papa Parse para CSV — já consistente com o resto do projeto). Não adicionar SheetJS.
 
-2. **`src/components/transport/TransportImportDialog.tsx`** — dialog de upload (.csv / .xlsx) reutilizando o parser nativo já existente em `src/lib/importExport.ts`. Mapeia colunas para `transport_rides` e faz `insert` em lote via Supabase. Mostra preview/contagem antes de confirmar.
+Limitação aceita: o parser nativo lê `xl/worksheets/sheet1.xml` (primeira sheet). Para suporte ao nome "MatrizMovimentoTotal" estendo o dialog com um helper local que, antes de cair em `parseFile`, abre o `.xlsx`, lê `xl/workbook.xml` + `xl/_rels/workbook.xml.rels` e, se existir uma sheet com aquele nome, extrai a sheet correspondente; senão usa a primeira. Implementação reaproveita a função `extractZipEntry` (cópia local da que está em `importExport.ts`).
 
-3. **`src/pages/TransportPage.tsx`** — página com 7 seções conforme solicitado:
-   - **Header**: título, subtítulo, botão "Importar planilha".
-   - **Filtros**: select Ano (default = ano atual, opções de `availableYears`), select Mês (default "Todos os meses"), botão "Limpar filtros".
-   - **Cards 2x3**: Total Gasto (+badge variação vs período anterior), Total KM, Custo Médio/KM, Nº de Corridas, Colaboradores Ativos, Média por Colaborador. Valores formatados em BRL.
-   - **Análise "Vale ter veículo?"**: card com borda colorida, input numérico do custo fixo (default R$3.000, persistido em `localStorage`), compara com média dos últimos 3 meses; badge verde/vermelho conforme regra.
-   - **Gráficos** (grid 2 col): `BarChart` (gastos mensais do ano) e `LineChart` (3 anos), ambos `recharts`.
-   - **Rankings** (grid 2 col): tabela por colaborador (ordenável por coluna via estado local de sort) e Top 10 destinos.
-   - **Totais por supervisor**: tabela agregada por `supervisor_name`.
-   - Respeita restrições financeiras: valores em R$ ocultos se `!canViewValues` (hook `useAuth`/módulo existente).
+## Conteúdo do novo arquivo
 
-4. **`src/App.tsx`** — adicionar somente:
-   - `import TransportPage from '@/pages/TransportPage'`
-   - `<Route path="/adm-transportes" element={<TransportPage />} />` dentro do bloco autenticado já existente.
+`src/components/transport/TransportImportDialog.tsx`:
 
-## Observação técnica
-A tabela `transport_rides` está atualmente sem RLS habilitado. Não está no escopo deste plano alterar a tabela, mas vou avisar para tratar em migração separada.
+1. **UI**
+   - `Dialog` com título "Importar Planilha de Corridas".
+   - Área de drag-and-drop estilizada (border-dashed, hover) + botão "Selecionar arquivo" (input file oculto). Aceita `.csv,.xlsx`.
+   - Texto explicativo: aceita CSV exportado de 99/Uber ou XLSX no mesmo formato; sheet preferida `MatrizMovimentoTotal`.
+   - Preview: nome do arquivo + nº de linhas detectadas (após parse inicial).
+   - `Progress` (shadcn) durante a importação, mostrando `processed/total`.
+   - Botão "Importar" (disabled se sem arquivo ou processando).
 
-## Detalhes de implementação
-- Filtros aplicam `year` e (opcional) `month` na query Supabase.
-- "Período anterior" = mesmo `month` do ano anterior quando `month` selecionado; caso "Todos os meses", compara com ano anterior completo.
-- Cálculos feitos client-side a partir do array filtrado (volume esperado pequeno).
-- Estilo: usa tokens semânticos (`bg-card`, `text-muted-foreground`, etc.) e componentes shadcn (`Card`, `Select`, `Button`, `Table`, `Badge`, `Dialog`, `Input`).
+2. **Parsing**
+   - CSV: ler texto, descartar linha 0 se começa com `sep=`, dividir por linha respeitando aspas, separador `,` (fallback `;`).
+   - XLSX: extrair sheet com nome `MatrizMovimentoTotal` se presente, senão sheet1; converter shared strings e células para array `Record<string,string>`.
+   - Resultado normalizado: `{ headers, rows }`.
 
-Nenhum outro arquivo será modificado.
+3. **Mapeamento** (helper `mapRow`) — busca case-insensitive em uma lista de aliases para cada campo:
+   - `ride_id`: "Corrida" | "Id da Corrida"
+   - `collaborator_name`: "Nome do Colaborador" | "Nome Colaborador"
+   - `collaborator_email`: "E-mail do colaborador" | "Email Colaborador"
+   - `collaborator_id_external`: "Matrícula" | "Matricula"
+   - `value`: "Valor da Corrida" | "Tarifa" (trim, troca `,` por `.`, `Number`)
+   - `distance_km`: "Distancia (KM)" | "Odometro (km)" (mesmo tratamento)
+   - `origin_address`: "Endereço de Origem" | "Endereço de Origem Real"
+   - `destination_address`: "Endereço de Destino" | "Endereço Final Real"
+   - `origin_city`: "Cidade de Origem" | "Cidade Origem"
+   - `ride_start_at`: "Data de Início da Corrida" | "Data Origem"
+   - `ride_end_at`: "Data de Fim da Corrida" | "Data Final"
+   - `category`: "Categoria"
+   - `supervisor_name`: "Nome do Supervisor" | "Nome Supervisor"
+   - `supervisor_email`: "E-mail do Supervisor" | "Email Supervisor"
+   - Datas (suporte a `DD/MM/YYYY HH:MM`, `YYYY-MM-DD HH:MM` e ISO) → ISO; `month` = mês da data, `year` = ano.
+
+4. **Upsert**
+   - Linhas sem `ride_id` vão para `ignored` (contador).
+   - `supabase.from('transport_rides').upsert(batch, { onConflict: 'ride_id' })` em lotes de 100.
+   - Para distinguir "importadas vs atualizadas", consultar previamente os `ride_id` existentes do payload (`select ride_id ... in (...)`) e calcular `updated = intersecção` e `imported = payload.length − updated − ignored`.
+   - Atualizar `Progress` a cada lote concluído.
+
+5. **Resultado**
+   - Toast (sonner) sucesso: `"X importadas, Y atualizadas, Z ignoradas (sem ride_id)"`.
+   - `onImported?.()` para refetch; fecha dialog; reset estado.
+
+Nenhum outro arquivo é modificado.
