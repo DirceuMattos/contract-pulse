@@ -300,7 +300,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 )}
               >
                 {GroupIcon && <GroupIcon className="w-5 h-5 shrink-0" />}
-                <span className="text-sm font-semibold flex-1 text-left truncate">{group.label}</span>
+                <span className="text-sm font-semibold flex-1 min-w-0 text-left leading-snug whitespace-normal break-words">
+                  {group.label}
+                </span>
                 <ChevronDown
                   className={cn(
                     'w-4 h-4 shrink-0 transition-transform duration-200',
