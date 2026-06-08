@@ -545,7 +545,7 @@ export default function TransportPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
-      <TransportImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} />
+      <TransportImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} modelo={importModelo} />
     </motion.div>
   );
 }
