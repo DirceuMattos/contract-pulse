@@ -23,6 +23,9 @@ import {
   Tooltip as RTooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -76,6 +79,19 @@ const fmtNum = (v: number, d = 0) =>
 function sum(arr: TransportRide[], k: 'value' | 'distance_km') {
   return arr.reduce((s, r) => s + (Number(r[k]) || 0), 0);
 }
+
+const YEAR_COLORS = [
+  'hsl(210, 85%, 55%)',
+  'hsl(340, 80%, 55%)',
+  'hsl(150, 75%, 45%)',
+  'hsl(40, 90%, 55%)',
+  'hsl(280, 70%, 60%)',
+  'hsl(190, 85%, 50%)',
+  'hsl(25, 90%, 55%)',
+  'hsl(120, 65%, 45%)',
+  'hsl(260, 75%, 60%)',
+  'hsl(55, 90%, 50%)',
+];
 
 const VEHICLE_COST_KEY = 'transport-vehicle-cost';
 
@@ -154,6 +170,18 @@ export default function TransportPage() {
       return row;
     });
   }, [yearlyComparison, year, availableYears]);
+
+  const yearDistribution = useMemo(() => {
+    const map = new Map<number, number>();
+    rides.forEach((r) => {
+      const y = r.year ?? (r.ride_start_at ? new Date(r.ride_start_at).getFullYear() : 0);
+      if (!y) return;
+      map.set(y, (map.get(y) || 0) + (Number(r.value) || 0));
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, total]) => ({ year: String(year), total }));
+  }, [rides]);
 
   const comparisonYears = useMemo(
     () =>
@@ -413,9 +441,9 @@ export default function TransportPage() {
         </CardContent>
       </Card>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+      {/* Distribuição por ano */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">
               {year === null ? 'Gastos por ano — Todos' : `Gastos mensais — ${year}`}
@@ -424,49 +452,86 @@ export default function TransportPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={monthlyChart}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="mes" className="text-xs" />
-                <YAxis className="text-xs" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} />
                 <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                  {monthlyChart.map((_, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        year === null
+                          ? YEAR_COLORS[index % YEAR_COLORS.length]
+                          : `hsl(${210 + index * 18}, 80%, ${55 - index * 2}%)`
+                      }
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Comparativo ano a ano</CardTitle>
+            <CardTitle className="text-base">Distribuição por ano</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={yearlyChart}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="mes" className="text-xs" />
-                <YAxis className="text-xs" />
+              <PieChart>
                 <RTooltip formatter={(v: number) => fmtBRL(v)} />
                 <Legend />
-                {comparisonYears.map((y, i, arr) => {
-                  const palette = [
-                    'hsl(var(--muted-foreground))',
-                    'hsl(var(--accent-foreground))',
-                    'hsl(var(--primary))',
-                  ];
-                  const stroke = palette[(i + Math.max(0, palette.length - arr.length)) % palette.length];
-                  return (
-                    <Line
-                      key={y}
-                      type="monotone"
-                      dataKey={String(y)}
-                      stroke={stroke}
-                      strokeWidth={2}
-                    />
-                  );
-                })}
-              </LineChart>
+                <Pie
+                  data={yearDistribution}
+                  dataKey="total"
+                  nameKey="year"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={4}
+                  labelLine={false}
+                  label={({ year, percent }: any) => `${year} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {yearDistribution.map((_, index) => (
+                    <Cell key={`slice-${index}`} fill={YEAR_COLORS[index % YEAR_COLORS.length]} stroke="hsl(var(--card))" strokeWidth={2} />
+                  ))}
+                </Pie>
+              </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
+
+      {/* Comparativo ano a ano */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Comparativo ano a ano</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={yearlyChart}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} />
+              <RTooltip formatter={(v: number) => fmtBRL(v)} />
+              <Legend wrapperStyle={{ paddingTop: 8 }} />
+              {comparisonYears.map((y, i) => (
+                <Line
+                  key={y}
+                  type="monotone"
+                  dataKey={String(y)}
+                  stroke={YEAR_COLORS[i % YEAR_COLORS.length]}
+                  strokeWidth={3}
+                  dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                  activeDot={{ r: 6 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Rankings */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
