@@ -417,7 +417,9 @@ export default function TransportPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Gastos mensais — {year}</CardTitle>
+            <CardTitle className="text-base">
+              {year === null ? 'Gastos por ano — Todos' : `Gastos mensais — ${year}`}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
