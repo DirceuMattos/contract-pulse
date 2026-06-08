@@ -81,7 +81,7 @@ const VEHICLE_COST_KEY = 'transport-vehicle-cost';
 
 export default function TransportPage() {
   const now = new Date();
-  const [year, setYear] = useState<number>(now.getFullYear());
+  const [year, setYear] = useState<number | null>(now.getFullYear());
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importModelo, setImportModelo] = useState<'99corp' | 'uber'>('99corp');
@@ -114,6 +114,18 @@ export default function TransportPage() {
   }, [rides, previousRides]);
 
   const monthlyChart = useMemo(() => {
+    if (year === null) {
+      // Agrupar por ano quando "todos os anos"
+      const map = new Map<number, number>();
+      rides.forEach((r) => {
+        const y = r.year ?? (r.ride_start_at ? new Date(r.ride_start_at).getFullYear() : 0);
+        if (!y) return;
+        map.set(y, (map.get(y) || 0) + (Number(r.value) || 0));
+      });
+      return Array.from(map.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([y, total]) => ({ mes: String(y), total }));
+    }
     const map = new Map<number, number>();
     rides.forEach((r) => {
       const m = r.month ?? (r.ride_start_at ? new Date(r.ride_start_at).getMonth() + 1 : 0);
@@ -121,7 +133,7 @@ export default function TransportPage() {
       map.set(m, (map.get(m) || 0) + (Number(r.value) || 0));
     });
     return MONTHS.map((label, i) => ({ mes: label.slice(0, 3), total: map.get(i + 1) || 0 }));
-  }, [rides]);
+  }, [rides, year]);
 
   const yearlyChart = useMemo(() => {
     const byYM = new Map<string, number>();
@@ -130,7 +142,10 @@ export default function TransportPage() {
       const k = `${r.year}-${r.month}`;
       byYM.set(k, (byYM.get(k) || 0) + (Number(r.value) || 0));
     });
-    const years = [year - 2, year - 1, year];
+    const years =
+      year === null
+        ? availableYears.slice().sort((a, b) => a - b)
+        : [year - 2, year - 1, year];
     return MONTHS.map((label, i) => {
       const row: Record<string, number | string> = { mes: label.slice(0, 3) };
       years.forEach((y) => {
@@ -138,7 +153,15 @@ export default function TransportPage() {
       });
       return row;
     });
-  }, [yearlyComparison, year]);
+  }, [yearlyComparison, year, availableYears]);
+
+  const comparisonYears = useMemo(
+    () =>
+      year === null
+        ? availableYears.slice().sort((a, b) => a - b)
+        : [year - 2, year - 1, year],
+    [year, availableYears],
+  );
 
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
@@ -263,11 +286,15 @@ export default function TransportPage() {
         <CardContent className="pt-6 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Ano</label>
-            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-32">
+            <Select
+              value={year === null ? 'all' : String(year)}
+              onValueChange={(v) => setYear(v === 'all' ? null : Number(v))}
+            >
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todos os anos</SelectItem>
                 {availableYears.map((y) => (
                   <SelectItem key={y} value={String(y)}>
                     {y}
@@ -390,7 +417,9 @@ export default function TransportPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Gastos mensais — {year}</CardTitle>
+            <CardTitle className="text-base">
+              {year === null ? 'Gastos por ano — Todos' : `Gastos mensais — ${year}`}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
@@ -416,15 +445,23 @@ export default function TransportPage() {
                 <YAxis className="text-xs" />
                 <RTooltip formatter={(v: number) => fmtBRL(v)} />
                 <Legend />
-                {[year - 2, year - 1, year].map((y, i) => (
-                  <Line
-                    key={y}
-                    type="monotone"
-                    dataKey={String(y)}
-                    stroke={['hsl(var(--muted-foreground))', 'hsl(var(--accent-foreground))', 'hsl(var(--primary))'][i]}
-                    strokeWidth={2}
-                  />
-                ))}
+                {comparisonYears.map((y, i, arr) => {
+                  const palette = [
+                    'hsl(var(--muted-foreground))',
+                    'hsl(var(--accent-foreground))',
+                    'hsl(var(--primary))',
+                  ];
+                  const stroke = palette[(i + Math.max(0, palette.length - arr.length)) % palette.length];
+                  return (
+                    <Line
+                      key={y}
+                      type="monotone"
+                      dataKey={String(y)}
+                      stroke={stroke}
+                      strokeWidth={2}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
