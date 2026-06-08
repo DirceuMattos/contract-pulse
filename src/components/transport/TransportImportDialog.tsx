@@ -295,6 +295,41 @@ function pickExact(row: Record<string, string>, lowerMap: Map<string, string>, n
   return v === undefined || v === '' ? null : v;
 }
 
+function normalizeUberKey(v: string | null): string {
+  if (!v) return '';
+  return v
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeUberValue(v: string | null): string {
+  if (!v) return '';
+  // remove separadores de milhar e troca vírgula por ponto; mantém apenas dígitos/.-
+  const s = v.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+  const n = Number(s);
+  return isNaN(n) ? s : String(n);
+}
+
+function normalizeUberDate(v: string | null): string {
+  if (!v) return '';
+  const iso = toISO(v);
+  if (iso) return iso.slice(0, 10); // YYYY-MM-DD
+  return normalizeUberKey(v);
+}
+
+function normalizeUberTime(v: string | null): string {
+  if (!v) return '';
+  const m = v.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const [, h, mi, se = '00'] = m;
+    return `${h.padStart(2, '0')}:${mi}:${se}`;
+  }
+  return normalizeUberKey(v);
+}
+
 function buildRowUber(row: Record<string, string>, lowerMap: Map<string, string>) {
   const data = pickExact(row, lowerMap, 'Data da solicitação (UTC)');
   const hora = pickExact(row, lowerMap, 'Hora da solicitação (UTC)');
@@ -302,10 +337,16 @@ function buildRowUber(row: Record<string, string>, lowerMap: Map<string, string>
   const sobrenome = pickExact(row, lowerMap, 'Sobrenome');
   const valorRaw = pickExact(row, lowerMap, 'Valor da transação: BRL');
 
-  const ride_id =
-    data || hora || nome || sobrenome || valorRaw
-      ? [data ?? '', hora ?? '', nome ?? '', sobrenome ?? '', valorRaw ?? ''].join('_')
-      : null;
+  const hasAny = data || hora || nome || sobrenome || valorRaw;
+  const ride_id = hasAny
+    ? [
+        normalizeUberDate(data),
+        normalizeUberTime(hora),
+        normalizeUberKey(nome),
+        normalizeUberKey(sobrenome),
+        normalizeUberValue(valorRaw),
+      ].join('_')
+    : null;
 
   const start = toISO(data && hora ? `${data} ${hora}` : data);
   const startDate = start ? new Date(start) : null;
