@@ -84,6 +84,7 @@ export default function TransportPage() {
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importModelo, setImportModelo] = useState<'99corp' | 'uber'>('99corp');
   const [vehicleCost, setVehicleCost] = useState<number>(() => {
     const v = Number(localStorage.getItem(VEHICLE_COST_KEY));
     return v > 0 ? v : 3000;
