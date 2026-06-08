@@ -229,10 +229,32 @@ export default function TransportPage() {
         title="Adm Deslocamento por Aplicativo"
         description="Gestão de gastos com deslocamento de colaboradores"
         actions={
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" />
-            Importar planilha
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Upload className="w-4 h-4 mr-2" />
+                Importar planilha
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setImportModelo('99corp');
+                  setImportOpen(true);
+                }}
+              >
+                99Corp
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setImportModelo('uber');
+                  setImportOpen(true);
+                }}
+              >
+                Uber for Business
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
