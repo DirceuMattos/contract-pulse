@@ -445,15 +445,23 @@ export default function TransportPage() {
                 <YAxis className="text-xs" />
                 <RTooltip formatter={(v: number) => fmtBRL(v)} />
                 <Legend />
-                {[year - 2, year - 1, year].map((y, i) => (
-                  <Line
-                    key={y}
-                    type="monotone"
-                    dataKey={String(y)}
-                    stroke={['hsl(var(--muted-foreground))', 'hsl(var(--accent-foreground))', 'hsl(var(--primary))'][i]}
-                    strokeWidth={2}
-                  />
-                ))}
+                {comparisonYears.map((y, i, arr) => {
+                  const palette = [
+                    'hsl(var(--muted-foreground))',
+                    'hsl(var(--accent-foreground))',
+                    'hsl(var(--primary))',
+                  ];
+                  const stroke = palette[(i + Math.max(0, palette.length - arr.length)) % palette.length];
+                  return (
+                    <Line
+                      key={y}
+                      type="monotone"
+                      dataKey={String(y)}
+                      stroke={stroke}
+                      strokeWidth={2}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
