@@ -219,7 +219,7 @@ export default function TransportPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <PageHeader
-        title="Adm Transportes"
+        title="Adm Deslocamento por Aplicativo"
         description="Gestão de gastos com deslocamento de colaboradores"
         actions={
           <Button onClick={() => setImportOpen(true)}>
