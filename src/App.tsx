@@ -45,6 +45,7 @@ import AIDraftsPage from "@/pages/AIDraftsPage";
 import AILogsPage from "@/pages/AILogsPage";
 import ReceivablesDashboardPage from "@/pages/ReceivablesDashboardPage";
 import ReceivablesReconcilePage from "@/pages/ReceivablesReconcilePage";
+import TransportPage from "@/pages/TransportPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +106,8 @@ const App = () => (
                           <Route path="/ai/logs" element={<AILogsPage />} />
                           <Route path="/receivables" element={<ReceivablesDashboardPage />} />
                           <Route path="/receivables/reconcile" element={<ReceivablesReconcilePage />} />
+                          <Route path="/adm-transportes" element={<TransportPage />} />
+                          
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
                         </Route>
