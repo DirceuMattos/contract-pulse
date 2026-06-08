@@ -457,7 +457,7 @@ export function TransportImportDialog({ open, onOpenChange, onImported, modelo =
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,.xlsx"
+              accept={modelo === 'uber' ? '.csv' : '.csv,.xlsx'}
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
