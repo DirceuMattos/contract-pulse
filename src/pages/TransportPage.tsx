@@ -80,6 +80,19 @@ function sum(arr: TransportRide[], k: 'value' | 'distance_km') {
   return arr.reduce((s, r) => s + (Number(r[k]) || 0), 0);
 }
 
+const YEAR_COLORS = [
+  'hsl(210, 85%, 55%)',
+  'hsl(340, 80%, 55%)',
+  'hsl(150, 75%, 45%)',
+  'hsl(40, 90%, 55%)',
+  'hsl(280, 70%, 60%)',
+  'hsl(190, 85%, 50%)',
+  'hsl(25, 90%, 55%)',
+  'hsl(120, 65%, 45%)',
+  'hsl(260, 75%, 60%)',
+  'hsl(55, 90%, 50%)',
+];
+
 const VEHICLE_COST_KEY = 'transport-vehicle-cost';
 
 export default function TransportPage() {
