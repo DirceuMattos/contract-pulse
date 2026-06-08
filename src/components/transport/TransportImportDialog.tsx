@@ -331,7 +331,7 @@ function buildRowUber(row: Record<string, string>, lowerMap: Map<string, string>
 }
 
 // ─── Componente ────────────────────────────────────────────────────────────────
-export function TransportImportDialog({ open, onOpenChange, onImported }: Props) {
+export function TransportImportDialog({ open, onOpenChange, onImported, modelo = '99corp' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
@@ -349,8 +349,13 @@ export function TransportImportDialog({ open, onOpenChange, onImported }: Props)
     setFile(f);
     setParsed(null);
     try {
-      const isXlsx = /\.xlsx$/i.test(f.name);
-      const data = isXlsx ? await parseXlsx(f) : parseCsv(await f.text());
+      let data: { headers: string[]; rows: Record<string, string>[] };
+      if (modelo === 'uber') {
+        data = parseCsvUber(await f.text());
+      } else {
+        const isXlsx = /\.xlsx$/i.test(f.name);
+        data = isXlsx ? await parseXlsx(f) : parseCsv(await f.text());
+      }
       setParsed(data);
     } catch (e: any) {
       toast.error('Erro ao ler arquivo', { description: e.message ?? String(e) });
@@ -363,7 +368,8 @@ export function TransportImportDialog({ open, onOpenChange, onImported }: Props)
     setProgress(0);
     try {
       const lowerMap = new Map(parsed.headers.map((h) => [h.toLowerCase(), h]));
-      const all = parsed.rows.map((r) => buildRow(r, lowerMap));
+      const mapper = modelo === 'uber' ? buildRowUber : buildRow;
+      const all = parsed.rows.map((r) => mapper(r, lowerMap));
       const valid = all.filter((r) => r.ride_id);
       const ignored = all.length - valid.length;
 
