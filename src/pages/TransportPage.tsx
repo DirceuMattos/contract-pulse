@@ -45,6 +45,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TransportImportDialog } from '@/components/transport/TransportImportDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useTransportData, TransportRide } from '@/hooks/useTransportData';
 
 const MONTHS = [
