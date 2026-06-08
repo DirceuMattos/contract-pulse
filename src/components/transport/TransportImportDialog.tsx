@@ -418,13 +418,22 @@ export function TransportImportDialog({ open, onOpenChange, onImported, modelo =
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Importar Planilha de Corridas</DialogTitle>
+          <DialogTitle>
+            Importar Planilha de Corridas
+            {modelo === 'uber' ? ' — Uber for Business' : ' — 99Corp'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Aceita o arquivo CSV exportado diretamente do app de corridas (99, Uber, etc.) ou planilha .xlsx no
-            mesmo formato. Sheet preferida: <span className="font-mono">MatrizMovimentoTotal</span>.
+            {modelo === 'uber'
+              ? 'Aceita o arquivo CSV exportado do painel Uber for Business. Atenção: o relatório da Uber não inclui distância percorrida nem informações de supervisor.'
+              : (
+                <>
+                  Aceita o arquivo CSV exportado diretamente do app 99Corp ou planilha XLSX no mesmo formato.
+                  Sheet preferida: <span className="font-mono">MatrizMovimentoTotal</span>.
+                </>
+              )}
           </p>
 
           <div
