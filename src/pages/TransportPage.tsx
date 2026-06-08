@@ -286,11 +286,15 @@ export default function TransportPage() {
         <CardContent className="pt-6 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Ano</label>
-            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-32">
+            <Select
+              value={year === null ? 'all' : String(year)}
+              onValueChange={(v) => setYear(v === 'all' ? null : Number(v))}
+            >
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todos os anos</SelectItem>
                 {availableYears.map((y) => (
                   <SelectItem key={y} value={String(y)}>
                     {y}
