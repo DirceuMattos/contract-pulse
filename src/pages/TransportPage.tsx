@@ -114,6 +114,18 @@ export default function TransportPage() {
   }, [rides, previousRides]);
 
   const monthlyChart = useMemo(() => {
+    if (year === null) {
+      // Agrupar por ano quando "todos os anos"
+      const map = new Map<number, number>();
+      rides.forEach((r) => {
+        const y = r.year ?? (r.ride_start_at ? new Date(r.ride_start_at).getFullYear() : 0);
+        if (!y) return;
+        map.set(y, (map.get(y) || 0) + (Number(r.value) || 0));
+      });
+      return Array.from(map.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([y, total]) => ({ mes: String(y), total }));
+    }
     const map = new Map<number, number>();
     rides.forEach((r) => {
       const m = r.month ?? (r.ride_start_at ? new Date(r.ride_start_at).getMonth() + 1 : 0);
@@ -121,7 +133,7 @@ export default function TransportPage() {
       map.set(m, (map.get(m) || 0) + (Number(r.value) || 0));
     });
     return MONTHS.map((label, i) => ({ mes: label.slice(0, 3), total: map.get(i + 1) || 0 }));
-  }, [rides]);
+  }, [rides, year]);
 
   const yearlyChart = useMemo(() => {
     const byYM = new Map<string, number>();
@@ -130,7 +142,10 @@ export default function TransportPage() {
       const k = `${r.year}-${r.month}`;
       byYM.set(k, (byYM.get(k) || 0) + (Number(r.value) || 0));
     });
-    const years = [year - 2, year - 1, year];
+    const years =
+      year === null
+        ? availableYears.slice().sort((a, b) => a - b)
+        : [year - 2, year - 1, year];
     return MONTHS.map((label, i) => {
       const row: Record<string, number | string> = { mes: label.slice(0, 3) };
       years.forEach((y) => {
@@ -138,7 +153,15 @@ export default function TransportPage() {
       });
       return row;
     });
-  }, [yearlyComparison, year]);
+  }, [yearlyComparison, year, availableYears]);
+
+  const comparisonYears = useMemo(
+    () =>
+      year === null
+        ? availableYears.slice().sort((a, b) => a - b)
+        : [year - 2, year - 1, year],
+    [year, availableYears],
+  );
 
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
