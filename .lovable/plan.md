@@ -1,47 +1,36 @@
+# Normalização do `ride_id` Uber
+
 ## Objetivo
-Permitir importar planilhas tanto do **99Corp** quanto do **Uber for Business**, com parsing específico para cada modelo, mantendo o upsert atual.
+Garantir que a mesma corrida exportada da Uber gere sempre o **mesmo** `ride_id`, mesmo se houver pequenas variações de formatação entre exportações (espaços extras, acentuação inconsistente, maiúsculas/minúsculas, vírgula vs ponto no valor).
 
-## Mudanças
+## Alteração
+Arquivo único: `src/components/transport/TransportImportDialog.tsx`, função `buildRowUber`.
 
-### 1. `src/pages/TransportPage.tsx`
-Substituir o botão único "Importar planilha" por um `DropdownMenu` com:
-- **99Corp** → abre o dialog com `modelo="99corp"`
-- **Uber for Business** → abre o dialog com `modelo="uber"`
+Adicionar um helper `normalizeUberKey(v)` aplicado aos 5 componentes do `ride_id` antes de concatenar:
 
-Guardar o modelo selecionado em estado (`modelo`) e passar como prop para `TransportImportDialog`.
+1. `trim()` — remove espaços nas pontas
+2. Colapsa espaços internos múltiplos em um só
+3. `toLowerCase()`
+4. Remove acentos (`normalize('NFD').replace(/[\u0300-\u036f]/g, '')`)
 
-### 2. `src/components/transport/TransportImportDialog.tsx`
+Para o campo **valor**, normalizar também o formato numérico: substituir vírgula por ponto e remover separadores de milhar, para que `"1.234,50"` e `"1234.5"` virem a mesma chave.
 
-**Props**: adicionar `modelo: '99corp' | 'uber'`.
+Para os campos **data** e **hora**, normalizar para um formato canônico (ex.: `data` vira `YYYY-MM-DD`, `hora` vira `HH:MM:SS`) usando a mesma lógica de `toISO` já existente, evitando que `"01/06/2026"` e `"1/6/2026"` gerem IDs diferentes.
 
-**Texto explicativo dinâmico**:
-- `99corp`: "Aceita o arquivo CSV exportado diretamente do app 99Corp ou planilha XLSX no mesmo formato. Sheet preferida: MatrizMovimentoTotal."
-- `uber`: "Aceita o arquivo CSV exportado do painel Uber for Business. Atenção: o relatório da Uber não inclui distância percorrida nem informações de supervisor."
+Resultado: `ride_id` final continua sendo a concatenação dos 5 campos com `_`, mas agora estável entre re-exportações.
 
-**Título do dialog**: manter "Importar Planilha de Corridas" (com sufixo opcional " — 99Corp" / " — Uber for Business" para feedback visual).
+## Impacto sobre dados já importados
+Registros Uber importados **antes** desta mudança ficaram com `ride_id` no formato antigo (não normalizado). Na primeira reimportação após o deploy, eles **podem aparecer como "novos"** em vez de "atualizados", gerando uma duplicação única.
 
-**Parser Uber** (novo, usado quando `modelo === 'uber'`):
-- Sempre CSV com separador `;`
-- Descartar as primeiras 5 linhas; a 6ª é o header.
-- Reaproveitar o splitter de campos existente (com suporte a aspas), forçando `;`.
-- Mapeamento:
-  - `ride_id`: `${data}_${hora}_${nome}_${sobrenome}_${valor}` (string determinística; sem hash externo)
-  - `collaborator_name`: `Nome + " " + Sobrenome`
-  - `collaborator_id_external`: `ID do funcionário`
-  - `value`: `Valor da transação: BRL` (vírgula → ponto, `Number`)
-  - `distance_km`: `null`
-  - `origin_address`: `Endereço de partida`
-  - `destination_address`: `Endereço de destino`
-  - `origin_city`: `Cidade`
-  - `ride_start_at`: `toISO("Data da solicitação (UTC)" + " " + "Hora da solicitação (UTC)")`
-  - `ride_end_at`, `category` = `Serviço`, `supervisor_name`, `supervisor_email`, `collaborator_email`: `null` (exceto `category`)
-- `month`/`year` derivados de `ride_start_at` como hoje.
+Duas opções para tratar isso:
 
-**Fluxo `handleFile`**:
-- `modelo === '99corp'`: comportamento atual (XLSX nativo ou CSV genérico via `FIELD_ALIASES`).
-- `modelo === 'uber'`: ler como texto e usar o parser Uber dedicado. Bloquear `.xlsx` no input (`accept=".csv"`) quando Uber.
+- **A — Aceitar e limpar manualmente** (mais simples): assumir que a base Uber atual é pequena/recente e, se necessário, apagar os registros antigos antes de reimportar.
+- **B — Migração de dados** (mais seguro): rodar um `UPDATE` único na tabela `transport_rides` recalculando o `ride_id` das linhas Uber existentes pelo mesmo algoritmo normalizado. Requer identificar quais linhas vieram da Uber — hoje não há flag de origem, então o critério seria `distance_km IS NULL AND supervisor_name IS NULL` (heurística do modelo Uber).
 
-**Upsert**: inalterado, `onConflict: 'ride_id'`, lotes de 100, contagem `imported/updated/ignored` igual.
+## Fora do escopo
+- Não altera schema do banco.
+- Não altera lógica do 99Corp (já usa ID nativo estável).
+- Não altera UI nem o fluxo de upsert/contagem de importadas/atualizadas.
 
-### Não alterar
-- Lógica de extração ZIP, parser XLSX, parser CSV genérico do 99Corp, `FIELD_ALIASES`, helpers `toNumber`/`toISO`, fluxo de upsert, callbacks `onImported`, qualquer outro arquivo.
+## Pergunta
+Qual opção de tratamento dos dados Uber já existentes você prefere — **A (deixar como está)** ou **B (migração para recalcular os ride_ids antigos)**?
