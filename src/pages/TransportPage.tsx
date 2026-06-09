@@ -503,11 +503,12 @@ export default function TransportPage() {
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div className="flex items-center gap-2 text-muted-foreground text-xs">
                 <DollarSign className="w-4 h-4" />
                 <span>Total Gasto no Período</span>
               </div>
+              <div className="text-xs text-muted-foreground">{periodSummary.periodLabel}</div>
               <div className="text-3xl font-bold">{fmtBRL(periodSummary.total)}</div>
               {periodSummary.prevTotal > 0 && (
                 <Badge variant={periodSummary.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
