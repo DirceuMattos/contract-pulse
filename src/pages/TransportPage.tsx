@@ -259,6 +259,7 @@ export default function TransportPage() {
 
   const periodSummary = useMemo(() => {
     const inMonth = (m: number | null | undefined) => month === null || m === month;
+    const { latestMonth } = latestPeriod;
     let total = 0;
     let prevTotal = 0;
     let comparisonLabel = '';
@@ -270,10 +271,6 @@ export default function TransportPage() {
       });
       periodLabel = 'Todos os anos';
     } else {
-      const monthsInYear = yearlyComparison
-        .filter((r) => r.year === year && r.month)
-        .map((r) => r.month as number);
-      const maxMonthCurrentYear = monthsInYear.length ? Math.max(...monthsInYear) : 0;
       yearlyComparison.forEach((r) => {
         if (!inMonth(r.month)) return;
         if (r.year === year) {
@@ -281,7 +278,7 @@ export default function TransportPage() {
         } else if (r.year === year - 1) {
           if (month !== null) {
             prevTotal += Number(r.value) || 0;
-          } else if (r.month && r.month <= maxMonthCurrentYear) {
+          } else if (r.month && r.month <= latestMonth) {
             prevTotal += Number(r.value) || 0;
           }
         }
@@ -290,9 +287,9 @@ export default function TransportPage() {
       if (month !== null) {
         comparisonLabel = `vs ${abbr(month)} ${year - 1}`;
         periodLabel = `${MONTHS[month - 1]} ${year}`;
-      } else if (maxMonthCurrentYear > 0) {
-        comparisonLabel = `vs jan–${abbr(maxMonthCurrentYear)} ${year - 1}`;
-        periodLabel = `Jan a ${MONTHS[maxMonthCurrentYear - 1]} ${year}`;
+      } else if (latestMonth > 0) {
+        comparisonLabel = `vs jan–${abbr(latestMonth)} ${year - 1}`;
+        periodLabel = `Jan a ${MONTHS[latestMonth - 1]} ${year}`;
       } else {
         comparisonLabel = `vs ${year - 1}`;
         periodLabel = String(year);
@@ -300,7 +297,7 @@ export default function TransportPage() {
     }
     const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
     return { total, prevTotal, delta, comparisonLabel, periodLabel };
-  }, [yearlyComparison, year, month]);
+  }, [yearlyComparison, year, month, latestPeriod]);
 
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
