@@ -378,8 +378,8 @@ function buildRowUber(row: Record<string, string>, lowerMap: Map<string, string>
     category: pickExact(row, lowerMap, 'Serviço'),
     supervisor_name: null,
     supervisor_email: null,
-    month: startDate ? startDate.getMonth() + 1 : null,
-    year: startDate ? startDate.getFullYear() : null,
+    month: startDate ? startDate.getUTCMonth() + 1 : null,
+    year: startDate ? startDate.getUTCFullYear() : null,
   };
 }
 
