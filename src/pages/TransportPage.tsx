@@ -169,17 +169,7 @@ export default function TransportPage() {
     });
   }, [yearlyComparison, year, availableYears]);
 
-  const yearDistribution = useMemo(() => {
-    const map = new Map<number, number>();
-    rides.forEach((r) => {
-      const y = r.year ?? (r.ride_start_at ? new Date(r.ride_start_at).getFullYear() : 0);
-      if (!y) return;
-      map.set(y, (map.get(y) || 0) + (Number(r.value) || 0));
-    });
-    return Array.from(map.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([year, total]) => ({ year: String(year), total }));
-  }, [rides]);
+
 
   const comparisonYears = useMemo(
     () =>
