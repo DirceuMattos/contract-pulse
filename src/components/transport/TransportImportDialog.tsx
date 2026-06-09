@@ -218,14 +218,29 @@ function toNumber(v: string | null): number | null {
 function parseBRDate(str: string | undefined | null): string | null {
   if (!str) return null;
   const s = str.trim();
-  // Formato DD-MM-YYYY HH:MM:SS ou DD/MM/YYYY HH:MM:SS
-  const match = s.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+
+  // Formato DD-MM-YYYY HH:MM:SS (formato 99Corp)
+  const match = s.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})[\s T](\d{2}):(\d{2})(?::(\d{2}))?/);
   if (match) {
-    const [, dd, mm, yyyy, hh, min, sec = '00'] = match;
-    const dt = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}`);
-    return isNaN(dt.getTime()) ? null : dt.toISOString();
+    const dd = match[1];   // dia
+    const mm = match[2];   // mês
+    const yyyy = match[3]; // ano
+    const hh = match[4];
+    const min = match[5];
+    const sec = match[6] || '00';
+    // Forçar interpretação DD-MM-YYYY montando a data manualmente
+    const d = new Date(
+      parseInt(yyyy),
+      parseInt(mm) - 1,  // mês é 0-indexed
+      parseInt(dd),
+      parseInt(hh),
+      parseInt(min),
+      parseInt(sec)
+    );
+    return isNaN(d.getTime()) ? null : d.toISOString();
   }
-  // Fallback: tentar parse direto (ISO, etc.)
+
+  // Fallback ISO
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
