@@ -441,68 +441,36 @@ export default function TransportPage() {
         </CardContent>
       </Card>
 
-      {/* Distribuição por ano */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">
-              {year === null ? 'Gastos por ano — Todos' : `Gastos mensais — ${year}`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={monthlyChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} />
-                <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                  {monthlyChart.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        year === null
-                          ? YEAR_COLORS[index % YEAR_COLORS.length]
-                          : `hsl(${210 + index * 18}, 80%, ${55 - index * 2}%)`
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Distribuição por ano</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                <Legend />
-                <Pie
-                  data={yearDistribution}
-                  dataKey="total"
-                  nameKey="year"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={4}
-                  labelLine={false}
-                  label={({ year, percent }: any) => `${year} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {yearDistribution.map((_, index) => (
-                    <Cell key={`slice-${index}`} fill={YEAR_COLORS[index % YEAR_COLORS.length]} stroke="hsl(var(--card))" strokeWidth={2} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Gastos no período */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {year === null ? 'Gastos por ano — Todos' : `Gastos mensais — ${year}`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={monthlyChart}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} />
+              <RTooltip formatter={(v: number) => fmtBRL(v)} />
+              <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                {monthlyChart.map((_, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      year === null
+                        ? YEAR_COLORS[index % YEAR_COLORS.length]
+                        : `hsl(${210 + index * 18}, 80%, ${55 - index * 2}%)`
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Comparativo ano a ano */}
       <Card>
