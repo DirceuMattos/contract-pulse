@@ -94,7 +94,52 @@ const YEAR_COLORS = [
   'hsl(55, 90%, 50%)',
 ];
 
-const VEHICLE_COST_KEY = 'transport-vehicle-cost';
+const VEHICLE_COSTS_KEY = 'transport_vehicle_costs';
+
+type VehicleCosts = {
+  locacao: number;
+  combustivel: number;
+  manutencao: number;
+  seguro: number;
+  motoristaClt: number;
+  outros: number;
+};
+type VehicleSource = 'ai' | 'manual' | 'default';
+type VehicleMeta = { source: VehicleSource; updatedAt: string | null };
+
+const DEFAULT_VEHICLE_COSTS: VehicleCosts = {
+  locacao: 3000,
+  combustivel: 800,
+  manutencao: 400,
+  seguro: 500,
+  motoristaClt: 4000,
+  outros: 300,
+};
+
+const VEHICLE_FIELDS: { key: keyof VehicleCosts; label: string }[] = [
+  { key: 'locacao', label: 'Locação/Financiamento' },
+  { key: 'combustivel', label: 'Combustível' },
+  { key: 'manutencao', label: 'Manutenção' },
+  { key: 'seguro', label: 'Seguro' },
+  { key: 'motoristaClt', label: 'Motorista CLT' },
+  { key: 'outros', label: 'Outros' },
+];
+
+function loadVehicleState(): { costs: VehicleCosts; meta: VehicleMeta } {
+  try {
+    const raw = localStorage.getItem(VEHICLE_COSTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.costs && parsed?.meta) {
+        return {
+          costs: { ...DEFAULT_VEHICLE_COSTS, ...parsed.costs },
+          meta: parsed.meta,
+        };
+      }
+    }
+  } catch {}
+  return { costs: DEFAULT_VEHICLE_COSTS, meta: { source: 'default', updatedAt: null } };
+}
 
 export default function TransportPage() {
   const now = new Date();
@@ -102,10 +147,10 @@ export default function TransportPage() {
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importModelo, setImportModelo] = useState<'99corp' | 'uber'>('99corp');
-  const [vehicleCost, setVehicleCost] = useState<number>(() => {
-    const v = Number(localStorage.getItem(VEHICLE_COST_KEY));
-    return v > 0 ? v : 3000;
-  });
+  const initialVehicle = loadVehicleState();
+  const [vehicleCosts, setVehicleCosts] = useState<VehicleCosts>(initialVehicle.costs);
+  const [vehicleMeta, setVehicleMeta] = useState<VehicleMeta>(initialVehicle.meta);
+  const [aiLoading, setAiLoading] = useState(false);
   const [sortKey, setSortKey] = useState<'rides' | 'km' | 'total' | 'avg' | 'name'>('total');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
