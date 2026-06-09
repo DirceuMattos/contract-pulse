@@ -51,7 +51,7 @@ export function useTransportData({ year, month }: Params): Result {
       setIsLoading(true);
       try {
         // Período atual
-        let q = supabase.from('transport_rides').select('*');
+        let q = supabase.from('transport_rides').select('*').limit(100000);
         if (year !== null) q = q.eq('year', year);
         if (month) q = q.eq('month', month);
         const { data: cur } = await q;
@@ -59,7 +59,7 @@ export function useTransportData({ year, month }: Params): Result {
         // Período anterior (somente quando ano específico)
         let prev: any[] | null = [];
         if (year !== null) {
-          let qp = supabase.from('transport_rides').select('*').eq('year', year - 1);
+          let qp = supabase.from('transport_rides').select('*').eq('year', year - 1).limit(100000);
           if (month) qp = qp.eq('month', month);
           const { data } = await qp;
           prev = data;
@@ -71,10 +71,11 @@ export function useTransportData({ year, month }: Params): Result {
         const { data: last3 } = await supabase
           .from('transport_rides')
           .select('*')
-          .gte('ride_start_at', threeMonthsAgo.toISOString());
+          .gte('ride_start_at', threeMonthsAgo.toISOString())
+          .limit(100000);
 
         // Comparativo: todos os anos quando year=null, senão 3 anos
-        let qy = supabase.from('transport_rides').select('*');
+        let qy = supabase.from('transport_rides').select('year, month, value').limit(100000);
         if (year !== null) qy = qy.gte('year', year - 2).lte('year', year);
         const { data: yearly } = await qy;
 
@@ -82,7 +83,8 @@ export function useTransportData({ year, month }: Params): Result {
         const { data: years } = await supabase
           .from('transport_rides')
           .select('year')
-          .not('year', 'is', null);
+          .not('year', 'is', null)
+          .limit(100000);
 
         if (cancelled) return;
         setRides((cur || []) as TransportRide[]);
