@@ -228,15 +228,9 @@ function parseBRDate(str: string | undefined | null): string | null {
     const hh = match[4];
     const min = match[5];
     const sec = match[6] || '00';
-    // Forçar interpretação DD-MM-YYYY montando a data manualmente
-    const d = new Date(
-      parseInt(yyyy),
-      parseInt(mm) - 1,  // mês é 0-indexed
-      parseInt(dd),
-      parseInt(hh),
-      parseInt(min),
-      parseInt(sec)
-    );
+    // Usar UTC explícito para evitar problemas de fuso horário
+    const isoStr = `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}-03:00`;
+    const d = new Date(isoStr);
     return isNaN(d.getTime()) ? null : d.toISOString();
   }
 
@@ -265,8 +259,8 @@ function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
     category: pick(row, lowerMap, FIELD_ALIASES.category),
     supervisor_name: pick(row, lowerMap, FIELD_ALIASES.supervisor_name),
     supervisor_email: pick(row, lowerMap, FIELD_ALIASES.supervisor_email),
-    month: startDate ? startDate.getMonth() + 1 : null,
-    year: startDate ? startDate.getFullYear() : null,
+    month: startDate ? startDate.getUTCMonth() + 1 : null,
+    year: startDate ? startDate.getUTCFullYear() : null,
   };
 }
 
@@ -384,8 +378,8 @@ function buildRowUber(row: Record<string, string>, lowerMap: Map<string, string>
     category: pickExact(row, lowerMap, 'Serviço'),
     supervisor_name: null,
     supervisor_email: null,
-    month: startDate ? startDate.getMonth() + 1 : null,
-    year: startDate ? startDate.getFullYear() : null,
+    month: startDate ? startDate.getUTCMonth() + 1 : null,
+    year: startDate ? startDate.getUTCFullYear() : null,
   };
 }
 
