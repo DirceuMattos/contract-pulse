@@ -243,6 +243,26 @@ export default function TransportPage() {
     });
   }, [yearlyComparison]);
 
+  const periodSummary = useMemo(() => {
+    const inMonth = (m: number | null | undefined) => month === null || m === month;
+    let total = 0;
+    let prevTotal = 0;
+    if (year === null) {
+      yearlyComparison.forEach((r) => {
+        if (!r.year || !inMonth(r.month)) return;
+        total += Number(r.value) || 0;
+      });
+    } else {
+      yearlyComparison.forEach((r) => {
+        if (!inMonth(r.month)) return;
+        if (r.year === year) total += Number(r.value) || 0;
+        else if (r.year === year - 1) prevTotal += Number(r.value) || 0;
+      });
+    }
+    const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
+    return { total, prevTotal, delta };
+  }, [yearlyComparison, year, month]);
+
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
     last3Months.forEach((r) => {
