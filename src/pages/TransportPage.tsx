@@ -254,11 +254,13 @@ export default function TransportPage() {
     let total = 0;
     let prevTotal = 0;
     let comparisonLabel = '';
+    let periodLabel = '';
     if (year === null) {
       yearlyComparison.forEach((r) => {
         if (!r.year || !inMonth(r.month)) return;
         total += Number(r.value) || 0;
       });
+      periodLabel = 'Todos os anos';
     } else {
       const monthsInYear = yearlyComparison
         .filter((r) => r.year === year && r.month)
@@ -279,14 +281,17 @@ export default function TransportPage() {
       const abbr = (m: number) => MONTHS[m - 1]?.slice(0, 3).toLowerCase() ?? '';
       if (month !== null) {
         comparisonLabel = `vs ${abbr(month)} ${year - 1}`;
+        periodLabel = `${MONTHS[month - 1]} ${year}`;
       } else if (maxMonthCurrentYear > 0) {
         comparisonLabel = `vs jan–${abbr(maxMonthCurrentYear)} ${year - 1}`;
+        periodLabel = `Jan a ${MONTHS[maxMonthCurrentYear - 1]} ${year}`;
       } else {
         comparisonLabel = `vs ${year - 1}`;
+        periodLabel = String(year);
       }
     }
     const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
-    return { total, prevTotal, delta, comparisonLabel };
+    return { total, prevTotal, delta, comparisonLabel, periodLabel };
   }, [yearlyComparison, year, month]);
 
   const vehicleAnalysis = useMemo(() => {
@@ -498,11 +503,12 @@ export default function TransportPage() {
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div className="flex items-center gap-2 text-muted-foreground text-xs">
                 <DollarSign className="w-4 h-4" />
                 <span>Total Gasto no Período</span>
               </div>
+              <div className="text-xs text-muted-foreground">{periodSummary.periodLabel}</div>
               <div className="text-3xl font-bold">{fmtBRL(periodSummary.total)}</div>
               {periodSummary.prevTotal > 0 && (
                 <Badge variant={periodSummary.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
