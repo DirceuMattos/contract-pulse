@@ -553,36 +553,86 @@ export default function TransportPage() {
         }`}
       >
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Car className="w-5 h-5" /> Vale ter veículo próprio?
-          </CardTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Car className="w-5 h-5" /> Vale ter veículo próprio?
+              </CardTitle>
+              {(() => {
+                const dateStr = vehicleMeta.updatedAt
+                  ? new Date(vehicleMeta.updatedAt).toLocaleDateString('pt-BR')
+                  : '';
+                if (vehicleMeta.source === 'ai') {
+                  return (
+                    <Badge className="bg-blue-600 hover:bg-blue-600">
+                      Atualizado por IA em {dateStr}
+                    </Badge>
+                  );
+                }
+                if (vehicleMeta.source === 'manual') {
+                  return (
+                    <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">
+                      Valores inseridos manualmente em {dateStr}
+                    </Badge>
+                  );
+                }
+                return (
+                  <Badge variant="secondary">Valores padrão (nunca atualizados)</Badge>
+                );
+              })()}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAiRefresh}
+              disabled={aiLoading}
+            >
+              <Sparkles className="w-4 h-4" />
+              {aiLoading ? 'Buscando...' : 'Atualizar referências de mercado'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Custo fixo mensal de um veículo</label>
-              <Input
-                type="number"
-                value={vehicleCost}
-                onChange={(e) => handleVehicleCost(e.target.value)}
-                className="w-40"
-              />
-            </div>
-            <div className="text-sm">
-              <p>
-                Gasto médio com transporte (últimos 3 meses):{' '}
-                <span className="font-semibold">{fmtBRL(vehicleAnalysis.avg)}</span>
-              </p>
-              <p className="text-muted-foreground">Custo veículo informado: {fmtBRL(vehicleCost)}</p>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {VEHICLE_FIELDS.map((f) => (
+              <div key={f.key} className="space-y-1">
+                <label className="text-xs text-muted-foreground">{f.label}</label>
+                <Input
+                  type="number"
+                  value={vehicleCosts[f.key]}
+                  onChange={(e) => handleVehicleField(f.key, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="text-sm space-y-1">
+            <p>
+              Custo total estimado veículo + motorista:{' '}
+              <span className="font-semibold">{fmtBRL(vehicleAnalysis.totalCost)}/mês</span>
+            </p>
+            <p>
+              Média mensal BNP (últimos 3 meses):{' '}
+              <span className="font-semibold">{fmtBRL(vehicleAnalysis.avg)}</span>
+            </p>
           </div>
           {vehicleAnalysis.worthVehicle ? (
-            <Badge variant="destructive">Considere ter veículo próprio</Badge>
+            <Badge variant="destructive">
+              Considere ter veículo próprio (economia potencial de{' '}
+              {fmtBRL(vehicleAnalysis.avg - vehicleAnalysis.totalCost)}/mês)
+            </Badge>
           ) : (
-            <Badge className="bg-emerald-600 hover:bg-emerald-600">Transporte por app é mais econômico</Badge>
+            <Badge className="bg-emerald-600 hover:bg-emerald-600">
+              Transporte por app é mais econômico (economia de{' '}
+              {fmtBRL(vehicleAnalysis.totalCost - vehicleAnalysis.avg)}/mês vs veículo)
+            </Badge>
           )}
+          <p className="text-xs text-muted-foreground">
+            * Valores estimados. Motorista CLT inclui salário base + encargos (FGTS, INSS, férias, 13º).
+            Ajuste os campos conforme sua realidade.
+          </p>
         </CardContent>
       </Card>
+
 
       {/* Gastos no período */}
       <Card>
