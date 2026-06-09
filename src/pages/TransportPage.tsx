@@ -327,10 +327,43 @@ export default function TransportPage() {
     setMonth(null);
   };
 
-  const handleVehicleCost = (v: string) => {
-    const n = Number(v);
-    setVehicleCost(n);
-    localStorage.setItem(VEHICLE_COST_KEY, String(n));
+  const persistVehicle = (costs: VehicleCosts, meta: VehicleMeta) => {
+    localStorage.setItem(VEHICLE_COSTS_KEY, JSON.stringify({ costs, meta }));
+  };
+
+  const handleVehicleField = (key: keyof VehicleCosts, v: string) => {
+    const n = Number(v) || 0;
+    const next = { ...vehicleCosts, [key]: n };
+    const meta: VehicleMeta = { source: 'manual', updatedAt: new Date().toISOString() };
+    setVehicleCosts(next);
+    setVehicleMeta(meta);
+    persistVehicle(next, meta);
+  };
+
+  const handleAiRefresh = async () => {
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('transport-vehicle-market');
+      if (error || !data || (data as any).error) throw error || new Error('AI error');
+      const d = data as Record<string, number>;
+      const next: VehicleCosts = {
+        locacao: Number(d.locacao) || vehicleCosts.locacao,
+        combustivel: Number(d.combustivel) || vehicleCosts.combustivel,
+        manutencao: Number(d.manutencao) || vehicleCosts.manutencao,
+        seguro: Number(d.seguro) || vehicleCosts.seguro,
+        motoristaClt: Number(d.motorista_clt) || vehicleCosts.motoristaClt,
+        outros: Number(d.outros) || vehicleCosts.outros,
+      };
+      const meta: VehicleMeta = { source: 'ai', updatedAt: new Date().toISOString() };
+      setVehicleCosts(next);
+      setVehicleMeta(meta);
+      persistVehicle(next, meta);
+      toast.success('Valores atualizados por IA');
+    } catch {
+      toast.warning('Não foi possível buscar valores atualizados. Usando últimos valores salvos.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
