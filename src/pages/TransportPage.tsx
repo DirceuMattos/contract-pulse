@@ -24,8 +24,6 @@ import {
   Legend,
   ResponsiveContainer,
   Cell,
-  PieChart,
-  Pie,
 } from 'recharts';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
