@@ -477,16 +477,16 @@ export default function TransportPage() {
                 <DollarSign className="w-4 h-4" />
                 <span>Total Gasto no Período</span>
               </div>
-              <div className="text-3xl font-bold">{fmtBRL(totals.totalValue)}</div>
-              {totals.prevTotal > 0 && (
-                <Badge variant={totals.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
-                  {totals.delta >= 0 ? (
+              <div className="text-3xl font-bold">{fmtBRL(periodSummary.total)}</div>
+              {periodSummary.prevTotal > 0 && (
+                <Badge variant={periodSummary.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
+                  {periodSummary.delta >= 0 ? (
                     <TrendingUp className="w-3 h-3" />
                   ) : (
                     <TrendingDown className="w-3 h-3" />
                   )}
-                  {totals.delta >= 0 ? '+' : ''}
-                  {totals.delta.toFixed(1)}% vs período anterior
+                  {periodSummary.delta >= 0 ? '+' : ''}
+                  {periodSummary.delta.toFixed(1)}% vs período anterior
                 </Badge>
               )}
             </div>
