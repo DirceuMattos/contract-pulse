@@ -506,7 +506,7 @@ export default function TransportPage() {
                     <TrendingDown className="w-3 h-3" />
                   )}
                   {periodSummary.delta >= 0 ? '+' : ''}
-                  {periodSummary.delta.toFixed(1)}% vs período anterior
+                  {periodSummary.delta.toFixed(1)}% {periodSummary.comparisonLabel || 'vs período anterior'}
                 </Badge>
               )}
             </div>
