@@ -247,20 +247,40 @@ export default function TransportPage() {
     const inMonth = (m: number | null | undefined) => month === null || m === month;
     let total = 0;
     let prevTotal = 0;
+    let comparisonLabel = '';
     if (year === null) {
       yearlyComparison.forEach((r) => {
         if (!r.year || !inMonth(r.month)) return;
         total += Number(r.value) || 0;
       });
     } else {
+      const monthsInYear = yearlyComparison
+        .filter((r) => r.year === year && r.month)
+        .map((r) => r.month as number);
+      const maxMonthCurrentYear = monthsInYear.length ? Math.max(...monthsInYear) : 0;
       yearlyComparison.forEach((r) => {
         if (!inMonth(r.month)) return;
-        if (r.year === year) total += Number(r.value) || 0;
-        else if (r.year === year - 1) prevTotal += Number(r.value) || 0;
+        if (r.year === year) {
+          total += Number(r.value) || 0;
+        } else if (r.year === year - 1) {
+          if (month !== null) {
+            prevTotal += Number(r.value) || 0;
+          } else if (r.month && r.month <= maxMonthCurrentYear) {
+            prevTotal += Number(r.value) || 0;
+          }
+        }
       });
+      const abbr = (m: number) => MONTHS[m - 1]?.slice(0, 3).toLowerCase() ?? '';
+      if (month !== null) {
+        comparisonLabel = `vs ${abbr(month)} ${year - 1}`;
+      } else if (maxMonthCurrentYear > 0) {
+        comparisonLabel = `vs jan–${abbr(maxMonthCurrentYear)} ${year - 1}`;
+      } else {
+        comparisonLabel = `vs ${year - 1}`;
+      }
     }
     const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
-    return { total, prevTotal, delta };
+    return { total, prevTotal, delta, comparisonLabel };
   }, [yearlyComparison, year, month]);
 
   const vehicleAnalysis = useMemo(() => {
