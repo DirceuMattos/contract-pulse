@@ -360,26 +360,77 @@ export default function TransportPage() {
         </CardContent>
       </Card>
 
+      {/* Total Gasto no Período + evolução anual */}
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <DollarSign className="w-4 h-4" />
+                <span>Total Gasto no Período</span>
+              </div>
+              <div className="text-3xl font-bold">{fmtBRL(totals.totalValue)}</div>
+              {totals.prevTotal > 0 && (
+                <Badge variant={totals.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
+                  {totals.delta >= 0 ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  {totals.delta >= 0 ? '+' : ''}
+                  {totals.delta.toFixed(1)}% vs período anterior
+                </Badge>
+              )}
+            </div>
+          </div>
+          {yearlyTotals.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ano</TableHead>
+                    <TableHead className="text-right">Total Gasto</TableHead>
+                    <TableHead className="text-right">Variação R$</TableHead>
+                    <TableHead className="text-right">Variação %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {yearlyTotals.map((row, idx) => {
+                    const isLatest = idx === yearlyTotals.length - 1;
+                    const deltaClass =
+                      row.deltaAbs === null
+                        ? ''
+                        : row.deltaAbs > 0
+                          ? 'text-destructive'
+                          : row.deltaAbs < 0
+                            ? 'text-emerald-600'
+                            : '';
+                    return (
+                      <TableRow key={row.year} className={isLatest ? 'font-bold' : ''}>
+                        <TableCell>{row.year}</TableCell>
+                        <TableCell className="text-right">{fmtBRL(row.total)}</TableCell>
+                        <TableCell className={`text-right ${deltaClass}`}>
+                          {row.deltaAbs === null
+                            ? '—'
+                            : `${row.deltaAbs >= 0 ? '+' : ''}${fmtBRL(row.deltaAbs)}`}
+                        </TableCell>
+                        <TableCell className={`text-right ${deltaClass}`}>
+                          {row.deltaPct === null
+                            ? '—'
+                            : `${row.deltaPct >= 0 ? '+' : ''}${row.deltaPct.toFixed(1)}%`}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <SummaryCard
-          icon={<DollarSign className="w-4 h-4" />}
-          label="Total Gasto no Período"
-          value={fmtBRL(totals.totalValue)}
-          extra={
-            totals.prevTotal > 0 && (
-              <Badge variant={totals.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
-                {totals.delta >= 0 ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {totals.delta >= 0 ? '+' : ''}
-                {totals.delta.toFixed(1)}% vs período anterior
-              </Badge>
-            )
-          }
-        />
         <SummaryCard
           icon={<RouteIcon className="w-4 h-4" />}
           label="Total KM Rodado"
@@ -397,7 +448,7 @@ export default function TransportPage() {
         />
         <SummaryCard
           icon={<Users className="w-4 h-4" />}
-          label="Colaboradores Ativos"
+          label="Colaboradores Usuários"
           value={fmtNum(totals.collaborators)}
         />
         <SummaryCard
