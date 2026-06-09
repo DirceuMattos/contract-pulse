@@ -558,6 +558,9 @@ export default function TransportPage() {
                   })}
                 </TableBody>
               </Table>
+              <p className="text-xs text-muted-foreground mt-2">
+                * Comparação considera jan–{MONTHS[(yearlyTotals[0]?.maxMonth ?? 1) - 1]?.slice(0, 3).toLowerCase()} de cada ano para equalizar os períodos.
+              </p>
             </div>
           )}
         </CardContent>
