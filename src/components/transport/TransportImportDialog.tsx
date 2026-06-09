@@ -228,15 +228,9 @@ function parseBRDate(str: string | undefined | null): string | null {
     const hh = match[4];
     const min = match[5];
     const sec = match[6] || '00';
-    // Forçar interpretação DD-MM-YYYY montando a data manualmente
-    const d = new Date(
-      parseInt(yyyy),
-      parseInt(mm) - 1,  // mês é 0-indexed
-      parseInt(dd),
-      parseInt(hh),
-      parseInt(min),
-      parseInt(sec)
-    );
+    // Usar UTC explícito para evitar problemas de fuso horário
+    const isoStr = `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}-03:00`;
+    const d = new Date(isoStr);
     return isNaN(d.getTime()) ? null : d.toISOString();
   }
 
