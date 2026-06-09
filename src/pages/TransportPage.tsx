@@ -252,8 +252,15 @@ export default function TransportPage() {
     });
     const values = Array.from(byMonth.values());
     const avg = values.length ? values.reduce((s, v) => s + v, 0) / values.length : 0;
-    return { avg, worthVehicle: avg > vehicleCost };
-  }, [last3Months, vehicleCost]);
+    const totalCost =
+      vehicleCosts.locacao +
+      vehicleCosts.combustivel +
+      vehicleCosts.manutencao +
+      vehicleCosts.seguro +
+      vehicleCosts.motoristaClt +
+      vehicleCosts.outros;
+    return { avg, totalCost, worthVehicle: avg > totalCost };
+  }, [last3Months, vehicleCosts]);
 
   const byCollaborator = useMemo(() => {
     const map = new Map<string, { name: string; rides: number; km: number; total: number }>();
