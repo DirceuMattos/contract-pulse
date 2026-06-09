@@ -11,7 +11,10 @@ import {
   Activity,
   DollarSign,
   ArrowUpDown,
+  Sparkles,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   BarChart,
   Bar,
@@ -91,7 +94,52 @@ const YEAR_COLORS = [
   'hsl(55, 90%, 50%)',
 ];
 
-const VEHICLE_COST_KEY = 'transport-vehicle-cost';
+const VEHICLE_COSTS_KEY = 'transport_vehicle_costs';
+
+type VehicleCosts = {
+  locacao: number;
+  combustivel: number;
+  manutencao: number;
+  seguro: number;
+  motoristaClt: number;
+  outros: number;
+};
+type VehicleSource = 'ai' | 'manual' | 'default';
+type VehicleMeta = { source: VehicleSource; updatedAt: string | null };
+
+const DEFAULT_VEHICLE_COSTS: VehicleCosts = {
+  locacao: 3000,
+  combustivel: 800,
+  manutencao: 400,
+  seguro: 500,
+  motoristaClt: 4000,
+  outros: 300,
+};
+
+const VEHICLE_FIELDS: { key: keyof VehicleCosts; label: string }[] = [
+  { key: 'locacao', label: 'Locação/Financiamento' },
+  { key: 'combustivel', label: 'Combustível' },
+  { key: 'manutencao', label: 'Manutenção' },
+  { key: 'seguro', label: 'Seguro' },
+  { key: 'motoristaClt', label: 'Motorista CLT' },
+  { key: 'outros', label: 'Outros' },
+];
+
+function loadVehicleState(): { costs: VehicleCosts; meta: VehicleMeta } {
+  try {
+    const raw = localStorage.getItem(VEHICLE_COSTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.costs && parsed?.meta) {
+        return {
+          costs: { ...DEFAULT_VEHICLE_COSTS, ...parsed.costs },
+          meta: parsed.meta,
+        };
+      }
+    }
+  } catch {}
+  return { costs: DEFAULT_VEHICLE_COSTS, meta: { source: 'default', updatedAt: null } };
+}
 
 export default function TransportPage() {
   const now = new Date();
@@ -99,10 +147,10 @@ export default function TransportPage() {
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importModelo, setImportModelo] = useState<'99corp' | 'uber'>('99corp');
-  const [vehicleCost, setVehicleCost] = useState<number>(() => {
-    const v = Number(localStorage.getItem(VEHICLE_COST_KEY));
-    return v > 0 ? v : 3000;
-  });
+  const initialVehicle = loadVehicleState();
+  const [vehicleCosts, setVehicleCosts] = useState<VehicleCosts>(initialVehicle.costs);
+  const [vehicleMeta, setVehicleMeta] = useState<VehicleMeta>(initialVehicle.meta);
+  const [aiLoading, setAiLoading] = useState(false);
   const [sortKey, setSortKey] = useState<'rides' | 'km' | 'total' | 'avg' | 'name'>('total');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -204,8 +252,15 @@ export default function TransportPage() {
     });
     const values = Array.from(byMonth.values());
     const avg = values.length ? values.reduce((s, v) => s + v, 0) / values.length : 0;
-    return { avg, worthVehicle: avg > vehicleCost };
-  }, [last3Months, vehicleCost]);
+    const totalCost =
+      vehicleCosts.locacao +
+      vehicleCosts.combustivel +
+      vehicleCosts.manutencao +
+      vehicleCosts.seguro +
+      vehicleCosts.motoristaClt +
+      vehicleCosts.outros;
+    return { avg, totalCost, worthVehicle: avg > totalCost };
+  }, [last3Months, vehicleCosts]);
 
   const byCollaborator = useMemo(() => {
     const map = new Map<string, { name: string; rides: number; km: number; total: number }>();
@@ -272,10 +327,43 @@ export default function TransportPage() {
     setMonth(null);
   };
 
-  const handleVehicleCost = (v: string) => {
-    const n = Number(v);
-    setVehicleCost(n);
-    localStorage.setItem(VEHICLE_COST_KEY, String(n));
+  const persistVehicle = (costs: VehicleCosts, meta: VehicleMeta) => {
+    localStorage.setItem(VEHICLE_COSTS_KEY, JSON.stringify({ costs, meta }));
+  };
+
+  const handleVehicleField = (key: keyof VehicleCosts, v: string) => {
+    const n = Number(v) || 0;
+    const next = { ...vehicleCosts, [key]: n };
+    const meta: VehicleMeta = { source: 'manual', updatedAt: new Date().toISOString() };
+    setVehicleCosts(next);
+    setVehicleMeta(meta);
+    persistVehicle(next, meta);
+  };
+
+  const handleAiRefresh = async () => {
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('transport-vehicle-market');
+      if (error || !data || (data as any).error) throw error || new Error('AI error');
+      const d = data as Record<string, number>;
+      const next: VehicleCosts = {
+        locacao: Number(d.locacao) || vehicleCosts.locacao,
+        combustivel: Number(d.combustivel) || vehicleCosts.combustivel,
+        manutencao: Number(d.manutencao) || vehicleCosts.manutencao,
+        seguro: Number(d.seguro) || vehicleCosts.seguro,
+        motoristaClt: Number(d.motorista_clt) || vehicleCosts.motoristaClt,
+        outros: Number(d.outros) || vehicleCosts.outros,
+      };
+      const meta: VehicleMeta = { source: 'ai', updatedAt: new Date().toISOString() };
+      setVehicleCosts(next);
+      setVehicleMeta(meta);
+      persistVehicle(next, meta);
+      toast.success('Valores atualizados por IA');
+    } catch {
+      toast.warning('Não foi possível buscar valores atualizados. Usando últimos valores salvos.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -465,36 +553,86 @@ export default function TransportPage() {
         }`}
       >
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Car className="w-5 h-5" /> Vale ter veículo próprio?
-          </CardTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Car className="w-5 h-5" /> Vale ter veículo próprio?
+              </CardTitle>
+              {(() => {
+                const dateStr = vehicleMeta.updatedAt
+                  ? new Date(vehicleMeta.updatedAt).toLocaleDateString('pt-BR')
+                  : '';
+                if (vehicleMeta.source === 'ai') {
+                  return (
+                    <Badge className="bg-blue-600 hover:bg-blue-600">
+                      Atualizado por IA em {dateStr}
+                    </Badge>
+                  );
+                }
+                if (vehicleMeta.source === 'manual') {
+                  return (
+                    <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">
+                      Valores inseridos manualmente em {dateStr}
+                    </Badge>
+                  );
+                }
+                return (
+                  <Badge variant="secondary">Valores padrão (nunca atualizados)</Badge>
+                );
+              })()}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAiRefresh}
+              disabled={aiLoading}
+            >
+              <Sparkles className="w-4 h-4" />
+              {aiLoading ? 'Buscando...' : 'Atualizar referências de mercado'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Custo fixo mensal de um veículo</label>
-              <Input
-                type="number"
-                value={vehicleCost}
-                onChange={(e) => handleVehicleCost(e.target.value)}
-                className="w-40"
-              />
-            </div>
-            <div className="text-sm">
-              <p>
-                Gasto médio com transporte (últimos 3 meses):{' '}
-                <span className="font-semibold">{fmtBRL(vehicleAnalysis.avg)}</span>
-              </p>
-              <p className="text-muted-foreground">Custo veículo informado: {fmtBRL(vehicleCost)}</p>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {VEHICLE_FIELDS.map((f) => (
+              <div key={f.key} className="space-y-1">
+                <label className="text-xs text-muted-foreground">{f.label}</label>
+                <Input
+                  type="number"
+                  value={vehicleCosts[f.key]}
+                  onChange={(e) => handleVehicleField(f.key, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="text-sm space-y-1">
+            <p>
+              Custo total estimado veículo + motorista:{' '}
+              <span className="font-semibold">{fmtBRL(vehicleAnalysis.totalCost)}/mês</span>
+            </p>
+            <p>
+              Média mensal BNP (últimos 3 meses):{' '}
+              <span className="font-semibold">{fmtBRL(vehicleAnalysis.avg)}</span>
+            </p>
           </div>
           {vehicleAnalysis.worthVehicle ? (
-            <Badge variant="destructive">Considere ter veículo próprio</Badge>
+            <Badge variant="destructive">
+              Considere ter veículo próprio (economia potencial de{' '}
+              {fmtBRL(vehicleAnalysis.avg - vehicleAnalysis.totalCost)}/mês)
+            </Badge>
           ) : (
-            <Badge className="bg-emerald-600 hover:bg-emerald-600">Transporte por app é mais econômico</Badge>
+            <Badge className="bg-emerald-600 hover:bg-emerald-600">
+              Transporte por app é mais econômico (economia de{' '}
+              {fmtBRL(vehicleAnalysis.totalCost - vehicleAnalysis.avg)}/mês vs veículo)
+            </Badge>
           )}
+          <p className="text-xs text-muted-foreground">
+            * Valores estimados. Motorista CLT inclui salário base + encargos (FGTS, INSS, férias, 13º).
+            Ajuste os campos conforme sua realidade.
+          </p>
         </CardContent>
       </Card>
+
 
       {/* Gastos no período */}
       <Card>
