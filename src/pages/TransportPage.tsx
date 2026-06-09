@@ -229,14 +229,18 @@ export default function TransportPage() {
 
   const yearlyTotals = useMemo(() => {
     const anos = Array.from(new Set(yearlyComparison.map((r) => r.year).filter(Boolean) as number[]));
-    const mostRecentYear = anos.length ? Math.max(...anos) : 0;
-    const maxMonth = mostRecentYear
-      ? Math.max(...yearlyComparison.filter((r) => r.year === mostRecentYear).map((r) => r.month).filter(Boolean) as number[])
+    const latestYear = anos.length ? Math.max(...anos) : 0;
+    const latestMonth = latestYear
+      ? Math.max(
+          ...(yearlyComparison
+            .filter((r) => r.year === latestYear && r.month)
+            .map((r) => r.month) as number[]),
+        )
       : 12;
     const map = new Map<number, number>();
     yearlyComparison.forEach((r) => {
-      if (!r.year) return;
-      if (r.month && r.month > maxMonth) return;
+      if (!r.year || !r.month) return;
+      if (r.month > latestMonth) return; // YTD: só até o mês mais recente disponível
       map.set(r.year, (map.get(r.year) || 0) + (Number(r.value) || 0));
     });
     const years = Array.from(map.keys()).sort((a, b) => a - b);
@@ -245,7 +249,7 @@ export default function TransportPage() {
       const prev = i > 0 ? map.get(years[i - 1]) || 0 : null;
       const deltaAbs = prev === null ? null : total - prev;
       const deltaPct = prev === null || prev === 0 ? null : ((total - prev) / prev) * 100;
-      return { year: y, total, deltaAbs, deltaPct, maxMonth };
+      return { year: y, total, deltaAbs, deltaPct, latestMonth };
     });
   }, [yearlyComparison]);
 
@@ -565,7 +569,7 @@ export default function TransportPage() {
                 </TableBody>
               </Table>
               <p className="text-xs text-muted-foreground mt-2">
-                * Comparação considera jan–{MONTHS[(yearlyTotals[0]?.maxMonth ?? 1) - 1]?.slice(0, 3).toLowerCase()} de cada ano para equalizar os períodos.
+                * Comparação considera jan–{MONTHS[(yearlyTotals[0]?.latestMonth ?? 1) - 1]?.slice(0, 3).toLowerCase()} de cada ano para equalizar os períodos.
               </p>
             </div>
           )}
