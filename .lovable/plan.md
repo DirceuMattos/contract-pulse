@@ -1,36 +1,33 @@
-# Normalização do `ride_id` Uber
+# Ajustes em TransportPage.tsx
 
-## Objetivo
-Garantir que a mesma corrida exportada da Uber gere sempre o **mesmo** `ride_id`, mesmo se houver pequenas variações de formatação entre exportações (espaços extras, acentuação inconsistente, maiúsculas/minúsculas, vírgula vs ponto no valor).
+Três alterações pontuais, apenas em `src/pages/TransportPage.tsx`.
 
-## Alteração
-Arquivo único: `src/components/transport/TransportImportDialog.tsx`, função `buildRowUber`.
+## 1. Card "Total Gasto no Período" → tabela evolutiva por ano
 
-Adicionar um helper `normalizeUberKey(v)` aplicado aos 5 componentes do `ride_id` antes de concatenar:
+Substituir o `SummaryCard` simples por um card customizado contendo:
 
-1. `trim()` — remove espaços nas pontas
-2. Colapsa espaços internos múltiplos em um só
-3. `toLowerCase()`
-4. Remove acentos (`normalize('NFD').replace(/[\u0300-\u036f]/g, '')`)
+- **Topo (destaque)**: valor `fmtBRL(totals.totalValue)` do período filtrado (mantém o badge de variação vs período anterior).
+- **Tabela** logo abaixo com todos os anos presentes em `availableYears` (ou agregados a partir de `yearlyComparison`):
 
-Para o campo **valor**, normalizar também o formato numérico: substituir vírgula por ponto e remover separadores de milhar, para que `"1.234,50"` e `"1234.5"` virem a mesma chave.
+| Ano | Total Gasto | Variação R$ | Variação % |
 
-Para os campos **data** e **hora**, normalizar para um formato canônico (ex.: `data` vira `YYYY-MM-DD`, `hora` vira `HH:MM:SS`) usando a mesma lógica de `toISO` já existente, evitando que `"01/06/2026"` e `"1/6/2026"` gerem IDs diferentes.
+Regras:
+- Calcular total por ano somando `yearlyComparison` (já carrega histórico completo).
+- Para cada ano: `delta = total[y] - total[y-1]`; primeiro ano da lista exibe "—".
+- Linha do ano mais recente em **bold**.
+- Variação **positiva** (gasto aumentou) → texto vermelho (`text-destructive`).
+- Variação **negativa** (gasto reduziu) → texto verde (`text-emerald-600`).
+- Valores formatados com `fmtBRL` e `%` com 1 casa.
 
-Resultado: `ride_id` final continua sendo a concatenação dos 5 campos com `_`, mas agora estável entre re-exportações.
+O card ocupa a primeira posição do grid de resumo, mas em largura maior (ex.: `col-span-2 md:col-span-3`) para acomodar a tabela. Os outros cards do grid permanecem inalterados.
 
-## Impacto sobre dados já importados
-Registros Uber importados **antes** desta mudança ficaram com `ride_id` no formato antigo (não normalizado). Na primeira reimportação após o deploy, eles **podem aparecer como "novos"** em vez de "atualizados", gerando uma duplicação única.
+## 2. Card "Colaboradores Ativos"
 
-Duas opções para tratar isso:
+Alterar apenas o `label` de `"Colaboradores Ativos"` para `"Colaboradores Usuários"`. Nenhuma mudança em lógica, ícone ou valor.
 
-- **A — Aceitar e limpar manualmente** (mais simples): assumir que a base Uber atual é pequena/recente e, se necessário, apagar os registros antigos antes de reimportar.
-- **B — Migração de dados** (mais seguro): rodar um `UPDATE` único na tabela `transport_rides` recalculando o `ride_id` das linhas Uber existentes pelo mesmo algoritmo normalizado. Requer identificar quais linhas vieram da Uber — hoje não há flag de origem, então o critério seria `distance_km IS NULL AND supervisor_name IS NULL` (heurística do modelo Uber).
+## 3. Gráfico de rosca "Distribuição por ano"
+
+Verificação: o donut chart já havia sido removido em iteração anterior; confirmar que não há mais nenhum `PieChart`/`Pie` em `TransportPage.tsx`. Caso reste algum vestígio (import, memo, JSX), remover.
 
 ## Fora do escopo
-- Não altera schema do banco.
-- Não altera lógica do 99Corp (já usa ID nativo estável).
-- Não altera UI nem o fluxo de upsert/contagem de importadas/atualizadas.
-
-## Pergunta
-Qual opção de tratamento dos dados Uber já existentes você prefere — **A (deixar como está)** ou **B (migração para recalcular os ride_ids antigos)**?
+Nada mais é alterado: filtros, demais cards, gráficos de barras/linha, rankings, tabela de supervisores e o hook `useTransportData` permanecem como estão.

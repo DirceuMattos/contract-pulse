@@ -179,6 +179,22 @@ export default function TransportPage() {
     [year, availableYears],
   );
 
+  const yearlyTotals = useMemo(() => {
+    const map = new Map<number, number>();
+    yearlyComparison.forEach((r) => {
+      if (!r.year) return;
+      map.set(r.year, (map.get(r.year) || 0) + (Number(r.value) || 0));
+    });
+    const years = Array.from(map.keys()).sort((a, b) => a - b);
+    return years.map((y, i) => {
+      const total = map.get(y) || 0;
+      const prev = i > 0 ? map.get(years[i - 1]) || 0 : null;
+      const deltaAbs = prev === null ? null : total - prev;
+      const deltaPct = prev === null || prev === 0 ? null : ((total - prev) / prev) * 100;
+      return { year: y, total, deltaAbs, deltaPct };
+    });
+  }, [yearlyComparison]);
+
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
     last3Months.forEach((r) => {
