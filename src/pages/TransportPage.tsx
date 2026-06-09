@@ -243,6 +243,26 @@ export default function TransportPage() {
     });
   }, [yearlyComparison]);
 
+  const periodSummary = useMemo(() => {
+    const inMonth = (m: number | null | undefined) => month === null || m === month;
+    let total = 0;
+    let prevTotal = 0;
+    if (year === null) {
+      yearlyComparison.forEach((r) => {
+        if (!r.year || !inMonth(r.month)) return;
+        total += Number(r.value) || 0;
+      });
+    } else {
+      yearlyComparison.forEach((r) => {
+        if (!inMonth(r.month)) return;
+        if (r.year === year) total += Number(r.value) || 0;
+        else if (r.year === year - 1) prevTotal += Number(r.value) || 0;
+      });
+    }
+    const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
+    return { total, prevTotal, delta };
+  }, [yearlyComparison, year, month]);
+
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
     last3Months.forEach((r) => {
@@ -457,16 +477,16 @@ export default function TransportPage() {
                 <DollarSign className="w-4 h-4" />
                 <span>Total Gasto no Período</span>
               </div>
-              <div className="text-3xl font-bold">{fmtBRL(totals.totalValue)}</div>
-              {totals.prevTotal > 0 && (
-                <Badge variant={totals.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
-                  {totals.delta >= 0 ? (
+              <div className="text-3xl font-bold">{fmtBRL(periodSummary.total)}</div>
+              {periodSummary.prevTotal > 0 && (
+                <Badge variant={periodSummary.delta >= 0 ? 'destructive' : 'default'} className="gap-1">
+                  {periodSummary.delta >= 0 ? (
                     <TrendingUp className="w-3 h-3" />
                   ) : (
                     <TrendingDown className="w-3 h-3" />
                   )}
-                  {totals.delta >= 0 ? '+' : ''}
-                  {totals.delta.toFixed(1)}% vs período anterior
+                  {periodSummary.delta >= 0 ? '+' : ''}
+                  {periodSummary.delta.toFixed(1)}% vs período anterior
                 </Badge>
               )}
             </div>
