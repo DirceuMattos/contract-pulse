@@ -259,8 +259,8 @@ function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
     category: pick(row, lowerMap, FIELD_ALIASES.category),
     supervisor_name: pick(row, lowerMap, FIELD_ALIASES.supervisor_name),
     supervisor_email: pick(row, lowerMap, FIELD_ALIASES.supervisor_email),
-    month: startDate ? startDate.getMonth() + 1 : null,
-    year: startDate ? startDate.getFullYear() : null,
+    month: startDate ? startDate.getUTCMonth() + 1 : null,
+    year: startDate ? startDate.getUTCFullYear() : null,
   };
 }
 
