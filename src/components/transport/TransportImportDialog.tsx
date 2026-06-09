@@ -215,18 +215,21 @@ function toNumber(v: string | null): number | null {
   return isNaN(n) ? null : n;
 }
 
-function toISO(v: string | null): string | null {
-  if (!v) return null;
-  const s = v.trim();
-  const dm = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-  if (dm) {
-    const [, d, mo, y, h = '12', mi = '00', se = '00'] = dm;
-    const dt = new Date(`${y}-${mo}-${d}T${h}:${mi}:${se}`);
+function parseBRDate(str: string | undefined | null): string | null {
+  if (!str) return null;
+  const s = str.trim();
+  // Formato DD-MM-YYYY HH:MM:SS ou DD/MM/YYYY HH:MM:SS
+  const match = s.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (match) {
+    const [, dd, mm, yyyy, hh, min, sec = '00'] = match;
+    const dt = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}`);
     return isNaN(dt.getTime()) ? null : dt.toISOString();
   }
-  const dt = new Date(s);
-  return isNaN(dt.getTime()) ? null : dt.toISOString();
+  // Fallback: tentar parse direto (ISO, etc.)
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.toISOString();
 }
+const toISO = parseBRDate;
 
 function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
   const ride_id = pick(row, lowerMap, FIELD_ALIASES.ride_id);
