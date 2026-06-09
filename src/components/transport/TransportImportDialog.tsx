@@ -185,7 +185,7 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
 
 // ─── Mapeamento ────────────────────────────────────────────────────────────────
 const FIELD_ALIASES: Record<string, string[]> = {
-  ride_id: ['Corrida', 'Id da Corrida'],
+  ride_id: ['Corrida', 'ID da Corrida'],
   collaborator_name: ['Nome do Colaborador', 'Nome Colaborador'],
   collaborator_email: ['E-mail do colaborador', 'Email Colaborador'],
   collaborator_id_external: ['Matrícula', 'Matricula'],
@@ -194,8 +194,8 @@ const FIELD_ALIASES: Record<string, string[]> = {
   origin_address: ['Endereço de Origem', 'Endereço de Origem Real'],
   destination_address: ['Endereço de Destino', 'Endereço Final Real'],
   origin_city: ['Cidade de Origem', 'Cidade Origem'],
-  ride_start_at: ['Data de Início da Corrida', 'Data Origem'],
-  ride_end_at: ['Data de Fim da Corrida', 'Data Final'],
+  ride_start_at: ['Data de Início da Corrida'],
+  ride_end_at: ['Data de Fim da Corrida'],
   category: ['Categoria'],
   supervisor_name: ['Nome do Supervisor', 'Nome Supervisor'],
   supervisor_email: ['E-mail do Supervisor', 'Email Supervisor'],
@@ -242,7 +242,24 @@ const toISO = parseBRDate;
 
 function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
   const ride_id = pick(row, lowerMap, FIELD_ALIASES.ride_id);
-  const start = toISO(pick(row, lowerMap, FIELD_ALIASES.ride_start_at));
+  let start = toISO(pick(row, lowerMap, FIELD_ALIASES.ride_start_at));
+  if (!start) {
+    const dateOrig = pick(row, lowerMap, ['Data Origem']);
+    const horaOrig = pick(row, lowerMap, ['Hora Origem']);
+    if (dateOrig) {
+      const combined = horaOrig ? `${dateOrig} ${horaOrig}` : dateOrig;
+      start = toISO(combined);
+    }
+  }
+  let end = toISO(pick(row, lowerMap, FIELD_ALIASES.ride_end_at));
+  if (!end) {
+    const dateFim = pick(row, lowerMap, ['Data Final']);
+    const horaFim = pick(row, lowerMap, ['Hora Final']);
+    if (dateFim) {
+      const combined = horaFim ? `${dateFim} ${horaFim}` : dateFim;
+      end = toISO(combined);
+    }
+  }
   const startDate = start ? new Date(start) : null;
   return {
     ride_id,
@@ -255,7 +272,7 @@ function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
     destination_address: pick(row, lowerMap, FIELD_ALIASES.destination_address),
     origin_city: pick(row, lowerMap, FIELD_ALIASES.origin_city),
     ride_start_at: start,
-    ride_end_at: toISO(pick(row, lowerMap, FIELD_ALIASES.ride_end_at)),
+    ride_end_at: end,
     category: pick(row, lowerMap, FIELD_ALIASES.category),
     supervisor_name: pick(row, lowerMap, FIELD_ALIASES.supervisor_name),
     supervisor_email: pick(row, lowerMap, FIELD_ALIASES.supervisor_email),
