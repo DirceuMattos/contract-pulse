@@ -227,16 +227,20 @@ export default function TransportPage() {
     [year, availableYears],
   );
 
-  const yearlyTotals = useMemo(() => {
+  const latestPeriod = useMemo(() => {
     const anos = Array.from(new Set(yearlyComparison.map((r) => r.year).filter(Boolean) as number[]));
     const latestYear = anos.length ? Math.max(...anos) : 0;
-    const latestMonth = latestYear
-      ? Math.max(
-          ...(yearlyComparison
-            .filter((r) => r.year === latestYear && r.month)
-            .map((r) => r.month) as number[]),
-        )
-      : 12;
+    const meses = latestYear
+      ? (yearlyComparison
+          .filter((r) => r.year === latestYear && r.month)
+          .map((r) => r.month) as number[])
+      : [];
+    const latestMonth = meses.length ? Math.max(...meses) : 12;
+    return { latestYear, latestMonth };
+  }, [yearlyComparison]);
+
+  const yearlyTotals = useMemo(() => {
+    const { latestMonth } = latestPeriod;
     const map = new Map<number, number>();
     yearlyComparison.forEach((r) => {
       if (!r.year || !r.month) return;
@@ -251,7 +255,7 @@ export default function TransportPage() {
       const deltaPct = prev === null || prev === 0 ? null : ((total - prev) / prev) * 100;
       return { year: y, total, deltaAbs, deltaPct, latestMonth };
     });
-  }, [yearlyComparison]);
+  }, [yearlyComparison, latestPeriod]);
 
   const periodSummary = useMemo(() => {
     const inMonth = (m: number | null | undefined) => month === null || m === month;
