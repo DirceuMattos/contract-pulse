@@ -610,8 +610,16 @@ export default function SquadsPage() {
 
     const cardContract = contracts.find(c => c.id === cd.contractId);
 
+    const contractHasPending = pendingContractIds.has(cd.contractId);
+    const pendingCountForCard = pendingItems.filter(p => p.contract_id === cd.contractId).length;
+
     return (
-      <Card key={cd.subprojectId || cd.contractId} className={`overflow-hidden border-l-4 ${cardColor}`}>
+      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-red-950/40 border-red-700')}>
+        {contractHasPending && (
+          <div className="px-4 py-2 bg-red-900/60 text-red-100 text-xs font-medium border-b border-red-700">
+            ⚠️ {pendingCountForCard} substituição(ões) pendente(s)
+          </div>
+        )}
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
