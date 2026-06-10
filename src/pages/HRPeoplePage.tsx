@@ -555,9 +555,16 @@ export default function HRPeoplePage() {
                           </TableCell>
                           {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
                           <TableCell className="py-2">
-                            <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
-                              {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
-                            </Badge>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
+                                {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                              {p.situacao === 'inativo' && (pendingCountByPerson.get(p.id) || 0) > 0 && (
+                                <Badge className="text-[10px] bg-orange-500 text-white hover:bg-orange-600">
+                                  {pendingCountByPerson.get(p.id)} alocação(ões) pendente(s)
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           {canViewComite && (
                             <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
