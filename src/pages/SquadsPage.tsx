@@ -134,7 +134,7 @@ export default function SquadsPage() {
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
   const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
-  const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string } | null>(null);
+  const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string; currentPercent: number; contractName: string } | null>(null);
   const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
   const { isPending, isPendingByPerson, items: pendingItems, refresh: refreshPending } = usePendingReplacements();
 
