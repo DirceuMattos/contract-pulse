@@ -966,8 +966,8 @@ export default function SquadsPage() {
         squadsData.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[...squadsData].sort((a, b) => {
-              const aP = pendingContractIds.has(a.contractId) ? 0 : 1;
-              const bP = pendingContractIds.has(b.contractId) ? 0 : 1;
+              const aP = contractHasInactivePending(a) ? 0 : 1;
+              const bP = contractHasInactivePending(b) ? 0 : 1;
               return aP - bP;
             }).map((cd, i) => renderContractCard(cd, i))}
           </div>
@@ -980,10 +980,8 @@ export default function SquadsPage() {
             {[...resourceViewData].sort((a, b) => {
               const aHr = a.resourceKey.startsWith('hr:') ? a.resourceKey.slice(3) : '';
               const bHr = b.resourceKey.startsWith('hr:') ? b.resourceKey.slice(3) : '';
-              const aInativo = aHr ? (hrPeople.find(p => p.id === aHr)?.situacao === 'inativo') : false;
-              const bInativo = bHr ? (hrPeople.find(p => p.id === bHr)?.situacao === 'inativo') : false;
-              const aP = (aInativo && isPendingByPerson(aHr)) ? 0 : 1;
-              const bP = (bInativo && isPendingByPerson(bHr)) ? 0 : 1;
+              const aP = isInactivePendingPerson(aHr) ? 0 : 1;
+              const bP = isInactivePendingPerson(bHr) ? 0 : 1;
               return aP - bP;
             }).map(renderResourceCard)}
           </div>
