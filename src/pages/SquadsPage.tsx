@@ -26,6 +26,11 @@ import { buildLookups, resolveResource } from '@/lib/resourceResolver';
 import { SubprojectManagementPanel } from '@/components/squads/SubprojectManagementPanel';
 import { EditResourceAllocationDialog, ResourceAllocationInfo } from '@/components/squads/EditResourceAllocationDialog';
 import { AddResourceToContractDialog } from '@/components/squads/AddResourceToContractDialog';
+import { SubstituicaoDialog } from '@/components/hr/SubstituicaoDialog';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { usePendingReplacements } from '@/hooks/usePendingReplacements';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 // --- Types ---
 
@@ -128,6 +133,23 @@ export default function SquadsPage() {
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
   const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
+  const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string } | null>(null);
+  const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
+  const { isPending, isPendingByPerson, refresh: refreshPending } = usePendingReplacements();
+
+  const handleRemovePending = async () => {
+    if (!removing) return;
+    const { error } = await supabase
+      .from('pending_replacements')
+      .update({ status: 'removed', resolved_at: new Date().toISOString() })
+      .eq('resource_id', removing.resourceId)
+      .eq('contract_id', removing.contractId)
+      .eq('status', 'pending');
+    if (error) { toast.error('Erro ao remover pendência.'); return; }
+    toast.success('Pendência removida.');
+    setRemoving(null);
+    refreshPending();
+  };
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
@@ -644,6 +666,8 @@ export default function SquadsPage() {
   const renderResourceCard = (rd: ResourceViewData) => {
     const totalFTE = rd.totalDedicacao / 100;
     const isOverloaded = rd.totalDedicacao > 100;
+    const hrPersonIdForCard = rd.resourceKey.startsWith('hr:') ? rd.resourceKey.replace('hr:', '') : null;
+    const cardHasPending = hrPersonIdForCard ? isPendingByPerson(hrPersonIdForCard) : false;
 
     return (
       <Card key={rd.resourceKey} className={`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`}>
@@ -662,6 +686,11 @@ export default function SquadsPage() {
                     </TooltipTrigger>
                     <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                   </Tooltip>
+                )}
+                {cardHasPending && (
+                  <Badge variant="destructive" className="text-[10px] gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Substituição Pendente
+                  </Badge>
                 )}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
@@ -697,6 +726,7 @@ export default function SquadsPage() {
           <div className="space-y-1.5">
             {rd.allocations.map((alloc, i) => {
               const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
+              const allocPending = isPending(alloc.resourceId, alloc.contractId);
               return (
                 <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
                   <div className="min-w-0 flex-1">
@@ -727,6 +757,30 @@ export default function SquadsPage() {
                     >
                       <Pencil className="w-3 h-3" />
                     </Button>
+                  )}
+                  {allocPending && canAllocate && alloc.hrPersonId && (
+                    <>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] shrink-0"
+                        onClick={() => setSubstituting({
+                          resourceId: alloc.resourceId,
+                          contractId: alloc.contractId,
+                          hrPersonId: alloc.hrPersonId!,
+                        })}
+                      >
+                        Substituir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] shrink-0"
+                        onClick={() => setRemoving({ resourceId: alloc.resourceId, contractId: alloc.contractId })}
+                      >
+                        Remover
+                      </Button>
+                    </>
                   )}
                 </div>
               );
@@ -918,6 +972,26 @@ export default function SquadsPage() {
           personName={addingToContract.personName}
         />
       )}
+
+      {substituting && (
+        <SubstituicaoDialog
+          open={!!substituting}
+          onOpenChange={(open) => { if (!open) setSubstituting(null); }}
+          resourceId={substituting.resourceId}
+          contractId={substituting.contractId}
+          hrPersonId={substituting.hrPersonId}
+          onCompleted={() => refreshPending()}
+        />
+      )}
+
+      <ConfirmDeleteDialog
+        open={!!removing}
+        onOpenChange={(open) => { if (!open) setRemoving(null); }}
+        title="Remover pendência de substituição"
+        description="A alocação será mantida vaga e a pendência marcada como removida. Deseja continuar?"
+        confirmLabel="Remover"
+        onConfirm={handleRemovePending}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessLogs } from '@/contexts/AccessLogContext';
 import { Sidebar } from './Sidebar';
@@ -9,9 +10,10 @@ import { CommandPalette } from './CommandPalette';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { MODULE_CATALOG } from '@/types/moduleAccess';
+import { supabase } from '@/integrations/supabase/client';
 
 export function MainLayout() {
-  const { isAuthenticated, loading: authLoading, mustChangePassword } = useAuth();
+  const { isAuthenticated, loading: authLoading, mustChangePassword, userRole, user } = useAuth();
   const { trackNavigation } = useAccessLogs();
   const location = useLocation();
   const navigate = useNavigate();
@@ -23,6 +25,24 @@ export function MainLayout() {
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const dismissKey = `bnp_pending_replacements_dismissed_${user?.id || 'anon'}`;
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem(dismissKey) === '1');
+
+  const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
+
+  useEffect(() => {
+    if (!isAuthenticated || !canSeeBanner) return;
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from('pending_replacements')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      if (!cancelled) setPendingCount(count || 0);
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, canSeeBanner]);
   
   useEffect(() => {
     localStorage.setItem('bnp_sidebar_collapsed', String(sidebarCollapsed));
@@ -128,6 +148,27 @@ export function MainLayout() {
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className="pt-16 min-h-screen"
       >
+        {canSeeBanner && pendingCount > 0 && !bannerDismissed && (
+          <div className="flex items-center gap-3 px-4 py-2 border-b border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <p className="text-sm flex-1">
+              <span className="font-medium">{pendingCount}</span> recurso(s) aguardando substituição.{' '}
+              <button
+                onClick={() => navigate('/squads')}
+                className="underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-100"
+              >
+                Ir para Squads
+              </button>
+            </p>
+            <button
+              onClick={() => { sessionStorage.setItem(dismissKey, '1'); setBannerDismissed(true); }}
+              className="p-1 rounded hover:bg-amber-500/20"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <div className="p-4 sm:p-6">
           <Outlet />
         </div>
