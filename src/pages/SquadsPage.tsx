@@ -698,7 +698,7 @@ export default function SquadsPage() {
                 {rd.isVacant && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="destructive" className="text-[10px] gap-1">
+                      <Badge className="text-[10px] gap-1 bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/20">
                         <AlertTriangle className="w-3 h-3" /> Colaborador Inativo
                       </Badge>
                     </TooltipTrigger>
