@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { HRPerson, HRTimelineEvent, Contract } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
