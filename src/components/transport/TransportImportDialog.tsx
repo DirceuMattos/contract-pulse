@@ -215,51 +215,48 @@ function toNumber(v: string | null): number | null {
   return isNaN(n) ? null : n;
 }
 
-function parseBRDate(str: string | undefined | null): string | null {
-  if (!str) return null;
-  const s = str.trim();
+function parseBRDate(dateStr: string | undefined | null, timeStr?: string | undefined | null): string | null {
+  if (!dateStr) return null;
+  const d = dateStr.trim();
+  const t = timeStr?.trim() || '00:00:00';
 
-  // Formato DD-MM-YYYY HH:MM:SS (formato 99Corp)
-  const match = s.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})[\s T](\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (match) {
-    const dd = match[1];   // dia
-    const mm = match[2];   // mês
-    const yyyy = match[3]; // ano
-    const hh = match[4];
-    const min = match[5];
-    const sec = match[6] || '00';
-    // Usar UTC explícito para evitar problemas de fuso horário
-    const isoStr = `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}-03:00`;
-    const d = new Date(isoStr);
-    return isNaN(d.getTime()) ? null : d.toISOString();
+  // Formato ANTIGO: "DD-MM-YYYY HH:MM:SS" (data e hora juntos com hífen)
+  const matchAntigo = d.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (matchAntigo) {
+    const [, dd, mm, yyyy, hh, min, sec = '00'] = matchAntigo;
+    return new Date(Date.UTC(+yyyy, +mm - 1, +dd, +hh, +min, +sec)).toISOString();
   }
 
-  // Fallback ISO
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.toISOString();
+  // Formato NOVO: "DD/MM/YYYY" com hora separada "HH:MM:SS"
+  const matchNovo = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (matchNovo) {
+    const [, dd, mm, yyyy] = matchNovo;
+    const timeMatch = t.match(/^(\d{2}):(\d{2})(?::(\d{2}))?/);
+    const hh = timeMatch?.[1] || '00';
+    const min = timeMatch?.[2] || '00';
+    const sec = timeMatch?.[3] || '00';
+    return new Date(Date.UTC(+yyyy, +mm - 1, +dd, +hh, +min, +sec)).toISOString();
+  }
+
+  return null;
 }
 const toISO = parseBRDate;
 
 function buildRow(row: Record<string, string>, lowerMap: Map<string, string>) {
   const ride_id = pick(row, lowerMap, FIELD_ALIASES.ride_id);
-  let start = toISO(pick(row, lowerMap, FIELD_ALIASES.ride_start_at));
-  if (!start) {
-    const dateOrig = pick(row, lowerMap, ['Data Origem']);
-    const horaOrig = pick(row, lowerMap, ['Hora Origem']);
-    if (dateOrig) {
-      const combined = horaOrig ? `${dateOrig} ${horaOrig}` : dateOrig;
-      start = toISO(combined);
-    }
-  }
-  let end = toISO(pick(row, lowerMap, FIELD_ALIASES.ride_end_at));
-  if (!end) {
-    const dateFim = pick(row, lowerMap, ['Data Final']);
-    const horaFim = pick(row, lowerMap, ['Hora Final']);
-    if (dateFim) {
-      const combined = horaFim ? `${dateFim} ${horaFim}` : dateFim;
-      end = toISO(combined);
-    }
-  }
+
+  const dateOrig = pick(row, lowerMap, ['Data de Início da Corrida', 'Data Origem']);
+  const horaOrig = pick(row, lowerMap, ['Hora Origem']);
+  const start = horaOrig
+    ? parseBRDate(dateOrig, horaOrig)
+    : parseBRDate(dateOrig);
+
+  const dateFinal = pick(row, lowerMap, ['Data de Fim da Corrida', 'Data Final']);
+  const horaFinal = pick(row, lowerMap, ['Hora Final']);
+  const end = horaFinal
+    ? parseBRDate(dateFinal, horaFinal)
+    : parseBRDate(dateFinal);
+
   const startDate = start ? new Date(start) : null;
   return {
     ride_id,
