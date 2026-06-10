@@ -30,8 +30,13 @@ export function MainLayout() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem('pendingBannerDismissed') === 'true');
+  const [underutilizedDismissed, setUnderutilizedDismissed] = useState<boolean>(() => sessionStorage.getItem('underutilizedBannerDismissed') === 'true');
+  const { count: underutilizedCount } = useUnderutilized();
+  const { settings } = useData();
+  const underutilizedThreshold = settings?.thresholdSubocupacao ?? 50;
 
   const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
+  const canSeeUnderutilizedBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'rh';
 
   useEffect(() => {
     if (!isAuthenticated || !canSeeBanner) return;
