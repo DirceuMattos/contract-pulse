@@ -25,6 +25,24 @@ export function MainLayout() {
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const dismissKey = `bnp_pending_replacements_dismissed_${user?.id || 'anon'}`;
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem(dismissKey) === '1');
+
+  const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
+
+  useEffect(() => {
+    if (!isAuthenticated || !canSeeBanner) return;
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from('pending_replacements')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      if (!cancelled) setPendingCount(count || 0);
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, canSeeBanner]);
   
   useEffect(() => {
     localStorage.setItem('bnp_sidebar_collapsed', String(sidebarCollapsed));
