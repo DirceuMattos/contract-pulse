@@ -240,11 +240,13 @@ export default function TransportPage() {
   }, [yearlyComparison]);
 
   const yearlyTotals = useMemo(() => {
-    const { latestMonth } = latestPeriod;
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
     const map = new Map<number, number>();
     yearlyComparison.forEach((r) => {
       if (!r.year || !r.month) return;
-      if (r.month > latestMonth) return; // YTD: só até o mês mais recente disponível
+      // Para o ano atual: cortar no mês atual. Para anos anteriores: todos os meses.
+      if (r.year === currentYear && r.month > currentMonth) return;
       map.set(r.year, (map.get(r.year) || 0) + (Number(r.value) || 0));
     });
     const years = Array.from(map.keys()).sort((a, b) => a - b);
@@ -253,13 +255,14 @@ export default function TransportPage() {
       const prev = i > 0 ? map.get(years[i - 1]) || 0 : null;
       const deltaAbs = prev === null ? null : total - prev;
       const deltaPct = prev === null || prev === 0 ? null : ((total - prev) / prev) * 100;
-      return { year: y, total, deltaAbs, deltaPct, latestMonth };
+      return { year: y, total, deltaAbs, deltaPct };
     });
-  }, [yearlyComparison, latestPeriod]);
+  }, [yearlyComparison]);
 
   const periodSummary = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
     const inMonth = (m: number | null | undefined) => month === null || m === month;
-    const { latestMonth } = latestPeriod;
     let total = 0;
     let prevTotal = 0;
     let comparisonLabel = '';
@@ -271,14 +274,18 @@ export default function TransportPage() {
       });
       periodLabel = 'Todos os anos';
     } else {
+      const isCurrentYear = year === currentYear;
       yearlyComparison.forEach((r) => {
         if (!inMonth(r.month)) return;
         if (r.year === year) {
+          if (isCurrentYear && r.month && r.month > currentMonth) return;
           total += Number(r.value) || 0;
         } else if (r.year === year - 1) {
           if (month !== null) {
             prevTotal += Number(r.value) || 0;
-          } else if (r.month && r.month <= latestMonth) {
+          } else if (isCurrentYear && r.month && r.month <= currentMonth) {
+            prevTotal += Number(r.value) || 0;
+          } else if (!isCurrentYear) {
             prevTotal += Number(r.value) || 0;
           }
         }
@@ -287,9 +294,9 @@ export default function TransportPage() {
       if (month !== null) {
         comparisonLabel = `vs ${abbr(month)} ${year - 1}`;
         periodLabel = `${MONTHS[month - 1]} ${year}`;
-      } else if (latestMonth > 0) {
-        comparisonLabel = `vs jan–${abbr(latestMonth)} ${year - 1}`;
-        periodLabel = `Jan a ${MONTHS[latestMonth - 1]} ${year}`;
+      } else if (isCurrentYear) {
+        comparisonLabel = `vs jan–${abbr(currentMonth)} ${year - 1}`;
+        periodLabel = `Jan a ${MONTHS[currentMonth - 1]} ${year}`;
       } else {
         comparisonLabel = `vs ${year - 1}`;
         periodLabel = String(year);
@@ -297,7 +304,7 @@ export default function TransportPage() {
     }
     const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
     return { total, prevTotal, delta, comparisonLabel, periodLabel };
-  }, [yearlyComparison, year, month, latestPeriod]);
+  }, [yearlyComparison, year, month]);
 
   const vehicleAnalysis = useMemo(() => {
     const byMonth = new Map<string, number>();
