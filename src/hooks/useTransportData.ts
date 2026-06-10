@@ -50,11 +50,20 @@ export function useTransportData({ year, month }: Params): Result {
     const run = async () => {
       setIsLoading(true);
       try {
-        // Período atual
-        let q = supabase.from('transport_rides').select('*').range(0, 99999);
-        if (year !== null) q = q.eq('year', year);
-        if (month) q = q.eq('month', month);
-        const { data: cur } = await q;
+        // Período atual com paginação manual
+        const allRides: any[] = [];
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+          let q = supabase.from('transport_rides').select('*').range(from, from + pageSize - 1);
+          if (year !== null) q = q.eq('year', year);
+          if (month) q = q.eq('month', month);
+          const { data: page } = await q;
+          if (!page || page.length === 0) break;
+          allRides.push(...page);
+          if (page.length < pageSize) break;
+          from += pageSize;
+        }
 
         // Período anterior (somente quando ano específico)
         let prev: any[] | null = [];
@@ -74,30 +83,24 @@ export function useTransportData({ year, month }: Params): Result {
           .gte('ride_start_at', threeMonthsAgo.toISOString())
           .limit(100000);
 
-        // Comparativo: sempre todos os anos disponíveis
-        const { data: yearly } = await supabase
-          .from('transport_rides')
-          .select('year, month, value')
-          .not('year', 'is', null)
-          .range(0, 99999);
+        // Comparativo: via RPC para contornar limite de paginação
+        const { data: yearly } = await supabase.rpc('get_transport_yearly_totals');
 
-        // Anos disponíveis
-        const { data: years } = await supabase
-          .from('transport_rides')
-          .select('year')
-          .not('year', 'is', null)
-          .order('year', { ascending: true })
-          .range(0, 9999);
+        // Anos disponíveis: via RPC
+        const { data: years } = await supabase.rpc('get_transport_years');
 
         if (cancelled) return;
-        setRides((cur || []) as TransportRide[]);
+        setRides(allRides as TransportRide[]);
         setPreviousRides((prev || []) as TransportRide[]);
         setLast3Months((last3 || []) as TransportRide[]);
-        setYearlyComparison((yearly || []) as TransportRide[]);
-        const unique = Array.from(new Set((years || []).map((r: any) => r.year).filter(Boolean))).sort(
-          (a, b) => b - a,
+        setYearlyComparison(
+          ((yearly || []) as any[]).map((r: any) => ({
+            year: r.year,
+            month: r.month,
+            value: r.total,
+          })) as TransportRide[],
         );
-        if (year !== null && !unique.includes(year)) unique.unshift(year);
+        const unique = ((years || []) as any[]).map((r: any) => r.year).filter(Boolean);
         setAvailableYears(unique as number[]);
       } finally {
         if (!cancelled) setIsLoading(false);
