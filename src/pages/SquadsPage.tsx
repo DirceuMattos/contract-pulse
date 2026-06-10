@@ -971,8 +971,10 @@ export default function SquadsPage() {
             {[...resourceViewData].sort((a, b) => {
               const aHr = a.resourceKey.startsWith('hr:') ? a.resourceKey.slice(3) : '';
               const bHr = b.resourceKey.startsWith('hr:') ? b.resourceKey.slice(3) : '';
-              const aP = (a.isVacant && aHr && isPendingByPerson(aHr)) ? 0 : 1;
-              const bP = (b.isVacant && bHr && isPendingByPerson(bHr)) ? 0 : 1;
+              const aInativo = aHr ? (hrPeople.find(p => p.id === aHr)?.situacao === 'inativo') : false;
+              const bInativo = bHr ? (hrPeople.find(p => p.id === bHr)?.situacao === 'inativo') : false;
+              const aP = (aInativo && isPendingByPerson(aHr)) ? 0 : 1;
+              const bP = (bInativo && isPendingByPerson(bHr)) ? 0 : 1;
               return aP - bP;
             }).map(renderResourceCard)}
           </div>
