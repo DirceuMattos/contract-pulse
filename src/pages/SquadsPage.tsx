@@ -138,11 +138,6 @@ export default function SquadsPage() {
   const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
   const { isPending, isPendingByPerson, items: pendingItems, refresh: refreshPending } = usePendingReplacements();
 
-  const pendingContractIds = useMemo(
-    () => new Set(pendingItems.map(p => p.contract_id)),
-    [pendingItems]
-  );
-
   const isInactivePendingPerson = (hrPersonId?: string | null) => {
     if (!hrPersonId) return false;
     return hrPeople.find(p => p.id === hrPersonId)?.situacao === 'inativo' && isPendingByPerson(hrPersonId);
