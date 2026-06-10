@@ -642,6 +642,21 @@ Deno.serve(async (req) => {
               descricao: `Desligamento sincronizado via Feedz (matrícula ${matricula}). Status=${person.status}. Data: ${effectiveDate} (fonte: ${dateSource}).${turnoverInfo?.reason ? ` Motivo: ${turnoverInfo.reason}` : ''}`,
               atualizar_remuneracao: false, source: 'feedz', sync_run_id: runId,
             })
+
+            // Registrar pending_replacements para cada resource vinculado
+            const { data: linkedResources } = await db
+              .from('resources')
+              .select('id, contract_id')
+              .eq('hr_person_id', existing.id)
+            if (linkedResources && linkedResources.length > 0) {
+              const rows = linkedResources.map((r: any) => ({
+                hr_person_id: existing.id,
+                resource_id: r.id,
+                contract_id: r.contract_id,
+                status: 'pending',
+              }))
+              await db.from('pending_replacements').insert(rows)
+            }
           }
         } else if (feedzStatus === 'ativo' && terminationDate) {
           // INCONSISTENCY: active with termination date
