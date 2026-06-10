@@ -202,6 +202,33 @@ export default function HRPersonDetailPage() {
     // Save person first
     await updatePerson(person.id, data);
 
+    // Quando a pessoa passa de ativo → inativo, registrar pending_replacements
+    // para cada resource vinculado e disparar notificação crítica.
+    if (person.situacao === 'ativo' && data.situacao === 'inativo') {
+      const linked = resources.filter(r => r.hrPersonId === person.id);
+      if (linked.length > 0) {
+        await Promise.all(
+          linked.map(r =>
+            supabase.from('pending_replacements').insert({
+              hr_person_id: person.id,
+              resource_id: r.id,
+              contract_id: r.contractId,
+              status: 'pending',
+            })
+          )
+        );
+        processAlerts([{
+          id: `hr-links-quebrados-${person.id}`,
+          contractId: '',
+          type: 'hr-links-quebrados',
+          severity: 'critico',
+          title: `Substituição necessária: ${person.nome}`,
+          description: `${person.nome} foi desligado e possui ${linked.length} alocação(ões) ativa(s) em contratos que precisam ser revisadas.`,
+          createdAt: new Date().toISOString(),
+        } as any]);
+      }
+    }
+
     // Create one timeline event per change
     for (const change of changes) {
       const isReajuste = change === remuneracaoChange || change === beneficiosChange;
