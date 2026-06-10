@@ -589,6 +589,20 @@ export default function SquadsPage() {
                         <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                       </Tooltip>
                     )}
+                    {(() => {
+                      const u = r.hrPersonId ? underutilizedMap.get(r.hrPersonId) : null;
+                      if (!u) return null;
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="text-[9px] gap-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/20">
+                              <TrendingDown className="w-2.5 h-2.5" /> Subocupado {u.totalPercent}%
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>Dedicação total: {u.totalPercent}% em todos os contratos. Threshold: {u.threshold}%</TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
                     {isBrokenLink && !isVacant && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -716,6 +730,20 @@ export default function SquadsPage() {
                     <AlertTriangle className="w-3 h-3" /> Substituição Pendente
                   </Badge>
                 )}
+                {(() => {
+                  const u = hrPersonIdForCard ? underutilizedMap.get(hrPersonIdForCard) : null;
+                  if (!u) return null;
+                  return (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className="text-[10px] gap-1 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/20">
+                          <TrendingDown className="w-3 h-3" /> Subocupado {u.totalPercent}%
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>Dedicação total: {u.totalPercent}% em todos os contratos. Threshold: {u.threshold}%</TooltipContent>
+                    </Tooltip>
+                  );
+                })()}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">{rd.cargo}</span>
