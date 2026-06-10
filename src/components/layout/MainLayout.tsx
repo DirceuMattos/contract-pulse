@@ -148,6 +148,27 @@ export function MainLayout() {
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className="pt-16 min-h-screen"
       >
+        {canSeeBanner && pendingCount > 0 && !bannerDismissed && (
+          <div className="flex items-center gap-3 px-4 py-2 border-b border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <p className="text-sm flex-1">
+              <span className="font-medium">{pendingCount}</span> recurso(s) aguardando substituição.{' '}
+              <button
+                onClick={() => navigate('/squads')}
+                className="underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-100"
+              >
+                Ir para Squads
+              </button>
+            </p>
+            <button
+              onClick={() => { sessionStorage.setItem(dismissKey, '1'); setBannerDismissed(true); }}
+              className="p-1 rounded hover:bg-amber-500/20"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <div className="p-4 sm:p-6">
           <Outlet />
         </div>
