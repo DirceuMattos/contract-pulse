@@ -133,6 +133,23 @@ export default function SquadsPage() {
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
   const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
+  const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string } | null>(null);
+  const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
+  const { isPending, isPendingByPerson, refresh: refreshPending } = usePendingReplacements();
+
+  const handleRemovePending = async () => {
+    if (!removing) return;
+    const { error } = await supabase
+      .from('pending_replacements')
+      .update({ status: 'removed', resolved_at: new Date().toISOString() })
+      .eq('resource_id', removing.resourceId)
+      .eq('contract_id', removing.contractId)
+      .eq('status', 'pending');
+    if (error) { toast.error('Erro ao remover pendência.'); return; }
+    toast.success('Pendência removida.');
+    setRemoving(null);
+    refreshPending();
+  };
 
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sortOrder - b.sortOrder), [teams]);
 
