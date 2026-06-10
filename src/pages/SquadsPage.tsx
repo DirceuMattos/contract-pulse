@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil, Plus } from 'lucide-react';
+import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil, Plus, TrendingDown } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
@@ -29,6 +29,7 @@ import { AddResourceToContractDialog } from '@/components/squads/AddResourceToCo
 import { SubstituicaoDialog } from '@/components/hr/SubstituicaoDialog';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { usePendingReplacements } from '@/hooks/usePendingReplacements';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -137,6 +138,11 @@ export default function SquadsPage() {
   const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string; currentPercent: number; contractName: string } | null>(null);
   const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
   const { isPending, isPendingByPerson, items: pendingItems, refresh: refreshPending } = usePendingReplacements();
+  const { underutilized } = useUnderutilized();
+  const underutilizedMap = useMemo(() =>
+    new Map(underutilized.map(u => [u.personId, u])),
+    [underutilized]
+  );
 
   const isInactivePendingPerson = (hrPersonId?: string | null) => {
     if (!hrPersonId) return false;
@@ -583,6 +589,20 @@ export default function SquadsPage() {
                         <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                       </Tooltip>
                     )}
+                    {(() => {
+                      const u = r.hrPersonId ? underutilizedMap.get(r.hrPersonId) : null;
+                      if (!u) return null;
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="text-[9px] gap-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/20">
+                              <TrendingDown className="w-2.5 h-2.5" /> Subocupado {u.totalPercent}%
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>Dedicação total: {u.totalPercent}% em todos os contratos. Threshold: {u.threshold}%</TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
                     {isBrokenLink && !isVacant && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -710,6 +730,20 @@ export default function SquadsPage() {
                     <AlertTriangle className="w-3 h-3" /> Substituição Pendente
                   </Badge>
                 )}
+                {(() => {
+                  const u = hrPersonIdForCard ? underutilizedMap.get(hrPersonIdForCard) : null;
+                  if (!u) return null;
+                  return (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className="text-[10px] gap-1 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/20">
+                          <TrendingDown className="w-3 h-3" /> Subocupado {u.totalPercent}%
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>Dedicação total: {u.totalPercent}% em todos os contratos. Threshold: {u.threshold}%</TooltipContent>
+                    </Tooltip>
+                  );
+                })()}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">{rd.cargo}</span>
