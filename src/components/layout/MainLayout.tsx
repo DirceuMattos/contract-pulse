@@ -26,8 +26,7 @@ export function MainLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const dismissKey = `bnp_pending_replacements_dismissed_${user?.id || 'anon'}`;
-  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem(dismissKey) === '1');
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem('pendingBannerDismissed') === 'true');
 
   const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
 
@@ -152,16 +151,15 @@ export function MainLayout() {
           <div className="bg-orange-500/15 border-b border-orange-500/30 px-4 py-2 flex items-center justify-between">
             <span className="text-sm text-orange-400 font-medium flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              {pendingCount} recurso(s) aguardando substituição em contratos ativos
+              {pendingCount} colaborador(es) inativo(s) aguardando substituição em contratos
             </span>
-            <div className="flex items-center gap-2">
-              <Link to="/squads" className="text-xs text-orange-400 underline">Ver Squads</Link>
+            <div className="flex items-center gap-3">
+              <Link to="/squads" className="text-xs text-orange-400 underline hover:text-orange-300">Ver Squads</Link>
               <button
-                onClick={() => { sessionStorage.setItem(dismissKey, '1'); setBannerDismissed(true); }}
-                className="text-orange-400 hover:text-orange-300"
+                onClick={() => { setBannerDismissed(true); sessionStorage.setItem('pendingBannerDismissed', 'true'); }}
                 aria-label="Fechar"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 text-orange-400" />
               </button>
             </div>
           </div>
