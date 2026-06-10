@@ -259,6 +259,22 @@ export default function TransportPage() {
     });
   }, [yearlyComparison, currentYear, currentMonth]);
 
+  const yearProjection = useMemo(() => {
+    const currentYearData = yearlyTotals.find((r) => r.year === currentYear);
+    if (!currentYearData) return null;
+    const monthsElapsed = currentMonth;
+    const monthlyAvg = currentYearData.total / monthsElapsed;
+    const monthsRemaining = 12 - monthsElapsed;
+    const projectedTotal = currentYearData.total + monthlyAvg * monthsRemaining;
+    const prevYearData = yearlyTotals.find((r) => r.year === currentYear - 1);
+    const deltaAbs = prevYearData ? projectedTotal - prevYearData.total : null;
+    const deltaPct =
+      prevYearData && prevYearData.total > 0
+        ? ((projectedTotal - prevYearData.total) / prevYearData.total) * 100
+        : null;
+    return { projectedTotal, monthlyAvg, monthsRemaining, deltaAbs, deltaPct };
+  }, [yearlyTotals, currentYear, currentMonth]);
+
   const periodSummary = useMemo(() => {
     const inMonth = (m: number | null | undefined) => month === null || m === month;
     const abbr = (m: number) => MONTHS[m - 1]?.slice(0, 3).toLowerCase() ?? '';
