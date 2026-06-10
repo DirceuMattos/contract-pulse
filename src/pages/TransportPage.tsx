@@ -143,6 +143,8 @@ function loadVehicleState(): { costs: VehicleCosts; meta: VehicleMeta } {
 
 export default function TransportPage() {
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
   const [year, setYear] = useState<number | null>(now.getFullYear());
   const [month, setMonth] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
