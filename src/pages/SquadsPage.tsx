@@ -143,6 +143,14 @@ export default function SquadsPage() {
     [pendingItems]
   );
 
+  const isInactivePendingPerson = (hrPersonId?: string | null) => {
+    if (!hrPersonId) return false;
+    return hrPeople.find(p => p.id === hrPersonId)?.situacao === 'inativo' && isPendingByPerson(hrPersonId);
+  };
+
+  const contractHasInactivePending = (cd: ContractSquadData) =>
+    cd.teams.some(td => td.resources.some(({ resource }) => isInactivePendingPerson(resource.hrPersonId)));
+
   const handleRemovePending = async () => {
     if (!removing) return;
     const { error } = await supabase
@@ -610,11 +618,11 @@ export default function SquadsPage() {
 
     const cardContract = contracts.find(c => c.id === cd.contractId);
 
-    const contractHasPending = pendingContractIds.has(cd.contractId);
+    const contractHasPending = contractHasInactivePending(cd);
     const pendingCountForCard = pendingItems.filter(p => p.contract_id === cd.contractId).length;
 
     return (
-      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-red-950/40 border-red-700')}>
+      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-red-950 border-red-700')}>
         {contractHasPending && (
           <div className="px-4 py-2 bg-red-900/60 text-red-100 text-xs font-medium border-b border-red-700">
             ⚠️ {pendingCountForCard} substituição(ões) pendente(s)
@@ -682,9 +690,10 @@ export default function SquadsPage() {
     const isOverloaded = rd.totalDedicacao > 100;
     const hrPersonIdForCard = rd.resourceKey.startsWith('hr:') ? rd.resourceKey.replace('hr:', '') : null;
     const cardHasPending = hrPersonIdForCard ? isPendingByPerson(hrPersonIdForCard) : false;
+    const cardHasInactivePending = isInactivePendingPerson(hrPersonIdForCard);
 
     return (
-      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasPending && 'bg-red-950/40 border-red-700')}>
+      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-red-950 border-red-700')}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
