@@ -519,14 +519,14 @@ export default function SquadsPage() {
 
   // --- Render helpers (Project view) ---
 
-  const renderTeamBar = (td: SquadTeamData, cd: ContractSquadData) => {
+  const renderTeamBar = (td: SquadTeamData, cd: ContractSquadData, hasPending = false) => {
     const totalResources = cd.teams.reduce((s, t) => s + t.resources.length, 0);
     const resourcePercent = totalResources > 0 ? (td.resources.length / totalResources) * 100 : 0;
     const inactiveNames = td.resources.filter(r => r.isVacant).map(r => r.resolvedNome || 'Sem nome');
 
     return (
       <div key={td.teamName} className="flex items-center gap-2 text-sm">
-        <span className="w-32 truncate font-medium text-foreground">
+        <span className={cn("w-32 truncate font-medium", hasPending ? "text-red-200" : "text-foreground")}>
           {td.teamName}
         </span>
         <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
@@ -549,13 +549,13 @@ export default function SquadsPage() {
         )}
         {viewMode === 'compact' ? (
           <>
-            <span className="w-20 text-right text-muted-foreground tabular-nums">{td.resources.length} rec.</span>
-            <span className="w-14 text-right text-muted-foreground tabular-nums">{resourcePercent.toFixed(0)}%</span>
+            <span className={cn("w-20 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{td.resources.length} rec.</span>
+            <span className={cn("w-14 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{resourcePercent.toFixed(0)}%</span>
           </>
         ) : (
           <>
-            <span className="w-20 text-right text-muted-foreground tabular-nums">{td.resources.length} rec.</span>
-            <span className="w-14 text-right text-muted-foreground tabular-nums">{td.percent.toFixed(0)}%</span>
+            <span className={cn("w-20 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{td.resources.length} rec.</span>
+            <span className={cn("w-14 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{td.percent.toFixed(0)}%</span>
           </>
         )}
       </div>
