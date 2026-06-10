@@ -1833,6 +1833,7 @@ export type Database = {
           percentual_encargos_clt: number
           percentual_impostos_faturamento: number
           percentual_impostos_pj: number
+          threshold_subocupacao: number | null
           updated_at: string
           valor_dolar: number
         }
@@ -1847,6 +1848,7 @@ export type Database = {
           percentual_encargos_clt?: number
           percentual_impostos_faturamento?: number
           percentual_impostos_pj?: number
+          threshold_subocupacao?: number | null
           updated_at?: string
           valor_dolar?: number
         }
@@ -1861,6 +1863,7 @@ export type Database = {
           percentual_encargos_clt?: number
           percentual_impostos_faturamento?: number
           percentual_impostos_pj?: number
+          threshold_subocupacao?: number | null
           updated_at?: string
           valor_dolar?: number
         }
