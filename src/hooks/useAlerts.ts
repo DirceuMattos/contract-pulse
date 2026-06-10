@@ -1,10 +1,9 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { generateAlerts, countAlertsBySeverity, groupAlertsByContract } from '@/lib/alertGenerator';
 import { Alert } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Hook que gera alertas automáticos baseados nos dados e configurações
@@ -14,35 +13,6 @@ export function useAlerts() {
   const { resolvedResources: resources, brokenLinkCount } = useResolvedResources();
   const { result: overheadResult } = useOverheadPool();
 
-  const [pendingReplacementAlerts, setPendingReplacementAlerts] = useState<Alert[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('pending_replacements')
-        .select('id, hr_person_id, contract_id, status, hr_people(nome_completo), contracts(nome)')
-        .eq('status', 'pending');
-      if (cancelled || !data) return;
-      const alerts: Alert[] = (data as any[]).map((p) => {
-        const personName = p.hr_people?.nome_completo || 'Colaborador';
-        const contractName = p.contracts?.nome || 'contrato';
-        return {
-          id: `alert-pending-replacement-${p.id}`,
-          contractId: p.contract_id,
-          type: 'hr-links-quebrados',
-          severity: 'critico',
-          alertCategory: 'governanca',
-          title: `Substituição necessária: ${personName}`,
-          description: `Colaborador inativo com alocação ativa no contrato ${contractName}`,
-          recommendation: 'Acesse o módulo de Squads para substituir ou remover o recurso',
-          createdAt: new Date().toISOString(),
-        };
-      });
-      setPendingReplacementAlerts(alerts);
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   const centralOverheadMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -78,8 +48,8 @@ export function useAlerts() {
       });
     }
     
-    return [...pendingReplacementAlerts, ...generated];
-  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount, centralOverheadMap, pendingReplacementAlerts]);
+    return generated;
+  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount, centralOverheadMap]);
   
   const counts = useMemo(() => countAlertsBySeverity(alerts), [alerts]);
   
