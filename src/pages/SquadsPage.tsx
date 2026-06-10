@@ -671,13 +671,13 @@ export default function SquadsPage() {
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-2">
-          {cardData.teams.map(td => renderTeamBar(td, cardData))}
-          {viewMode === 'detailed' && renderDetailedTeams(cardData)}
+          {cardData.teams.map(td => renderTeamBar(td, cardData, contractHasPending))}
+          {viewMode === 'detailed' && renderDetailedTeams(cardData, contractHasPending)}
 
           {/* FTE Summary at the end */}
           <div className="border-t pt-3 mt-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">FTE Total: {cd.totalFTE.toFixed(2)}</span>
+            <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs", contractHasPending ? "text-red-200" : "text-muted-foreground")}>
+              <span className={cn("font-medium", contractHasPending ? "text-red-200" : "text-foreground")}>FTE Total: {cd.totalFTE.toFixed(2)}</span>
               <span>RH: {cd.hrCount}</span>
               {cardData.teams.map(td => (
                 <span key={td.teamName} className="tabular-nums">{td.teamName}: {td.fte.toFixed(1)}</span>
