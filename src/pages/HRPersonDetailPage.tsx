@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { HRPerson, HRTimelineEvent, Contract } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -76,6 +77,8 @@ export default function HRPersonDetailPage() {
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
+  const { underutilized } = useUnderutilized();
+  const underutilizedInfo = underutilized.find(u => u.personId === id);
 
   const [editPersonOpen, setEditPersonOpen] = useState(false);
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
@@ -678,6 +681,23 @@ export default function HRPersonDetailPage() {
 
         {/* Alocações */}
         <TabsContent value="alocacoes" className="space-y-4">
+          {underutilizedInfo && (
+            <Card className="bg-yellow-500/10 border-yellow-500/40">
+              <CardContent className="py-4 text-sm text-yellow-300">
+                <p className="font-medium flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Dedicação total: {underutilizedInfo.totalPercent}% — abaixo do threshold de {underutilizedInfo.threshold}%.
+                </p>
+                {underutilizedInfo.availableContracts.length > 0 && (
+                  <p className="mt-2 text-xs text-yellow-200/80">
+                    Contratos disponíveis para alocação:{' '}
+                    {underutilizedInfo.availableContracts.slice(0, 8).map(c => c.nome).join(', ')}
+                    {underutilizedInfo.availableContracts.length > 8 && ` e mais ${underutilizedInfo.availableContracts.length - 8}`}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
           <div className="flex justify-end">
             <Button variant="outline" size="sm" disabled={refreshing} onClick={async () => { setRefreshing(true); await Promise.all([refreshResources(), refreshSubprojectData()]); setRefreshing(false); }}>
               <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />

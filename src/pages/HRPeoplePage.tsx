@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift, TrendingDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +59,12 @@ export default function HRPeoplePage() {
   }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
+  const { underutilized } = useUnderutilized();
+  const underutilizedByPerson = useMemo(() => {
+    const m = new Map<string, typeof underutilized[number]>();
+    underutilized.forEach(u => m.set(u.personId, u));
+    return m;
+  }, [underutilized]);
 
   // Restore filters from sessionStorage
   const storedFilters = useMemo(() => {
@@ -531,7 +539,50 @@ export default function HRPeoplePage() {
                             {p.isTalento && <span title="Talento" className="text-[11px]">⭐</span>}
                             {p.isGuardiao && <span title="Guardião" className="text-[11px]">🛡️</span>}
                           </TableCell>
-                          <TableCell className="text-xs font-medium max-w-[200px] truncate py-2">{p.nome}</TableCell>
+                          <TableCell className="text-xs font-medium max-w-[260px] py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate">{p.nome}</span>
+                              {underutilizedByPerson.get(p.id) && (
+                                <Popover>
+                                  <PopoverTrigger asChild onClick={e => e.stopPropagation()}>
+                                    <button>
+                                      <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/30 gap-1">
+                                        <TrendingDown className="w-3 h-3" />
+                                        Subocupado {underutilizedByPerson.get(p.id)!.totalPercent}%
+                                      </Badge>
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80" onClick={e => e.stopPropagation()}>
+                                    {(() => {
+                                      const u = underutilizedByPerson.get(p.id)!;
+                                      return (
+                                        <div className="space-y-3">
+                                          <div className="text-sm">
+                                            <p className="font-medium">Dedicação atual: <span className="text-orange-400">{u.totalPercent}%</span> (mínimo: {u.threshold}%)</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-xs text-muted-foreground mb-2">Contratos disponíveis para alocação:</p>
+                                            {u.availableContracts.length === 0 ? (
+                                              <p className="text-xs text-muted-foreground">Nenhum contrato disponível.</p>
+                                            ) : (
+                                              <ul className="space-y-1 max-h-48 overflow-y-auto">
+                                                {u.availableContracts.slice(0, 10).map(c => (
+                                                  <li key={c.id} className="flex items-center justify-between gap-2 text-xs">
+                                                    <span className="truncate">{c.nome} {c.clientName && <span className="text-muted-foreground">— {c.clientName}</span>}</span>
+                                                    <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={() => navigate('/squads')}>Ver no Squad</Button>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-xs text-muted-foreground py-2">{p.matricula || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge className={`text-xs ${

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, TrendingDown, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessLogs } from '@/contexts/AccessLogContext';
 import { Sidebar } from './Sidebar';
@@ -11,6 +11,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { MODULE_CATALOG } from '@/types/moduleAccess';
 import { supabase } from '@/integrations/supabase/client';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
+import { useData } from '@/contexts/DataContext';
+
 
 export function MainLayout() {
   const { isAuthenticated, loading: authLoading, mustChangePassword, userRole, user } = useAuth();
@@ -27,8 +30,13 @@ export function MainLayout() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem('pendingBannerDismissed') === 'true');
+  const [underutilizedDismissed, setUnderutilizedDismissed] = useState<boolean>(() => sessionStorage.getItem('underutilizedBannerDismissed') === 'true');
+  const { count: underutilizedCount } = useUnderutilized();
+  const { settings } = useData();
+  const underutilizedThreshold = settings?.thresholdSubocupacao ?? 50;
 
   const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
+  const canSeeUnderutilizedBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'rh';
 
   useEffect(() => {
     if (!isAuthenticated || !canSeeBanner) return;
@@ -160,6 +168,23 @@ export function MainLayout() {
                 aria-label="Fechar"
               >
                 <X className="w-4 h-4 text-orange-400" />
+              </button>
+            </div>
+          </div>
+        )}
+        {canSeeUnderutilizedBanner && underutilizedCount > 0 && !underutilizedDismissed && (
+          <div className="bg-yellow-500/15 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm text-yellow-400 font-medium flex items-center gap-2">
+              <TrendingDown className="w-4 h-4" />
+              {underutilizedCount} colaborador(es) com dedicação abaixo de {underutilizedThreshold}%
+            </span>
+            <div className="flex items-center gap-3">
+              <Link to="/rh" className="text-xs text-yellow-400 underline hover:text-yellow-300">Ver no RH</Link>
+              <button
+                onClick={() => { setUnderutilizedDismissed(true); sessionStorage.setItem('underutilizedBannerDismissed', 'true'); }}
+                aria-label="Fechar"
+              >
+                <X className="w-4 h-4 text-yellow-400" />
               </button>
             </div>
           </div>
