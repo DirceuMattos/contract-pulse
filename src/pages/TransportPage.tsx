@@ -577,9 +577,9 @@ export default function TransportPage() {
                   })}
                 </TableBody>
               </Table>
-              {yearlyTotals.some((r) => r.year === new Date().getFullYear()) && (
+              {yearlyTotals.some((r) => r.year === currentYear) && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  * Anos anteriores exibem total anual completo. {new Date().getFullYear()} considera jan–{MONTHS[new Date().getMonth()]?.slice(0, 3).toLowerCase()}.
+                  * {currentYear} considera jan–{MONTHS[currentMonth - 1]?.slice(0, 3).toLowerCase()}. Anos anteriores exibem total anual.
                 </p>
               )}
             </div>
