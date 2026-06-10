@@ -996,6 +996,8 @@ export default function SquadsPage() {
           resourceId={substituting.resourceId}
           contractId={substituting.contractId}
           hrPersonId={substituting.hrPersonId}
+          currentPercent={substituting.currentPercent}
+          contractName={substituting.contractName}
           onCompleted={() => refreshPending()}
         />
       )}
