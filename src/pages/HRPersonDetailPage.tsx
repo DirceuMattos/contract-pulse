@@ -72,6 +72,7 @@ export default function HRPersonDetailPage() {
   const { teams, jobTitles, resources, contracts, updateResource, refreshResources } = useData();
   const { canEdit, canViewHRCosts, user, userRole } = useAuth();
   const { allocations: subprojectAllocations, subprojects: contractSubprojects, refreshData: refreshSubprojectData } = useSubprojects();
+  const { processAlerts } = useNotificationContext();
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
