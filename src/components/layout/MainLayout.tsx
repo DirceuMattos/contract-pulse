@@ -13,7 +13,7 @@ import { MODULE_CATALOG } from '@/types/moduleAccess';
 import { supabase } from '@/integrations/supabase/client';
 
 export function MainLayout() {
-  const { isAuthenticated, loading: authLoading, mustChangePassword } = useAuth();
+  const { isAuthenticated, loading: authLoading, mustChangePassword, userRole, user } = useAuth();
   const { trackNavigation } = useAccessLogs();
   const location = useLocation();
   const navigate = useNavigate();
