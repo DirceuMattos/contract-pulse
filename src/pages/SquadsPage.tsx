@@ -118,7 +118,8 @@ export default function SquadsPage() {
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
-  const { canEdit, canCreate, canAllocate } = useAuth();
+  const { canEdit, canCreate, canAllocate, userRole } = useAuth();
+  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo';
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -133,9 +134,14 @@ export default function SquadsPage() {
   const [perspective, setPerspective] = useState<'project' | 'resource'>('project');
   const [editingResourceAlloc, setEditingResourceAlloc] = useState<{ alloc: ResourceAllocationInfo; personName: string } | null>(null);
   const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
-  const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string } | null>(null);
+  const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string; currentPercent: number; contractName: string } | null>(null);
   const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
-  const { isPending, isPendingByPerson, refresh: refreshPending } = usePendingReplacements();
+  const { isPending, isPendingByPerson, items: pendingItems, refresh: refreshPending } = usePendingReplacements();
+
+  const pendingContractIds = useMemo(
+    () => new Set(pendingItems.map(p => p.contract_id)),
+    [pendingItems]
+  );
 
   const handleRemovePending = async () => {
     if (!removing) return;
@@ -604,8 +610,16 @@ export default function SquadsPage() {
 
     const cardContract = contracts.find(c => c.id === cd.contractId);
 
+    const contractHasPending = pendingContractIds.has(cd.contractId);
+    const pendingCountForCard = pendingItems.filter(p => p.contract_id === cd.contractId).length;
+
     return (
-      <Card key={cd.subprojectId || cd.contractId} className={`overflow-hidden border-l-4 ${cardColor}`}>
+      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-red-950/40 border-red-700')}>
+        {contractHasPending && (
+          <div className="px-4 py-2 bg-red-900/60 text-red-100 text-xs font-medium border-b border-red-700">
+            ⚠️ {pendingCountForCard} substituição(ões) pendente(s)
+          </div>
+        )}
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
@@ -670,7 +684,7 @@ export default function SquadsPage() {
     const cardHasPending = hrPersonIdForCard ? isPendingByPerson(hrPersonIdForCard) : false;
 
     return (
-      <Card key={rd.resourceKey} className={`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`}>
+      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasPending && 'bg-red-950/40 border-red-700')}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
@@ -758,7 +772,7 @@ export default function SquadsPage() {
                       <Pencil className="w-3 h-3" />
                     </Button>
                   )}
-                  {allocPending && canAllocate && alloc.hrPersonId && (
+                  {allocPending && canSubstitute && alloc.hrPersonId && (
                     <>
                       <Button
                         variant="destructive"
@@ -768,6 +782,8 @@ export default function SquadsPage() {
                           resourceId: alloc.resourceId,
                           contractId: alloc.contractId,
                           hrPersonId: alloc.hrPersonId!,
+                          currentPercent: alloc.percentualDedicacao,
+                          contractName: alloc.contractNome || alloc.contractCodigo,
                         })}
                       >
                         Substituir
@@ -940,7 +956,11 @@ export default function SquadsPage() {
       {perspective === 'project' ? (
         squadsData.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {squadsData.map((cd, i) => renderContractCard(cd, i))}
+            {[...squadsData].sort((a, b) => {
+              const aP = pendingContractIds.has(a.contractId) ? 0 : 1;
+              const bP = pendingContractIds.has(b.contractId) ? 0 : 1;
+              return aP - bP;
+            }).map((cd, i) => renderContractCard(cd, i))}
           </div>
         ) : (
           <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os squads." />
@@ -948,7 +968,13 @@ export default function SquadsPage() {
       ) : (
         resourceViewData.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {resourceViewData.map(renderResourceCard)}
+            {[...resourceViewData].sort((a, b) => {
+              const aHr = a.resourceKey.startsWith('hr:') ? a.resourceKey.slice(3) : '';
+              const bHr = b.resourceKey.startsWith('hr:') ? b.resourceKey.slice(3) : '';
+              const aP = (a.isVacant && aHr && isPendingByPerson(aHr)) ? 0 : 1;
+              const bP = (b.isVacant && bHr && isPendingByPerson(bHr)) ? 0 : 1;
+              return aP - bP;
+            }).map(renderResourceCard)}
           </div>
         ) : (
           <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os recursos." />
@@ -980,6 +1006,8 @@ export default function SquadsPage() {
           resourceId={substituting.resourceId}
           contractId={substituting.contractId}
           hrPersonId={substituting.hrPersonId}
+          currentPercent={substituting.currentPercent}
+          contractName={substituting.contractName}
           onCompleted={() => refreshPending()}
         />
       )}
