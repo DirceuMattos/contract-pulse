@@ -18,6 +18,7 @@ import { HRAddressImportDialog } from '@/components/hr/HRAddressImportDialog';
 import { HRAvatar } from '@/components/hr/HRAvatar';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
+import { usePendingReplacements } from '@/hooks/usePendingReplacements';
 import { useAuth } from '@/contexts/AuthContext';
 import { HRPerson } from '@/types';
 import { toast } from 'sonner';
@@ -48,6 +49,12 @@ export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts } = useData();
+  const { items: pendingReplacements } = usePendingReplacements();
+  const pendingCountByPerson = useMemo(() => {
+    const m = new Map<string, number>();
+    pendingReplacements.forEach(p => m.set(p.hr_person_id, (m.get(p.hr_person_id) || 0) + 1));
+    return m;
+  }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
 
@@ -548,9 +555,16 @@ export default function HRPeoplePage() {
                           </TableCell>
                           {canViewHRCosts && <TableCell className="text-xs font-medium py-2 whitespace-nowrap">{formatCurrency(p.remuneracaoMensal + p.beneficios)}</TableCell>}
                           <TableCell className="py-2">
-                            <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
-                              {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
-                            </Badge>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <Badge className={`text-xs ${p.situacao === 'ativo' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
+                                {p.situacao === 'ativo' ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                              {p.situacao === 'inativo' && (pendingCountByPerson.get(p.id) || 0) > 0 && (
+                                <Badge className="text-[10px] bg-orange-500 text-white hover:bg-orange-600">
+                                  {pendingCountByPerson.get(p.id)} alocação(ões) pendente(s)
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           {canViewComite && (
                             <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
