@@ -336,6 +336,7 @@ export function settingsFromDb(row: Record<string, unknown>): Settings {
     diasAlertaReajuste: row.dias_alerta_reajuste as number,
     diasAlertaVigencia: row.dias_alerta_vigencia as number,
     diasAlertaDesatualizacao: row.dias_alerta_desatualizacao as number,
+    thresholdSubocupacao: (row.threshold_subocupacao as number) ?? 50,
   };
 }
 
@@ -350,6 +351,7 @@ export function settingsToDb(settings: Partial<Settings>): Record<string, unknow
   if (settings.diasAlertaReajuste !== undefined) result.dias_alerta_reajuste = settings.diasAlertaReajuste;
   if (settings.diasAlertaVigencia !== undefined) result.dias_alerta_vigencia = settings.diasAlertaVigencia;
   if (settings.diasAlertaDesatualizacao !== undefined) result.dias_alerta_desatualizacao = settings.diasAlertaDesatualizacao;
+  if (settings.thresholdSubocupacao !== undefined) result.threshold_subocupacao = settings.thresholdSubocupacao;
   return result;
 }
 
