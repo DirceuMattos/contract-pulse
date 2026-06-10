@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, TrendingDown, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessLogs } from '@/contexts/AccessLogContext';
 import { Sidebar } from './Sidebar';
@@ -11,6 +11,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { MODULE_CATALOG } from '@/types/moduleAccess';
 import { supabase } from '@/integrations/supabase/client';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
+import { useData } from '@/contexts/DataContext';
+
 
 export function MainLayout() {
   const { isAuthenticated, loading: authLoading, mustChangePassword, userRole, user } = useAuth();
