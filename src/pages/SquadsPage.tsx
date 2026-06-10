@@ -968,7 +968,13 @@ export default function SquadsPage() {
       ) : (
         resourceViewData.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {resourceViewData.map(renderResourceCard)}
+            {[...resourceViewData].sort((a, b) => {
+              const aHr = a.resourceKey.startsWith('hr:') ? a.resourceKey.slice(3) : '';
+              const bHr = b.resourceKey.startsWith('hr:') ? b.resourceKey.slice(3) : '';
+              const aP = (a.isVacant && aHr && isPendingByPerson(aHr)) ? 0 : 1;
+              const bP = (b.isVacant && bHr && isPendingByPerson(bHr)) ? 0 : 1;
+              return aP - bP;
+            }).map(renderResourceCard)}
           </div>
         ) : (
           <EmptyState icon={Users} title="Nenhum resultado" description="Ajuste os filtros para visualizar os recursos." />
