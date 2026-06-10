@@ -726,6 +726,7 @@ export default function SquadsPage() {
           <div className="space-y-1.5">
             {rd.allocations.map((alloc, i) => {
               const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
+              const allocPending = isPending(alloc.resourceId, alloc.contractId);
               return (
                 <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
                   <div className="min-w-0 flex-1">
@@ -756,6 +757,30 @@ export default function SquadsPage() {
                     >
                       <Pencil className="w-3 h-3" />
                     </Button>
+                  )}
+                  {allocPending && canAllocate && alloc.hrPersonId && (
+                    <>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] shrink-0"
+                        onClick={() => setSubstituting({
+                          resourceId: alloc.resourceId,
+                          contractId: alloc.contractId,
+                          hrPersonId: alloc.hrPersonId!,
+                        })}
+                      >
+                        Substituir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] shrink-0"
+                        onClick={() => setRemoving({ resourceId: alloc.resourceId, contractId: alloc.contractId })}
+                      >
+                        Remover
+                      </Button>
+                    </>
                   )}
                 </div>
               );
