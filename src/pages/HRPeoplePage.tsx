@@ -18,6 +18,7 @@ import { HRAddressImportDialog } from '@/components/hr/HRAddressImportDialog';
 import { HRAvatar } from '@/components/hr/HRAvatar';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
+import { usePendingReplacements } from '@/hooks/usePendingReplacements';
 import { useAuth } from '@/contexts/AuthContext';
 import { HRPerson } from '@/types';
 import { toast } from 'sonner';
