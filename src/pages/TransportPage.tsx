@@ -259,6 +259,22 @@ export default function TransportPage() {
     });
   }, [yearlyComparison, currentYear, currentMonth]);
 
+  const yearProjection = useMemo(() => {
+    const currentYearData = yearlyTotals.find((r) => r.year === currentYear);
+    if (!currentYearData) return null;
+    const monthsElapsed = currentMonth;
+    const monthlyAvg = currentYearData.total / monthsElapsed;
+    const monthsRemaining = 12 - monthsElapsed;
+    const projectedTotal = currentYearData.total + monthlyAvg * monthsRemaining;
+    const prevYearData = yearlyTotals.find((r) => r.year === currentYear - 1);
+    const deltaAbs = prevYearData ? projectedTotal - prevYearData.total : null;
+    const deltaPct =
+      prevYearData && prevYearData.total > 0
+        ? ((projectedTotal - prevYearData.total) / prevYearData.total) * 100
+        : null;
+    return { projectedTotal, monthlyAvg, monthsRemaining, deltaAbs, deltaPct };
+  }, [yearlyTotals, currentYear, currentMonth]);
+
   const periodSummary = useMemo(() => {
     const inMonth = (m: number | null | undefined) => month === null || m === month;
     const abbr = (m: number) => MONTHS[m - 1]?.slice(0, 3).toLowerCase() ?? '';
@@ -575,11 +591,45 @@ export default function TransportPage() {
                       </TableRow>
                     );
                   })}
+                  {yearProjection && (year === null || year === currentYear) && (
+                    <TableRow className="opacity-70 italic border-dashed border-t border-border/50">
+                      <TableCell className="text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span>{currentYear} projetado</span>
+                          <Badge variant="outline" className="text-[10px] font-normal py-0">
+                            Projeção
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {fmtBRL(yearProjection.projectedTotal)}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right ${yearProjection.deltaAbs === null ? '' : yearProjection.deltaAbs >= 0 ? 'text-red-400' : 'text-green-400'}`}
+                      >
+                        {yearProjection.deltaAbs !== null
+                          ? `${yearProjection.deltaAbs >= 0 ? '+' : ''}${fmtBRL(yearProjection.deltaAbs)}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right ${yearProjection.deltaPct === null ? '' : yearProjection.deltaPct >= 0 ? 'text-red-400' : 'text-green-400'}`}
+                      >
+                        {yearProjection.deltaPct !== null
+                          ? `${yearProjection.deltaPct >= 0 ? '+' : ''}${yearProjection.deltaPct.toFixed(1)}%`
+                          : '—'}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
               {yearlyTotals.some((r) => r.year === currentYear) && (
                 <p className="text-xs text-muted-foreground mt-2">
                   * {currentYear} considera jan–{MONTHS[currentMonth - 1]?.slice(0, 3).toLowerCase()}. Anos anteriores exibem total anual.
+                </p>
+              )}
+              {yearProjection && (year === null || year === currentYear) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  † Projeção baseada na média mensal de {currentYear} ({fmtBRL(yearProjection.monthlyAvg)}/mês) aplicada aos {yearProjection.monthsRemaining} meses restantes.
                 </p>
               )}
             </div>
