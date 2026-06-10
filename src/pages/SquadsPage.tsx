@@ -611,9 +611,9 @@ export default function SquadsPage() {
                         <TooltipContent>Pessoa não encontrada no RH Mestre — dados podem estar desatualizados</TooltipContent>
                       </Tooltip>
                     )}
-                    <span className="text-muted-foreground">—</span>
-                    <span className="text-muted-foreground">{resolvedCargo || 'Sem cargo'}</span>
-                    <span className="ml-auto tabular-nums font-medium">{r.percentualDedicacao}%</span>
+                    <span className={cn(hasPending ? "text-red-300" : "text-muted-foreground")}>—</span>
+                    <span className={cn(hasPending ? "text-red-300" : "text-muted-foreground")}>{resolvedCargo || 'Sem cargo'}</span>
+                    <span className={cn("ml-auto tabular-nums font-medium", hasPending && "text-red-100")}>{r.percentualDedicacao}%</span>
                     {r.percentualDedicacao > 100 && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
                   </div>
                 ))}
