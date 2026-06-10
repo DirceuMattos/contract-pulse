@@ -223,6 +223,7 @@ export interface Settings {
   diasAlertaReajuste: number;
   diasAlertaVigencia: number;
   diasAlertaDesatualizacao: number;
+  thresholdSubocupacao: number;
 }
 
 // Alert Types
