@@ -562,7 +562,7 @@ export default function SquadsPage() {
     );
   };
 
-  const renderDetailedTeams = (cd: ContractSquadData) => {
+  const renderDetailedTeams = (cd: ContractSquadData, hasPending = false) => {
     const allValues = cd.teams.map((_, i) => `team-${i}`);
     return (
       <Accordion type="multiple" defaultValue={allValues} className="mt-3 border-t pt-3">
@@ -571,14 +571,14 @@ export default function SquadsPage() {
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">{td.teamName}</Badge>
-                <span className="text-xs text-muted-foreground">{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
+                <span className={cn("text-xs", hasPending ? "text-red-300" : "text-muted-foreground")}>{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
                 {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink, isVacant }) => (
                   <div key={r.id} className={cn("flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0", isVacant && "bg-destructive/5")}>
-                    <span className={cn("font-medium", isVacant && "text-destructive")}>{resolvedNome || 'Sem nome'}</span>
+                    <span className={cn("font-medium", isVacant ? "text-destructive" : hasPending && "text-red-200")}>{resolvedNome || 'Sem nome'}</span>
                     {isVacant && (
                       <Tooltip>
                         <TooltipTrigger asChild>
