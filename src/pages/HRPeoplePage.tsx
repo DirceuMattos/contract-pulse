@@ -49,6 +49,12 @@ export default function HRPeoplePage() {
   const navigate = useNavigate();
   const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts } = useData();
+  const { items: pendingReplacements } = usePendingReplacements();
+  const pendingCountByPerson = useMemo(() => {
+    const m = new Map<string, number>();
+    pendingReplacements.forEach(p => m.set(p.hr_person_id, (m.get(p.hr_person_id) || 0) + 1));
+    return m;
+  }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
 
