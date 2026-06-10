@@ -989,7 +989,7 @@ export default function SquadsPage() {
         onOpenChange={(open) => { if (!open) setRemoving(null); }}
         title="Remover pendência de substituição"
         description="A alocação será mantida vaga e a pendência marcada como removida. Deseja continuar?"
-        confirmText="Remover"
+        confirmLabel="Remover"
         onConfirm={handleRemovePending}
       />
     </div>
