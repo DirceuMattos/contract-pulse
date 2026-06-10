@@ -562,7 +562,7 @@ export default function SquadsPage() {
     );
   };
 
-  const renderDetailedTeams = (cd: ContractSquadData) => {
+  const renderDetailedTeams = (cd: ContractSquadData, hasPending = false) => {
     const allValues = cd.teams.map((_, i) => `team-${i}`);
     return (
       <Accordion type="multiple" defaultValue={allValues} className="mt-3 border-t pt-3">
@@ -571,14 +571,14 @@ export default function SquadsPage() {
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">{td.teamName}</Badge>
-                <span className="text-xs text-muted-foreground">{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
+                <span className={cn("text-xs", hasPending ? "text-red-300" : "text-muted-foreground")}>{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
                 {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink, isVacant }) => (
                   <div key={r.id} className={cn("flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0", isVacant && "bg-destructive/5")}>
-                    <span className={cn("font-medium", isVacant && "text-destructive")}>{resolvedNome || 'Sem nome'}</span>
+                    <span className={cn("font-medium", isVacant ? "text-destructive" : hasPending && "text-red-200")}>{resolvedNome || 'Sem nome'}</span>
                     {isVacant && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -611,9 +611,9 @@ export default function SquadsPage() {
                         <TooltipContent>Pessoa não encontrada no RH Mestre — dados podem estar desatualizados</TooltipContent>
                       </Tooltip>
                     )}
-                    <span className="text-muted-foreground">—</span>
-                    <span className="text-muted-foreground">{resolvedCargo || 'Sem cargo'}</span>
-                    <span className="ml-auto tabular-nums font-medium">{r.percentualDedicacao}%</span>
+                    <span className={cn(hasPending ? "text-red-300" : "text-muted-foreground")}>—</span>
+                    <span className={cn(hasPending ? "text-red-300" : "text-muted-foreground")}>{resolvedCargo || 'Sem cargo'}</span>
+                    <span className={cn("ml-auto tabular-nums font-medium", hasPending && "text-red-100")}>{r.percentualDedicacao}%</span>
                     {r.percentualDedicacao > 100 && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
                   </div>
                 ))}
@@ -654,9 +654,9 @@ export default function SquadsPage() {
                 {cardContract?.status === 'suspenso' && (
                   <Badge className="text-[10px] bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
                 )}
-                <span className="text-sm text-muted-foreground">· {cd.contractCodigo}</span>
+                <span className={cn("text-sm", contractHasPending ? "text-red-300" : "text-muted-foreground")}>· {cd.contractCodigo}</span>
               </div>
-              <p className="text-sm text-muted-foreground">{cd.clientName}</p>
+              <p className={cn("text-sm", contractHasPending ? "text-red-300" : "text-muted-foreground")}>{cd.clientName}</p>
               {cd.subprojectName && (
                 <div className="flex items-center gap-1.5">
                   <FolderTree className="w-3.5 h-3.5 text-primary" />
@@ -671,13 +671,13 @@ export default function SquadsPage() {
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-2">
-          {cardData.teams.map(td => renderTeamBar(td, cardData))}
-          {viewMode === 'detailed' && renderDetailedTeams(cardData)}
+          {cardData.teams.map(td => renderTeamBar(td, cardData, contractHasPending))}
+          {viewMode === 'detailed' && renderDetailedTeams(cardData, contractHasPending)}
 
           {/* FTE Summary at the end */}
           <div className="border-t pt-3 mt-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">FTE Total: {cd.totalFTE.toFixed(2)}</span>
+            <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs", contractHasPending ? "text-red-200" : "text-muted-foreground")}>
+              <span className={cn("font-medium", contractHasPending ? "text-red-200" : "text-foreground")}>FTE Total: {cd.totalFTE.toFixed(2)}</span>
               <span>RH: {cd.hrCount}</span>
               {cardData.teams.map(td => (
                 <span key={td.teamName} className="tabular-nums">{td.teamName}: {td.fte.toFixed(1)}</span>
