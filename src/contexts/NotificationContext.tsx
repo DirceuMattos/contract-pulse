@@ -58,6 +58,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         updateSettings,
         requestBrowserPermission,
         toggleBrowserNotifications,
+        processAlerts,
       }}
     >
       {children}
