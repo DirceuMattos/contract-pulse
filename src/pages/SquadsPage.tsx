@@ -666,6 +666,8 @@ export default function SquadsPage() {
   const renderResourceCard = (rd: ResourceViewData) => {
     const totalFTE = rd.totalDedicacao / 100;
     const isOverloaded = rd.totalDedicacao > 100;
+    const hrPersonIdForCard = rd.resourceKey.startsWith('hr:') ? rd.resourceKey.replace('hr:', '') : null;
+    const cardHasPending = hrPersonIdForCard ? isPendingByPerson(hrPersonIdForCard) : false;
 
     return (
       <Card key={rd.resourceKey} className={`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`}>
