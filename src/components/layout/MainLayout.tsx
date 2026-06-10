@@ -172,6 +172,23 @@ export function MainLayout() {
             </div>
           </div>
         )}
+        {canSeeUnderutilizedBanner && underutilizedCount > 0 && !underutilizedDismissed && (
+          <div className="bg-yellow-500/15 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm text-yellow-400 font-medium flex items-center gap-2">
+              <TrendingDown className="w-4 h-4" />
+              {underutilizedCount} colaborador(es) com dedicação abaixo de {underutilizedThreshold}%
+            </span>
+            <div className="flex items-center gap-3">
+              <Link to="/rh" className="text-xs text-yellow-400 underline hover:text-yellow-300">Ver no RH</Link>
+              <button
+                onClick={() => { setUnderutilizedDismissed(true); sessionStorage.setItem('underutilizedBannerDismissed', 'true'); }}
+                aria-label="Fechar"
+              >
+                <X className="w-4 h-4 text-yellow-400" />
+              </button>
+            </div>
+          </div>
+        )}
         <div className="p-4 sm:p-6">
           <Outlet />
         </div>
