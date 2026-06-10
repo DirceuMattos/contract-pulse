@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil, Plus } from 'lucide-react';
+import { LayoutGrid, Download, Search, Users, FileText, List, User, AlertTriangle, FolderTree, Pencil, Plus, TrendingDown } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
@@ -29,6 +29,7 @@ import { AddResourceToContractDialog } from '@/components/squads/AddResourceToCo
 import { SubstituicaoDialog } from '@/components/hr/SubstituicaoDialog';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { usePendingReplacements } from '@/hooks/usePendingReplacements';
+import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -137,6 +138,11 @@ export default function SquadsPage() {
   const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string; currentPercent: number; contractName: string } | null>(null);
   const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
   const { isPending, isPendingByPerson, items: pendingItems, refresh: refreshPending } = usePendingReplacements();
+  const { underutilized } = useUnderutilized();
+  const underutilizedMap = useMemo(() =>
+    new Map(underutilized.map(u => [u.personId, u])),
+    [underutilized]
+  );
 
   const isInactivePendingPerson = (hrPersonId?: string | null) => {
     if (!hrPersonId) return false;
