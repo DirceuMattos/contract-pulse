@@ -21,6 +21,7 @@ import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRTimelineEventForm } from '@/components/hr/HRTimelineEventForm';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { useHR } from '@/contexts/HRContext';
+import { useNotificationContext } from '@/contexts/NotificationContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
