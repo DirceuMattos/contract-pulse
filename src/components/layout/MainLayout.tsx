@@ -149,24 +149,21 @@ export function MainLayout() {
         className="pt-16 min-h-screen"
       >
         {canSeeBanner && pendingCount > 0 && !bannerDismissed && (
-          <div className="flex items-center gap-3 px-4 py-2 border-b border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <p className="text-sm flex-1">
-              <span className="font-medium">{pendingCount}</span> recurso(s) aguardando substituição.{' '}
+          <div className="bg-orange-500/15 border-b border-orange-500/30 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm text-orange-400 font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              {pendingCount} recurso(s) aguardando substituição em contratos ativos
+            </span>
+            <div className="flex items-center gap-2">
+              <Link to="/squads" className="text-xs text-orange-400 underline">Ver Squads</Link>
               <button
-                onClick={() => navigate('/squads')}
-                className="underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-100"
+                onClick={() => { sessionStorage.setItem(dismissKey, '1'); setBannerDismissed(true); }}
+                className="text-orange-400 hover:text-orange-300"
+                aria-label="Fechar"
               >
-                Ir para Squads
+                <X className="w-4 h-4" />
               </button>
-            </p>
-            <button
-              onClick={() => { sessionStorage.setItem(dismissKey, '1'); setBannerDismissed(true); }}
-              className="p-1 rounded hover:bg-amber-500/20"
-              aria-label="Fechar"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            </div>
           </div>
         )}
         <div className="p-4 sm:p-6">
