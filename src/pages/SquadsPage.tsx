@@ -687,6 +687,11 @@ export default function SquadsPage() {
                     <TooltipContent>Colaborador inativo no RH — considere atualizar ou remover esta alocação</TooltipContent>
                   </Tooltip>
                 )}
+                {cardHasPending && (
+                  <Badge variant="destructive" className="text-[10px] gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Substituição Pendente
+                  </Badge>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">{rd.cargo}</span>
