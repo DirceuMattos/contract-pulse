@@ -2317,6 +2317,20 @@ export type Database = {
           status: string
         }[]
       }
+      get_transport_yearly_totals: {
+        Args: never
+        Returns: {
+          month: number
+          total: number
+          year: number
+        }[]
+      }
+      get_transport_years: {
+        Args: never
+        Returns: {
+          year: number
+        }[]
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
