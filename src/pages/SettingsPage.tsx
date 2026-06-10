@@ -34,6 +34,7 @@ const settingsSchema = z.object({
   diasAlertaReajuste: z.number().min(1).max(365),
   diasAlertaVigencia: z.number().min(1).max(365),
   diasAlertaDesatualizacao: z.number().min(1).max(365),
+  thresholdSubocupacao: z.number().min(0).max(100),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -380,6 +381,45 @@ export default function SettingsPage() {
                     </FormControl>
                     <FormDescription>
                       Dias sem atualização de recursos.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Recursos Humanos */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle>Recursos Humanos</CardTitle>
+              </div>
+              <CardDescription>
+                Parâmetros de controle e sinalização do quadro de colaboradores.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="thresholdSubocupacao"
+                render={({ field }) => (
+                  <FormItem className="max-w-xs">
+                    <FormLabel>Threshold de Subocupação (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={5}
+                        {...field}
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        disabled={!canEdit}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Colaboradores com dedicação total abaixo deste percentual serão sinalizados como subocupados.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

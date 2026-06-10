@@ -10,6 +10,7 @@ export const defaultSettings: Settings = {
   diasAlertaReajuste: 60,
   diasAlertaVigencia: 90,
   diasAlertaDesatualizacao: 30,
+  thresholdSubocupacao: 50,
 };
 
 export const mockClients: Client[] = [
