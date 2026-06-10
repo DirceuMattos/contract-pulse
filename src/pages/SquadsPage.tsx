@@ -782,6 +782,8 @@ export default function SquadsPage() {
                           resourceId: alloc.resourceId,
                           contractId: alloc.contractId,
                           hrPersonId: alloc.hrPersonId!,
+                          currentPercent: alloc.percentualDedicacao,
+                          contractName: alloc.contractNome || alloc.contractCodigo,
                         })}
                       >
                         Substituir
