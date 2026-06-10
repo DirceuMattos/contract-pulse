@@ -74,18 +74,20 @@ export function useTransportData({ year, month }: Params): Result {
           .gte('ride_start_at', threeMonthsAgo.toISOString())
           .limit(100000);
 
-        // Comparativo: todos os anos quando year=null, senão 3 anos
-        let qy = supabase.from('transport_rides').select('year, month, value').not('year', 'is', null).limit(100000);
-        if (year !== null) qy = qy.gte('year', year - 2).lte('year', year);
-        const { data: yearly } = await qy;
+        // Comparativo: sempre todos os anos disponíveis
+        const { data: yearly } = await supabase
+          .from('transport_rides')
+          .select('year, month, value')
+          .not('year', 'is', null)
+          .limit(100000);
 
         // Anos disponíveis
         const { data: years } = await supabase
           .from('transport_rides')
           .select('year')
           .not('year', 'is', null)
-          .order('year', { ascending: false })
-          .limit(100000);
+          .order('year', { ascending: true })
+          .limit(10000);
 
         if (cancelled) return;
         setRides((cur || []) as TransportRide[]);
