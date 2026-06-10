@@ -59,6 +59,12 @@ export default function HRPeoplePage() {
   }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
+  const { underutilized } = useUnderutilized();
+  const underutilizedByPerson = useMemo(() => {
+    const m = new Map<string, typeof underutilized[number]>();
+    underutilized.forEach(u => m.set(u.personId, u));
+    return m;
+  }, [underutilized]);
 
   // Restore filters from sessionStorage
   const storedFilters = useMemo(() => {
