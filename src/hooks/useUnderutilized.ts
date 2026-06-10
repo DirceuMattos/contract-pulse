@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
-import { useSettings } from '@/contexts/SettingsContext';
 
 export interface UnderutilizedPerson {
   personId: string;
@@ -14,9 +13,8 @@ export interface UnderutilizedPerson {
 }
 
 export function useUnderutilized() {
-  const { resources, contracts, clients } = useData();
+  const { resources, contracts, clients, settings } = useData();
   const { hrPeople } = useHR();
-  const { settings } = useSettings();
 
   const underutilized = useMemo(() => {
     const threshold = settings?.thresholdSubocupacao ?? 50;
