@@ -772,7 +772,7 @@ export default function SquadsPage() {
                       <Pencil className="w-3 h-3" />
                     </Button>
                   )}
-                  {allocPending && canAllocate && alloc.hrPersonId && (
+                  {allocPending && canSubstitute && alloc.hrPersonId && (
                     <>
                       <Button
                         variant="destructive"
