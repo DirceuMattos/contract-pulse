@@ -34,6 +34,7 @@ const settingsSchema = z.object({
   diasAlertaReajuste: z.number().min(1).max(365),
   diasAlertaVigencia: z.number().min(1).max(365),
   diasAlertaDesatualizacao: z.number().min(1).max(365),
+  thresholdSubocupacao: z.number().min(0).max(100),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
