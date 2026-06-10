@@ -31,6 +31,7 @@ export function calculateContractCost(
   resources: Resource[],
   settings: Settings
 ): number {
+  // Colaboradores inativos mantidos para preservar histórico financeiro do contrato.
   const contractResources = resources.filter(r => r.contractId === contractId);
   return contractResources.reduce((total, resource) => {
     return total + calculateResourceCost(resource, settings);
