@@ -242,7 +242,6 @@ export default function TransportPage() {
   }, [yearlyComparison]);
 
   const yearlyTotals = useMemo(() => {
-  const yearlyTotals = useMemo(() => {
     const map = new Map<number, number>();
     yearlyComparison.forEach((r) => {
       if (!r.year || !r.month) return;
