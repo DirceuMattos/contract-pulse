@@ -75,7 +75,7 @@ export function useTransportData({ year, month }: Params): Result {
           .limit(100000);
 
         // Comparativo: todos os anos quando year=null, senão 3 anos
-        let qy = supabase.from('transport_rides').select('year, month, value').limit(100000);
+        let qy = supabase.from('transport_rides').select('year, month, value').not('year', 'is', null).limit(100000);
         if (year !== null) qy = qy.gte('year', year - 2).lte('year', year);
         const { data: yearly } = await qy;
 
