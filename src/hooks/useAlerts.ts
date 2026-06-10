@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { generateAlerts, countAlertsBySeverity, groupAlertsByContract } from '@/lib/alertGenerator';
 import { Alert } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Hook que gera alertas automáticos baseados nos dados e configurações
