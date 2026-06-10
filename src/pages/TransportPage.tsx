@@ -576,9 +576,11 @@ export default function TransportPage() {
                   })}
                 </TableBody>
               </Table>
-              <p className="text-xs text-muted-foreground mt-2">
-                * Comparação considera jan–{MONTHS[(yearlyTotals[0]?.latestMonth ?? 1) - 1]?.slice(0, 3).toLowerCase()} de cada ano para equalizar os períodos.
-              </p>
+              {yearlyTotals.some((r) => r.year === new Date().getFullYear()) && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  * Anos anteriores exibem total anual completo. {new Date().getFullYear()} considera jan–{MONTHS[new Date().getMonth()]?.slice(0, 3).toLowerCase()}.
+                </p>
+              )}
             </div>
           )}
         </CardContent>
