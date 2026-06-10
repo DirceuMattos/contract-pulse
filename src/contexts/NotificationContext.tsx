@@ -15,6 +15,7 @@ interface NotificationContextType {
   updateSettings: (updates: Partial<NotificationSettings>) => void;
   requestBrowserPermission: () => Promise<NotificationPermission>;
   toggleBrowserNotifications: () => Promise<void>;
+  processAlerts: (alerts: import('@/types').Alert[]) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -57,6 +58,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         updateSettings,
         requestBrowserPermission,
         toggleBrowserNotifications,
+        processAlerts,
       }}
     >
       {children}

@@ -21,6 +21,7 @@ import { HRPersonForm } from '@/components/hr/HRPersonForm';
 import { HRTimelineEventForm } from '@/components/hr/HRTimelineEventForm';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { useHR } from '@/contexts/HRContext';
+import { useNotificationContext } from '@/contexts/NotificationContext';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,6 +72,7 @@ export default function HRPersonDetailPage() {
   const { teams, jobTitles, resources, contracts, updateResource, refreshResources } = useData();
   const { canEdit, canViewHRCosts, user, userRole } = useAuth();
   const { allocations: subprojectAllocations, subprojects: contractSubprojects, refreshData: refreshSubprojectData } = useSubprojects();
+  const { processAlerts } = useNotificationContext();
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
@@ -199,6 +201,33 @@ export default function HRPersonDetailPage() {
 
     // Save person first
     await updatePerson(person.id, data);
+
+    // Quando a pessoa passa de ativo → inativo, registrar pending_replacements
+    // para cada resource vinculado e disparar notificação crítica.
+    if (person.situacao === 'ativo' && data.situacao === 'inativo') {
+      const linked = resources.filter(r => r.hrPersonId === person.id);
+      if (linked.length > 0) {
+        await Promise.all(
+          linked.map(r =>
+            supabase.from('pending_replacements').insert({
+              hr_person_id: person.id,
+              resource_id: r.id,
+              contract_id: r.contractId,
+              status: 'pending',
+            })
+          )
+        );
+        processAlerts([{
+          id: `hr-links-quebrados-${person.id}`,
+          contractId: '',
+          type: 'hr-links-quebrados',
+          severity: 'critico',
+          title: `Substituição necessária: ${person.nome}`,
+          description: `${person.nome} foi desligado e possui ${linked.length} alocação(ões) ativa(s) em contratos que precisam ser revisadas.`,
+          createdAt: new Date().toISOString(),
+        } as any]);
+      }
+    }
 
     // Create one timeline event per change
     for (const change of changes) {
