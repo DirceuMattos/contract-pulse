@@ -84,6 +84,7 @@ export function useTransportData({ year, month }: Params): Result {
           .from('transport_rides')
           .select('year')
           .not('year', 'is', null)
+          .order('year', { ascending: false })
           .limit(100000);
 
         if (cancelled) return;
