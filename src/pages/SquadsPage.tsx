@@ -136,7 +136,12 @@ export default function SquadsPage() {
   const [addingToContract, setAddingToContract] = useState<{ hrPersonId: string; personName: string } | null>(null);
   const [substituting, setSubstituting] = useState<{ resourceId: string; contractId: string; hrPersonId: string } | null>(null);
   const [removing, setRemoving] = useState<{ resourceId: string; contractId: string } | null>(null);
-  const { isPending, isPendingByPerson, refresh: refreshPending } = usePendingReplacements();
+  const { isPending, isPendingByPerson, items: pendingItems, refresh: refreshPending } = usePendingReplacements();
+
+  const pendingContractIds = useMemo(
+    () => new Set(pendingItems.map(p => p.contract_id)),
+    [pendingItems]
+  );
 
   const handleRemovePending = async () => {
     if (!removing) return;
