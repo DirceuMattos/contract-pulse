@@ -26,8 +26,7 @@ export function MainLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const dismissKey = `bnp_pending_replacements_dismissed_${user?.id || 'anon'}`;
-  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem(dismissKey) === '1');
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => sessionStorage.getItem('pendingBannerDismissed') === 'true');
 
   const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
 
