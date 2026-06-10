@@ -684,7 +684,7 @@ export default function SquadsPage() {
     const cardHasPending = hrPersonIdForCard ? isPendingByPerson(hrPersonIdForCard) : false;
 
     return (
-      <Card key={rd.resourceKey} className={`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`}>
+      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasPending && 'bg-red-950/40 border-red-700')}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
