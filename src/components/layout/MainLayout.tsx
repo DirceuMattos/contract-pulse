@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessLogs } from '@/contexts/AccessLogContext';
 import { Sidebar } from './Sidebar';
@@ -9,6 +10,7 @@ import { CommandPalette } from './CommandPalette';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { MODULE_CATALOG } from '@/types/moduleAccess';
+import { supabase } from '@/integrations/supabase/client';
 
 export function MainLayout() {
   const { isAuthenticated, loading: authLoading, mustChangePassword } = useAuth();
