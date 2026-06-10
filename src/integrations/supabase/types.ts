@@ -1564,6 +1564,57 @@ export type Database = {
           },
         ]
       }
+      pending_replacements: {
+        Row: {
+          contract_id: string
+          created_at: string | null
+          hr_person_id: string
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resource_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string | null
+          hr_person_id: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resource_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string | null
+          hr_person_id?: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resource_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_replacements_hr_person_id_fkey"
+            columns: ["hr_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_replacements_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
