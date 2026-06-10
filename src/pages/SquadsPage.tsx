@@ -654,9 +654,9 @@ export default function SquadsPage() {
                 {cardContract?.status === 'suspenso' && (
                   <Badge className="text-[10px] bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
                 )}
-                <span className="text-sm text-muted-foreground">· {cd.contractCodigo}</span>
+                <span className={cn("text-sm", contractHasPending ? "text-red-300" : "text-muted-foreground")}>· {cd.contractCodigo}</span>
               </div>
-              <p className="text-sm text-muted-foreground">{cd.clientName}</p>
+              <p className={cn("text-sm", contractHasPending ? "text-red-300" : "text-muted-foreground")}>{cd.clientName}</p>
               {cd.subprojectName && (
                 <div className="flex items-center gap-1.5">
                   <FolderTree className="w-3.5 h-3.5 text-primary" />
