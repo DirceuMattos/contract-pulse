@@ -78,8 +78,8 @@ export function useAlerts() {
       });
     }
     
-    return generated;
-  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount, centralOverheadMap]);
+    return [...pendingReplacementAlerts, ...generated];
+  }, [contracts, resources, settings, snapshots, overheadItems, historyEvents, brokenLinkCount, centralOverheadMap, pendingReplacementAlerts]);
   
   const counts = useMemo(() => countAlertsBySeverity(alerts), [alerts]);
   
