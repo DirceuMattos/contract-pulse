@@ -77,6 +77,8 @@ export default function HRPersonDetailPage() {
 
   const person = getPerson(id!);
   const timeline = getTimelineByPerson(id!);
+  const { underutilized } = useUnderutilized();
+  const underutilizedInfo = underutilized.find(u => u.personId === id);
 
   const [editPersonOpen, setEditPersonOpen] = useState(false);
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
