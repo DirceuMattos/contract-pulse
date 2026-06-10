@@ -972,6 +972,26 @@ export default function SquadsPage() {
           personName={addingToContract.personName}
         />
       )}
+
+      {substituting && (
+        <SubstituicaoDialog
+          open={!!substituting}
+          onOpenChange={(open) => { if (!open) setSubstituting(null); }}
+          resourceId={substituting.resourceId}
+          contractId={substituting.contractId}
+          hrPersonId={substituting.hrPersonId}
+          onCompleted={() => refreshPending()}
+        />
+      )}
+
+      <ConfirmDeleteDialog
+        open={!!removing}
+        onOpenChange={(open) => { if (!open) setRemoving(null); }}
+        title="Remover pendência de substituição"
+        description="A alocação será mantida vaga e a pendência marcada como removida. Deseja continuar?"
+        confirmText="Remover"
+        onConfirm={handleRemovePending}
+      />
     </div>
   );
 }
