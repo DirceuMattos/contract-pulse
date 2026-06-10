@@ -11,7 +11,7 @@
 @layer base {
   :root {
     /* Base colors - Navy professional palette */
-    --background: 0 0% 100%;
+    --background: 240 12% 97.5%;
     --foreground: 265 4% 12.9%;
 
     --card: 0 0% 100%;
