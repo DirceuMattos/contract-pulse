@@ -680,12 +680,14 @@ export default function ContractsPage() {
                           <Eye className="w-4 h-4 mr-2" />
                           Ver detalhes
                         </DropdownMenuItem>
+                        {canEdit && userRole !== 'lider_tribo' && (
+                          <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}/editar`)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                        )}
                         {canEdit && (
                           <>
-                            <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}/editar`)}>
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}/recursos`)}>
                               <Users className="w-4 h-4 mr-2" />
                               Recursos
