@@ -619,7 +619,7 @@ export default function HRPeoplePage() {
                           </TableCell>
                           {canViewComite && (
                             <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                              {canEdit ? (
+                              {(canEdit && userRole !== 'lider_tribo') ? (
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="month"
@@ -640,7 +640,7 @@ export default function HRPeoplePage() {
                           )}
                           <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-0 bg-background z-10 w-[72px]">
                             <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => userRole === 'lider_tribo' ? navigate('/squads') : navigate(`/rh/pessoas/${p.id}`)}>
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
                               {canEdit && (
