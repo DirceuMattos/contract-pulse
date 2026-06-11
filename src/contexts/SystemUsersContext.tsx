@@ -31,7 +31,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
 
   const refreshUsers = useCallback(async () => {
-    if (!isAuthenticated || userRole !== 'c-level') {
+    if (!isAuthenticated || (userRole !== 'c-level' && userRole !== 'superadmin')) {
       setUsers([]);
       return;
     }
