@@ -190,8 +190,8 @@ export default function UsersPage() {
     setEditingUser(null);
   };
 
-  // Only c-level can access this page
-  if (currentUser?.role !== 'c-level') {
+  // Only c-level or superadmin can access this page
+  if (currentUser?.role !== 'c-level' && currentUser?.role !== 'superadmin') {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
