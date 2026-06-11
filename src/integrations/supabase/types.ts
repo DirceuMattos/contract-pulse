@@ -2524,6 +2524,7 @@ export type Database = {
         | "TRANSPORT"
         | "JOB_REQUESTS"
         | "JOB_SKILLS"
+        | "PROFILES_ADMIN"
       other_cost_category:
         | "cloud"
         | "licenca"
@@ -2736,6 +2737,7 @@ export const Constants = {
         "TRANSPORT",
         "JOB_REQUESTS",
         "JOB_SKILLS",
+        "PROFILES_ADMIN",
       ],
       other_cost_category: [
         "cloud",
