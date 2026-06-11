@@ -644,7 +644,7 @@ export default function HRPeoplePage() {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => userRole === 'lider_tribo' ? navigate('/squads') : navigate(`/rh/pessoas/${p.id}`)}>
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
-                              {canEdit && (
+                              {canEdit && userRole !== 'lider_tribo' && (
                                 <>
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
                                     <Pencil className="h-3.5 w-3.5" />

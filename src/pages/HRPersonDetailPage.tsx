@@ -349,7 +349,7 @@ export default function HRPersonDetailPage() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
-            {canEdit && (
+            {canEdit && userRole !== 'lider_tribo' && (
               <>
                 <Button variant="outline" onClick={() => setEditPersonOpen(true)}>
                   <Pencil className="h-4 w-4 mr-2" />
@@ -382,7 +382,7 @@ export default function HRPersonDetailPage() {
 
       <div className="flex items-center gap-3">
         <HRAvatar nome={person.nome} email={person.email} fotoUrl={person.fotoUrl} size="lg" />
-        {canEdit && (
+        {canEdit && userRole !== 'lider_tribo' && (
           <>
             <Button
               variant="outline"
