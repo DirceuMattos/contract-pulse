@@ -87,6 +87,7 @@ const roleLabels: Record<UserRole, string> = {
   'rh': 'RH',
   'administrativo': 'Administrativo',
   'demo': 'Demo',
+  'superadmin': 'Super Admin',
 };
 
 const roleDescriptions: Record<UserRole, string> = {
@@ -99,6 +100,7 @@ const roleDescriptions: Record<UserRole, string> = {
   'rh': 'Visão de RH, squads e dashboard sem valores financeiros',
   'administrativo': 'Acesso controlado por flags de módulo',
   'demo': 'Acesso de demonstração apenas para visualização',
+  'superadmin': 'Acesso total irrestrito a todos os módulos do sistema',
 };
 
 export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogProps) {

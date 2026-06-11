@@ -68,6 +68,7 @@ const roleLabels: Record<UserRole, string> = {
   'rh': 'RH',
   'administrativo': 'Administrativo',
   'demo': 'Demonstração',
+  'superadmin': 'Super Admin',
 };
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -80,6 +81,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   'rh': Shield,
   'administrativo': Shield,
   'demo': Eye,
+  'superadmin': ShieldCheck,
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -92,6 +94,7 @@ const roleColors: Record<UserRole, string> = {
   'rh': 'bg-violet-500/10 text-violet-700 border-violet-500/20',
   'administrativo': 'bg-slate-500/10 text-slate-700 border-slate-500/20',
   'demo': 'bg-orange-500/10 text-orange-700 border-orange-500/20',
+  'superadmin': 'bg-purple-500/10 text-purple-700 border-purple-500/20',
 };
 
 export default function UsersPage() {
