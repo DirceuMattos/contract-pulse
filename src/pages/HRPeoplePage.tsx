@@ -620,7 +620,7 @@ export default function HRPeoplePage() {
                           </TableCell>
                           {canViewComite && (
                             <TableCell onClick={e => e.stopPropagation()} className="py-2 sticky right-[72px] bg-background z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                              {(canEdit && userRole !== 'lider_tribo') ? (
+                              {canEditComite ? (
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="month"
