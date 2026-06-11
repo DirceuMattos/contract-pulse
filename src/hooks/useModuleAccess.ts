@@ -7,6 +7,9 @@ export function useModuleAccess() {
   function canAccessModule(moduleKey: ModuleKey): boolean {
     if (!user || !userRole) return false;
     
+    // Superadmin tem acesso irrestrito a todos os módulos
+    if (userRole === 'superadmin') return true;
+    
     // 1. Check role-level restriction first
     if (!isRoleAllowedForModule(userRole, moduleKey)) return false;
     
