@@ -105,7 +105,7 @@ export default function ContractsPage() {
   const navigate = useNavigate();
   const { contracts, clients, resources: _rawResources, settings, deleteContract } = useData();
   const { resolvedResources: resources } = useResolvedResources();
-  const { canEdit, canCreate, canDelete, canViewValues } = useAuth();
+  const { canEdit, canCreate, canDelete, canViewValues, userRole } = useAuth();
   const { getAlertsForContract } = useAlerts();
   const { getAllocation } = useOverheadPool();
   
