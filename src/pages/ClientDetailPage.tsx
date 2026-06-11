@@ -89,7 +89,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
-        {canEdit && (
+        {canEdit && userRole !== 'lider_tribo' && (
           <Button onClick={() => navigate(`/clientes/${id}/editar`)} className="gap-2">
             <Pencil className="w-4 h-4" />
             Editar
