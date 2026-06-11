@@ -260,7 +260,7 @@ export default function HRPeoplePage() {
         animated={false}
         actions={
           <div className="flex items-center gap-2">
-            {userRole !== 'lider_tribo' && (
+            {(userRole === 'c-level' || userRole === 'administrativo') && (
               <Button variant="outline" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
