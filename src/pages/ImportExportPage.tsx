@@ -49,7 +49,7 @@ const entityLabels: Record<EntityType, string> = {
 
 export default function ImportExportPage() {
   const { clients, contracts, resources, addClient, addContract, addResource, jobTitles, teams } = useData();
-  const { canEdit, canViewHRCosts, canViewValues } = useAuth();
+  const { canEdit, canViewHRCosts, canViewValues, userRole } = useAuth();
   const { hrPeople } = useHR();
   const { toast } = useToast();
   
@@ -237,7 +237,7 @@ export default function ImportExportPage() {
       
       <Tabs defaultValue="export" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="export" className="gap-2">
+          <TabsTrigger value="export" className="gap-2" disabled={userRole !== 'c-level' && userRole !== 'administrativo'}>
             <Download className="h-4 w-4" />
             Exportar
           </TabsTrigger>
