@@ -260,10 +260,12 @@ export default function HRPeoplePage() {
         animated={false}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
+            {userRole !== 'lider_tribo' && (
+              <Button variant="outline" onClick={handleExport}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            )}
             {canEdit && userRole !== 'lider_tribo' && (
               <>
                 <Button variant="outline" onClick={() => setCorrectionRunsOpen(true)}>
