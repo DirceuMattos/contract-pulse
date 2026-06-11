@@ -59,6 +59,7 @@ export default function HRPeoplePage() {
   }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh';
+  const canEditComite = canEdit && userRole !== 'lider_tribo';
   const { underutilized } = useUnderutilized();
   const underutilizedByPerson = useMemo(() => {
     const m = new Map<string, typeof underutilized[number]>();
