@@ -89,6 +89,7 @@ export default function HRPeoplePage() {
   const [filterRegime, setFilterRegime] = useState(storedFilters?.filterRegime ?? '');
   const [filterLocalAtuacao, setFilterLocalAtuacao] = useState(storedFilters?.filterLocalAtuacao ?? '');
   const [filterProjeto, setFilterProjeto] = useState(storedFilters?.filterProjeto ?? '');
+  const [filterSubocupado, setFilterSubocupado] = useState(storedFilters?.filterSubocupado ?? false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Persist filters to sessionStorage on change
