@@ -81,8 +81,8 @@ Deno.serve(async (req) => {
     .eq("user_id", callerId)
     .single();
 
-  if (callerRole?.role !== "c-level") {
-    return err("Forbidden: only c-level users can manage users", 403);
+  if (callerRole?.role !== "c-level" && callerRole?.role !== "superadmin") {
+    return err("Forbidden: only c-level or superadmin users can manage users", 403);
   }
 
   switch (action) {
