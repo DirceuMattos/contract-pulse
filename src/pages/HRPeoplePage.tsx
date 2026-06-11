@@ -157,10 +157,11 @@ export default function HRPeoplePage() {
       const matchTalento = !filterTalento || !!p.isTalento;
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
+      const matchSubocupado = !filterSubocupado || underutilizedIds.has(p.id);
       const matchRegime = !filterRegime || p.regimeTrabalho === filterRegime;
       const matchLocalAtuacao = !filterLocalAtuacao || p.localAtuacao === filterLocalAtuacao;
       const matchProjeto = !filterProjeto || resources.some(r => r.hrPersonId === p.id && r.contractId === filterProjeto);
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchRegime && matchLocalAtuacao && matchProjeto;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchSubocupado && matchRegime && matchLocalAtuacao && matchProjeto;
     });
   }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, resources]);
 
