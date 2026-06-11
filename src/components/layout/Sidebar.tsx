@@ -104,6 +104,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
       { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
+      { path: '/usuarios/perfis', label: 'Perfis', icon: ShieldCheck, moduleKey: 'PROFILES_ADMIN' },
       { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
     ],
   },
