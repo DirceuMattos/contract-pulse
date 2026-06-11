@@ -54,7 +54,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'HR', 'CALCULATOR', 'HISTORY', 'DOCUMENTS', 'RESOURCES', 'IMPORT_EXPORT', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
-  lider_tribo: ['DASHBOARD', 'SQUADS', 'HR', 'JOB_REQUESTS'],
+  lider_tribo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'JOB_REQUESTS'],
   juridico: ['DASHBOARD', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS'],
   rh: ['DASHBOARD', 'SQUADS', 'HR', 'JOB_REQUESTS', 'JOB_SKILLS'],
   administrativo: [], // all managed via flags — OVERTIME and TRANSPORT inherit the legacy "all enabled" branch
