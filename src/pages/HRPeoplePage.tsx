@@ -96,7 +96,7 @@ export default function HRPeoplePage() {
   // Persist filters to sessionStorage on change
   useEffect(() => {
     sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, filterSubocupado }));
-  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto]);
+  }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, filterSubocupado]);
 
   const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterRegime !== '' || filterLocalAtuacao !== '' || filterProjeto !== '';
   const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterRegime(''); setFilterLocalAtuacao(''); setFilterProjeto(''); sessionStorage.removeItem('hr-filters'); };
