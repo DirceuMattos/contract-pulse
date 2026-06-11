@@ -75,7 +75,7 @@ const cardColors = [
 export default function ClientsPage() {
   const navigate = useNavigate();
   const { clients, contracts, deleteClient } = useData();
-  const { canEdit, canCreate, canDelete } = useAuth();
+  const { canEdit, canCreate, canDelete, userRole } = useAuth();
   
   const [search, setSearch] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
@@ -198,7 +198,7 @@ export default function ClientsPage() {
                             <Eye className="w-4 h-4 mr-2" />
                             Ver detalhes
                           </DropdownMenuItem>
-                          {canEdit && (
+                          {canEdit && userRole !== 'lider_tribo' && (
                             <>
                               <DropdownMenuItem onClick={() => navigate(`/clientes/${client.id}/editar`)}>
                                 <Pencil className="w-4 h-4 mr-2" />
