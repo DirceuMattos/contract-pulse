@@ -1821,6 +1821,54 @@ export type Database = {
           },
         ]
       }
+      role_profiles: {
+        Row: {
+          can_allocate: boolean | null
+          can_create: boolean | null
+          can_delete: boolean | null
+          can_edit: boolean | null
+          can_export: boolean | null
+          can_view_hr_costs: boolean | null
+          can_view_values: boolean | null
+          id: string
+          label: string
+          modules: Json
+          role: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          can_allocate?: boolean | null
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_export?: boolean | null
+          can_view_hr_costs?: boolean | null
+          can_view_values?: boolean | null
+          id?: string
+          label: string
+          modules?: Json
+          role: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          can_allocate?: boolean | null
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_export?: boolean | null
+          can_view_hr_costs?: boolean | null
+          can_view_values?: boolean | null
+          id?: string
+          label?: string
+          modules?: Json
+          role?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           created_at: string
