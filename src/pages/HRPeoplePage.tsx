@@ -487,6 +487,16 @@ export default function HRPeoplePage() {
               <input type="checkbox" checked={filterEmAvaliacao} onChange={e => setFilterEmAvaliacao(e.target.checked)} className="rounded border-primary" />
               <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline" /> Em Avaliação
             </label>
+            <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={filterSubocupado}
+                onChange={e => setFilterSubocupado(e.target.checked)}
+                className="rounded"
+              />
+              <TrendingDown className="w-3.5 h-3.5 text-yellow-500" />
+              Subocupados
+            </label>
           </div>
         </CardContent>
       </Card>
