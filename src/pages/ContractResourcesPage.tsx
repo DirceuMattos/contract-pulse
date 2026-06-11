@@ -69,7 +69,7 @@ export default function ContractResourcesPage() {
   } = useData();
   const { hrPeople } = useHR();
   const { hasSubprojects: hasSubprojectsFn, getAllocationsByContract } = useSubprojects();
-  const { canEdit, canViewValues, canViewHRCosts } = useAuth();
+  const { canEdit, canViewValues, canViewHRCosts, userRole } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -294,7 +294,7 @@ export default function ContractResourcesPage() {
           { label: contract.codigo, href: `/contratos/${id}`, state: location.state },
           { label: 'Recursos' },
         ]}
-        actions={canEdit ? (
+        actions={canEdit && userRole !== 'lider_tribo' ? (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setCopyDialogOpen(true)} className="gap-2">
               <Copy className="w-4 h-4" />
@@ -761,7 +761,7 @@ export default function ContractResourcesPage() {
               <p className="text-muted-foreground mb-4">
                 Adicione recursos para calcular a saúde financeira do contrato.
               </p>
-              {canEdit && (
+              {canEdit && userRole !== 'lider_tribo' && (
                 <Button onClick={() => setFormOpen(true)} className="gap-2">
                   <Plus className="w-4 h-4" />
                   Adicionar Recurso
