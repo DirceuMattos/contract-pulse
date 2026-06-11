@@ -37,7 +37,7 @@ export default function ClientDetailPage() {
   const { getClient, getContractsByClient, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { getAllocation } = useOverheadPool();
-  const { canEdit, canViewValues } = useAuth();
+  const { canEdit, canViewValues, userRole } = useAuth();
   
   const client = id ? getClient(id) : undefined;
   const clientContracts = id ? getContractsByClient(id) : [];
@@ -89,7 +89,7 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
-        {canEdit && (
+        {canEdit && userRole !== 'lider_tribo' && (
           <Button onClick={() => navigate(`/clientes/${id}/editar`)} className="gap-2">
             <Pencil className="w-4 h-4" />
             Editar
