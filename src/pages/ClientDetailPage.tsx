@@ -37,7 +37,7 @@ export default function ClientDetailPage() {
   const { getClient, getContractsByClient, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { getAllocation } = useOverheadPool();
-  const { canEdit, canViewValues } = useAuth();
+  const { canEdit, canViewValues, userRole } = useAuth();
   
   const client = id ? getClient(id) : undefined;
   const clientContracts = id ? getContractsByClient(id) : [];
