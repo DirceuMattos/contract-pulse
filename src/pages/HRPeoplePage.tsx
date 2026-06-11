@@ -263,7 +263,7 @@ export default function HRPeoplePage() {
               <Download className="h-4 w-4 mr-2" />
               Exportar
             </Button>
-            {canEdit && (
+            {canEdit && userRole !== 'lider_tribo' && (
               <>
                 <Button variant="outline" onClick={() => setCorrectionRunsOpen(true)}>
                   <Clock className="h-4 w-4 mr-2" />
@@ -530,7 +530,7 @@ export default function HRPeoplePage() {
                       const hasFlag = p.isTalento || p.isGuardiao || p.isEmAvaliacao;
                       const borderColor = p.isEmAvaliacao ? 'border-l-yellow-500' : p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : '';
                       return (
-                        <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
+                        <TableRow key={p.id} className={`${userRole === 'lider_tribo' ? 'cursor-default' : 'cursor-pointer'} hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => { if (userRole !== 'lider_tribo') navigate(`/rh/pessoas/${p.id}`); }}>
                           <TableCell className="py-2 px-1 w-[40px]" onClick={(e) => e.stopPropagation()}>
                             <HRAvatar nome={p.nome} email={p.email} fotoUrl={p.fotoUrl} size="sm" />
                           </TableCell>
