@@ -99,7 +99,7 @@ export default function HRPeoplePage() {
   }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, filterSubocupado]);
 
   const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterSubocupado || filterRegime !== '' || filterLocalAtuacao !== '' || filterProjeto !== '';
-  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterRegime(''); setFilterLocalAtuacao(''); setFilterProjeto(''); sessionStorage.removeItem('hr-filters'); };
+  const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterSubocupado(false); setFilterRegime(''); setFilterLocalAtuacao(''); setFilterProjeto(''); sessionStorage.removeItem('hr-filters'); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
