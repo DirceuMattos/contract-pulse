@@ -126,23 +126,6 @@ export default function UsersPage() {
       : <ArrowDown className="w-3 h-3 ml-1" />;
   };
 
-  // Only c-level can access this page
-  if (currentUser?.role !== 'c-level') {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            Acesso Restrito
-          </h2>
-          <p className="text-muted-foreground">
-            Apenas usuários C-Level podem gerenciar usuários do sistema.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(search.toLowerCase()) ||
     user.email.toLowerCase().includes(search.toLowerCase())
