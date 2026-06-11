@@ -19,6 +19,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Briefcase,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
@@ -73,7 +74,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   'c-level': ShieldCheck,
   'intermediario': Shield,
   'leitor': Eye,
-  'comercial': Shield,
+  'comercial': Briefcase,
   'lider_tribo': Shield,
   'juridico': Shield,
   'rh': Shield,
