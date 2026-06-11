@@ -63,7 +63,7 @@ const userFormSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
   email: z.string().email('E-mail inválido').max(255),
   password: passwordSchema,
-  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo', 'demo'] as const),
+  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo', 'demo', 'superadmin'] as const),
   active: z.boolean(),
 });
 
