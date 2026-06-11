@@ -66,6 +66,7 @@ export default function HRPeoplePage() {
     underutilized.forEach(u => m.set(u.personId, u));
     return m;
   }, [underutilized]);
+  const underutilizedIds = useMemo(() => new Set(underutilized.map(u => u.personId)), [underutilized]);
 
   // Restore filters from sessionStorage
   const storedFilters = useMemo(() => {
