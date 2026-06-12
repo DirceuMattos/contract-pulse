@@ -495,7 +495,7 @@ export default function HRPeoplePage() {
                 className="rounded"
               />
               <TrendingDown className="w-3.5 h-3.5 text-yellow-500" />
-              Subocupados
+              Sub-Dedicados
             </label>
           </div>
         </CardContent>
