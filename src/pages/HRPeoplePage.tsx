@@ -90,15 +90,15 @@ export default function HRPeoplePage() {
   const [filterRegime, setFilterRegime] = useState(storedFilters?.filterRegime ?? '');
   const [filterLocalAtuacao, setFilterLocalAtuacao] = useState(storedFilters?.filterLocalAtuacao ?? '');
   const [filterProjeto, setFilterProjeto] = useState(storedFilters?.filterProjeto ?? '');
-  const [filterSubocupado, setFilterSubocupado] = useState(storedFilters?.filterSubocupado ?? false);
+  const [filterSubocupado, setFilterSubocupado] = useState(storedFilters?.filterSub-Dedicado ?? false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
-    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, filterSubocupado }));
+    sessionStorage.setItem('hr-filters', JSON.stringify({ search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, filterSub-Dedicado }));
   }, [search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterRegime, filterLocalAtuacao, filterProjeto, filterSubocupado]);
 
-  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterSubocupado || filterRegime !== '' || filterLocalAtuacao !== '' || filterProjeto !== '';
+  const hasActiveFilters = search !== '' || filterSituacao !== 'todos' || filterTeam !== '' || filterCargo !== '' || filterVinculo !== '' || filterComite !== '' || filterMesAdmissao !== '' || filterBeneficio !== '' || filterTalento || filterGuardiao || filterEmAvaliacao || filterSub-Dedicado || filterRegime !== '' || filterLocalAtuacao !== '' || filterProjeto !== '';
   const handleClearFilters = () => { setSearch(''); setFilterSituacao('todos'); setFilterTeam(''); setFilterCargo(''); setFilterVinculo(''); setFilterComite(''); setFilterMesAdmissao(''); setFilterBeneficio(''); setFilterTalento(false); setFilterGuardiao(false); setFilterEmAvaliacao(false); setFilterSubocupado(false); setFilterRegime(''); setFilterLocalAtuacao(''); setFilterProjeto(''); sessionStorage.removeItem('hr-filters'); };
   const [editingPerson, setEditingPerson] = useState<HRPerson | undefined>();
   const [importOpen, setImportOpen] = useState(false);
@@ -157,11 +157,11 @@ export default function HRPeoplePage() {
       const matchTalento = !filterTalento || !!p.isTalento;
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
-      const matchSubocupado = !filterSubocupado || underutilizedIds.has(p.id);
+      const matchSub-Dedicado = !filterSub-Dedicado || underutilizedIds.has(p.id);
       const matchRegime = !filterRegime || p.regimeTrabalho === filterRegime;
       const matchLocalAtuacao = !filterLocalAtuacao || p.localAtuacao === filterLocalAtuacao;
       const matchProjeto = !filterProjeto || resources.some(r => r.hrPersonId === p.id && r.contractId === filterProjeto);
-      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchSubocupado && matchRegime && matchLocalAtuacao && matchProjeto;
+      return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchSub-Dedicado && matchRegime && matchLocalAtuacao && matchProjeto;
     });
   }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterSubocupado, underutilizedIds, filterRegime, filterLocalAtuacao, filterProjeto, resources]);
 
@@ -564,7 +564,7 @@ export default function HRPeoplePage() {
                                     <button>
                                       <Badge className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/30 gap-1">
                                         <TrendingDown className="w-3 h-3" />
-                                        Subocupado {underutilizedByPerson.get(p.id)!.totalPercent}%
+                                        Sub-Dedicado {underutilizedByPerson.get(p.id)!.totalPercent}%
                                       </Badge>
                                     </button>
                                   </PopoverTrigger>
