@@ -596,7 +596,7 @@ export default function SquadsPage() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Badge className="text-[9px] gap-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/20">
-                              <TrendingDown className="w-2.5 h-2.5" /> Subocupado {u.totalPercent}%
+                              <TrendingDown className="w-2.5 h-2.5" /> Sub-Dedicado {u.totalPercent}%
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent>Dedicação total: {u.totalPercent}% em todos os contratos. Threshold: {u.threshold}%</TooltipContent>
@@ -737,7 +737,7 @@ export default function SquadsPage() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Badge className="text-[10px] gap-1 bg-orange-500/20 text-orange-400 border border-orange-500/40 hover:bg-orange-500/20">
-                          <TrendingDown className="w-3 h-3" /> Subocupado {u.totalPercent}%
+                          <TrendingDown className="w-3 h-3" /> Sub-Dedicado {u.totalPercent}%
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent>Dedicação total: {u.totalPercent}% em todos os contratos. Threshold: {u.threshold}%</TooltipContent>
