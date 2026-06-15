@@ -196,16 +196,54 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                     <CardContent className="pt-0 space-y-4">
                       <div>
                         <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Pessoas</h4>
-                        {renderSection(
-                          hrAllocs,
-                          'Nenhuma pessoa alocada.',
-                          'hr',
-                          sp.id,
-                          (a) => hrMap.get(a.hrPersonId!)?.nome || 'Pessoa não encontrada',
-                          'Pessoa',
-                          <Users className="w-3 h-3" />,
-                          hrAllocs.length,
-                        )}
+                        <div className="space-y-1">
+                          {hrAllocs.length > 0 ? (
+                            hrAllocs.map(alloc => {
+                              const person = hrMap.get(alloc.hrPersonId!);
+                              const name = person?.nome || 'Pessoa não encontrada';
+                              const isInactive = person?.situacao === 'inativo';
+                              return (
+                                <div key={alloc.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
+                                  <span className="font-medium truncate">{name}</span>
+                                  {isInactive && (
+                                    <Badge className="text-[10px] gap-1 bg-red-500/20 text-red-400 border border-red-500/40 ml-1">
+                                      <AlertTriangle className="w-3 h-3" /> Inativo
+                                    </Badge>
+                                  )}
+                                  {alloc.costValue != null && (
+                                    <span className="text-xs text-muted-foreground tabular-nums">
+                                      R$ {alloc.costValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                                    </span>
+                                  )}
+                                  <span className="ml-auto tabular-nums font-medium">{alloc.dedicationPercent}%</span>
+                                  {canEdit && (
+                                    <>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingAlloc({ alloc, name, typeLabel: 'Pessoa' })}>
+                                        <Pencil className="w-3 h-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-sm text-muted-foreground py-2">Nenhuma pessoa alocada.</p>
+                          )}
+                          <div className="flex items-center justify-between mt-2 pt-2">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Users className="w-3 h-3" /> {hrAllocs.length} item{hrAllocs.length !== 1 ? 's' : ''}
+                            </span>
+                            {canEdit && (
+                              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAllocDialog({ spId: sp.id, type: 'hr' })}>
+                                <Plus className="w-3 h-3" />
+                                Adicionar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Recursos</h4>
