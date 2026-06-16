@@ -19,6 +19,8 @@ import {
   teamFromDb, teamToDb,
 } from '@/lib/dbMappers';
 import { autoLinkHRPerson } from '@/lib/autoLinkHR';
+import { useAuth } from '@/contexts/AuthContext';
+import { maskClientName, maskContractName } from '@/lib/demoMask';
 import {
   mockClients, mockContracts, mockResources, mockSnapshots,
   defaultSettings, mockOverheadItems, mockHistoryEvents,
@@ -99,6 +101,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { userRole } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -156,6 +159,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         setClients((clientsData ?? []).map(r => clientFromDb(r as unknown as Record<string, unknown>)));
         setContracts((contractsData ?? []).map(r => contractFromDb(r as unknown as Record<string, unknown>)));
+        if (userRole === 'demo') {
+          setClients(prev => prev.map(c => ({ ...c, nomeFantasia: maskClientName(c.id), razaoSocial: maskClientName(c.id) })));
+        }
+        if (userRole === 'demo') {
+          setContracts(prev => prev.map(c => ({ ...c, nome: maskContractName(c.id) })));
+        }
         setResources((resourcesData ?? []).map(r => resourceFromDb(r as unknown as Record<string, unknown>)));
         setOverheadItems((overheadData ?? []).map(r => overheadFromDb(r as unknown as Record<string, unknown>)));
         setHistoryEvents((historyData ?? []).map(r => historyEventFromDb(r as unknown as Record<string, unknown>)));

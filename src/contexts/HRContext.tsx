@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { HRPerson, HRTimelineEvent } from '@/types';
 import { hrPersonFromDb, hrPersonToDb, hrTimelineFromDb, hrTimelineToDb } from '@/lib/dbMappers';
+import { useAuth } from '@/contexts/AuthContext';
+import { maskPersonName, maskPersonEmail } from '@/lib/demoMask';
 
 interface HRContextType {
   hrPeople: HRPerson[];
@@ -25,6 +27,7 @@ const HRContext = createContext<HRContextType | undefined>(undefined);
 
 export function HRProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { userRole } = useAuth();
   const [hrPeople, setHrPeople] = useState<HRPerson[]>([]);
   const [hrTimeline, setHrTimeline] = useState<HRTimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +50,12 @@ export function HRProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setHrPeople((peopleData ?? []).map(r => hrPersonFromDb(r as unknown as Record<string, unknown>)));
           setHrTimeline((timelineData ?? []).map(r => hrTimelineFromDb(r as unknown as Record<string, unknown>)));
+          if (userRole === 'demo') {
+            setHrPeople(prev => prev.map(p => {
+              const novoNome = maskPersonName(p.id);
+              return { ...p, nome: novoNome, email: maskPersonEmail(p.id, novoNome) };
+            }));
+          }
         }
       } catch (err) {
         if (!cancelled) handleError(err, 'Erro ao carregar dados de RH.');
