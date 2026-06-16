@@ -83,7 +83,7 @@ async function loadImageAsBase64(url: string): Promise<string> {
 
 export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   const { mesAno, nomeContrato, nomeCliente, numeroContrato, sections } = input;
-  const logoBnp = await loadImageAsBase64(logoBnpUrl);
+  logoBnp = await loadImageAsBase64(logoBnpUrl);
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9";
 
