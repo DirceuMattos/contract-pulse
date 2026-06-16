@@ -286,6 +286,7 @@ export type Database = {
           email: string
           id: string
           inscricao_estadual: string | null
+          is_demo: boolean | null
           logradouro: string | null
           nome_fantasia: string | null
           numero: string | null
@@ -309,6 +310,7 @@ export type Database = {
           email?: string
           id?: string
           inscricao_estadual?: string | null
+          is_demo?: boolean | null
           logradouro?: string | null
           nome_fantasia?: string | null
           numero?: string | null
@@ -332,6 +334,7 @@ export type Database = {
           email?: string
           id?: string
           inscricao_estadual?: string | null
+          is_demo?: boolean | null
           logradouro?: string | null
           nome_fantasia?: string | null
           numero?: string | null
@@ -352,6 +355,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_demo: boolean | null
           name: string
           status: Database["public"]["Enums"]["subproject_status"]
           updated_at: string
@@ -361,6 +365,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_demo?: boolean | null
           name?: string
           status?: Database["public"]["Enums"]["subproject_status"]
           updated_at?: string
@@ -370,6 +375,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_demo?: boolean | null
           name?: string
           status?: Database["public"]["Enums"]["subproject_status"]
           updated_at?: string
@@ -399,6 +405,7 @@ export type Database = {
           has_subprojects: boolean
           id: string
           indice_reajuste: string
+          is_demo: boolean | null
           modelo_receita: Database["public"]["Enums"]["revenue_model"]
           moeda: string
           nome: string
@@ -453,6 +460,7 @@ export type Database = {
           has_subprojects?: boolean
           id?: string
           indice_reajuste?: string
+          is_demo?: boolean | null
           modelo_receita?: Database["public"]["Enums"]["revenue_model"]
           moeda?: string
           nome?: string
@@ -507,6 +515,7 @@ export type Database = {
           has_subprojects?: boolean
           id?: string
           indice_reajuste?: string
+          is_demo?: boolean | null
           modelo_receita?: Database["public"]["Enums"]["revenue_model"]
           moeda?: string
           nome?: string
@@ -1278,6 +1287,7 @@ export type Database = {
           foto_url: string | null
           id: string
           id_externo: string | null
+          is_demo: boolean | null
           is_em_avaliacao: boolean
           is_guardiao: boolean
           is_talento: boolean
@@ -1330,6 +1340,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           id_externo?: string | null
+          is_demo?: boolean | null
           is_em_avaliacao?: boolean
           is_guardiao?: boolean
           is_talento?: boolean
@@ -1382,6 +1393,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           id_externo?: string | null
+          is_demo?: boolean | null
           is_em_avaliacao?: boolean
           is_guardiao?: boolean
           is_talento?: boolean
@@ -1748,6 +1760,7 @@ export type Database = {
           hr_person_id: string | null
           id: string
           impostos_override: number | null
+          is_demo: boolean | null
           nome: string
           observacoes: string | null
           percentual_dedicacao: number
@@ -1771,6 +1784,7 @@ export type Database = {
           hr_person_id?: string | null
           id?: string
           impostos_override?: number | null
+          is_demo?: boolean | null
           nome?: string
           observacoes?: string | null
           percentual_dedicacao?: number
@@ -1794,6 +1808,7 @@ export type Database = {
           hr_person_id?: string | null
           id?: string
           impostos_override?: number | null
+          is_demo?: boolean | null
           nome?: string
           observacoes?: string | null
           percentual_dedicacao?: number
@@ -2261,6 +2276,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_demo: boolean | null
           name: string
           origin: string | null
           sort_order: number
@@ -2271,6 +2287,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean | null
           name?: string
           origin?: string | null
           sort_order?: number
@@ -2281,6 +2298,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean | null
           name?: string
           origin?: string | null
           sort_order?: number
