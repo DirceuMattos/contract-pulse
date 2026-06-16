@@ -6,6 +6,8 @@ import type {
   HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig,
   JobTitle, Team, ContractSimulation, SimulationHRItem, SimulationOtherCost,
   HRPerson, HRTimelineEvent, DemandType,
+  MonthlyReport, ReportSection, ReportTemplateConfig, ReportCollaborator,
+  ReportStatus, ReportSectionKey, ReportSectionSource,
 } from '@/types';
 import { emptyToNull } from '@/lib/utils';
 
