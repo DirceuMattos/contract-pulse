@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import pptxgen from "https://esm.sh/pptxgenjs@3.12.0";
 
 // ─── CORES BNP ───────────────────────────────────────────────────────────────
 const AZUL_ESCURO  = "1A4F8A";
@@ -64,7 +65,6 @@ serve(async (req) => {
     const numeroContrato = contract?.numero ?? "";
 
     // Importar pptxgenjs via CDN
-    const pptxgen = (await import("https://esm.sh/pptxgenjs@3.12.0")).default;
     const pres = new pptxgen();
     pres.layout = "LAYOUT_16x9";
 
@@ -380,6 +380,7 @@ serve(async (req) => {
     // Gerar arquivo e converter para base64
     const pptxBuffer = await pres.write({ outputType: "uint8array" }) as Uint8Array;
 
+    // Converter para base64 usando encodeBase64 do Deno std (sem padding intermediário)
     const base64 = encodeBase64(pptxBuffer);
 
     const filename = `relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx`;
