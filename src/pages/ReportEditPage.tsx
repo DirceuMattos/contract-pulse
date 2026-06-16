@@ -196,7 +196,7 @@ export default function ReportEditPage() {
         mesAno: `${MESES[(report.month ?? 1) - 1]}/${report.year}`,
         nomeContrato: contract?.nome ?? "Contrato",
         nomeCliente: client?.nomeFantasia ?? client?.razaoSocial ?? "Cliente",
-        numeroContrato: contract?.numero ?? "",
+        numeroContrato: contract?.codigo ?? "",
         sections: sectionMap,
       });
 
