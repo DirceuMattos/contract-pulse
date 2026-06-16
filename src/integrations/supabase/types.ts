@@ -1802,6 +1802,38 @@ export type Database = {
         }
         Relationships: []
       }
+      report_collaborators: {
+        Row: {
+          added_at: string | null
+          id: string
+          report_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          report_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          report_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_collaborators_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_sections: {
         Row: {
           content: Json
@@ -1877,6 +1909,80 @@ export type Database = {
             columns: ["report_id"]
             isOneToOne: false
             referencedRelation: "monthly_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_configs: {
+        Row: {
+          asana_project_id: string | null
+          client_email_domain: string | null
+          contract_id: string
+          created_at: string | null
+          fireflies_keywords: string[] | null
+          id: string
+          show_demonstrativo_horas: boolean | null
+          show_desempenho_aplicacao: boolean | null
+          show_eficiencia_operacional: boolean | null
+          show_eficiencia_previsibilidade: boolean | null
+          show_engajamento_usuario: boolean | null
+          show_entregas: boolean | null
+          show_evolucao_inovacao: boolean | null
+          show_historico_tr: boolean | null
+          show_maturidade_plataforma: boolean | null
+          show_oportunidades_atencao: boolean | null
+          show_priorizadas: boolean | null
+          show_treinamentos_reunioes: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          asana_project_id?: string | null
+          client_email_domain?: string | null
+          contract_id: string
+          created_at?: string | null
+          fireflies_keywords?: string[] | null
+          id?: string
+          show_demonstrativo_horas?: boolean | null
+          show_desempenho_aplicacao?: boolean | null
+          show_eficiencia_operacional?: boolean | null
+          show_eficiencia_previsibilidade?: boolean | null
+          show_engajamento_usuario?: boolean | null
+          show_entregas?: boolean | null
+          show_evolucao_inovacao?: boolean | null
+          show_historico_tr?: boolean | null
+          show_maturidade_plataforma?: boolean | null
+          show_oportunidades_atencao?: boolean | null
+          show_priorizadas?: boolean | null
+          show_treinamentos_reunioes?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          asana_project_id?: string | null
+          client_email_domain?: string | null
+          contract_id?: string
+          created_at?: string | null
+          fireflies_keywords?: string[] | null
+          id?: string
+          show_demonstrativo_horas?: boolean | null
+          show_desempenho_aplicacao?: boolean | null
+          show_eficiencia_operacional?: boolean | null
+          show_eficiencia_previsibilidade?: boolean | null
+          show_engajamento_usuario?: boolean | null
+          show_entregas?: boolean | null
+          show_evolucao_inovacao?: boolean | null
+          show_historico_tr?: boolean | null
+          show_maturidade_plataforma?: boolean | null
+          show_oportunidades_atencao?: boolean | null
+          show_priorizadas?: boolean | null
+          show_treinamentos_reunioes?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_configs_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: true
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
         ]
