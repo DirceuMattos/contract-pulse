@@ -378,7 +378,15 @@ serve(async (req) => {
 
     // Gerar arquivo e converter para base64
     const pptxBuffer = await pres.write({ outputType: "uint8array" }) as Uint8Array;
-    const base64 = btoa(String.fromCharCode(...pptxBuffer));
+
+    // Converter para base64 em chunks para evitar stack overflow com arrays grandes
+    let base64 = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < pptxBuffer.length; i += chunkSize) {
+      const chunk = pptxBuffer.subarray(i, i + chunkSize);
+      base64 += btoa(String.fromCharCode(...chunk));
+    }
+
     const filename = `relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx`;
 
     return new Response(JSON.stringify({ fileBase64: base64, filename }), {
