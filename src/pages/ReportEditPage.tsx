@@ -192,12 +192,27 @@ export default function ReportEditPage() {
         sectionMap[s.sectionKey] = s.content ?? {};
       }
 
+      // Resolve client logo to a fetchable URL (signed URL if it's a storage path)
+      let clientLogoUrl: string | undefined;
+      if (client?.logoUrl) {
+        if (/^https?:\/\//i.test(client.logoUrl)) {
+          clientLogoUrl = client.logoUrl;
+        } else {
+          const path = client.logoUrl.replace(/^client-logos\//, '');
+          const { data: signed } = await supabase.storage
+            .from('client-logos')
+            .createSignedUrl(path, 60 * 10);
+          clientLogoUrl = signed?.signedUrl;
+        }
+      }
+
       await generatePptx({
         mesAno: `${MESES[(report.month ?? 1) - 1]}/${report.year}`,
         nomeContrato: contract?.nome ?? "Contrato",
         nomeCliente: client?.nomeFantasia ?? client?.razaoSocial ?? "Cliente",
         numeroContrato: contract?.codigo ?? "",
         sections: sectionMap,
+        clientLogoUrl,
       });
 
       toast({ title: "PPTX gerado com sucesso!", variant: "default" });
