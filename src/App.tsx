@@ -112,6 +112,10 @@ const App = () => (
                           <Route path="/receivables" element={<ReceivablesDashboardPage />} />
                           <Route path="/receivables/reconcile" element={<ReceivablesReconcilePage />} />
                           <Route path="/adm-transportes" element={<TransportPage />} />
+                          <Route path="/relatorios" element={<ReportsPage />} />
+                          <Route path="/relatorios/config/:contractId" element={<ReportTemplateConfigPage />} />
+                          <Route path="/relatorios/:reportId" element={<ReportEditPage />} />
+                          
                           
                           
                           <Route path="/ajuda" element={<DashboardPage />} />
