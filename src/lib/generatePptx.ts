@@ -28,7 +28,7 @@ function headerBar(slide: any, titulo: string) {
   });
   slide.addImage({
     data: logoBnp,
-    x: 8.7, y: 0.08, w: 1.09, h: 0.50
+    x: 8.5, y: 0.08, w: 1.25, h: 0.55
   });
 }
 
