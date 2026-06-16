@@ -27,6 +27,7 @@ import {
   Briefcase,
   UserCircle2,
   Cog,
+  FileBarChart2,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
