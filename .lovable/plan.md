@@ -1,41 +1,30 @@
-## Resumo
-Substituir apenas o bloco final de geração e retorno da Edge Function `report-generate-pptx/index.ts`, convertendo o envio de binário (arraybuffer) para JSON contendo base64 + filename. Nenhuma outra lógica será alterada.
+## Objetivo
+Mover a geração do PPTX da Edge Function para o navegador, usando `pptxgenjs` no frontend. A Edge Function `report-generate-pptx` permanece intocada.
 
-## Alteração
-Arquivo: `supabase/functions/report-generate-pptx/index.ts`  
-Linhas-alvo: 379–388 (comentário `// Gerar arquivo` até o fechamento do `return new Response(pptxBuffer, ...)`)
+## Alterações
 
-### Bloco atual (remover)
-```typescript
-    // Gerar arquivo
-    const pptxBuffer = await pres.write({ outputType: "arraybuffer" }) as ArrayBuffer;
+### 1. Instalar dependência
+- `bun add pptxgenjs`
 
-    return new Response(pptxBuffer, {
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "Content-Disposition": `attachment; filename="relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx"`,
-        "Access-Control-Allow-Origin": "*",
-      }
-    });
-```
+### 2. Criar `src/lib/generatePptx.ts`
+- Novo módulo exportando `generatePptx(input)` e a interface `GeneratePptxInput`.
+- Gera os 9 slides (Capa, Sumário, Objetivo, Painel Executivo, Entregas, Eficiência Operacional, Treinamentos, Oportunidades, Encerramento) com o layout, cores (azul BNP) e helpers (`headerBar`, `statusBadge`, `kpiCard`) fornecidos.
+- Usa `logoBnp` importado de `@/assets/logo-bnp.png`.
+- Faz download direto via `pres.writeFile({ fileName })`.
 
-### Novo bloco (inserir)
-```typescript
-    // Gerar arquivo e converter para base64
-    const pptxBuffer = await pres.write({ outputType: "uint8array" }) as Uint8Array;
-    const base64 = btoa(String.fromCharCode(...pptxBuffer));
-    const filename = `relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx`;
+### 3. Editar `src/pages/ReportEditPage.tsx`
+- Adicionar import: `import { generatePptx } from "@/lib/generatePptx";`
+- Substituir a função `handleGeneratePPTX` para:
+  - Construir `sectionMap` a partir de `sections` (chave = `sectionKey`).
+  - Montar `mesAno` a partir do array `MESES` e `report.month`/`report.year`.
+  - Chamar `generatePptx({ mesAno, nomeContrato, nomeCliente, numeroContrato, sections: sectionMap })`.
+  - Exibir toasts de sucesso/erro e gerenciar `setGenerating`.
+- Nenhuma chamada à Edge Function `report-generate-pptx` permanece nesse handler.
 
-    return new Response(JSON.stringify({ fileBase64: base64, filename }), {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      }
-    });
-```
+## Itens a verificar antes de implementar
+- Confirmar que `@/assets/logo-bnp.png` existe (ou ajustar import).
+- Confirmar os campos disponíveis no escopo do `handleGeneratePPTX`: `sections` (com `sectionKey` e `content`), `report.month`, `report.year`, `contract.nome`, `contract.numero`, `client.nomeFantasia`/`razaoSocial`.
 
-## Notas técnicas
-- O `outputType` muda de `"arraybuffer"` para `"uint8array"` para facilitar a conversão base64 com `btoa`.
-- O `Content-Type` do `Response` muda de `application/vnd.openxmlformats-officedocument.presentationml.presentation` para `application/json`.
-- A resposta passa a ser `{ fileBase64: string, filename: string }` em vez de bytes crus.
-- O frontend que chama esta função deve estar preparado para receber JSON e decodificar o base64.
+## Fora de escopo
+- Edge Function `supabase/functions/report-generate-pptx` permanece inalterada.
+- Nenhuma outra parte do sistema é modificada.

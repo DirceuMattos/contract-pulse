@@ -18,6 +18,7 @@ import { SectionEditor } from '@/components/reports/SectionEditor';
 import { monthlyReportFromDb, reportSectionFromDb } from '@/lib/dbMappers';
 import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty } from '@/lib/reportSectionSchemas';
 import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus } from '@/types';
+import { generatePptx } from '@/lib/generatePptx';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -182,32 +183,22 @@ export default function ReportEditPage() {
   const handleGeneratePPTX = async () => {
     try {
       setGenerating(true);
-      
-      const { data, error } = await supabase.functions.invoke('report-generate-pptx', {
-        body: { reportId: report.id }
-      });
 
-      if (error) throw error;
-      if (!data?.fileBase64) throw new Error("Arquivo não retornado");
+      const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-      // Converter base64 para Blob e fazer download
-      const byteCharacters = atob(data.fileBase64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const sectionMap: Record<string, Record<string, unknown>> = {};
+      for (const s of sections) {
+        sectionMap[s.sectionKey] = s.content ?? {};
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], {
-        type: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+      await generatePptx({
+        mesAno: `${MESES[(report.month ?? 1) - 1]}/${report.year}`,
+        nomeContrato: contract?.nome ?? "Contrato",
+        nomeCliente: client?.nomeFantasia ?? client?.razaoSocial ?? "Cliente",
+        numeroContrato: contract?.codigo ?? "",
+        sections: sectionMap,
       });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = data.filename ?? "relatorio.pptx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
 
       toast({ title: "PPTX gerado com sucesso!", variant: "default" });
     } catch (err: unknown) {
@@ -217,6 +208,7 @@ export default function ReportEditPage() {
       setGenerating(false);
     }
   };
+
 
   if (isLoading || !report) {
     return <div className="p-6 text-sm text-muted-foreground">Carregando...</div>;
