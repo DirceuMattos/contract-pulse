@@ -123,12 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isSuperAdmin = userRole === 'superadmin';
-  const canViewValues = userRole === 'c-level' || userRole === 'administrativo' || userRole === 'superadmin';
-  const canEdit = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo' || userRole === 'superadmin';
-  const canCreate = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'superadmin');
-  const canDelete = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'superadmin');
-  const canAllocate = userRole === 'c-level' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo' || userRole === 'superadmin';
-  const canViewHRCosts = userRole === 'c-level' || userRole === 'administrativo' || userRole === 'superadmin';
+  const canViewValues = userRole === 'c-level' || userRole === 'demo' || userRole === 'administrativo' || userRole === 'superadmin';
+  const canEdit = userRole === 'c-level' || userRole === 'demo' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo' || userRole === 'superadmin';
+  const canCreate = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'demo' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'superadmin');
+  const canDelete = userRole !== 'lider_tribo' && (userRole === 'c-level' || userRole === 'demo' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'superadmin');
+  const canAllocate = userRole === 'c-level' || userRole === 'demo' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo' || userRole === 'superadmin';
+  const canViewHRCosts = userRole === 'c-level' || userRole === 'demo' || userRole === 'administrativo' || userRole === 'superadmin';
 
   return (
     <AuthContext.Provider value={{
