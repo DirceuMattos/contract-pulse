@@ -1,7 +1,9 @@
 import pptxgen from "pptxgenjs";
 import logoBnpUrl from "@/assets/logo-bnp-final.png";
+import logoBnpBlackUrl from "@/assets/logo-bnp-final-black.png";
 
 let logoBnp: string = "";
+let logoBnpBlack: string = "";
 
 const AZUL_ESCURO  = "1A4F8A";
 const AZUL_MEDIO   = "2D7FC1";
