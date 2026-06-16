@@ -584,3 +584,72 @@ export interface ContractSimulation {
   updatedAt: string;
   createdByUserId?: string;
 }
+
+// ============================================
+// Monthly Reports Module
+// ============================================
+export type ReportStatus = 'draft' | 'review' | 'approved' | 'published';
+
+export type ReportSectionKey =
+  | 'capa' | 'sumario' | 'objetivo' | 'historico_tr'
+  | 'painel_executivo' | 'evolucao_inovacao' | 'entregas'
+  | 'priorizadas' | 'demonstrativo_horas' | 'eficiencia_operacional'
+  | 'eficiencia_previsibilidade' | 'desempenho_aplicacao'
+  | 'engajamento_usuario' | 'maturidade_plataforma'
+  | 'treinamentos_reunioes' | 'oportunidades_atencao';
+
+export type ReportSectionSource = 'manual' | 'asana' | 'fireflies' | 'bnphub';
+
+export interface MonthlyReport {
+  id: string;
+  contractId: string;
+  month: number;
+  year: number;
+  status: ReportStatus;
+  asanaProjectId?: string;
+  clientEmailDomain?: string;
+  createdBy?: string;
+  reviewedBy?: string;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReportSection {
+  id: string;
+  reportId: string;
+  sectionKey: ReportSectionKey;
+  content: Record<string, unknown>;
+  source: ReportSectionSource;
+  syncedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReportTemplateConfig {
+  id: string;
+  contractId: string;
+  showHistoricoTr: boolean;
+  showEvolucaoInovacao: boolean;
+  showEntregas: boolean;
+  showPriorizadas: boolean;
+  showDemonstrativoHoras: boolean;
+  showEficienciaOperacional: boolean;
+  showEficienciaPrevisibilidade: boolean;
+  showDesempenhoAplicacao: boolean;
+  showEngajamentoUsuario: boolean;
+  showMaturidadePlataforma: boolean;
+  showTreinamentosReunioes: boolean;
+  showOportunidadesAtencao: boolean;
+  asanaProjectId?: string;
+  clientEmailDomain?: string;
+  firefliesKeywords?: string[];
+}
+
+export interface ReportCollaborator {
+  id: string;
+  reportId: string;
+  userId: string;
+  role: 'owner' | 'editor' | 'reviewer';
+  addedAt: string;
+}
