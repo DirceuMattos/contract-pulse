@@ -221,10 +221,18 @@ export function ClientForm({ client, mode }: ClientFormProps) {
         uf: data.uf || undefined,
         telefone: data.telefone || undefined,
         observacoes: data.observacoes || undefined,
+        logoUrl: logoUrl && !logoUrl.startsWith('blob:') ? logoUrl : undefined,
       };
       
       if (mode === 'create') {
         const newClient = await addClient(clientData);
+        // Upload deferred logo now that we have an id
+        if (pendingLogoFile) {
+          const path = await uploadLogoForClient(newClient.id, pendingLogoFile);
+          if (path) {
+            await updateClient(newClient.id, { logoUrl: path });
+          }
+        }
         toast({
           title: 'Cliente criado',
           description: `${data.nomeFantasia || data.razaoSocial} foi cadastrado com sucesso.`,
@@ -312,6 +320,52 @@ export function ClientForm({ client, mode }: ClientFormProps) {
                   </FormItem>
                 )}
               />
+
+              {/* Logo upload */}
+              <FormItem className="md:col-span-2">
+                <FormLabel>Logo do cliente</FormLabel>
+                <div className="flex items-center gap-4">
+                  {logoUrl?.startsWith('blob:') ? (
+                    <img src={logoUrl} alt="Preview" className="w-16 h-16 rounded-lg object-contain bg-white border" />
+                  ) : (
+                    <ClientLogo
+                      nome={form.watch('nomeFantasia') || form.watch('razaoSocial') || '?'}
+                      logoUrl={logoUrl}
+                      size="lg"
+                    />
+                  )}
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    {isUploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                    {logoUrl ? 'Trocar logo' : 'Enviar logo'}
+                  </Button>
+                  {logoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLogoRemove}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remover
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">PNG, JPG ou SVG até 2MB.</p>
+              </FormItem>
 
               <FormField
                 control={form.control}
