@@ -18,6 +18,7 @@ import { SectionEditor } from '@/components/reports/SectionEditor';
 import { monthlyReportFromDb, reportSectionFromDb } from '@/lib/dbMappers';
 import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty } from '@/lib/reportSectionSchemas';
 import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus } from '@/types';
+import { generatePptx } from '@/lib/generatePptx';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
