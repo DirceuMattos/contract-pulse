@@ -1,5 +1,5 @@
 import pptxgen from "pptxgenjs";
-import logoBnp from "@/assets/logo-bnp.png";
+import logoBnpUrl from "@/assets/logo-bnp.png";
 
 const AZUL_ESCURO  = "1A4F8A";
 const AZUL_MEDIO   = "2D7FC1";
