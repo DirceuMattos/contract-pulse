@@ -376,13 +376,14 @@ serve(async (req) => {
       });
     }
 
-    // Gerar arquivo
-    const pptxBuffer = await pres.write({ outputType: "arraybuffer" }) as ArrayBuffer;
+    // Gerar arquivo e converter para base64
+    const pptxBuffer = await pres.write({ outputType: "uint8array" }) as Uint8Array;
+    const base64 = btoa(String.fromCharCode(...pptxBuffer));
+    const filename = `relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx`;
 
-    return new Response(pptxBuffer, {
+    return new Response(JSON.stringify({ fileBase64: base64, filename }), {
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "Content-Disposition": `attachment; filename="relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx"`,
+        "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       }
     });
