@@ -22,6 +22,7 @@ import { ResourceForm } from '@/components/forms/ResourceForm';
 import { Input } from '@/components/ui/input';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { toast } from 'sonner';
 
 import {
@@ -285,28 +286,38 @@ export default function ContractResourcesPage() {
   return (
     <TooltipProvider>
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <PageHeader
-        title="Recursos do Contrato"
-        description={`${contract.nome} • ${client?.nomeFantasia || client?.razaoSocial}`}
-        animated={false}
-        breadcrumbs={[
-          { label: location.state?.from === '/squads' ? 'Squads' : 'Contratos', href: location.state?.from || '/contratos' },
-          { label: contract.codigo, href: `/contratos/${id}`, state: location.state },
-          { label: 'Recursos' },
-        ]}
-        actions={canEdit && userRole !== 'lider_tribo' ? (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setCopyDialogOpen(true)} className="gap-2">
-              <Copy className="w-4 h-4" />
-              Importar de outro contrato
-            </Button>
-            <Button onClick={() => setFormOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Adicionar Recurso
-            </Button>
-          </div>
-        ) : undefined}
-      />
+      <div className="flex items-start gap-3">
+        <ClientLogo
+          nome={client?.nomeFantasia || client?.razaoSocial || '?'}
+          logoUrl={client?.logoUrl}
+          size="lg"
+          className="shrink-0 mt-1"
+        />
+        <div className="flex-1 min-w-0">
+          <PageHeader
+            title="Recursos do Contrato"
+            description={`${contract.nome} • ${client?.nomeFantasia || client?.razaoSocial}`}
+            animated={false}
+            breadcrumbs={[
+              { label: location.state?.from === '/squads' ? 'Squads' : 'Contratos', href: location.state?.from || '/contratos' },
+              { label: contract.codigo, href: `/contratos/${id}`, state: location.state },
+              { label: 'Recursos' },
+            ]}
+            actions={canEdit && userRole !== 'lider_tribo' ? (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setCopyDialogOpen(true)} className="gap-2">
+                  <Copy className="w-4 h-4" />
+                  Importar de outro contrato
+                </Button>
+                <Button onClick={() => setFormOpen(true)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Adicionar Recurso
+                </Button>
+              </div>
+            ) : undefined}
+          />
+        </div>
+      </div>
 
       {/* Subprojects Banner */}
       {contractHasSubprojects && (

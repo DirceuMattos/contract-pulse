@@ -70,6 +70,7 @@ export interface GeneratePptxInput {
   nomeCliente: string;
   numeroContrato: string;
   sections: Record<string, Record<string, unknown>>;
+  clientLogoUrl?: string;
 }
 
 async function loadImageAsBase64(url: string): Promise<string> {
@@ -84,9 +85,17 @@ async function loadImageAsBase64(url: string): Promise<string> {
 }
 
 export async function generatePptx(input: GeneratePptxInput): Promise<void> {
-  const { mesAno, nomeContrato, nomeCliente, numeroContrato, sections } = input;
+  const { mesAno, nomeContrato, nomeCliente, numeroContrato, sections, clientLogoUrl } = input;
   logoBnp = await loadImageAsBase64(logoBnpUrl);
   logoBnpBlack = await loadImageAsBase64(logoBnpBlackUrl);
+  let clientLogo: string | null = null;
+  if (clientLogoUrl) {
+    try {
+      clientLogo = await loadImageAsBase64(clientLogoUrl);
+    } catch {
+      clientLogo = null;
+    }
+  }
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9";
 
@@ -99,6 +108,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     s.addShape("ellipse", { x: 6.5, y: 0.2, w: 4.5, h: 4.5,
       fill: { color: AZUL_ESCURO, transparency: 30 }, line: { color: AZUL_ESCURO, transparency: 30 } });
     s.addImage({ data: logoBnpBlack, x: 0.5, y: 0.3, w: 2.4, h: 1.1 });
+    if (clientLogo) {
+      s.addImage({ data: clientLogo, x: 3.2, y: 0.35, w: 2.0, h: 1.0, sizing: { type: "contain", w: 2.0, h: 1.0 } });
+    }
     s.addText("Relatório Mensal de Atividades", {
       x: 0.5, y: 2.0, w: 5.5, h: 0.75,
       fontSize: 26, bold: true, color: AZUL_ESCURO, margin: 0
@@ -319,6 +331,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     s.addShape("ellipse", { x: 3.5, y: 1.1, w: 3.5, h: 3.5,
       fill: { color: AZUL_ESCURO, transparency: 35 }, line: { color: AZUL_ESCURO, transparency: 35 } });
     s.addImage({ data: logoBnp, x: 2.8, y: 2.2, w: 3.28, h: 1.5 });
+    if (clientLogo) {
+      s.addImage({ data: clientLogo, x: 0.4, y: 0.4, w: 2.0, h: 1.0, sizing: { type: "contain", w: 2.0, h: 1.0 } });
+    }
     s.addText(mesAno, {
       x: 2.5, y: 3.9, w: 5.0, h: 0.55,
       fontSize: 20, bold: true, color: AZUL_ESCURO, align: "center", margin: 0

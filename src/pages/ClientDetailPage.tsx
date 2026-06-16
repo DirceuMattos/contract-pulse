@@ -14,6 +14,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,15 +73,11 @@ export default function ClientDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex items-center gap-4">
-            <div className={cn(
-              'w-14 h-14 rounded-xl flex items-center justify-center',
-              client.segmento === 'govtech' ? 'bg-primary/10' : 'bg-chart-4/10'
-            )}>
-              <Building2 className={cn(
-                'w-7 h-7',
-                client.segmento === 'govtech' ? 'text-primary' : 'text-chart-4'
-              )} />
-            </div>
+            <ClientLogo
+              nome={client.nomeFantasia || client.razaoSocial}
+              logoUrl={client.logoUrl}
+              size="lg"
+            />
             <div>
               <h1 className="text-2xl font-bold text-foreground">
                 {client.nomeFantasia || client.razaoSocial}
