@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ─── CORES BNP ───────────────────────────────────────────────────────────────
@@ -379,13 +380,7 @@ serve(async (req) => {
     // Gerar arquivo e converter para base64
     const pptxBuffer = await pres.write({ outputType: "uint8array" }) as Uint8Array;
 
-    // Converter para base64 em chunks para evitar stack overflow com arrays grandes
-    let base64 = "";
-    const chunkSize = 8192;
-    for (let i = 0; i < pptxBuffer.length; i += chunkSize) {
-      const chunk = pptxBuffer.subarray(i, i + chunkSize);
-      base64 += btoa(String.fromCharCode(...chunk));
-    }
+    const base64 = encodeBase64(pptxBuffer);
 
     const filename = `relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx`;
 
