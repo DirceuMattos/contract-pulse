@@ -1,6 +1,8 @@
 import pptxgen from "pptxgenjs";
 import logoBnpUrl from "@/assets/logo-bnp.png";
 
+let logoBnp: string = "";
+
 const AZUL_ESCURO  = "1A4F8A";
 const AZUL_MEDIO   = "2D7FC1";
 const AZUL_CLARO   = "D6E8F7";
