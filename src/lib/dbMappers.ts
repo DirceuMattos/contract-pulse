@@ -6,6 +6,8 @@ import type {
   HistoryEvent, DocumentAttachment, AttachmentDescriptionConfig,
   JobTitle, Team, ContractSimulation, SimulationHRItem, SimulationOtherCost,
   HRPerson, HRTimelineEvent, DemandType,
+  MonthlyReport, ReportSection, ReportTemplateConfig, ReportCollaborator,
+  ReportStatus, ReportSectionKey, ReportSectionSource,
 } from '@/types';
 import { emptyToNull } from '@/lib/utils';
 
@@ -709,5 +711,115 @@ export function hrTimelineToDb(e: Omit<HRTimelineEvent, 'id' | 'createdAt' | 'up
     remuneracao_apos: e.remuneracaoApos ?? null,
     beneficios_apos: e.beneficiosApos ?? null,
     atualizar_remuneracao: e.atualizarRemuneracao,
+  };
+}
+
+// ============================================
+// Monthly Reports mappers
+// ============================================
+export function monthlyReportFromDb(row: Record<string, any>): MonthlyReport {
+  return {
+    id: row.id,
+    contractId: row.contract_id,
+    month: row.month,
+    year: row.year,
+    status: row.status as ReportStatus,
+    asanaProjectId: row.asana_project_id ?? undefined,
+    clientEmailDomain: row.client_email_domain ?? undefined,
+    createdBy: row.created_by ?? undefined,
+    reviewedBy: row.reviewed_by ?? undefined,
+    publishedAt: row.published_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function monthlyReportToDb(r: Partial<MonthlyReport>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (r.contractId !== undefined) out.contract_id = r.contractId;
+  if (r.month !== undefined) out.month = r.month;
+  if (r.year !== undefined) out.year = r.year;
+  if (r.status !== undefined) out.status = r.status;
+  if (r.asanaProjectId !== undefined) out.asana_project_id = emptyToNull(r.asanaProjectId);
+  if (r.clientEmailDomain !== undefined) out.client_email_domain = emptyToNull(r.clientEmailDomain);
+  if (r.createdBy !== undefined) out.created_by = r.createdBy ?? null;
+  if (r.reviewedBy !== undefined) out.reviewed_by = r.reviewedBy ?? null;
+  if (r.publishedAt !== undefined) out.published_at = r.publishedAt ?? null;
+  return out;
+}
+
+export function reportSectionFromDb(row: Record<string, any>): ReportSection {
+  return {
+    id: row.id,
+    reportId: row.report_id,
+    sectionKey: row.section_key as ReportSectionKey,
+    content: (row.content ?? {}) as Record<string, unknown>,
+    source: row.source as ReportSectionSource,
+    syncedAt: row.synced_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function reportSectionToDb(s: Partial<ReportSection>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (s.reportId !== undefined) out.report_id = s.reportId;
+  if (s.sectionKey !== undefined) out.section_key = s.sectionKey;
+  if (s.content !== undefined) out.content = s.content as unknown;
+  if (s.source !== undefined) out.source = s.source;
+  if (s.syncedAt !== undefined) out.synced_at = s.syncedAt ?? null;
+  return out;
+}
+
+export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemplateConfig {
+  return {
+    id: row.id,
+    contractId: row.contract_id,
+    showHistoricoTr: row.show_historico_tr ?? true,
+    showEvolucaoInovacao: row.show_evolucao_inovacao ?? true,
+    showEntregas: row.show_entregas ?? true,
+    showPriorizadas: row.show_priorizadas ?? true,
+    showDemonstrativoHoras: row.show_demonstrativo_horas ?? true,
+    showEficienciaOperacional: row.show_eficiencia_operacional ?? true,
+    showEficienciaPrevisibilidade: row.show_eficiencia_previsibilidade ?? true,
+    showDesempenhoAplicacao: row.show_desempenho_aplicacao ?? true,
+    showEngajamentoUsuario: row.show_engajamento_usuario ?? true,
+    showMaturidadePlataforma: row.show_maturidade_plataforma ?? true,
+    showTreinamentosReunioes: row.show_treinamentos_reunioes ?? true,
+    showOportunidadesAtencao: row.show_oportunidades_atencao ?? true,
+    asanaProjectId: row.asana_project_id ?? undefined,
+    clientEmailDomain: row.client_email_domain ?? undefined,
+    firefliesKeywords: row.fireflies_keywords ?? [],
+  };
+}
+
+export function reportTemplateConfigToDb(c: Partial<ReportTemplateConfig>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.contractId !== undefined) out.contract_id = c.contractId;
+  if (c.showHistoricoTr !== undefined) out.show_historico_tr = c.showHistoricoTr;
+  if (c.showEvolucaoInovacao !== undefined) out.show_evolucao_inovacao = c.showEvolucaoInovacao;
+  if (c.showEntregas !== undefined) out.show_entregas = c.showEntregas;
+  if (c.showPriorizadas !== undefined) out.show_priorizadas = c.showPriorizadas;
+  if (c.showDemonstrativoHoras !== undefined) out.show_demonstrativo_horas = c.showDemonstrativoHoras;
+  if (c.showEficienciaOperacional !== undefined) out.show_eficiencia_operacional = c.showEficienciaOperacional;
+  if (c.showEficienciaPrevisibilidade !== undefined) out.show_eficiencia_previsibilidade = c.showEficienciaPrevisibilidade;
+  if (c.showDesempenhoAplicacao !== undefined) out.show_desempenho_aplicacao = c.showDesempenhoAplicacao;
+  if (c.showEngajamentoUsuario !== undefined) out.show_engajamento_usuario = c.showEngajamentoUsuario;
+  if (c.showMaturidadePlataforma !== undefined) out.show_maturidade_plataforma = c.showMaturidadePlataforma;
+  if (c.showTreinamentosReunioes !== undefined) out.show_treinamentos_reunioes = c.showTreinamentosReunioes;
+  if (c.showOportunidadesAtencao !== undefined) out.show_oportunidades_atencao = c.showOportunidadesAtencao;
+  if (c.asanaProjectId !== undefined) out.asana_project_id = emptyToNull(c.asanaProjectId);
+  if (c.clientEmailDomain !== undefined) out.client_email_domain = emptyToNull(c.clientEmailDomain);
+  if (c.firefliesKeywords !== undefined) out.fireflies_keywords = c.firefliesKeywords ?? [];
+  return out;
+}
+
+export function reportCollaboratorFromDb(row: Record<string, any>): ReportCollaborator {
+  return {
+    id: row.id,
+    reportId: row.report_id,
+    userId: row.user_id,
+    role: row.role as ReportCollaborator['role'],
+    addedAt: row.added_at,
   };
 }

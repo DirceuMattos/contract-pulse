@@ -27,6 +27,7 @@ import {
   Briefcase,
   UserCircle2,
   Cog,
+  FileBarChart2,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
@@ -77,6 +78,7 @@ const navGroups: NavGroup[] = [
       { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
       { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
       { path: '/receivables', label: 'Recebíveis', icon: Receipt, moduleKey: 'RECEIVABLES' },
+      { path: '/relatorios', label: 'Relatórios Mensais', icon: FileBarChart2, moduleKey: 'REPORTS' },
       { path: '/calculadora', label: 'Simulador de Contratos', icon: Calculator, moduleKey: 'CALCULATOR' },
     ],
   },
