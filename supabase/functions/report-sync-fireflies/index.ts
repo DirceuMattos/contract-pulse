@@ -19,12 +19,26 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const { reportId, clientEmailDomain, firefliesKeywords = [], month, year } = (await req.json()) as Body;
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const lovableKey = Deno.env.get('LOVABLE_API_KEY');
     const firefliesKey = Deno.env.get('FIREFLIES_API_KEY');
     if (!lovableKey || !firefliesKey) {
-      throw new Error('Conector Fireflies não está vinculado. Vincule via Connectors.');
+      const msg = 'Conector Fireflies não está vinculado. A seção pode ser preenchida manualmente.';
+      const now = new Date().toISOString();
+      if (reportId) {
+        await supabase.from('report_sync_logs').insert({
+          report_id: reportId,
+          source: 'fireflies',
+          status: 'skipped',
+          records_fetched: 0,
+          error_message: msg,
+          synced_at: now,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, skipped: true, count: 0, message: msg }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     const fromDate = new Date(Date.UTC(year, month - 1, 1)).toISOString();
     const toDate = new Date(Date.UTC(year, month, 1)).toISOString();
