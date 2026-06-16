@@ -98,7 +98,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       fill: { color: AZUL_MEDIO, transparency: 20 }, line: { color: AZUL_MEDIO, transparency: 20 } });
     s.addShape("ellipse", { x: 6.5, y: 0.2, w: 4.5, h: 4.5,
       fill: { color: AZUL_ESCURO, transparency: 30 }, line: { color: AZUL_ESCURO, transparency: 30 } });
-    s.addImage({ data: logoBnp, x: 0.5, y: 0.3, w: 2.4, h: 1.1 });
+    s.addImage({ data: logoBnpBlack, x: 0.5, y: 0.3, w: 2.4, h: 1.1 });
     s.addText("Relatório Mensal de Atividades", {
       x: 0.5, y: 2.0, w: 5.5, h: 0.75,
       fontSize: 26, bold: true, color: AZUL_ESCURO, margin: 0
