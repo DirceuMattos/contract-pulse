@@ -113,6 +113,9 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   
   // Receivables routes
   if (pathname.startsWith('/receivables')) return 'RECEIVABLES';
+
+  // Reports routes
+  if (pathname.startsWith('/relatorios')) return 'REPORTS';
   
   // AI routes
   if (pathname === '/ai/logs') return 'AI_LOGS';
