@@ -27,8 +27,11 @@ const HRContext = createContext<HRContextType | undefined>(undefined);
 
 export function HRProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { toast } = useToast();
+  const { userRole } = useAuth();
   const [hrPeople, setHrPeople] = useState<HRPerson[]>([]);
   const [hrTimeline, setHrTimeline] = useState<HRTimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const handleError = useCallback((err: unknown, message: string) => {
