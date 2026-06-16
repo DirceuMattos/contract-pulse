@@ -287,6 +287,7 @@ export type Database = {
           id: string
           inscricao_estadual: string | null
           is_demo: boolean | null
+          logo_url: string | null
           logradouro: string | null
           nome_fantasia: string | null
           numero: string | null
@@ -311,6 +312,7 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           is_demo?: boolean | null
+          logo_url?: string | null
           logradouro?: string | null
           nome_fantasia?: string | null
           numero?: string | null
@@ -335,6 +337,7 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           is_demo?: boolean | null
+          logo_url?: string | null
           logradouro?: string | null
           nome_fantasia?: string | null
           numero?: string | null
