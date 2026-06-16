@@ -195,7 +195,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         ],
         ...tarefas.map(t => [t.nome ?? "", t.status ?? "Concluído", t.categoria ?? "Desenvolvimento"])
       ];
-      s.addTable(tableData, {
+      s.addTable(tableData as any, {
         x: 0.4, y: 1.55, w: 9.2, fontSize: 10,
         border: { pt: 0.5, color: "D0DCE8" },
         rowH: 0.42, colW: [5.0, 1.4, 2.8],
@@ -249,7 +249,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         ],
         ...reunioes.map(r => [r.tipo ?? "", r.data ?? "", r.descricao ?? ""])
       ];
-      s.addTable(tableData, {
+      s.addTable(tableData as any, {
         x: 0.4, y: 1.1, w: 9.2, fontSize: 10,
         border: { pt: 0.5, color: "D0DCE8" },
         rowH: 0.55, colW: [3.0, 1.2, 5.0],
@@ -280,7 +280,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         ],
         ...itens.map(i => [i.descricao ?? "", i.fator ?? ""])
       ];
-      s.addTable(tableData, {
+      s.addTable(tableData as any, {
         x: 0.4, y: 1.1, w: 9.2, fontSize: 10,
         border: { pt: 0.5, color: "D0DCE8" },
         rowH: 0.65, colW: [3.5, 5.7],
