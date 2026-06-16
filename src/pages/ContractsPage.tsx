@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 import { formatDate, formatCurrency, formatPercentage, calculateContractHealth } from '@/lib/calculations';
 import { HealthStatus } from '@/types';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { toast } from 'sonner';
 import { buildXlsx, downloadCSV } from '@/lib/importExport';
@@ -559,6 +560,14 @@ export default function ContractsPage() {
                       health.status === 'atencao' && 'bg-health-attention',
                       health.status === 'critico' && 'bg-health-critical',
                     )} />
+                    {/* Client logo */}
+                    <ClientLogo
+                      nome={client?.nomeFantasia || client?.razaoSocial || '?'}
+                      logoUrl={client?.logoUrl}
+                      size="md"
+                      className="shrink-0 hidden sm:flex"
+                    />
+                    
                     
                     {/* Main info */}
                     <div className="flex-1 min-w-0">
