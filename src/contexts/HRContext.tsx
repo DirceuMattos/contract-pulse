@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { HRPerson, HRTimelineEvent } from '@/types';
 import { hrPersonFromDb, hrPersonToDb, hrTimelineFromDb, hrTimelineToDb } from '@/lib/dbMappers';
+import { useAuth } from '@/contexts/AuthContext';
+import { maskPersonName, maskPersonEmail } from '@/lib/demoMask';
 
 interface HRContextType {
   hrPeople: HRPerson[];

@@ -19,6 +19,8 @@ import {
   teamFromDb, teamToDb,
 } from '@/lib/dbMappers';
 import { autoLinkHRPerson } from '@/lib/autoLinkHR';
+import { useAuth } from '@/contexts/AuthContext';
+import { maskClientName, maskContractName } from '@/lib/demoMask';
 import {
   mockClients, mockContracts, mockResources, mockSnapshots,
   defaultSettings, mockOverheadItems, mockHistoryEvents,
