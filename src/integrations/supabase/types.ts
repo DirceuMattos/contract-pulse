@@ -1532,6 +1532,59 @@ export type Database = {
           },
         ]
       }
+      monthly_reports: {
+        Row: {
+          asana_project_id: string | null
+          client_email_domain: string | null
+          contract_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          month: number
+          published_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          asana_project_id?: string | null
+          client_email_domain?: string | null
+          contract_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          month: number
+          published_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          asana_project_id?: string | null
+          client_email_domain?: string | null
+          contract_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          month?: number
+          published_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_reports_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       overhead_items: {
         Row: {
           categoria: Database["public"]["Enums"]["overhead_category"]
@@ -1745,6 +1798,85 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      report_sections: {
+        Row: {
+          content: Json
+          created_at: string | null
+          id: string
+          report_id: string
+          section_key: string
+          source: string
+          synced_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content?: Json
+          created_at?: string | null
+          id?: string
+          report_id: string
+          section_key: string
+          source?: string
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: Json
+          created_at?: string | null
+          id?: string
+          report_id?: string
+          section_key?: string
+          source?: string
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_sections_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_sync_logs: {
+        Row: {
+          error_message: string | null
+          id: string
+          records_fetched: number | null
+          report_id: string
+          source: string
+          status: string
+          synced_at: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          records_fetched?: number | null
+          report_id: string
+          source: string
+          status: string
+          synced_at?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          records_fetched?: number | null
+          report_id?: string
+          source?: string
+          status?: string
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_sync_logs_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_reports"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resources: {
         Row: {
