@@ -2166,6 +2166,42 @@ export type Database = {
           },
         ]
       }
+      snapshots_backup_20260615: {
+        Row: {
+          contract_id: string | null
+          created_at: string | null
+          custo_mensal: number | null
+          health_status: Database["public"]["Enums"]["health_status"] | null
+          id: string | null
+          margem_mensal: number | null
+          margem_percentual: number | null
+          receita_mensal: number | null
+          user_id: string | null
+        }
+        Insert: {
+          contract_id?: string | null
+          created_at?: string | null
+          custo_mensal?: number | null
+          health_status?: Database["public"]["Enums"]["health_status"] | null
+          id?: string | null
+          margem_mensal?: number | null
+          margem_percentual?: number | null
+          receita_mensal?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          contract_id?: string | null
+          created_at?: string | null
+          custo_mensal?: number | null
+          health_status?: Database["public"]["Enums"]["health_status"] | null
+          id?: string | null
+          margem_mensal?: number | null
+          margem_percentual?: number | null
+          receita_mensal?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       subproject_allocations: {
         Row: {
           cost_value: number | null
