@@ -82,12 +82,12 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
       const sectionRows = activeSections.map((m) => ({
         report_id: report.id,
         section_key: m.key,
-        content: defaultsForSection(m.key),
+        content: defaultsForSection(m.key) as any,
         source: m.source,
       }));
 
       if (sectionRows.length > 0) {
-        const { error: secErr } = await supabase.from('report_sections').insert(sectionRows);
+        const { error: secErr } = await supabase.from('report_sections').insert(sectionRows as any);
         if (secErr) throw secErr;
       }
 
