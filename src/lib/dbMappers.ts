@@ -41,6 +41,7 @@ export function clientFromDb(row: Record<string, unknown>): Client {
     segmento: row.segmento as 'govtech' | 'privado',
     tags: (row.tags as string[]) ?? [],
     observacoes: (row.observacoes as string | null) ?? undefined,
+    logoUrl: (row.logo_url as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -66,6 +67,7 @@ export function clientToDb(client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'
     segmento: client.segmento,
     tags: client.tags ?? [],
     observacoes: client.observacoes ?? null,
+    logo_url: client.logoUrl ?? null,
   };
 }
 

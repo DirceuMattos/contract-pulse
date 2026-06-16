@@ -56,6 +56,7 @@ import { HealthStatus, Resource, OverheadItem } from '@/types';
 import { healthConfig } from '@/lib/uiConstants';
 import ContractHistoryTab from '@/components/contracts/ContractHistoryTab';
 import ContractDocumentsTab from '@/components/contracts/ContractDocumentsTab';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -230,8 +231,11 @@ export default function ContractDetailPage() {
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <button 
                 onClick={() => navigate(`/clientes/${client?.id}`)}
-                className="flex items-center gap-1 hover:text-primary transition-colors"
+                className="flex items-center gap-2 hover:text-primary transition-colors"
               >
+                {client && (
+                  <ClientLogo nome={client.nomeFantasia || client.razaoSocial} logoUrl={client.logoUrl} size="sm" />
+                )}
                 <Building2 className="w-4 h-4" />
                 {client?.nomeFantasia || client?.razaoSocial}
               </button>

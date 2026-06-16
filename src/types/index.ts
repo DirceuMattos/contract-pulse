@@ -47,6 +47,7 @@ export interface Client {
   segmento: 'govtech' | 'privado';
   tags: string[];
   observacoes?: string;
+  logoUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

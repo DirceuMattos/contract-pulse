@@ -1,14 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Loader2, Plus, X } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, X, Upload, Trash2 } from 'lucide-react';
 import { Client } from '@/types';
 import { clientFormSchema, ClientFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
 import { handleFormValidationError } from '@/lib/formValidation';
+import { supabase } from '@/integrations/supabase/client';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,6 +83,60 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   const [newTag, setNewTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(client?.logoUrl);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadLogoForClient = useCallback(async (clientId: string, file: File): Promise<string | null> => {
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `${clientId}/logo.${ext}`;
+    const { error } = await supabase.storage
+      .from('client-logos')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: 'Erro ao enviar logo', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    return path;
+  }, [toast]);
+
+  const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Arquivo inválido', description: 'Selecione uma imagem.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Imagem muito grande', description: 'Tamanho máximo 2MB.', variant: 'destructive' });
+      return;
+    }
+    // Edit mode: upload immediately
+    if (client?.id) {
+      setIsUploadingLogo(true);
+      const path = await uploadLogoForClient(client.id, file);
+      setIsUploadingLogo(false);
+      if (path) {
+        setLogoUrl(path);
+        toast({ title: 'Logo atualizada' });
+      }
+    } else {
+      // Create mode: defer upload until client exists
+      setPendingLogoFile(file);
+      const objectUrl = URL.createObjectURL(file);
+      setLogoUrl(objectUrl);
+    }
+  }, [client?.id, uploadLogoForClient, toast]);
+
+  const handleLogoRemove = useCallback(async () => {
+    if (client?.id && logoUrl && !logoUrl.startsWith('blob:') && !/^https?:/i.test(logoUrl)) {
+      await supabase.storage.from('client-logos').remove([logoUrl]);
+    }
+    setLogoUrl(undefined);
+    setPendingLogoFile(null);
+  }, [client?.id, logoUrl]);
 
   const fetchAddressByCep = useCallback(async (cepValue: string) => {
     const digits = cepValue.replace(/\D/g, '');
@@ -165,10 +221,18 @@ export function ClientForm({ client, mode }: ClientFormProps) {
         uf: data.uf || undefined,
         telefone: data.telefone || undefined,
         observacoes: data.observacoes || undefined,
+        logoUrl: logoUrl && !logoUrl.startsWith('blob:') ? logoUrl : undefined,
       };
       
       if (mode === 'create') {
         const newClient = await addClient(clientData);
+        // Upload deferred logo now that we have an id
+        if (pendingLogoFile) {
+          const path = await uploadLogoForClient(newClient.id, pendingLogoFile);
+          if (path) {
+            await updateClient(newClient.id, { logoUrl: path });
+          }
+        }
         toast({
           title: 'Cliente criado',
           description: `${data.nomeFantasia || data.razaoSocial} foi cadastrado com sucesso.`,
@@ -256,6 +320,52 @@ export function ClientForm({ client, mode }: ClientFormProps) {
                   </FormItem>
                 )}
               />
+
+              {/* Logo upload */}
+              <FormItem className="md:col-span-2">
+                <FormLabel>Logo do cliente</FormLabel>
+                <div className="flex items-center gap-4">
+                  {logoUrl?.startsWith('blob:') ? (
+                    <img src={logoUrl} alt="Preview" className="w-16 h-16 rounded-lg object-contain bg-white border" />
+                  ) : (
+                    <ClientLogo
+                      nome={form.watch('nomeFantasia') || form.watch('razaoSocial') || '?'}
+                      logoUrl={logoUrl}
+                      size="lg"
+                    />
+                  )}
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    {isUploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                    {logoUrl ? 'Trocar logo' : 'Enviar logo'}
+                  </Button>
+                  {logoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleLogoRemove}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remover
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">PNG, JPG ou SVG até 2MB.</p>
+              </FormItem>
 
               <FormField
                 control={form.control}

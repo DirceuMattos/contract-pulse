@@ -47,6 +47,7 @@ import {
 import { cn } from '@/lib/utils';
 import { formatCNPJ, formatPhone } from '@/lib/calculations';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { toast } from 'sonner';
 
@@ -169,16 +170,9 @@ export default function ClientsPage() {
                 )}>
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          'w-10 h-10 rounded-lg flex items-center justify-center',
-                          client.segmento === 'govtech' 
-                            ? 'bg-primary/10 text-primary' 
-                            : 'bg-chart-4/10 text-chart-4'
-                        )}>
-                          <Building2 className="w-5 h-5" />
-                        </div>
-                        <div>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ClientLogo nome={client.nomeFantasia || client.razaoSocial} logoUrl={client.logoUrl} size="md" />
+                        <div className="min-w-0">
                           <h3 className="font-semibold text-foreground line-clamp-1">
                             {client.nomeFantasia || client.razaoSocial}
                           </h3>
