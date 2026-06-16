@@ -1,18 +1,23 @@
-Criar utilitário de mascaramento de dados para o perfil demo e aplicá-lo em dois contextos.
+## Objetivo
+Remover completamente o sistema de mascaramento de dados para o perfil `demo` adicionado anteriormente.
 
-## Escopo
+## Alterações
 
-1. **Criar `src/lib/demoMask.ts`**
-   - Funções determinísticas que geram nomes fictícios consistentes a partir de um ID.
-   - `maskClientName`, `maskContractName`, `maskPersonName`, `maskPersonEmail`, `maskFinancialValue`.
-   - Usa hash simples sobre o ID para garantir que o mesmo ID sempre produz o mesmo nome mascarado.
+### 1. `src/lib/demoMask.ts`
+- Deletar o arquivo inteiro.
 
-2. **Alterar `src/contexts/DataContext.tsx`**
-   - Importar `useAuth` e as funções `maskClientName`, `maskContractName`.
-   - Após `setClients` e `setContracts` no carregamento inicial (linhas ~157-158), adicionar blocos condicionais `if (userRole === 'demo')` que sobrescrevem `nomeFantasia`, `razaoSocial` (clients) e `nome` (contracts) com os valores fictícios.
+### 2. `src/contexts/DataContext.tsx`
+- Remover o import de `demoMask`.
+- Remover o import e desestruturação de `useAuth`/`userRole` (não utilizados para outra finalidade).
+- Remover os dois blocos `if (userRole === 'demo')` que mascaram `nomeFantasia`/`razaoSocial` em clients e `nome` em contracts.
+- Restaurar `setClients` e `setContracts` ao comportamento original sem mascaramento.
 
-3. **Alterar `src/contexts/HRContext.tsx`**
-   - Importar `useAuth` e as funções `maskPersonName`, `maskPersonEmail`.
-   - Após `setHrPeople` no carregamento inicial (linha ~48), adicionar bloco condicional `if (userRole === 'demo')` que sobrescreve `nome` e `email` das pessoas com valores fictícios.
+### 3. `src/contexts/HRContext.tsx`
+- Remover o import de `demoMask`.
+- Remover o import e desestruturação de `useAuth`/`userRole` (não utilizados para outra finalidade).
+- Remover o bloco `if (userRole === 'demo')` que mascara `nome` e `email` em `hrPeople`.
+- Restaurar `setHrPeople` ao comportamento original sem mascaramento.
 
-Nenhuma outra lógica existente será modificada.
+## Restrições
+- Nenhuma outra lógica existente será alterada.
+- O build/TypeScript deve continuar passando após as remoções.
