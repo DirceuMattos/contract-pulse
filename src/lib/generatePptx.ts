@@ -1,5 +1,5 @@
 import pptxgen from "pptxgenjs";
-import logoBnpUrl from "@/assets/logo-bnp.png";
+import logoBnpUrl from "@/assets/logo-bnp-final.png";
 
 let logoBnp: string = "";
 
