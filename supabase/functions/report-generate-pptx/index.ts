@@ -1,151 +1,396 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import pptxgen from 'https://esm.sh/pptxgenjs@3.12.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// ─── CORES BNP ───────────────────────────────────────────────────────────────
+const AZUL_ESCURO  = "1A4F8A";
+const AZUL_MEDIO   = "2D7FC1";
+const AZUL_CLARO   = "D6E8F7";
+const CINZA_TEXTO  = "333333";
+const CINZA_CLARO  = "F5F7FA";
+const BRANCO       = "FFFFFF";
+
+const STATUS_CORES = {
+  alta:     { cor: "1E8A3E", label: "Alta Performance" },
+  adequado: { cor: "C8A000", label: "Adequado" },
+  atencao:  { cor: "C85000", label: "Atenção" },
+  critico:  { cor: "C81E1E", label: "Crítico" },
 };
 
-const HEADER_BG = '1A4F8A';
-const TABLE_HEADER = '2D7FC1';
-const CLOSING_BG = 'E6F0FA';
-const STATUS_COLORS: Record<string, string> = {
-  'Alta Performance': '22C55E',
-  'Adequado': 'EAB308',
-  'Atenção': 'F97316',
-  'Crítico': 'EF4444',
-};
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+               "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-const LABELS: Record<string, string> = {
-  capa: 'Capa', sumario: 'Sumário', objetivo: 'Objetivo', historico_tr: 'Histórico TR',
-  painel_executivo: 'Painel Executivo', evolucao_inovacao: 'Evolução e Inovação',
-  entregas: 'Entregas', priorizadas: 'Priorizadas', demonstrativo_horas: 'Demonstrativo de Horas',
-  eficiencia_operacional: 'Eficiência Operacional', eficiencia_previsibilidade: 'Eficiência e Previsibilidade',
-  desempenho_aplicacao: 'Desempenho da Aplicação', engajamento_usuario: 'Engajamento do Usuário',
-  maturidade_plataforma: 'Maturidade da Plataforma', treinamentos_reunioes: 'Treinamentos e Reuniões',
-  oportunidades_atencao: 'Oportunidades e Fatores de Atenção',
-};
-
-function addHeader(slide: any, pres: any, title: string) {
-  slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.6, fill: { color: HEADER_BG } });
-  slide.addText(title, { x: 0.3, y: 0.05, w: 9, h: 0.5, fontSize: 18, bold: true, color: 'FFFFFF', fontFace: 'Calibri' });
-}
-
-function addSection(pres: any, sectionKey: string, content: any) {
-  const slide = pres.addSlide();
-  addHeader(slide, pres, LABELS[sectionKey] ?? sectionKey);
-  let y = 0.9;
-  if (sectionKey === 'objetivo') {
-    slide.addText(String(content?.texto ?? ''), { x: 0.5, y, w: 9, h: 5, fontSize: 14, fontFace: 'Calibri' });
-  } else if (sectionKey === 'painel_executivo') {
-    const items = [
-      ['Histórico TR', content?.historicoTr], ['Evolução e Inovação', content?.evolucaoInovacao],
-      ['Eficiência Operacional', content?.eficienciaOperacional], ['Eficiência e Previsibilidade', content?.eficienciaPrevisibilidade],
-      ['Desempenho da Aplicação', content?.desempenhoAplicacao], ['Engajamento do Usuário', content?.engajamentoUsuario],
-    ];
-    items.forEach(([label, status], i) => {
-      const col = i % 2, row = Math.floor(i / 2);
-      const x = 0.5 + col * 4.7, yy = 1 + row * 1.4;
-      slide.addShape(pres.ShapeType.roundRect, { x, y: yy, w: 4.3, h: 1.2, fill: { color: 'F5F5F5' }, line: { color: 'CCCCCC' } });
-      slide.addText(String(label), { x: x + 0.2, y: yy + 0.1, w: 4, h: 0.4, fontSize: 12, bold: true, fontFace: 'Calibri' });
-      slide.addText(String(status ?? '-'), {
-        x: x + 0.2, y: yy + 0.55, w: 4, h: 0.5, fontSize: 14, bold: true,
-        color: STATUS_COLORS[status] ?? '666666', fontFace: 'Calibri',
-      });
-    });
-  } else if (Array.isArray(content?.linhas) && (sectionKey === 'entregas' || sectionKey === 'priorizadas')) {
-    const rows = [
-      [{ text: 'Tarefa', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Status', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Categoria', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Assignee', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } }],
-      ...content.linhas.slice(0, 15).map((l: any) => [l.tarefa, l.status, l.categoria, l.assignee]),
-    ];
-    slide.addTable(rows, { x: 0.3, y, w: 9.4, fontSize: 10, fontFace: 'Calibri', border: { type: 'solid', color: 'CCCCCC', pt: 0.5 } });
-  } else if (sectionKey === 'demonstrativo_horas' && Array.isArray(content?.linhas)) {
-    const rows = [
-      [{ text: 'Recurso', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Serviços', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Unidade', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Qtd.', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } }],
-      ...content.linhas.map((l: any) => [l.recurso, l.servicos, l.unidade, String(l.quantidade)]),
-    ];
-    slide.addTable(rows, { x: 0.3, y, w: 9.4, fontSize: 10, fontFace: 'Calibri', border: { type: 'solid', color: 'CCCCCC', pt: 0.5 } });
-    slide.addText(String(content?.legenda ?? ''), { x: 0.3, y: 6.5, w: 9.4, h: 0.5, fontSize: 9, italic: true, color: '666666' });
-  } else if (sectionKey === 'treinamentos_reunioes' && Array.isArray(content?.linhas)) {
-    const rows = [
-      [{ text: 'Tipo', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Data', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Descrição', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } }],
-      ...content.linhas.map((l: any) => [l.tipo, l.data, l.descricao]),
-    ];
-    slide.addTable(rows, { x: 0.3, y, w: 9.4, fontSize: 10, fontFace: 'Calibri', border: { type: 'solid', color: 'CCCCCC', pt: 0.5 } });
-  } else if (sectionKey === 'oportunidades_atencao' && Array.isArray(content?.linhas)) {
-    const rows = [
-      [{ text: 'Descrição', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } },
-       { text: 'Tipo', options: { bold: true, color: 'FFFFFF', fill: TABLE_HEADER } }],
-      ...content.linhas.map((l: any) => [l.descricao, l.tipo]),
-    ];
-    slide.addTable(rows, { x: 0.3, y, w: 9.4, fontSize: 11, fontFace: 'Calibri', border: { type: 'solid', color: 'CCCCCC', pt: 0.5 } });
-  } else {
-    // Generic: render key/values
-    const lines: string[] = [];
-    Object.entries(content ?? {}).forEach(([k, v]) => {
-      if (typeof v === 'string' || typeof v === 'number') lines.push(`${k}: ${v}`);
-    });
-    slide.addText(lines.join('\n') || '(seção em branco)', { x: 0.5, y, w: 9, h: 5, fontSize: 12, fontFace: 'Calibri' });
-    if (content?.analise) slide.addText(`Análise: ${content.analise}`, { x: 0.5, y: 5, w: 9, h: 1.5, fontSize: 11, italic: true, fontFace: 'Calibri' });
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    }});
   }
-}
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const { reportId } = await req.json();
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    const { data: report, error: rErr } = await supabase.from('monthly_reports').select('*').eq('id', reportId).single();
-    if (rErr) throw rErr;
-    const { data: sections } = await supabase.from('report_sections').select('*').eq('report_id', reportId).order('created_at');
-    const { data: contract } = await supabase.from('contracts').select('*').eq('id', report.contract_id).single();
-    const { data: client } = await supabase.from('clients').select('*').eq('id', contract?.client_id).maybeSingle();
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    const pres = new (pptxgen as any)();
-    pres.layout = 'LAYOUT_WIDE';
-    pres.title = `Relatório Mensal - ${contract?.nome ?? ''} - ${MONTHS[report.month - 1]}/${report.year}`;
+    // Buscar relatório
+    const { data: report } = await supabase
+      .from("monthly_reports")
+      .select("*, contracts(*, clients(*))")
+      .eq("id", reportId)
+      .single();
 
-    // Cover slide
-    const cover = pres.addSlide();
-    cover.background = { color: HEADER_BG };
-    cover.addText('RELATÓRIO MENSAL DE ATIVIDADES', { x: 0.5, y: 1.5, w: 12, h: 1, fontSize: 32, bold: true, color: 'FFFFFF', fontFace: 'Calibri' });
-    cover.addText(contract?.nome ?? '', { x: 0.5, y: 3, w: 12, h: 1, fontSize: 26, color: 'FFFFFF', fontFace: 'Calibri' });
-    cover.addText(client?.nome_fantasia || client?.razao_social || '', { x: 0.5, y: 4, w: 12, h: 0.6, fontSize: 18, color: 'CADCFC', fontFace: 'Calibri' });
-    cover.addText(`${MONTHS[report.month - 1]} / ${report.year}`, { x: 0.5, y: 5, w: 12, h: 0.6, fontSize: 18, color: 'FFFFFF', fontFace: 'Calibri' });
+    if (!report) throw new Error("Relatório não encontrado");
 
-    // Content sections
-    for (const s of (sections ?? [])) {
-      if (s.section_key === 'capa') continue;
-      addSection(pres, s.section_key, s.content);
+    // Buscar seções
+    const { data: sections } = await supabase
+      .from("report_sections")
+      .select("*")
+      .eq("report_id", reportId);
+
+    const sectionMap: Record<string, Record<string, unknown>> = {};
+    for (const s of sections ?? []) {
+      sectionMap[s.section_key] = s.content ?? {};
     }
 
-    // Closing slide
-    const closing = pres.addSlide();
-    closing.background = { color: CLOSING_BG };
-    closing.addText('Obrigado!', { x: 0.5, y: 2.5, w: 12, h: 1.5, fontSize: 48, bold: true, color: HEADER_BG, align: 'center', fontFace: 'Calibri' });
-    closing.addText('BNP — Soluções Digitais', { x: 0.5, y: 4, w: 12, h: 0.7, fontSize: 20, color: HEADER_BG, align: 'center', fontFace: 'Calibri' });
+    const contract = report.contracts;
+    const client = contract?.clients;
+    const mesAno = `${MESES[(report.month ?? 1) - 1]}/${report.year}`;
+    const nomeContrato = contract?.nome ?? "Contrato";
+    const nomeCliente = client?.nome_fantasia ?? client?.razao_social ?? "Cliente";
+    const numeroContrato = contract?.numero ?? "";
 
-    const base64 = await pres.write({ outputType: 'base64' });
-    const filename = `relatorio-${report.year}-${String(report.month).padStart(2, '0')}-${(contract?.nome ?? 'contrato').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.pptx`;
+    // Importar pptxgenjs via CDN
+    const pptxgen = (await import("https://esm.sh/pptxgenjs@3.12.0")).default;
+    const pres = new pptxgen();
+    pres.layout = "LAYOUT_16x9";
 
-    return new Response(JSON.stringify({ fileBase64: base64, filename }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function headerBar(slide: unknown, titulo: string) {
+      (slide as any).addShape("rect", {
+        x: 0, y: 0, w: 10, h: 0.65,
+        fill: { color: AZUL_ESCURO }, line: { color: AZUL_ESCURO }
+      });
+      (slide as any).addText(titulo, {
+        x: 0.35, y: 0, w: 7.5, h: 0.65,
+        fontSize: 16, bold: true, color: BRANCO, valign: "middle", margin: 0
+      });
+      // Logo BNP — base64 embutida (versão reduzida)
+      // Nota: em produção, buscar do Storage
+      (slide as any).addText("bnp", {
+        x: 8.5, y: 0.1, w: 1.3, h: 0.45,
+        fontSize: 18, bold: true, color: BRANCO, align: "right", valign: "middle"
+      });
+    }
+
+    function statusBadge(slide: unknown, x: number, y: number, w: number, status: string) {
+      const s = STATUS_CORES[status as keyof typeof STATUS_CORES] ?? STATUS_CORES.adequado;
+      (slide as any).addShape("roundRect", {
+        x, y, w, h: 0.34,
+        fill: { color: s.cor }, line: { color: s.cor }, rectRadius: 0.05
+      });
+      (slide as any).addText(s.label, {
+        x, y, w, h: 0.34,
+        fontSize: 11, bold: true, color: BRANCO, align: "center", valign: "middle", margin: 0
+      });
+    }
+
+    function kpiCard(slide: unknown, x: number, y: number, w: number, h: number, label: string, valor: string, cor?: string) {
+      (slide as any).addShape("roundRect", {
+        x, y, w, h,
+        fill: { color: CINZA_CLARO },
+        shadow: { type: "outer", color: "000000", blur: 4, offset: 1, angle: 45, opacity: 0.10 },
+        rectRadius: 0.08, line: { color: "E0E7EF", width: 0.5 }
+      });
+      (slide as any).addText(label, {
+        x: x+0.1, y: y+0.1, w: w-0.2, h: 0.3,
+        fontSize: 9, color: "666666", align: "center", valign: "middle", margin: 0
+      });
+      (slide as any).addText(valor, {
+        x: x+0.1, y: y+0.38, w: w-0.2, h: h-0.5,
+        fontSize: 22, bold: true, color: cor ?? AZUL_ESCURO,
+        align: "center", valign: "middle", margin: 0
+      });
+    }
+
+    // ── SLIDE 1: CAPA ─────────────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: "EEF4FB" };
+      s.addShape("ellipse", { x: 5.8, y: -1.2, w: 6, h: 6,
+        fill: { color: AZUL_MEDIO, transparency: 20 }, line: { color: AZUL_MEDIO, transparency: 20 } });
+      s.addShape("ellipse", { x: 6.5, y: 0.2, w: 4.5, h: 4.5,
+        fill: { color: AZUL_ESCURO, transparency: 30 }, line: { color: AZUL_ESCURO, transparency: 30 } });
+
+      s.addText("Relatório Mensal de Atividades", {
+        x: 0.5, y: 2.0, w: 5.5, h: 0.75,
+        fontSize: 26, bold: true, color: AZUL_ESCURO, margin: 0
+      });
+
+      s.addText([
+        { text: mesAno,           options: { bold: true, breakLine: true } },
+        { text: "Projeto: ",      options: { color: "777777", breakLine: false } },
+        { text: nomeContrato,     options: { bold: true, breakLine: true } },
+        { text: nomeCliente,      options: { color: "555555", breakLine: true } },
+        { text: "Contrato: ",     options: { color: "777777", breakLine: false } },
+        { text: numeroContrato,   options: { bold: true, color: AZUL_ESCURO } },
+      ], {
+        x: 0.5, y: 2.9, w: 5.5, h: 1.6, fontSize: 13, color: CINZA_TEXTO
+      });
+
+      const capa = sectionMap["capa"] ?? {};
+      const criadoPor = (capa.criado_por as string) ?? "";
+      const revisadoPor = (capa.revisado_por as string) ?? "";
+
+      if (criadoPor || revisadoPor) {
+        s.addText([
+          { text: "Criado por: ",    options: { italic: true, color: "777777" } },
+          { text: criadoPor,          options: { italic: true, color: "444444" } },
+          { text: "\nRevisado por: ", options: { italic: true, color: "777777" } },
+          { text: revisadoPor,        options: { italic: true, color: "444444" } },
+        ], { x: 0.5, y: 4.6, w: 5.5, h: 0.8, fontSize: 11 });
+      }
+    }
+
+    // ── SLIDE 2: SUMÁRIO ──────────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Sumário");
+
+      const secoes = [
+        "Objetivo do relatório",
+        "Painel executivo",
+        "Histórico evolutivo do Termo de Referência",
+        "Evolução e Inovação",
+        "Evolução e Inovação / Entregas",
+        "Demonstrativo de Horas",
+        "Eficiência Operacional",
+        "Eficiência e Previsibilidade",
+        "Engajamento e Experiência do Usuário",
+        "Maturidade e Gestão da Plataforma",
+        "Treinamentos / Reuniões",
+        "Oportunidades e Fatores de Atenção",
+      ];
+
+      s.addText(secoes.map((t, i) => ({
+        text: `${i + 1}.  ${t}`,
+        options: { breakLine: true, paraSpaceAfter: 4 }
+      })), {
+        x: 1.5, y: 0.85, w: 7, h: 4.5,
+        fontSize: 13, color: AZUL_MEDIO
+      });
+    }
+
+    // ── SLIDE 3: OBJETIVO ─────────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Objetivo do relatório");
+      const obj = sectionMap["objetivo"] ?? {};
+      const texto = (obj.texto as string) ?? `Este relatório tem como objetivo apresentar, de forma clara e estruturada, o acompanhamento das atividades realizadas no projeto ${nomeContrato} no mês de ${mesAno}.`;
+      s.addText(texto, { x: 0.6, y: 0.9, w: 8.8, h: 1.2, fontSize: 13, color: CINZA_TEXTO });
+      s.addText("O documento consolida informações sobre a evolução da plataforma, o engajamento dos usuários, a eficiência operacional e desempenho da aplicação, bem como os principais indicadores, entregas realizadas, prioridades do próximo período e pontos de atenção estratégicos.",
+        { x: 0.6, y: 2.2, w: 8.8, h: 1.2, fontSize: 13, color: CINZA_TEXTO });
+      s.addText([
+        { text: "Transparência  •  ", options: { bold: true, color: AZUL_MEDIO } },
+        { text: "Monitoramento do Projeto  •  ", options: { bold: true, color: AZUL_MEDIO } },
+        { text: "Tomada de Decisão", options: { bold: true, color: AZUL_MEDIO } },
+      ], { x: 0.6, y: 3.6, w: 8.8, h: 0.6, fontSize: 14, align: "center" });
+    }
+
+    // ── SLIDE 4: PAINEL EXECUTIVO ─────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Painel Executivo");
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.3, fontSize: 11, bold: true, color: "555555" });
+
+      const painel = sectionMap["painel_executivo"] ?? {};
+      const cards = [
+        { x: 0.4,  y: 1.15, label: "Histórico do TR",         status: (painel.historico_tr as string) ?? "adequado" },
+        { x: 3.55, y: 1.15, label: "Evolução e Inovação",     status: (painel.evolucao_inovacao as string) ?? "adequado" },
+        { x: 6.7,  y: 1.15, label: "Eficiência Operacional",  status: (painel.eficiencia_operacional as string) ?? "adequado" },
+        { x: 0.4,  y: 3.2,  label: "Efic. e Previsibilidade", status: (painel.eficiencia_previsibilidade as string) ?? "adequado" },
+        { x: 3.55, y: 3.2,  label: "Desempenho da Aplicação", status: (painel.desempenho_aplicacao as string) ?? "adequado" },
+        { x: 6.7,  y: 3.2,  label: "Engajamento do Usuário",  status: (painel.engajamento_usuario as string) ?? "adequado" },
+      ];
+
+      for (const c of cards) {
+        s.addShape("roundRect", { x: c.x, y: c.y, w: 2.9, h: 1.75,
+          fill: { color: "EEF4FB" }, rectRadius: 0.1,
+          shadow: { type: "outer", color: "000000", blur: 5, offset: 2, angle: 45, opacity: 0.10 },
+          line: { color: "D6E8F7", width: 0.5 } });
+        s.addText(c.label, { x: c.x+0.1, y: c.y+0.15, w: 2.7, h: 0.55,
+          fontSize: 10, color: "555555", align: "center", valign: "middle", bold: true, margin: 0 });
+        statusBadge(s, c.x+0.35, c.y+0.95, 2.2, c.status);
+      }
+    }
+
+    // ── SLIDE 5: ENTREGAS ─────────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Evolução e Inovação / Entregas");
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText("Tarefas desenvolvidas pelo time durante o período. Todas registradas no Asana.",
+        { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
+
+      const entregas = sectionMap["entregas"] ?? {};
+      const tarefas = (entregas.tarefas as Array<{ nome: string; status: string; categoria: string }>) ?? [];
+
+      if (tarefas.length > 0) {
+        const tableData = [
+          [
+            { text: "TAREFAS",   options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+            { text: "STATUS",    options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+            { text: "CATEGORIA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+          ],
+          ...tarefas.map(t => [t.nome ?? "", t.status ?? "Concluído", t.categoria ?? "Desenvolvimento"])
+        ];
+        s.addTable(tableData, {
+          x: 0.4, y: 1.55, w: 9.2,
+          fontSize: 10,
+          border: { pt: 0.5, color: "D0DCE8" },
+          rowH: 0.42,
+          colW: [5.0, 1.4, 2.8],
+          align: "left", valign: "middle",
+        });
+        s.addShape("ellipse", { x: 8.8, y: 4.8, w: 0.85, h: 0.85,
+          fill: { color: AZUL_MEDIO }, line: { color: AZUL_MEDIO } });
+        s.addText(`Total\n${tarefas.length}`, { x: 8.8, y: 4.8, w: 0.85, h: 0.85,
+          fontSize: 9, bold: true, color: BRANCO, align: "center", valign: "middle", margin: 0 });
+      } else {
+        s.addText("Nenhuma entrega registrada para o período.", {
+          x: 0.5, y: 2.5, w: 9, h: 0.5, fontSize: 13, color: "999999", align: "center"
+        });
+      }
+    }
+
+    // ── SLIDE 6: EFICIÊNCIA OPERACIONAL ───────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Eficiência Operacional");
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+
+      const efOp = sectionMap["eficiencia_operacional"] ?? {};
+      const statusEf = (efOp.status as string) ?? "alta";
+      statusBadge(s, 0.5, 1.1, 2.8, statusEf);
+
+      kpiCard(s, 0.5, 1.65, 1.3, 1.0, "SLA",       String(efOp.sla ?? "—"), "1E8A3E");
+      kpiCard(s, 1.9, 1.65, 1.3, 1.0, "Tickets",   String(efOp.tickets ?? "—"), AZUL_ESCURO);
+      kpiCard(s, 0.5, 2.8,  1.3, 1.0, "Crises",    String(efOp.crises ?? "0"), "1E8A3E");
+      kpiCard(s, 1.9, 2.8,  1.3, 1.0, "Bugs",      String(efOp.bugs ?? "—"), "C85000");
+
+      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1,
+        fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
+      s.addText("Análise – Eficiência Operacional", {
+        x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, margin: 0 });
+      s.addText((efOp.analise as string) ?? "Análise a ser preenchida.", {
+        x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
+    }
+
+    // ── SLIDE 7: TREINAMENTOS ─────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Treinamentos / Reuniões");
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+
+      const trein = sectionMap["treinamentos_reunioes"] ?? {};
+      const reunioes = (trein.reunioes as Array<{ tipo: string; data: string; descricao: string }>) ?? [];
+
+      if (reunioes.length > 0) {
+        const tableData = [
+          [
+            { text: "TIPO",  options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+            { text: "DATA",  options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+            { text: "DESCRIÇÃO DA ATIVIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+          ],
+          ...reunioes.map(r => [r.tipo ?? "", r.data ?? "", r.descricao ?? ""])
+        ];
+        s.addTable(tableData, {
+          x: 0.4, y: 1.1, w: 9.2,
+          fontSize: 10,
+          border: { pt: 0.5, color: "D0DCE8" },
+          rowH: 0.55,
+          colW: [3.0, 1.2, 5.0],
+          align: "left", valign: "middle",
+        });
+      } else {
+        s.addText("Nenhuma reunião registrada para o período.", {
+          x: 0.5, y: 2.5, w: 9, h: 0.5, fontSize: 13, color: "999999", align: "center"
+        });
+      }
+
+      s.addText((trein.rodape as string) ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.",
+        { x: 0.4, y: 4.7, w: 9.2, h: 0.5, fontSize: 10, bold: true, color: CINZA_TEXTO, italic: true });
+    }
+
+    // ── SLIDE 8: OPORTUNIDADES ────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Oportunidades e Fatores de Atenção");
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+
+      const opor = sectionMap["oportunidades_atencao"] ?? {};
+      const itens = (opor.itens as Array<{ descricao: string; fator: string }>) ?? [];
+
+      if (itens.length > 0) {
+        const tableData = [
+          [
+            { text: "DESCRIÇÃO",        options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+            { text: "OPORTUNIDADE/FATOR", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } },
+          ],
+          ...itens.map(i => [i.descricao ?? "", i.fator ?? ""])
+        ];
+        s.addTable(tableData, {
+          x: 0.4, y: 1.1, w: 9.2, fontSize: 10,
+          border: { pt: 0.5, color: "D0DCE8" },
+          rowH: 0.65, colW: [3.5, 5.7],
+          align: "left", valign: "middle",
+        });
+      }
+    }
+
+    // ── SLIDE 9: ENCERRAMENTO ─────────────────────────────────────────────────
+    {
+      const s = pres.addSlide();
+      s.background = { color: "D6E8F7" };
+      s.addShape("ellipse", { x: 1.5, y: 0.3, w: 5, h: 5,
+        fill: { color: AZUL_MEDIO, transparency: 40 }, line: { color: AZUL_MEDIO, transparency: 40 } });
+      s.addShape("ellipse", { x: 3.5, y: 1.1, w: 3.5, h: 3.5,
+        fill: { color: AZUL_ESCURO, transparency: 35 }, line: { color: AZUL_ESCURO, transparency: 35 } });
+      s.addText("bnp", {
+        x: 3.5, y: 2.3, w: 3.0, h: 0.8,
+        fontSize: 36, bold: true, color: BRANCO, align: "center"
+      });
+      s.addText(mesAno, {
+        x: 2.5, y: 3.9, w: 5.0, h: 0.55,
+        fontSize: 20, bold: true, color: AZUL_ESCURO, align: "center", margin: 0
+      });
+    }
+
+    // Gerar arquivo
+    const pptxBuffer = await pres.write({ outputType: "arraybuffer" }) as ArrayBuffer;
+
+    return new Response(pptxBuffer, {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "Content-Disposition": `attachment; filename="relatorio-${nomeContrato.toLowerCase().replace(/\s+/g, '-')}-${mesAno.toLowerCase().replace('/', '-')}.pptx"`,
+        "Access-Control-Allow-Origin": "*",
+      }
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'erro';
-    return new Response(JSON.stringify({ ok: false, error: msg }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   }
 });
