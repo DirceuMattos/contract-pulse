@@ -36,7 +36,7 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
   const [year, setYear] = useState(now.getFullYear());
   const [loading, setLoading] = useState(false);
 
-  const activeContracts = contracts.filter((c) => c.status === 'ativo' || !c.status);
+  const activeContracts = contracts.filter((c) => c.status !== 'encerrado');
 
   const handleCreate = async () => {
     if (!contractId) {
