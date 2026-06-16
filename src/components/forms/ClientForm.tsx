@@ -1,14 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Loader2, Plus, X } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, X, Upload, Trash2 } from 'lucide-react';
 import { Client } from '@/types';
 import { clientFormSchema, ClientFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
 import { handleFormValidationError } from '@/lib/formValidation';
+import { supabase } from '@/integrations/supabase/client';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,6 +83,60 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   const [newTag, setNewTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(client?.logoUrl);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadLogoForClient = useCallback(async (clientId: string, file: File): Promise<string | null> => {
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `${clientId}/logo.${ext}`;
+    const { error } = await supabase.storage
+      .from('client-logos')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: 'Erro ao enviar logo', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    return path;
+  }, [toast]);
+
+  const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Arquivo inválido', description: 'Selecione uma imagem.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Imagem muito grande', description: 'Tamanho máximo 2MB.', variant: 'destructive' });
+      return;
+    }
+    // Edit mode: upload immediately
+    if (client?.id) {
+      setIsUploadingLogo(true);
+      const path = await uploadLogoForClient(client.id, file);
+      setIsUploadingLogo(false);
+      if (path) {
+        setLogoUrl(path);
+        toast({ title: 'Logo atualizada' });
+      }
+    } else {
+      // Create mode: defer upload until client exists
+      setPendingLogoFile(file);
+      const objectUrl = URL.createObjectURL(file);
+      setLogoUrl(objectUrl);
+    }
+  }, [client?.id, uploadLogoForClient, toast]);
+
+  const handleLogoRemove = useCallback(async () => {
+    if (client?.id && logoUrl && !logoUrl.startsWith('blob:') && !/^https?:/i.test(logoUrl)) {
+      await supabase.storage.from('client-logos').remove([logoUrl]);
+    }
+    setLogoUrl(undefined);
+    setPendingLogoFile(null);
+  }, [client?.id, logoUrl]);
 
   const fetchAddressByCep = useCallback(async (cepValue: string) => {
     const digits = cepValue.replace(/\D/g, '');
