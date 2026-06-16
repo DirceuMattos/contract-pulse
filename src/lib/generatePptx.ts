@@ -68,8 +68,20 @@ export interface GeneratePptxInput {
   sections: Record<string, Record<string, unknown>>;
 }
 
+async function loadImageAsBase64(url: string): Promise<string> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   const { mesAno, nomeContrato, nomeCliente, numeroContrato, sections } = input;
+  const logoBnp = await loadImageAsBase64(logoBnpUrl);
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9";
 
