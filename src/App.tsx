@@ -47,6 +47,9 @@ import AILogsPage from "@/pages/AILogsPage";
 import ReceivablesDashboardPage from "@/pages/ReceivablesDashboardPage";
 import ReceivablesReconcilePage from "@/pages/ReceivablesReconcilePage";
 import TransportPage from "@/pages/TransportPage";
+import ReportsPage from "@/pages/ReportsPage";
+import ReportEditPage from "@/pages/ReportEditPage";
+import ReportTemplateConfigPage from "@/pages/ReportTemplateConfigPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
