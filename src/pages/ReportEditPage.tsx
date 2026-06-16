@@ -180,28 +180,39 @@ export default function ReportEditPage() {
   };
 
   const handleGeneratePPTX = async () => {
-    if (!report) return;
-    setGenerating(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('report-generate-pptx', {
-        body: { reportId: report.id },
+      setGenerating(true);
+      
+      const { data, error } = await supabase.functions.invoke('report-generate-pptx', {
+        body: { reportId: report.id }
       });
+
       if (error) throw error;
-      // Edge function returns base64 in result.fileBase64
-      const base64 = (result as any)?.fileBase64;
-      const filename = (result as any)?.filename ?? `relatorio-${report.year}-${String(report.month).padStart(2, '0')}.pptx`;
-      if (!base64) throw new Error('Arquivo vazio');
-      const byteChars = atob(base64);
-      const bytes = new Uint8Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+      if (!data?.fileBase64) throw new Error("Arquivo não retornado");
+
+      // Converter base64 para Blob e fazer download
+      const byteCharacters = atob(data.fileBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], {
+        type: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = data.filename ?? "relatorio.pptx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      toast({ title: 'PPTX gerado com sucesso' });
-    } catch (err) {
-      toast({ title: 'Erro ao gerar PPTX', description: err instanceof Error ? err.message : 'Erro', variant: 'destructive' });
+
+      toast({ title: "PPTX gerado com sucesso!", variant: "default" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast({ title: "Erro ao gerar PPTX", description: message, variant: "destructive" });
     } finally {
       setGenerating(false);
     }
