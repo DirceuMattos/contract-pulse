@@ -9,6 +9,7 @@ import { Contract } from '@/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { ClientLogo } from '@/components/clients/ClientLogo';
+import { ContractDocumentImport } from '@/components/forms/ContractDocumentImport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -236,6 +237,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
             setOpenSections(prev => [...new Set([...prev, ...sectionsWithErrors])]);
           }
         })} className="space-y-6">
+        {!contract && <ContractDocumentImport form={form} />}
         <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-4">
           {/* Identificação */}
           <AccordionItem value="identificacao" className="border rounded-lg px-4">

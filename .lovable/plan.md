@@ -1,63 +1,57 @@
-## Objetivo
+# Auto-preenchimento de contrato via upload de documento
 
-Permitir que cada contrato tenha sua própria logo (ex.: SCEIC → PROMAC, ICMS), mantendo fallback automático para a logo do cliente quando o contrato ainda não tem uma personalizada.
+Sim, é totalmente possível. O sistema já faz exatamente isso no módulo de Simulações (edge function `simulation-parse-document` usando Gemini multimodal via Lovable AI Gateway). Vamos replicar o padrão para o cadastro de contratos.
 
-## Como funciona hoje
+## Fluxo proposto
 
-- `clients.logo_url` existe e é gerenciado pelo `ClientForm` (upload para o bucket `client-logos`).
-- `<ClientLogo>` (`src/components/clients/ClientLogo.tsx`) resolve `logoUrl` em URL assinada e cuida do fallback (iniciais coloridas).
-- Em listagens/detalhes de contrato, hoje é renderizada a logo do **cliente**.
+Na tela **Novo Contrato**, antes (e durante) o preenchimento manual:
 
-## Mudanças
+1. Bloco "Preencher a partir de documento" no topo do formulário, com área de upload (drag-and-drop + botão). Aceita PDF, DOCX, imagens (JPG/PNG).
+2. Após o upload, botão "Analisar e preencher" envia o arquivo para uma nova edge function `contract-parse-document`.
+3. Estado de loading com mensagens de progresso ("Lendo documento...", "Extraindo informações...").
+4. Quando a IA responde, os campos identificados são pré-preenchidos no formulário, com cada campo recebendo um badge "✨ Sugerido pela IA" (cor sutil) até que o usuário interaja.
+5. O usuário revisa, completa o que faltou, e salva normalmente. Nenhum campo é gravado sem ação explícita de "Salvar".
+6. O arquivo enviado pode opcionalmente ser anexado ao contrato após salvar (em `document_attachments`), aproveitando o upload já feito — pergunta no final do fluxo.
 
-### 1. Schema (migration)
-Adicionar coluna em `contracts`:
-```sql
-ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS logo_url text;
-```
-Sem alteração em RLS (políticas existentes da tabela já cobrem).
+## Campos que a IA tentará extrair
 
-### 2. Storage
-Reutilizar o bucket `client-logos` existente (já privado, já tem políticas de leitura/escrita para autenticados). Arquivos de contrato ficam no prefixo `contracts/{contractId}/...` para isolar dos de cliente.
+Apenas campos presentes hoje no `ContractForm` — não vamos criar campos novos. Cobertura por seção:
 
-### 3. Tipos e mappers
-- `src/types/index.ts` → `Contract` ganha `logoUrl?: string`.
-- `src/lib/dbMappers.ts` → mapear `logo_url` ⇄ `logoUrl` no contrato (igual ao padrão do cliente).
-- Regenerar `src/integrations/supabase/types.ts` via migration (automático).
+- **Identificação**: nome, cliente (match por nome/CNPJ na lista existente), tipo, segmento, objeto.
+- **Vigência**: data início, data fim, prazo, renovação automática (sim/não), aviso prévio.
+- **Financeiro**: valor mensal de referência, índice de reajuste, periodicidade de reajuste, forma de pagamento, dia de vencimento.
+- **Governança**: gestor pelo cliente, contato (e-mail/telefone), gestor interno (match por nome se possível).
+- **Cláusulas relevantes**: multa rescisória, SLA, garantias — preenchendo campos texto correspondentes quando existirem.
 
-### 4. Componente de logo
-Generalizar `ClientLogo` para `EntityLogo` (ou criar `ContractLogo` casca finíssima que delega):
-- Aceita `nome`, `logoUrl` e — para contrato — um `fallbackLogoUrl` (a do cliente).
-- Lógica de resolução: se `logoUrl` definido → usa; senão se `fallbackLogoUrl` definido → usa; senão → iniciais.
-- Mantém a mesma resolução de URL assinada para qualquer caminho do bucket `client-logos`.
+Campos não identificados ficam vazios. A IA **nunca** sobrescreve valor já digitado pelo usuário (merge não-destrutivo).
 
-Para não quebrar nada, mantenho `ClientLogo` exportando o mesmo nome/props atuais e adiciono `ContractLogo` no mesmo arquivo (ou em `src/components/contracts/ContractLogo.tsx`) que apenas chama a lógica compartilhada com fallback.
+## Mudanças técnicas
 
-### 5. Formulário do contrato (`ContractForm.tsx`)
-Adicionar bloco de upload de logo idêntico ao do `ClientForm`:
-- Campo opcional "Logo do contrato".
-- Preview mostra: logo do contrato se houver; senão, **a logo do cliente selecionado** com um rótulo discreto "Usando logo do cliente" para deixar claro que é fallback.
-- Botões: "Enviar logo" / "Trocar logo" / "Remover logo".
-- "Remover logo" zera `logoUrl` do contrato → volta a usar a do cliente automaticamente.
-- Upload imediato para `client-logos/contracts/{contractId}/...` após salvar o contrato (mesmo padrão do `ClientForm`, que faz upload pós-create quando o ID ainda não existe).
-- Limpeza do arquivo antigo no storage ao trocar/remover (mesmo padrão atual).
+1. **Edge function nova** `supabase/functions/contract-parse-document/index.ts`
+  - Modelada em `simulation-parse-document`.
+  - Recebe `{ fileBase64, mimeType, fileName }`.
+  - Chama Lovable AI Gateway (`google/gemini-2.5-flash`) com prompt instruindo a retornar JSON estrito no shape dos campos do contrato (schema validado com Zod).
+  - Passa também a lista de clientes existentes (id + nome + CNPJ) para que a IA possa sugerir `clientId` quando reconhecer o cliente; caso contrário retorna só o nome detectado.
+  - Retorna `{ fields: {...}, confidence: {...}, notes: string[] }`.
+2. **Frontend**
+  - Novo componente `src/components/forms/ContractDocumentImport.tsx` (upload + chamada à function + estado).
+  - Integração no topo do `ContractForm.tsx` (apenas no modo "novo contrato", não na edição).
+  - Função `applyAiSuggestions(fields)` que faz merge não-destrutivo no form state e marca campos como "sugeridos".
+  - Pequeno indicador visual (`Sparkles` icon + tooltip) por campo sugerido, removido ao primeiro `onChange` do usuário.
+3. **Sem mudanças no banco** — nada de novas tabelas/colunas. O contrato continua sendo criado pelo fluxo atual de `ContractFormPage`.
 
-### 6. Exibição (fallback automático)
-Em todos os pontos onde a logo do contrato aparece, passar `contract.logoUrl` como principal e `client.logoUrl` como fallback:
-- `src/pages/ContractDetailPage.tsx`
-- `src/pages/ContractsPage.tsx` (cards/linhas)
-- `src/pages/ContractResourcesPage.tsx`
-- `src/pages/ReportEditPage.tsx` e `src/pages/ReportsPage.tsx` (cabeçalho do relatório do contrato)
+## Custos e limites
 
-A regra é única e centralizada no componente: **contract.logoUrl ?? client.logoUrl**. Não há cópia de arquivo nem sincronização — o fallback é puramente em tempo de render, então qualquer atualização futura da logo do cliente continua refletindo nos contratos que não personalizaram.
+- Lovable AI Gateway com Gemini Flash já está em uso no projeto (mesma `LOVABLE_API_KEY`), sem novo secret.
+- Limite prático: arquivos até ~15MB; PDFs grandes (>50 páginas) podem ser truncados pelo modelo — exibimos aviso amigável.
+- Tempo típico esperado: 5–15 s por documento.
 
-## Fora de escopo
-- Nenhuma alteração em clientes, permissões, RLS, ou em outras telas.
-- Sem migração de dados — contratos existentes começam com `logo_url` nulo e seguem usando a logo do cliente automaticamente.
-- Sem mudanças visuais de estilo (segue padrão atual do `ClientLogo` em tamanhos sm/md/lg).
+## Fora de escopo (para não inflar a entrega)
 
-## Resultado
-- Cliente com logo X, contrato sem logo → contrato exibe X.
-- Usuário sobe logo Y no contrato → contrato passa a exibir Y; cliente continua com X.
-- Usuário remove a logo Y do contrato → volta a exibir X automaticamente.
-- Cliente troca logo X por X' depois → contratos sem personalização passam a exibir X' (sem retrabalho).
+- Não vamos extrair recursos/squads do contrato automaticamente nesta primeira versão.
+- Não vamos criar cliente novo automaticamente — se a IA não casar com nenhum cliente existente, deixamos um aviso e o usuário escolhe/cria pelo fluxo normal.
+- Não mexemos no ajuste visual de contraste nem no módulo de RH.  
+
+  Não altere mais nada além do que foi solicitado aqui.
+
+Posso seguir com a implementação?
