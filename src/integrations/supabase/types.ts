@@ -1921,6 +1921,7 @@ export type Database = {
           created_at: string | null
           fireflies_keywords: string[] | null
           id: string
+          milvus_client_names: string[] | null
           show_demonstrativo_horas: boolean | null
           show_desempenho_aplicacao: boolean | null
           show_eficiencia_operacional: boolean | null
@@ -1942,6 +1943,7 @@ export type Database = {
           created_at?: string | null
           fireflies_keywords?: string[] | null
           id?: string
+          milvus_client_names?: string[] | null
           show_demonstrativo_horas?: boolean | null
           show_desempenho_aplicacao?: boolean | null
           show_eficiencia_operacional?: boolean | null
@@ -1963,6 +1965,7 @@ export type Database = {
           created_at?: string | null
           fireflies_keywords?: string[] | null
           id?: string
+          milvus_client_names?: string[] | null
           show_demonstrativo_horas?: boolean | null
           show_desempenho_aplicacao?: boolean | null
           show_eficiencia_operacional?: boolean | null
