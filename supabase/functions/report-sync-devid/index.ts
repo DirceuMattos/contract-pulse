@@ -245,85 +245,81 @@ serve(async (req) => {
 
       console.log("[DEVID] tools/list response:", testText.substring(0, 1000));
 
-      // Buscar tickets para cada nome fantasia do cliente
+      // Buscar tickets diretamente na API do Milvus (sem passar pelo DEVID)
 
       const todosTickets: Array<Record<string, unknown>> = [];
 
       const nomesBusca = (milvusClientNames as string[] ?? []);
 
-      if (nomesBusca.length === 0) {
+      const MILVUS_TOKEN = await getVaultSecret(supabase, "DEVID_TOKEN");
 
-        console.log("[DEVID] Nenhum nome Milvus configurado, pulando busca de tickets");
+      const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 
-      } else {
+      for (const nomeCliente of nomesBusca) {
 
-        console.log(`[DEVID] Buscando tickets para ${nomesBusca.length} nomes fantasia`);
+        try {
 
-        
+          const milvusRes = await fetch(MILVUS_URL, {
 
-        for (const nomeCliente of nomesBusca) {
+            method: "POST",
 
-          try {
+            headers: {
 
-            const result = await callDevid(devidToken, "milvus_search_tickets", {
-              cliente: nomeCliente,
-              data_hora_criacao_inicial: `${periodoInicio} 00:00:00`,
-              data_hora_criacao_final: `${periodoFim} 23:59:59`,
-              status: "Todos",
+              "Authorization": MILVUS_TOKEN,
+
+              "Content-Type": "application/json",
+
+            },
+
+            body: JSON.stringify({
+
               total_registros: 1000,
-            }) as Record<string, unknown>;
 
-            const content = result?.content as Array<Record<string, unknown>> ?? [];
+              filtro_body: {
 
-            
+                cliente: nomeCliente,
 
-            // O resultado vem como texto JSON dentro de content[0].text
+                data_hora_criacao_inicial: `${periodoInicio} 00:00:00`,
 
-            if (content.length > 0 && content[0].text) {
+                data_hora_criacao_final: `${periodoFim} 23:59:59`,
 
-              try {
+                status: "Todos",
 
-                const parsed = JSON.parse(content[0].text as string) as Record<string, unknown>;
+              },
 
-                const lista = parsed?.lista as Array<Record<string, unknown>> ?? [];
+            }),
 
-                const listaFiltrada = lista.filter((t) => {
+          });
 
-                  const dataCriacao = (t.data_criacao as string) ?? "";
+          if (!milvusRes.ok) {
 
-                  if (!dataCriacao) return false;
+            console.log(`[MILVUS] ${nomeCliente}: HTTP ${milvusRes.status}`);
 
-                  const d = new Date(dataCriacao.replace(" ", "T"));
-
-                  return d >= new Date(`${periodoInicio}T00:00:00`) && d <= new Date(`${periodoFim}T23:59:59`);
-
-                });
-
-                console.log(`[DEVID] ${nomeCliente}: ${lista.length} total → ${listaFiltrada.length} no período`);
-
-                todosTickets.push(...listaFiltrada);
-
-              } catch {
-
-                console.log(`[DEVID] ${nomeCliente}: erro ao parsear JSON`);
-
-              }
-
-            }
-
-          } catch (e) {
-
-            console.log(`[DEVID] Erro ao buscar ${nomeCliente}: ${(e as Error).message}`);
+            continue;
 
           }
 
+          const milvusData = await milvusRes.json() as Record<string, unknown>;
+
+          const lista = (milvusData?.lista as Array<Record<string, unknown>>) ?? [];
+
+          const total = (milvusData?.meta as Record<string, unknown>)?.paginate 
+            ? ((milvusData.meta as Record<string, unknown>).paginate as Record<string, unknown>).total 
+            : lista.length;
+
+          console.log(`[MILVUS] ${nomeCliente}: ${lista.length} tickets (total: ${total})`);
+
+          todosTickets.push(...lista);
+
+        } catch (e) {
+
+          console.log(`[MILVUS] Erro ${nomeCliente}: ${(e as Error).message}`);
+
         }
 
-        
-
-        console.log(`[DEVID] Total tickets encontrados: ${todosTickets.length}`);
-
       }
+
+      console.log(`[MILVUS] Total tickets encontrados: ${todosTickets.length}`);
 
       const tickets = todosTickets;
 
