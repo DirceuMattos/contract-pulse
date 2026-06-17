@@ -2728,6 +2728,7 @@ export type Database = {
           year: number
         }[]
       }
+      get_vault_secret: { Args: { secret_name: string }; Returns: string }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
