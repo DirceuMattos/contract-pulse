@@ -9,15 +9,22 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
-  const { data, error } = await (supabase as any)
-    .schema("vault")
-    .from("decrypted_secrets")
-    .select("decrypted_secret")
-    .eq("name", name)
-    .single();
-  if (error || !data) throw new Error(`Secret '${name}' não encontrado no Vault`);
-  return data.decrypted_secret as string;
+
+  const { data, error } = await supabase.rpc('get_vault_secret', { secret_name: name });
+
+  if (error || !data) {
+
+    // Fallback: query direta via SQL
+
+    const { data: sqlData, error: sqlError } = await supabase
+      .rpc('get_secret_by_name', { p_name: name });
+    if (sqlError || !sqlData) throw new Error(`Secret '${name}' não encontrado`);
+    return sqlData as string;
+  }
+
+  return data as string;
 }
+
 
 async function callDevid(token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
 
