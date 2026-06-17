@@ -30,9 +30,9 @@ async function callDevid(token: string, tool: string, params: Record<string, unk
 
   console.log(`[DEVID] Chamando tool: ${tool}`, JSON.stringify(params));
 
-  
+  // Passo 1: Initialize
 
-  const res = await fetch(DEVID_URL, {
+  const initRes = await fetch(DEVID_URL, {
 
     method: "POST",
 
@@ -50,6 +50,80 @@ async function callDevid(token: string, tool: string, params: Record<string, unk
 
       jsonrpc: "2.0",
 
+      id: 1,
+
+      method: "initialize",
+
+      params: {
+
+        protocolVersion: "2024-11-05",
+
+        capabilities: {},
+
+        clientInfo: { name: "bnphub", version: "1.0.0" },
+
+      },
+
+    }),
+
+  });
+
+  const initText = await initRes.text();
+
+  console.log(`[DEVID] Initialize status: ${initRes.status}, body: ${initText.substring(0, 200)}`);
+
+  // Extrair session ID do header se existir
+
+  const sessionId = initRes.headers.get("mcp-session-id") ?? 
+
+                    initRes.headers.get("x-session-id") ?? "";
+
+  console.log(`[DEVID] Session ID: ${sessionId}`);
+
+  // Passo 2: Notificar que inicialização está completa
+
+  const headers: Record<string, string> = {
+
+    "Authorization": `Bearer ${token}`,
+
+    "Content-Type": "application/json",
+
+    "Accept": "application/json, text/event-stream",
+
+  };
+
+  if (sessionId) headers["mcp-session-id"] = sessionId;
+
+  await fetch(DEVID_URL, {
+
+    method: "POST",
+
+    headers,
+
+    body: JSON.stringify({
+
+      jsonrpc: "2.0",
+
+      method: "notifications/initialized",
+
+      params: {},
+
+    }),
+
+  });
+
+  // Passo 3: Chamar a tool
+
+  const toolRes = await fetch(DEVID_URL, {
+
+    method: "POST",
+
+    headers,
+
+    body: JSON.stringify({
+
+      jsonrpc: "2.0",
+
       id: Date.now(),
 
       method: "tools/call",
@@ -60,29 +134,23 @@ async function callDevid(token: string, tool: string, params: Record<string, unk
 
   });
 
-  console.log(`[DEVID] Status: ${res.status} ${res.statusText}`);
+  console.log(`[DEVID] Tool status: ${toolRes.status}`);
 
-  
+  if (!toolRes.ok) {
 
-  if (!res.ok) {
+    const body = await toolRes.text();
 
-    const body = await res.text();
+    console.error(`[DEVID] Tool error body: ${body}`);
 
-    console.error(`[DEVID] Erro body: ${body}`);
-
-    throw new Error(`DEVID retornou ${res.status}: ${body}`);
+    throw new Error(`DEVID retornou ${toolRes.status}: ${body}`);
 
   }
 
-  const contentType = res.headers.get("content-type") ?? "";
-
-  console.log(`[DEVID] Content-Type: ${contentType}`);
-
-  
+  const contentType = toolRes.headers.get("content-type") ?? "";
 
   if (contentType.includes("text/event-stream")) {
 
-    const text = await res.text();
+    const text = await toolRes.text();
 
     console.log(`[DEVID] SSE raw: ${text.substring(0, 500)}`);
 
@@ -104,9 +172,9 @@ async function callDevid(token: string, tool: string, params: Record<string, unk
 
   }
 
-  const json = await res.json() as Record<string, unknown>;
+  const json = await toolRes.json() as Record<string, unknown>;
 
-  console.log(`[DEVID] JSON result:`, JSON.stringify(json).substring(0, 500));
+  console.log(`[DEVID] Tool result: ${JSON.stringify(json).substring(0, 500)}`);
 
   return json.result;
 
