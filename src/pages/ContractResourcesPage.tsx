@@ -289,7 +289,8 @@ export default function ContractResourcesPage() {
       <div className="flex items-start gap-3">
         <ClientLogo
           nome={client?.nomeFantasia || client?.razaoSocial || '?'}
-          logoUrl={client?.logoUrl}
+          logoUrl={contract.logoUrl}
+          fallbackLogoUrl={client?.logoUrl}
           size="lg"
           className="shrink-0 mt-1"
         />

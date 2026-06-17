@@ -206,13 +206,14 @@ export default function ReportEditPage() {
         sectionMap[s.sectionKey] = s.content ?? {};
       }
 
-      // Resolve client logo to a fetchable URL (signed URL if it's a storage path)
+      // Resolve logo to a fetchable URL — prefer contract logo, fallback to client logo
       let clientLogoUrl: string | undefined;
-      if (client?.logoUrl) {
-        if (/^https?:\/\//i.test(client.logoUrl)) {
-          clientLogoUrl = client.logoUrl;
+      const effectiveLogo = contract?.logoUrl || client?.logoUrl;
+      if (effectiveLogo) {
+        if (/^https?:\/\//i.test(effectiveLogo)) {
+          clientLogoUrl = effectiveLogo;
         } else {
-          const path = client.logoUrl.replace(/^client-logos\//, '');
+          const path = effectiveLogo.replace(/^client-logos\//, '');
           const { data: signed } = await supabase.storage
             .from('client-logos')
             .createSignedUrl(path, 60 * 10);
@@ -255,7 +256,7 @@ export default function ReportEditPage() {
           <Button variant="ghost" size="icon" onClick={() => navigate('/relatorios')}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <ClientLogo nome={client?.nomeFantasia || client?.razaoSocial || '?'} logoUrl={client?.logoUrl} size="lg" />
+          <ClientLogo nome={client?.nomeFantasia || client?.razaoSocial || '?'} logoUrl={contract?.logoUrl} fallbackLogoUrl={client?.logoUrl} size="lg" />
           <div>
             <h1 className="text-xl font-bold">{contract?.nome}</h1>
             <p className="text-sm text-muted-foreground">{client?.nomeFantasia || client?.razaoSocial} · {MONTHS[report.month - 1]}/{report.year}</p>

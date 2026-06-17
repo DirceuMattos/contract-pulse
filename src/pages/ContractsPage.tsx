@@ -563,7 +563,8 @@ export default function ContractsPage() {
                     {/* Client logo */}
                     <ClientLogo
                       nome={client?.nomeFantasia || client?.razaoSocial || '?'}
-                      logoUrl={client?.logoUrl}
+                      logoUrl={contract.logoUrl}
+                      fallbackLogoUrl={client?.logoUrl}
                       size="md"
                       className="shrink-0 hidden sm:flex"
                     />

@@ -208,7 +208,7 @@ export default function ReportsPage() {
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <ClientLogo nome={client?.nomeFantasia || client?.razaoSocial || '?'} logoUrl={client?.logoUrl} size="md" />
+                        <ClientLogo nome={client?.nomeFantasia || client?.razaoSocial || '?'} logoUrl={contract?.logoUrl} fallbackLogoUrl={client?.logoUrl} size="md" />
                         <div className="min-w-0 flex-1">
                           <h3 className="font-semibold text-sm truncate" title={contract?.nome}>{contract?.nome ?? 'Contrato'}</h3>
                           <p className="text-xs text-muted-foreground truncate">{client?.nomeFantasia || client?.razaoSocial}</p>
