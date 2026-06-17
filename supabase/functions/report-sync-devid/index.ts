@@ -251,7 +251,7 @@ serve(async (req) => {
 
       const nomesBusca = (milvusClientNames as string[] ?? []);
 
-      const MILVUS_TOKEN = await getVaultSecret(supabase, "DEVID_TOKEN");
+      const MILVUS_TOKEN = await getVaultSecret(supabase, "MILVUS_TOKEN");
 
       const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 
