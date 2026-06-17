@@ -134,63 +134,135 @@ serve(async (req) => {
 
     // ── 1. Tickets do Milvus ─────────────────────────────────────────────────
     try {
+
+      console.log("[DEVID] Iniciando sync, token length:", devidToken.length);
+
+      
+
+      // Primeiro testar com tools/list para ver se a conexão funciona
+
+      const testRes = await fetch(DEVID_URL, {
+
+        method: "POST",
+
+        headers: {
+
+          "Authorization": `Bearer ${devidToken}`,
+
+          "Content-Type": "application/json",
+
+          "Accept": "application/json, text/event-stream",
+
+        },
+
+        body: JSON.stringify({
+
+          jsonrpc: "2.0",
+
+          id: 1,
+
+          method: "tools/list",
+
+          params: {},
+
+        }),
+
+      });
+
+      
+
+      console.log("[DEVID] tools/list status:", testRes.status);
+
+      const testText = await testRes.text();
+
+      console.log("[DEVID] tools/list response:", testText.substring(0, 1000));
+
       const ticketsResult = await callDevid(devidToken, "milvus_search_tickets", {
+
         date_from: periodoInicio,
+
         date_to:   periodoFim,
+
       }) as Record<string, unknown>;
 
-      const tickets = (ticketsResult?.content as Array<Record<string, unknown>>) ?? [];
+      console.log("[DEVID] tickets result:", JSON.stringify(ticketsResult).substring(0, 500));
 
-      // Contar por tipo
+      const tickets = (ticketsResult?.content as Array<Record<string, unknown>>) ?? 
+
+                      (Array.isArray(ticketsResult) ? ticketsResult : []);
+
+      
+
+      console.log("[DEVID] tickets count:", tickets.length);
+
       const porTipo: Record<string, number> = {
+
         incidente: 0, problema: 0, requisicao: 0, melhoria: 0, duvida: 0,
+
       };
+
       for (const t of tickets) {
+
         const tipo = ((t.type ?? t.ticket_type ?? "duvida") as string).toLowerCase();
+
         if (porTipo[tipo] !== undefined) porTipo[tipo]++;
+
         else porTipo["duvida"]++;
+
       }
 
-      // Calcular SLA (tickets resolvidos no prazo / total)
       const totalTickets = tickets.length;
+
       const dentroSla = tickets.filter((t) => t.within_sla === true || t.sla_status === "ok").length;
+
       const slaPercentual = totalTickets > 0 ? Math.round((dentroSla / totalTickets) * 100) : 100;
 
       const bugs = tickets.filter((t) =>
+
         ((t.type ?? t.ticket_type ?? "") as string).toLowerCase().includes("bug") ||
+
         ((t.subject ?? t.title ?? "") as string).toLowerCase().includes("bug")
+
       ).length;
 
       results.milvus = {
-        tickets:        totalTickets,
-        por_tipo:       porTipo,
-        sla_percentual: slaPercentual,
-        bugs:           bugs,
-        crises:         0,
+
+        tickets: totalTickets, por_tipo: porTipo,
+
+        sla_percentual: slaPercentual, bugs, crises: 0,
+
         intercorrencias: porTipo.incidente,
+
         status: slaPercentual >= 95 ? "alta" : slaPercentual >= 80 ? "adequado" : slaPercentual >= 60 ? "atencao" : "critico",
+
       };
 
-      // Salvar seção eficiência operacional
       await supabase.from("report_sections").upsert({
-        report_id:   reportId,
-        section_key: "eficiencia_operacional",
+
+        report_id: reportId, section_key: "eficiencia_operacional",
+
         content: {
-          tickets:         totalTickets,
-          bugs:            bugs,
-          crises:          0,
+
+          tickets: totalTickets, bugs, crises: 0,
+
           intercorrencias: porTipo.incidente,
-          sla:             `${slaPercentual}%`,
-          por_tipo:        porTipo,
-          status:          (results.milvus as Record<string, unknown>).status,
-          analise:         "",
+
+          sla: `${slaPercentual}%`,
+
+          por_tipo: porTipo, status: results.milvus.status, analise: "",
+
         },
-        source:    "devid",
-        synced_at: now,
+
+        source: "devid", synced_at: now,
+
       }, { onConflict: "report_id,section_key" });
 
     } catch (e) {
+
+      console.error("[DEVID] Erro Milvus:", (e as Error).message);
+
       results.milvus_error = (e as Error).message;
+
     }
 
     // ── 2. Relatório de horas do Milvus ───────────────────────────────────────
