@@ -247,9 +247,11 @@ serve(async (req) => {
 
       const ticketsResult = await callDevid(devidToken, "milvus_search_tickets", {
 
-        date_from: periodoInicio,
+        date_from:    periodoInicio,
 
-        date_to:   periodoFim,
+        date_to:      periodoFim,
+
+        nome_cliente: clientEmailDomain ?? "",
 
       }) as Record<string, unknown>;
 
