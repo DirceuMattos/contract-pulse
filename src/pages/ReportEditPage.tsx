@@ -68,6 +68,17 @@ export default function ReportEditPage() {
   const report = data?.report;
   const sections = useMemo(() => data?.sections ?? [], [data]);
 
+  const { data: templateConfig } = useQuery({
+    queryKey: ['report_template_config', contract?.id],
+    queryFn: async () => {
+      if (!contract?.id) return null;
+      const { data: configRaw } = await supabase
+        .from('report_template_configs').select('*').eq('contract_id', contract.id).maybeSingle();
+      return configRaw ? reportTemplateConfigFromDb(configRaw) : null;
+    },
+    enabled: !!contract?.id,
+  });
+
   useEffect(() => {
     if (!activeSection && sections.length > 0) setActiveSection(sections[0].sectionKey);
   }, [sections, activeSection]);
