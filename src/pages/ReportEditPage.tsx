@@ -134,6 +134,7 @@ export default function ReportEditPage() {
           year: report.year,
         },
       }));
+      tasks.push(syncDevid(report.id, report.clientEmailDomain, [], report.month, report.year));
       await Promise.allSettled(tasks);
       await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
       if (!silent) toast({ title: 'Sincronização concluída' });
