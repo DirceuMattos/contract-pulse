@@ -430,6 +430,58 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   )}
                 </div>
 
+                {/* Logo do contrato */}
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Logo do contrato</FormLabel>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {logoPreviewUrl ? (
+                      <img src={logoPreviewUrl} alt="Preview" className="w-16 h-16 rounded-lg object-contain bg-white border" />
+                    ) : (
+                      <ClientLogo
+                        nome={form.watch('nome') || '?'}
+                        logoUrl={logoUrl}
+                        fallbackLogoUrl={clients.find(c => c.id === watchClientId)?.logoUrl}
+                        size="lg"
+                      />
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={isUploadingLogo}
+                    >
+                      {isUploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                      {logoUrl || pendingLogoFile ? 'Trocar logo' : 'Enviar logo'}
+                    </Button>
+                    {(logoUrl || pendingLogoFile) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLogoRemove}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  <FormDescription>
+                    {logoUrl || pendingLogoFile
+                      ? 'PNG, JPG ou SVG até 2MB. Esta logo prevalece sobre a logo do cliente.'
+                      : 'Opcional. Se vazio, será usada a logo do cliente. PNG, JPG ou SVG até 2MB.'}
+                  </FormDescription>
+                </FormItem>
+
+
                 <FormField
                   control={form.control}
                   name="hasSubprojects"
