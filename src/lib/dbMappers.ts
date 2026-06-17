@@ -790,6 +790,7 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
     asanaProjectId: row.asana_project_id ?? undefined,
     clientEmailDomain: row.client_email_domain ?? undefined,
     firefliesKeywords: row.fireflies_keywords ?? [],
+    milvusClientNames: row.milvus_client_names ?? [],
   };
 }
 
