@@ -17,7 +17,7 @@ export function useReportDevidSync() {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('report-sync-devid', {
-        body: { reportId, clientEmailDomain, firefliesKeywords, month, year },
+        body: { reportId, clientEmailDomain, firefliesKeywords, month, year, milvusClientNames },
       });
 
       if (error) throw error;
