@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface ClientLogoProps {
   nome: string;
   logoUrl?: string;
+  fallbackLogoUrl?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -63,25 +64,27 @@ async function resolveSrc(logoUrl: string): Promise<string | undefined> {
   return data.signedUrl;
 }
 
-export function ClientLogo({ nome, logoUrl, size = "md", className }: ClientLogoProps) {
+export function ClientLogo({ nome, logoUrl, fallbackLogoUrl, size = "md", className }: ClientLogoProps) {
   const sz = SIZE_CLASSES[size];
   const initials = getInitials(nome);
   const colorClass = pickColor(nome);
   const [src, setSrc] = useState<string | undefined>(undefined);
 
+  const effective = logoUrl || fallbackLogoUrl;
+
   useEffect(() => {
     let cancelled = false;
-    if (!logoUrl) {
+    if (!effective) {
       setSrc(undefined);
       return;
     }
-    resolveSrc(logoUrl).then((resolved) => {
+    resolveSrc(effective).then((resolved) => {
       if (!cancelled) setSrc(resolved);
     });
     return () => {
       cancelled = true;
     };
-  }, [logoUrl]);
+  }, [effective]);
 
   return (
     <Avatar className={cn(sz.box, "rounded-lg", className)}>
