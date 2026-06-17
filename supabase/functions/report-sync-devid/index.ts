@@ -287,9 +287,21 @@ serve(async (req) => {
 
                 const lista = parsed?.lista as Array<Record<string, unknown>> ?? [];
 
-                console.log(`[DEVID] ${nomeCliente}: ${lista.length} tickets`);
+                const listaFiltrada = lista.filter((t) => {
 
-                todosTickets.push(...lista);
+                  const dataCriacao = (t.data_criacao as string) ?? "";
+
+                  if (!dataCriacao) return false;
+
+                  const d = new Date(dataCriacao.replace(" ", "T"));
+
+                  return d >= new Date(`${periodoInicio}T00:00:00`) && d <= new Date(`${periodoFim}T23:59:59`);
+
+                });
+
+                console.log(`[DEVID] ${nomeCliente}: ${lista.length} total → ${listaFiltrada.length} no período`);
+
+                todosTickets.push(...listaFiltrada);
 
               } catch {
 
