@@ -184,7 +184,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { reportId, clientEmailDomain, firefliesKeywords, month, year } = await req.json();
+    const { reportId, clientEmailDomain, firefliesKeywords, month, year, milvusClientNames } = await req.json();
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -245,21 +245,77 @@ serve(async (req) => {
 
       console.log("[DEVID] tools/list response:", testText.substring(0, 1000));
 
-      const ticketsResult = await callDevid(devidToken, "milvus_search_tickets", {
+      // Buscar tickets para cada nome fantasia do cliente
 
-        date_from:    periodoInicio,
+      const todosTickets: Array<Record<string, unknown>> = [];
 
-        date_to:      periodoFim,
+      const nomesBusca = (milvusClientNames as string[] ?? []);
 
-        nome_cliente: clientEmailDomain ?? "",
+      if (nomesBusca.length === 0) {
 
-      }) as Record<string, unknown>;
+        console.log("[DEVID] Nenhum nome Milvus configurado, pulando busca de tickets");
 
-      console.log("[DEVID] tickets result:", JSON.stringify(ticketsResult).substring(0, 500));
+      } else {
 
-      const tickets = (ticketsResult?.content as Array<Record<string, unknown>>) ?? 
+        console.log(`[DEVID] Buscando tickets para ${nomesBusca.length} nomes fantasia`);
 
-                      (Array.isArray(ticketsResult) ? ticketsResult : []);
+        
+
+        for (const nomeCliente of nomesBusca) {
+
+          try {
+
+            const result = await callDevid(devidToken, "milvus_search_tickets", {
+
+              date_from:    periodoInicio,
+
+              date_to:      periodoFim,
+
+              nome_cliente: nomeCliente,
+
+            }) as Record<string, unknown>;
+
+            const content = result?.content as Array<Record<string, unknown>> ?? [];
+
+            
+
+            // O resultado vem como texto JSON dentro de content[0].text
+
+            if (content.length > 0 && content[0].text) {
+
+              try {
+
+                const parsed = JSON.parse(content[0].text as string) as Record<string, unknown>;
+
+                const lista = parsed?.lista as Array<Record<string, unknown>> ?? [];
+
+                console.log(`[DEVID] ${nomeCliente}: ${lista.length} tickets`);
+
+                todosTickets.push(...lista);
+
+              } catch {
+
+                console.log(`[DEVID] ${nomeCliente}: erro ao parsear JSON`);
+
+              }
+
+            }
+
+          } catch (e) {
+
+            console.log(`[DEVID] Erro ao buscar ${nomeCliente}: ${(e as Error).message}`);
+
+          }
+
+        }
+
+        
+
+        console.log(`[DEVID] Total tickets encontrados: ${todosTickets.length}`);
+
+      }
+
+      const tickets = todosTickets;
 
       
 
