@@ -1,0 +1,240 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
+
+async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
+  const { data, error } = await supabase
+    .from("decrypted_secrets")
+    .select("decrypted_secret")
+    .eq("name", name)
+    .schema("vault")
+    .single();
+  if (error || !data) throw new Error(`Secret '${name}' não encontrado no Vault`);
+  return data.decrypted_secret as string;
+}
+
+async function callDevid(token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
+  const res = await fetch(DEVID_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: Date.now(),
+      method: "tools/call",
+      params: { name: tool, arguments: params },
+    }),
+  });
+
+  if (!res.ok) throw new Error(`DEVID retornou ${res.status}`);
+
+  // Resposta pode ser SSE ou JSON direto
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("text/event-stream")) {
+    const text = await res.text();
+    // Extrair o JSON do SSE
+    const lines = text.split("\n").filter(l => l.startsWith("data:"));
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line.replace("data:", "").trim());
+        if (json.result) return json.result;
+      } catch { continue; }
+    }
+    throw new Error("Nenhum resultado válido no SSE");
+  }
+
+  const json = await res.json() as Record<string, unknown>;
+  return json.result;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  try {
+    const { reportId, clientEmailDomain, firefliesKeywords, month, year } = await req.json();
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
+
+    const periodoInicio = `${year}-${String(month).padStart(2, "0")}-01`;
+    const ultimoDia = new Date(year, month, 0).getDate();
+    const periodoFim = `${year}-${String(month).padStart(2, "0")}-${ultimoDia}`;
+
+    const now = new Date().toISOString();
+    const results: Record<string, unknown> = {};
+
+    // ── 1. Tickets do Milvus ─────────────────────────────────────────────────
+    try {
+      const ticketsResult = await callDevid(devidToken, "milvus_search_tickets", {
+        date_from: periodoInicio,
+        date_to:   periodoFim,
+      }) as Record<string, unknown>;
+
+      const tickets = (ticketsResult?.content as Array<Record<string, unknown>>) ?? [];
+
+      // Contar por tipo
+      const porTipo: Record<string, number> = {
+        incidente: 0, problema: 0, requisicao: 0, melhoria: 0, duvida: 0,
+      };
+      for (const t of tickets) {
+        const tipo = ((t.type ?? t.ticket_type ?? "duvida") as string).toLowerCase();
+        if (porTipo[tipo] !== undefined) porTipo[tipo]++;
+        else porTipo["duvida"]++;
+      }
+
+      // Calcular SLA (tickets resolvidos no prazo / total)
+      const totalTickets = tickets.length;
+      const dentroSla = tickets.filter((t) => t.within_sla === true || t.sla_status === "ok").length;
+      const slaPercentual = totalTickets > 0 ? Math.round((dentroSla / totalTickets) * 100) : 100;
+
+      const bugs = tickets.filter((t) =>
+        ((t.type ?? t.ticket_type ?? "") as string).toLowerCase().includes("bug") ||
+        ((t.subject ?? t.title ?? "") as string).toLowerCase().includes("bug")
+      ).length;
+
+      results.milvus = {
+        tickets:        totalTickets,
+        por_tipo:       porTipo,
+        sla_percentual: slaPercentual,
+        bugs:           bugs,
+        crises:         0,
+        intercorrencias: porTipo.incidente,
+        status: slaPercentual >= 95 ? "alta" : slaPercentual >= 80 ? "adequado" : slaPercentual >= 60 ? "atencao" : "critico",
+      };
+
+      // Salvar seção eficiência operacional
+      await supabase.from("report_sections").upsert({
+        report_id:   reportId,
+        section_key: "eficiencia_operacional",
+        content: {
+          tickets:         totalTickets,
+          bugs:            bugs,
+          crises:          0,
+          intercorrencias: porTipo.incidente,
+          sla:             `${slaPercentual}%`,
+          por_tipo:        porTipo,
+          status:          (results.milvus as Record<string, unknown>).status,
+          analise:         "",
+        },
+        source:    "devid",
+        synced_at: now,
+      }, { onConflict: "report_id,section_key" });
+
+    } catch (e) {
+      results.milvus_error = (e as Error).message;
+    }
+
+    // ── 2. Relatório de horas do Milvus ───────────────────────────────────────
+    try {
+      const horasResult = await callDevid(devidToken, "milvus_get_attendance_report", {
+        date_from: periodoInicio,
+        date_to:   periodoFim,
+      }) as Record<string, unknown>;
+
+      results.horas = horasResult;
+    } catch (e) {
+      results.horas_error = (e as Error).message;
+    }
+
+    // ── 3. Reuniões do Discord ────────────────────────────────────────────────
+    try {
+      // Listar canais disponíveis
+      const canaisResult = await callDevid(devidToken, "list_channels", {}) as Record<string, unknown>;
+      const canais = (canaisResult?.content as Array<Record<string, unknown>>) ?? [];
+
+      // Filtrar canais relevantes por palavras-chave
+      const keywords = (firefliesKeywords ?? []) as string[];
+      const domainParts = (clientEmailDomain ?? "").split(".")[0].toLowerCase();
+      const termoBusca = [domainParts, ...keywords].filter(Boolean);
+
+      const canaisRelevantes = termoBusca.length > 0
+        ? canais.filter((c) => {
+            const nome = ((c.name ?? c.topic ?? "") as string).toLowerCase();
+            return termoBusca.some((k) => nome.includes(k.toLowerCase()));
+          })
+        : [];
+
+      // Buscar mensagens dos canais relevantes (últimas 50 mensagens de cada)
+      const reunioes: Array<{ tipo: string; data: string; descricao: string }> = [];
+      for (const canal of canaisRelevantes.slice(0, 3)) {
+        try {
+          const msgs = await callDevid(devidToken, "get_channel_messages", {
+            channelId: canal.id as string,
+            limit: 50,
+          }) as Record<string, unknown>;
+          const mensagens = (msgs?.content as Array<Record<string, unknown>>) ?? [];
+
+          // Filtrar mensagens do período
+          for (const msg of mensagens) {
+            const ts = new Date((msg.timestamp ?? msg.created_at) as string);
+            if (ts >= new Date(periodoInicio) && ts <= new Date(periodoFim + "T23:59:59")) {
+              const conteudo = (msg.content ?? msg.text ?? "") as string;
+              if (conteudo.length > 20) { // ignorar mensagens muito curtas
+                reunioes.push({
+                  tipo:      "Alinhamento",
+                  data:      ts.toLocaleDateString("pt-BR"),
+                  descricao: conteudo.substring(0, 200),
+                });
+              }
+            }
+          }
+        } catch { continue; }
+      }
+
+      results.discord = { canais_relevantes: canaisRelevantes.length, reunioes: reunioes.length };
+
+      // Salvar seção treinamentos/reuniões (mescla com dados existentes se houver)
+      const { data: secaoExistente } = await supabase
+        .from("report_sections")
+        .select("content")
+        .eq("report_id", reportId)
+        .eq("section_key", "treinamentos_reunioes")
+        .single();
+
+      const conteudoAtual = (secaoExistente?.content ?? {}) as Record<string, unknown>;
+      const reunioesAtuais = (conteudoAtual.reunioes as Array<unknown>) ?? [];
+
+      await supabase.from("report_sections").upsert({
+        report_id:   reportId,
+        section_key: "treinamentos_reunioes",
+        content: {
+          reunioes: [...reunioesAtuais, ...reunioes],
+          rodape:   conteudoAtual.rodape ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.",
+        },
+        source:    "devid",
+        synced_at: now,
+      }, { onConflict: "report_id,section_key" });
+
+    } catch (e) {
+      results.discord_error = (e as Error).message;
+    }
+
+    // Log
+    await supabase.from("report_sync_logs").insert({
+      report_id:       reportId,
+      source:          "devid",
+      status:          "success",
+      records_fetched: (results.milvus as Record<string, unknown>)?.tickets as number ?? 0,
+    });
+
+    return new Response(JSON.stringify({ success: true, ...results }),
+      { headers: { ...CORS, "Content-Type": "application/json" } });
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }),
+      { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
+  }
+});
