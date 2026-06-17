@@ -47,6 +47,7 @@ export default function ReportEditPage() {
   const [generating, setGenerating] = useState(false);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
+  const { syncDevid } = useReportDevidSync();
 
   const { data, isLoading } = useQuery({
     queryKey: ['monthly_report', reportId],
