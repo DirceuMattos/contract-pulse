@@ -76,7 +76,12 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']);
-  
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(contract?.logoUrl);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | undefined>(undefined);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractFormSchema),
     defaultValues: {
@@ -118,8 +123,70 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       responsavelClienteEmail: contract?.responsavelClienteEmail || '',
       responsavelClienteTelefone: contract?.responsavelClienteTelefone || '',
       hasSubprojects: contract?.hasSubprojects || false,
+      logoUrl: contract?.logoUrl,
     },
   });
+
+  // Keep form value in sync with logo state
+  useEffect(() => {
+    form.setValue('logoUrl', logoUrl);
+  }, [logoUrl, form]);
+
+  const uploadLogoForContract = useCallback(async (contractId: string, file: File): Promise<string | null> => {
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `contracts/${contractId}/logo-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('client-logos')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: 'Erro ao enviar logo', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    return path;
+  }, [toast]);
+
+  const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Arquivo inválido', description: 'Selecione uma imagem.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Imagem muito grande', description: 'Tamanho máximo 2MB.', variant: 'destructive' });
+      return;
+    }
+    if (contract?.id) {
+      // Edit mode: upload immediately
+      setIsUploadingLogo(true);
+      const previousPath = logoUrl && !/^https?:/i.test(logoUrl) ? logoUrl : null;
+      const path = await uploadLogoForContract(contract.id, file);
+      setIsUploadingLogo(false);
+      if (path) {
+        setLogoUrl(path);
+        setLogoPreviewUrl(undefined);
+        if (previousPath && previousPath !== path) {
+          await supabase.storage.from('client-logos').remove([previousPath]);
+        }
+        toast({ title: 'Logo do contrato atualizada' });
+      }
+    } else {
+      // Create mode: defer until contract exists
+      setPendingLogoFile(file);
+      setLogoUrl(undefined);
+      setLogoPreviewUrl(URL.createObjectURL(file));
+    }
+  }, [contract?.id, uploadLogoForContract, toast, logoUrl]);
+
+  const handleLogoRemove = useCallback(async () => {
+    if (contract?.id && logoUrl && !/^https?:/i.test(logoUrl)) {
+      await supabase.storage.from('client-logos').remove([logoUrl]);
+    }
+    setLogoUrl(undefined);
+    setPendingLogoFile(null);
+    setLogoPreviewUrl(undefined);
+  }, [contract?.id, logoUrl]);
 
   const watchModeloReceita = form.watch('modeloReceita');
   const watchClientId = form.watch('clientId');
