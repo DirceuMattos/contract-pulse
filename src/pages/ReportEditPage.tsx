@@ -75,6 +75,17 @@ export default function ReportEditPage() {
   const contract = report ? contracts.find((c) => c.id === report.contractId) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
 
+  const { data: templateConfig } = useQuery({
+    queryKey: ['report_template_config', contract?.id],
+    queryFn: async () => {
+      if (!contract?.id) return null;
+      const { data: configRaw } = await supabase
+        .from('report_template_configs').select('*').eq('contract_id', contract.id).maybeSingle();
+      return configRaw ? reportTemplateConfigFromDb(configRaw) : null;
+    },
+    enabled: !!contract?.id,
+  });
+
   // Auto-sync if draft and last sync > 24h ago
   useEffect(() => {
     if (!report || autoSyncTriggered.current) return;
