@@ -323,9 +323,7 @@ serve(async (req) => {
 
       const tickets = todosTickets;
 
-      
-
-      console.log("[DEVID] tickets count:", tickets.length);
+      const totalTickets = tickets.length;
 
       const porTipo: Record<string, number> = {
 
@@ -335,7 +333,7 @@ serve(async (req) => {
 
       for (const t of tickets) {
 
-        const tipo = ((t.type ?? t.ticket_type ?? "duvida") as string).toLowerCase();
+        const tipo = ((t.tipo ?? t.type ?? t.ticket_type ?? "duvida") as string).toLowerCase();
 
         if (porTipo[tipo] !== undefined) porTipo[tipo]++;
 
@@ -343,25 +341,35 @@ serve(async (req) => {
 
       }
 
-      const totalTickets = tickets.length;
+      const dentroSla = tickets.filter((t) =>
 
-      const dentroSla = tickets.filter((t) => t.within_sla === true || t.sla_status === "ok").length;
+        t.within_sla === true || t.sla_status === "ok" ||
+
+        (t.sla as Record<string, unknown>)?.status_sla_solucao === "Em conformidade"
+
+      ).length;
 
       const slaPercentual = totalTickets > 0 ? Math.round((dentroSla / totalTickets) * 100) : 100;
 
       const bugs = tickets.filter((t) =>
 
-        ((t.type ?? t.ticket_type ?? "") as string).toLowerCase().includes("bug") ||
+        ((t.tipo ?? t.type ?? t.ticket_type ?? "") as string).toLowerCase().includes("bug") ||
 
-        ((t.subject ?? t.title ?? "") as string).toLowerCase().includes("bug")
+        ((t.assunto ?? t.subject ?? t.title ?? "") as string).toLowerCase().includes("bug")
 
       ).length;
 
       results.milvus = {
 
-        tickets: totalTickets, por_tipo: porTipo,
+        tickets: totalTickets,
 
-        sla_percentual: slaPercentual, bugs, crises: 0,
+        por_tipo: porTipo,
+
+        sla_percentual: slaPercentual,
+
+        bugs,
+
+        crises: 0,
 
         intercorrencias: porTipo.incidente,
 
@@ -371,23 +379,37 @@ serve(async (req) => {
 
       await supabase.from("report_sections").upsert({
 
-        report_id: reportId, section_key: "eficiencia_operacional",
+        report_id:   reportId,
+
+        section_key: "eficiencia_operacional",
 
         content: {
 
-          tickets: totalTickets, bugs, crises: 0,
+          tickets:         totalTickets,
+
+          bugs,
+
+          crises:          0,
 
           intercorrencias: porTipo.incidente,
 
-          sla: `${slaPercentual}%`,
+          sla:             `${slaPercentual}%`,
 
-          por_tipo: porTipo, status: results.milvus.status, analise: "",
+          por_tipo:        porTipo,
+
+          status:          results.milvus.status,
+
+          analise:         "",
 
         },
 
-        source: "devid", synced_at: now,
+        source:    "devid",
+
+        synced_at: now,
 
       }, { onConflict: "report_id,section_key" });
+
+      console.log(`[MILVUS] Seção eficiencia_operacional salva: ${totalTickets} tickets, SLA ${slaPercentual}%`);
 
     } catch (e) {
 
