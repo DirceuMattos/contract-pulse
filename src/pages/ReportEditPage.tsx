@@ -16,9 +16,9 @@ import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { SectionEditor } from '@/components/reports/SectionEditor';
-import { monthlyReportFromDb, reportSectionFromDb } from '@/lib/dbMappers';
+import { monthlyReportFromDb, reportSectionFromDb, reportTemplateConfigFromDb } from '@/lib/dbMappers';
 import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty } from '@/lib/reportSectionSchemas';
-import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus } from '@/types';
+import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus, ReportTemplateConfig } from '@/types';
 import { generatePptx } from '@/lib/generatePptx';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
