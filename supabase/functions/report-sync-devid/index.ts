@@ -377,7 +377,7 @@ serve(async (req) => {
 
       };
 
-      await supabase.from("report_sections").upsert({
+      const upsertResult = await supabase.from("report_sections").upsert({
 
         report_id:   reportId,
 
@@ -408,6 +408,8 @@ serve(async (req) => {
         synced_at: now,
 
       }, { onConflict: "report_id,section_key" });
+
+      console.log(`[MILVUS] Upsert resultado:`, JSON.stringify(upsertResult));
 
       console.log(`[MILVUS] Seção eficiencia_operacional salva: ${totalTickets} tickets, SLA ${slaPercentual}%`);
 
