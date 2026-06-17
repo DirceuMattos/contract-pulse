@@ -139,8 +139,8 @@ export default function ReportEditPage() {
       tasks.push(supabase.functions.invoke('report-sync-fireflies', {
         body: {
           reportId: report.id,
-          clientEmailDomain: report.clientEmailDomain,
-          firefliesKeywords: [],
+          clientEmailDomain: templateConfig?.clientEmailDomain,
+          firefliesKeywords: templateConfig?.firefliesKeywords ?? [],
           month: report.month,
           year: report.year,
         },
@@ -167,7 +167,7 @@ export default function ReportEditPage() {
         });
       } else if (meta.source === 'fireflies') {
         await supabase.functions.invoke('report-sync-fireflies', {
-          body: { reportId: report.id, clientEmailDomain: report.clientEmailDomain, firefliesKeywords: [], month: report.month, year: report.year },
+          body: { reportId: report.id, clientEmailDomain: templateConfig?.clientEmailDomain, firefliesKeywords: templateConfig?.firefliesKeywords ?? [], month: report.month, year: report.year },
         });
       }
       await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });

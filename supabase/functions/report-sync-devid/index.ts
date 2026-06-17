@@ -6,178 +6,102 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
+const DEVID_URL      = "https://ca-devid-app.azurewebsites.net/mcp";
+const FIREFLIES_URL  = "https://api.fireflies.ai/mcp";
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
-
   const { data, error } = await supabase.rpc('get_vault_secret', { secret_name: name });
-
   if (error || !data) {
-
-    // Fallback: query direta via SQL
-
     const { data: sqlData, error: sqlError } = await supabase
       .rpc('get_secret_by_name', { p_name: name });
     if (sqlError || !sqlData) throw new Error(`Secret '${name}' não encontrado`);
     return sqlData as string;
   }
-
   return data as string;
 }
 
-
-async function callDevid(token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
-
-  console.log(`[DEVID] Chamando tool: ${tool}`, JSON.stringify(params));
+async function callMcp(url: string, token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
+  console.log(`[MCP:${url}] Chamando tool: ${tool}`);
 
   // Passo 1: Initialize
-
-  const initRes = await fetch(DEVID_URL, {
-
+  const initRes = await fetch(url, {
     method: "POST",
-
     headers: {
-
       "Authorization": `Bearer ${token}`,
-
       "Content-Type": "application/json",
-
       "Accept": "application/json, text/event-stream",
-
     },
-
     body: JSON.stringify({
-
       jsonrpc: "2.0",
-
       id: 1,
-
       method: "initialize",
-
       params: {
-
         protocolVersion: "2024-11-05",
-
         capabilities: {},
-
         clientInfo: { name: "bnphub", version: "1.0.0" },
-
       },
-
     }),
-
   });
 
   const initText = await initRes.text();
+  console.log(`[MCP] Initialize status: ${initRes.status}, body: ${initText.substring(0, 200)}`);
 
-  console.log(`[DEVID] Initialize status: ${initRes.status}, body: ${initText.substring(0, 200)}`);
-
-  // Extrair session ID do header se existir
-
-  const sessionId = initRes.headers.get("mcp-session-id") ?? 
-
+  const sessionId = initRes.headers.get("mcp-session-id") ??
                     initRes.headers.get("x-session-id") ?? "";
 
-  console.log(`[DEVID] Session ID: ${sessionId}`);
-
-  // Passo 2: Notificar que inicialização está completa
-
   const headers: Record<string, string> = {
-
     "Authorization": `Bearer ${token}`,
-
     "Content-Type": "application/json",
-
     "Accept": "application/json, text/event-stream",
-
   };
-
   if (sessionId) headers["mcp-session-id"] = sessionId;
 
-  await fetch(DEVID_URL, {
-
+  // Passo 2: notifications/initialized
+  await fetch(url, {
     method: "POST",
-
     headers,
-
-    body: JSON.stringify({
-
-      jsonrpc: "2.0",
-
-      method: "notifications/initialized",
-
-      params: {},
-
-    }),
-
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }),
   });
 
-  // Passo 3: Chamar a tool
-
-  const toolRes = await fetch(DEVID_URL, {
-
+  // Passo 3: tools/call
+  const toolRes = await fetch(url, {
     method: "POST",
-
     headers,
-
     body: JSON.stringify({
-
       jsonrpc: "2.0",
-
       id: Date.now(),
-
       method: "tools/call",
-
       params: { name: tool, arguments: params },
-
     }),
-
   });
 
-  console.log(`[DEVID] Tool status: ${toolRes.status}`);
+  console.log(`[MCP] Tool status: ${toolRes.status}`);
 
   if (!toolRes.ok) {
-
     const body = await toolRes.text();
-
-    console.error(`[DEVID] Tool error body: ${body}`);
-
-    throw new Error(`DEVID retornou ${toolRes.status}: ${body}`);
-
+    throw new Error(`MCP retornou ${toolRes.status}: ${body}`);
   }
 
   const contentType = toolRes.headers.get("content-type") ?? "";
-
   if (contentType.includes("text/event-stream")) {
-
     const text = await toolRes.text();
-
-    console.log(`[DEVID] SSE raw: ${text.substring(0, 500)}`);
-
     const lines = text.split("\n").filter(l => l.startsWith("data:"));
-
     for (const line of lines) {
-
       try {
-
         const json = JSON.parse(line.replace("data:", "").trim());
-
         if (json.result) return json.result;
-
       } catch { continue; }
-
     }
-
     throw new Error("Nenhum resultado válido no SSE");
-
   }
 
   const json = await toolRes.json() as Record<string, unknown>;
-
-  console.log(`[DEVID] Tool result: ${JSON.stringify(json).substring(0, 500)}`);
-
   return json.result;
+}
 
+// Mantém alias para DEVID (compatibilidade com chamadas existentes)
+async function callDevid(token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
+  return callMcp(DEVID_URL, token, tool, params);
 }
 
 serve(async (req) => {
@@ -202,185 +126,92 @@ serve(async (req) => {
 
     // ── 1. Tickets do Milvus ─────────────────────────────────────────────────
     try {
-
-      console.log("[DEVID] Iniciando sync, token length:", devidToken.length);
-
-      
-
-      // Buscar tickets diretamente na API do Milvus (sem passar pelo DEVID)
-
       const todosTickets: Array<Record<string, unknown>> = [];
-
       const nomesBusca = (milvusClientNames as string[] ?? []);
-
       const MILVUS_TOKEN = await getVaultSecret(supabase, "MILVUS_TOKEN");
-
       const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 
       for (const nomeCliente of nomesBusca) {
-
         try {
-
           const milvusRes = await fetch(MILVUS_URL, {
-
             method: "POST",
-
             headers: {
-
               "Authorization": MILVUS_TOKEN,
-
               "Content-Type": "application/json",
-
             },
-
             body: JSON.stringify({
-
               total_registros: 1000,
-
               filtro_body: {
-
                 cliente: nomeCliente,
-
                 data_hora_criacao_inicial: `${periodoInicio} 00:00:00`,
-
                 data_hora_criacao_final: `${periodoFim} 23:59:59`,
-
                 status: "Todos",
-
               },
-
             }),
-
           });
 
-          if (!milvusRes.ok) {
-
-            console.log(`[MILVUS] ${nomeCliente}: HTTP ${milvusRes.status}`);
-
-            continue;
-
-          }
+          if (!milvusRes.ok) { console.log(`[MILVUS] ${nomeCliente}: HTTP ${milvusRes.status}`); continue; }
 
           const milvusData = await milvusRes.json() as Record<string, unknown>;
-
           const lista = (milvusData?.lista as Array<Record<string, unknown>>) ?? [];
-
-          const total = (milvusData?.meta as Record<string, unknown>)?.paginate 
-            ? ((milvusData.meta as Record<string, unknown>).paginate as Record<string, unknown>).total 
-            : lista.length;
-
-          console.log(`[MILVUS] ${nomeCliente}: ${lista.length} tickets (total: ${total})`);
-
+          console.log(`[MILVUS] ${nomeCliente}: ${lista.length} tickets`);
           todosTickets.push(...lista);
-
         } catch (e) {
-
           console.log(`[MILVUS] Erro ${nomeCliente}: ${(e as Error).message}`);
-
         }
-
       }
 
-      console.log(`[MILVUS] Total tickets encontrados: ${todosTickets.length}`);
-
       const tickets = todosTickets;
-
       const totalTickets = tickets.length;
-
-      const porTipo: Record<string, number> = {
-
-        incidente: 0, problema: 0, requisicao: 0, melhoria: 0, duvida: 0,
-
-      };
+      const porTipo: Record<string, number> = { incidente: 0, problema: 0, requisicao: 0, melhoria: 0, duvida: 0 };
 
       for (const t of tickets) {
-
         const tipo = ((t.tipo ?? t.type ?? t.ticket_type ?? "duvida") as string).toLowerCase();
-
         if (porTipo[tipo] !== undefined) porTipo[tipo]++;
-
         else porTipo["duvida"]++;
-
       }
 
       const dentroSla = tickets.filter((t) =>
-
         t.within_sla === true || t.sla_status === "ok" ||
-
         (t.sla as Record<string, unknown>)?.status_sla_solucao === "Em conformidade"
-
       ).length;
 
       const slaPercentual = totalTickets > 0 ? Math.round((dentroSla / totalTickets) * 100) : 100;
-
       const bugs = tickets.filter((t) =>
-
         ((t.tipo ?? t.type ?? t.ticket_type ?? "") as string).toLowerCase().includes("bug") ||
-
         ((t.assunto ?? t.subject ?? t.title ?? "") as string).toLowerCase().includes("bug")
-
       ).length;
 
       results.milvus = {
-
         tickets: totalTickets,
-
         por_tipo: porTipo,
-
         sla_percentual: slaPercentual,
-
         bugs,
-
         crises: 0,
-
         intercorrencias: porTipo.incidente,
-
         status: slaPercentual >= 95 ? "alta" : slaPercentual >= 80 ? "adequado" : slaPercentual >= 60 ? "atencao" : "critico",
-
       };
 
-      const upsertResult = await supabase.from("report_sections").upsert({
-
+      await supabase.from("report_sections").upsert({
         report_id:   reportId,
-
         section_key: "eficiencia_operacional",
-
         content: {
-
           tickets:         totalTickets,
-
           bugs,
-
           crises:          0,
-
           intercorrencias: porTipo.incidente,
-
           sla:             `${slaPercentual}%`,
-
           por_tipo:        porTipo,
-
           status:          results.milvus.status,
-
           analise:         "",
-
         },
-
         source:    "devid",
-
         synced_at: now,
-
       }, { onConflict: "report_id,section_key" });
 
-      console.log(`[MILVUS] Upsert resultado:`, JSON.stringify(upsertResult));
-
-      console.log(`[MILVUS] Seção eficiencia_operacional salva: ${totalTickets} tickets, SLA ${slaPercentual}%`);
-
     } catch (e) {
-
       console.error("[DEVID] Erro Milvus:", (e as Error).message);
-
       results.milvus_error = (e as Error).message;
-
     }
 
     // ── 2. Relatório de horas do Milvus ───────────────────────────────────────
@@ -389,7 +220,6 @@ serve(async (req) => {
         date_from: periodoInicio,
         date_to:   periodoFim,
       }) as Record<string, unknown>;
-
       results.horas = horasResult;
     } catch (e) {
       results.horas_error = (e as Error).message;
@@ -397,11 +227,8 @@ serve(async (req) => {
 
     // ── 3. Reuniões do Discord ────────────────────────────────────────────────
     try {
-      // Listar canais disponíveis
       const canaisResult = await callDevid(devidToken, "list_channels", {}) as Record<string, unknown>;
       const canais = (canaisResult?.content as Array<Record<string, unknown>>) ?? [];
-
-      // Filtrar canais relevantes por palavras-chave
       const keywords = (firefliesKeywords ?? []) as string[];
       const domainParts = (clientEmailDomain ?? "").split(".")[0].toLowerCase();
       const termoBusca = [domainParts, ...keywords].filter(Boolean);
@@ -413,62 +240,100 @@ serve(async (req) => {
           })
         : [];
 
-      // Buscar mensagens dos canais relevantes (últimas 50 mensagens de cada)
-      const reunioes: Array<{ tipo: string; data: string; descricao: string }> = [];
-      for (const canal of canaisRelevantes.slice(0, 3)) {
-        try {
-          const msgs = await callDevid(devidToken, "get_channel_messages", {
-            channelId: canal.id as string,
-            limit: 50,
-          }) as Record<string, unknown>;
-          const mensagens = (msgs?.content as Array<Record<string, unknown>>) ?? [];
-
-          // Filtrar mensagens do período
-          for (const msg of mensagens) {
-            const ts = new Date((msg.timestamp ?? msg.created_at) as string);
-            if (ts >= new Date(periodoInicio) && ts <= new Date(periodoFim + "T23:59:59")) {
-              const conteudo = (msg.content ?? msg.text ?? "") as string;
-              if (conteudo.length > 20) { // ignorar mensagens muito curtas
-                reunioes.push({
-                  tipo:      "Alinhamento",
-                  data:      ts.toLocaleDateString("pt-BR"),
-                  descricao: conteudo.substring(0, 200),
-                });
-              }
-            }
-          }
-        } catch { continue; }
-      }
-
-      results.discord = { canais_relevantes: canaisRelevantes.length, reunioes: reunioes.length };
-
-      // Salvar seção treinamentos/reuniões (mescla com dados existentes se houver)
-      const { data: secaoExistente } = await supabase
-        .from("report_sections")
-        .select("content")
-        .eq("report_id", reportId)
-        .eq("section_key", "treinamentos_reunioes")
-        .single();
-
-      const conteudoAtual = (secaoExistente?.content ?? {}) as Record<string, unknown>;
-      const reunioesAtuais = (conteudoAtual.reunioes as Array<unknown>) ?? [];
-
-      await supabase.from("report_sections").upsert({
-        report_id:   reportId,
-        section_key: "treinamentos_reunioes",
-        content: {
-          reunioes: [...reunioesAtuais, ...reunioes],
-          rodape:   conteudoAtual.rodape ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.",
-        },
-        source:    "devid",
-        synced_at: now,
-      }, { onConflict: "report_id,section_key" });
-
+      results.discord = { canais_relevantes: canaisRelevantes.length };
     } catch (e) {
       results.discord_error = (e as Error).message;
     }
 
-    // Log
+    // ── 4. Reuniões do Fireflies via MCP ──────────────────────────────────────
+    try {
+      const firefliesToken = await getVaultSecret(supabase, "FIREFLIES_TOKEN");
+
+      const ffResult = await callMcp(FIREFLIES_URL, firefliesToken, "fireflies_get_transcripts", {
+        fromDate: `${year}-${String(month).padStart(2, "0")}-01`,
+        toDate:   `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`,
+        format:   "json",
+        limit:    50,
+      }) as Record<string, unknown>;
+
+      // Extrair array de transcrições do resultado MCP
+      const rawContent = (ffResult as Record<string, unknown>)?.content;
+      let transcripts: Array<Record<string, unknown>> = [];
+
+      if (Array.isArray(rawContent)) {
+        // Resultado MCP pode vir como array de content blocks
+        for (const block of rawContent) {
+          if ((block as Record<string, unknown>).type === "text") {
+            try {
+              const parsed = JSON.parse((block as Record<string, unknown>).text as string);
+              if (Array.isArray(parsed)) transcripts = parsed;
+              else if (parsed.transcripts) transcripts = parsed.transcripts;
+            } catch { continue; }
+          }
+        }
+      } else if (Array.isArray(ffResult)) {
+        transcripts = ffResult as Array<Record<string, unknown>>;
+      }
+
+      console.log(`[FIREFLIES] Total reuniões no período: ${transcripts.length}`);
+
+      // Filtragem por domínio do cliente OU por palavras-chave no título
+      const domain = (clientEmailDomain ?? "").toLowerCase().trim();
+      const kws = ((firefliesKeywords ?? []) as string[]).map((k: string) => k.toLowerCase().trim()).filter(Boolean);
+
+      const filtered = transcripts.filter((t) => {
+        const titleLc = ((t.title ?? "") as string).toLowerCase();
+        const titleMatch = kws.length > 0 && kws.some((k) => titleLc.includes(k));
+        const participants = (t.participants ?? t.meetingAttendees ?? []) as Array<string | Record<string, unknown>>;
+        const emails = participants.map((p) =>
+          typeof p === "string" ? p : ((p as Record<string, unknown>).email as string ?? "")
+        );
+        const domainMatch = domain && emails.some((e) => e.toLowerCase().endsWith(`@${domain}`));
+        if (!domain && kws.length === 0) return true;
+        return titleMatch || domainMatch;
+      });
+
+      console.log(`[FIREFLIES] Reuniões filtradas para o contrato: ${filtered.length}`);
+
+      // Monta linhas no formato esperado pela seção treinamentos_reunioes
+      const linhas = filtered.map((t) => ({
+        tipo:     "Reunião",
+        data:     new Date(t.date as number).toISOString().slice(0, 10),
+        descricao: (t.title as string) + (
+          (t.summary as Record<string, unknown>)?.short_summary
+            ? ` — ${(t.summary as Record<string, unknown>).short_summary}`
+            : ""
+        ),
+      }));
+
+      results.fireflies = { total: transcripts.length, filtradas: filtered.length };
+
+      // Salva seção treinamentos_reunioes (substitui conteúdo anterior)
+      await supabase.from("report_sections").upsert({
+        report_id:   reportId,
+        section_key: "treinamentos_reunioes",
+        content: {
+          linhas,
+          rodape: "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.",
+        },
+        source:    "fireflies",
+        synced_at: now,
+      }, { onConflict: "report_id,section_key" });
+
+      await supabase.from("report_sync_logs").insert({
+        report_id:       reportId,
+        source:          "fireflies",
+        status:          "success",
+        records_fetched: filtered.length,
+        synced_at:       now,
+      });
+
+    } catch (e) {
+      console.error("[FIREFLIES] Erro:", (e as Error).message);
+      results.fireflies_error = (e as Error).message;
+    }
+
+    // Log geral
     await supabase.from("report_sync_logs").insert({
       report_id:       reportId,
       source:          "devid",
