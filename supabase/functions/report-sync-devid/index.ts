@@ -266,13 +266,11 @@ serve(async (req) => {
           try {
 
             const result = await callDevid(devidToken, "milvus_search_tickets", {
-
-              date_from:    periodoInicio,
-
-              date_to:      periodoFim,
-
-              nome_cliente: nomeCliente,
-
+              cliente: nomeCliente,
+              data_hora_criacao_inicial: `${periodoInicio} 00:00:00`,
+              data_hora_criacao_final: `${periodoFim} 23:59:59`,
+              status: "Todos",
+              total_registros: 1000,
             }) as Record<string, unknown>;
 
             const content = result?.content as Array<Record<string, unknown>> ?? [];
