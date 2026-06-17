@@ -14,6 +14,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useAlerts } from '@/hooks/useAlerts';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useData } from '@/contexts/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

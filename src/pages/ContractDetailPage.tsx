@@ -211,6 +211,15 @@ export default function ContractDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => navigate(location.state?.from || '/contratos')} className="mt-1">
             <ArrowLeft className="w-5 h-5" />
           </Button>
+          {client && (
+            <ClientLogo
+              nome={client.nomeFantasia || client.razaoSocial}
+              logoUrl={contract.logoUrl}
+              fallbackLogoUrl={client.logoUrl}
+              size="lg"
+              className="mt-1 shrink-0"
+            />
+          )}
           <div>
             <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground">{contract.nome}</h1>
