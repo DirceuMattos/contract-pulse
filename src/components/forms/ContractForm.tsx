@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarIcon, Plus, X, Building2 } from 'lucide-react';
+import { CalendarIcon, Plus, X, Building2, Upload, Trash2, Loader2 } from 'lucide-react';
 import { formatPhoneInput } from '@/lib/utils';
 import { contractFormSchema, ContractFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
 import { Contract } from '@/types';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,7 +63,7 @@ const fieldToSection: Record<string, string> = {
 
 interface ContractFormProps {
   contract?: Contract;
-  onSubmit: (data: ContractFormData) => void;
+  onSubmit: (data: ContractFormData, extras: { pendingLogoFile: File | null }) => void;
   onCancel: () => void;
   isLoading?: boolean;
 }
@@ -74,7 +76,12 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']);
-  
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(contract?.logoUrl);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | undefined>(undefined);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractFormSchema),
     defaultValues: {
@@ -116,8 +123,70 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       responsavelClienteEmail: contract?.responsavelClienteEmail || '',
       responsavelClienteTelefone: contract?.responsavelClienteTelefone || '',
       hasSubprojects: contract?.hasSubprojects || false,
+      logoUrl: contract?.logoUrl,
     },
   });
+
+  // Keep form value in sync with logo state
+  useEffect(() => {
+    form.setValue('logoUrl', logoUrl);
+  }, [logoUrl, form]);
+
+  const uploadLogoForContract = useCallback(async (contractId: string, file: File): Promise<string | null> => {
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `contracts/${contractId}/logo-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('client-logos')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: 'Erro ao enviar logo', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    return path;
+  }, [toast]);
+
+  const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Arquivo inválido', description: 'Selecione uma imagem.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Imagem muito grande', description: 'Tamanho máximo 2MB.', variant: 'destructive' });
+      return;
+    }
+    if (contract?.id) {
+      // Edit mode: upload immediately
+      setIsUploadingLogo(true);
+      const previousPath = logoUrl && !/^https?:/i.test(logoUrl) ? logoUrl : null;
+      const path = await uploadLogoForContract(contract.id, file);
+      setIsUploadingLogo(false);
+      if (path) {
+        setLogoUrl(path);
+        setLogoPreviewUrl(undefined);
+        if (previousPath && previousPath !== path) {
+          await supabase.storage.from('client-logos').remove([previousPath]);
+        }
+        toast({ title: 'Logo do contrato atualizada' });
+      }
+    } else {
+      // Create mode: defer until contract exists
+      setPendingLogoFile(file);
+      setLogoUrl(undefined);
+      setLogoPreviewUrl(URL.createObjectURL(file));
+    }
+  }, [contract?.id, uploadLogoForContract, toast, logoUrl]);
+
+  const handleLogoRemove = useCallback(async () => {
+    if (contract?.id && logoUrl && !/^https?:/i.test(logoUrl)) {
+      await supabase.storage.from('client-logos').remove([logoUrl]);
+    }
+    setLogoUrl(undefined);
+    setPendingLogoFile(null);
+    setLogoPreviewUrl(undefined);
+  }, [contract?.id, logoUrl]);
 
   const watchModeloReceita = form.watch('modeloReceita');
   const watchClientId = form.watch('clientId');
@@ -155,7 +224,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
 
   return (
     <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        <form onSubmit={form.handleSubmit((data) => onSubmit(data, { pendingLogoFile }), (errors) => {
           handleFormValidationError(errors);
           // Auto-expand accordion sections that contain errors
           const sectionsWithErrors = new Set<string>();
@@ -360,6 +429,58 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                     </div>
                   )}
                 </div>
+
+                {/* Logo do contrato */}
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Logo do contrato</FormLabel>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {logoPreviewUrl ? (
+                      <img src={logoPreviewUrl} alt="Preview" className="w-16 h-16 rounded-lg object-contain bg-white border" />
+                    ) : (
+                      <ClientLogo
+                        nome={form.watch('nome') || '?'}
+                        logoUrl={logoUrl}
+                        fallbackLogoUrl={clients.find(c => c.id === watchClientId)?.logoUrl}
+                        size="lg"
+                      />
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={isUploadingLogo}
+                    >
+                      {isUploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                      {logoUrl || pendingLogoFile ? 'Trocar logo' : 'Enviar logo'}
+                    </Button>
+                    {(logoUrl || pendingLogoFile) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLogoRemove}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  <FormDescription>
+                    {logoUrl || pendingLogoFile
+                      ? 'PNG, JPG ou SVG até 2MB. Esta logo prevalece sobre a logo do cliente.'
+                      : 'Opcional. Se vazio, será usada a logo do cliente. PNG, JPG ou SVG até 2MB.'}
+                  </FormDescription>
+                </FormItem>
+
 
                 <FormField
                   control={form.control}

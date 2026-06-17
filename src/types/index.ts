@@ -113,6 +113,8 @@ export interface Contract {
   
   hasSubprojects?: boolean;
   
+  logoUrl?: string;
+  
   // Superlógica / Recebíveis
   superlogicaCustomerCnpj?: string;
   superlogicaCustomerId?: string;

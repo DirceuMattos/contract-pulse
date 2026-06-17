@@ -234,7 +234,7 @@ export default function ContractDetailPage() {
                 className="flex items-center gap-2 hover:text-primary transition-colors"
               >
                 {client && (
-                  <ClientLogo nome={client.nomeFantasia || client.razaoSocial} logoUrl={client.logoUrl} size="sm" />
+                  <ClientLogo nome={client.nomeFantasia || client.razaoSocial} logoUrl={contract.logoUrl} fallbackLogoUrl={client.logoUrl} size="sm" />
                 )}
                 <Building2 className="w-4 h-4" />
                 {client?.nomeFantasia || client?.razaoSocial}

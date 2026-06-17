@@ -409,6 +409,7 @@ export type Database = {
           id: string
           indice_reajuste: string
           is_demo: boolean | null
+          logo_url: string | null
           modelo_receita: Database["public"]["Enums"]["revenue_model"]
           moeda: string
           nome: string
@@ -464,6 +465,7 @@ export type Database = {
           id?: string
           indice_reajuste?: string
           is_demo?: boolean | null
+          logo_url?: string | null
           modelo_receita?: Database["public"]["Enums"]["revenue_model"]
           moeda?: string
           nome?: string
@@ -519,6 +521,7 @@ export type Database = {
           id?: string
           indice_reajuste?: string
           is_demo?: boolean | null
+          logo_url?: string | null
           modelo_receita?: Database["public"]["Enums"]["revenue_model"]
           moeda?: string
           nome?: string
