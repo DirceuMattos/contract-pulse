@@ -644,6 +644,7 @@ export interface ReportTemplateConfig {
   asanaProjectId?: string;
   clientEmailDomain?: string;
   firefliesKeywords?: string[];
+  milvusClientNames?: string[];
 }
 
 export interface ReportCollaborator {

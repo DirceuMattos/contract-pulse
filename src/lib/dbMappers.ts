@@ -790,6 +790,7 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
     asanaProjectId: row.asana_project_id ?? undefined,
     clientEmailDomain: row.client_email_domain ?? undefined,
     firefliesKeywords: row.fireflies_keywords ?? [],
+    milvusClientNames: row.milvus_client_names ?? [],
   };
 }
 
@@ -811,6 +812,7 @@ export function reportTemplateConfigToDb(c: Partial<ReportTemplateConfig>): Reco
   if (c.asanaProjectId !== undefined) out.asana_project_id = emptyToNull(c.asanaProjectId);
   if (c.clientEmailDomain !== undefined) out.client_email_domain = emptyToNull(c.clientEmailDomain);
   if (c.firefliesKeywords !== undefined) out.fireflies_keywords = c.firefliesKeywords ?? [];
+  if (c.milvusClientNames !== undefined) out.milvus_client_names = c.milvusClientNames ?? [];
   return out;
 }
 

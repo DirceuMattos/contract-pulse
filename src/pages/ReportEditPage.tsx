@@ -16,9 +16,9 @@ import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { SectionEditor } from '@/components/reports/SectionEditor';
-import { monthlyReportFromDb, reportSectionFromDb } from '@/lib/dbMappers';
+import { monthlyReportFromDb, reportSectionFromDb, reportTemplateConfigFromDb } from '@/lib/dbMappers';
 import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty } from '@/lib/reportSectionSchemas';
-import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus } from '@/types';
+import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus, ReportTemplateConfig } from '@/types';
 import { generatePptx } from '@/lib/generatePptx';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -74,6 +74,17 @@ export default function ReportEditPage() {
 
   const contract = report ? contracts.find((c) => c.id === report.contractId) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
+
+  const { data: templateConfig } = useQuery({
+    queryKey: ['report_template_config', contract?.id],
+    queryFn: async () => {
+      if (!contract?.id) return null;
+      const { data: configRaw } = await supabase
+        .from('report_template_configs').select('*').eq('contract_id', contract.id).maybeSingle();
+      return configRaw ? reportTemplateConfigFromDb(configRaw) : null;
+    },
+    enabled: !!contract?.id,
+  });
 
   // Auto-sync if draft and last sync > 24h ago
   useEffect(() => {
@@ -134,7 +145,7 @@ export default function ReportEditPage() {
           year: report.year,
         },
       }));
-      tasks.push(syncDevid(report.id, report.clientEmailDomain, [], report.month, report.year));
+      tasks.push(syncDevid(report.id, templateConfig?.clientEmailDomain, templateConfig?.firefliesKeywords, report.month, report.year, templateConfig?.milvusClientNames));
       await Promise.allSettled(tasks);
       await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
       if (!silent) toast({ title: 'Sincronização concluída' });
