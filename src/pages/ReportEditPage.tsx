@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { SectionEditor } from '@/components/reports/SectionEditor';
@@ -46,6 +47,7 @@ export default function ReportEditPage() {
   const [generating, setGenerating] = useState(false);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
+  const { syncDevid } = useReportDevidSync();
 
   const { data, isLoading } = useQuery({
     queryKey: ['monthly_report', reportId],
@@ -132,6 +134,7 @@ export default function ReportEditPage() {
           year: report.year,
         },
       }));
+      tasks.push(syncDevid(report.id, report.clientEmailDomain, [], report.month, report.year));
       await Promise.allSettled(tasks);
       await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
       if (!silent) toast({ title: 'Sincronização concluída' });
