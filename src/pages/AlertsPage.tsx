@@ -105,6 +105,16 @@ export default function AlertsPage() {
         >
           <CardContent className="p-4">
             <div className="flex items-start gap-4">
+              {/* Client / contract logo */}
+              {client && (
+                <ClientLogo
+                  nome={client.nomeFantasia || client.razaoSocial}
+                  logoUrl={contract?.logoUrl}
+                  fallbackLogoUrl={client.logoUrl}
+                  size="md"
+                  className="shrink-0"
+                />
+              )}
               {/* Icon */}
               <div className={cn(
                 'p-2 rounded-lg shrink-0',
