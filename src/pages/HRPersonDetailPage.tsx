@@ -561,7 +561,7 @@ export default function HRPersonDetailPage() {
           </div>
 
           {/* Atualização mensal */}
-          {(userRole === 'c-level' || userRole === 'rh') && (
+          {(userRole === 'c-level' || userRole === 'rh' || userRole === 'superadmin' || userRole === 'demo') && (
             <Card className="border-amber-500/30 bg-amber-500/5">
               <CardHeader><CardTitle className="text-base text-amber-700 dark:text-amber-400">📋 Destaque para Comitê Gestor em</CardTitle></CardHeader>
               <CardContent className="space-y-3">
