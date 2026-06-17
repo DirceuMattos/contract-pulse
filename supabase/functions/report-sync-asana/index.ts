@@ -41,14 +41,9 @@ async function fetchAsanaTasks(token: string, section: string, optFields: string
 }
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
-  const { data, error } = await supabase
-    .from("decrypted_secrets")
-    .select("decrypted_secret")
-    .eq("name", name)
-    .schema("vault")
-    .single();
+  const { data, error } = await supabase.rpc('get_vault_secret', { secret_name: name });
   if (error || !data) throw new Error(`Secret '${name}' não encontrado no Vault`);
-  return data.decrypted_secret as string;
+  return data as string;
 }
 
 serve(async (req) => {
