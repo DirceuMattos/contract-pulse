@@ -224,7 +224,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
 
   return (
     <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        <form onSubmit={form.handleSubmit((data) => onSubmit(data, { pendingLogoFile }), (errors) => {
           handleFormValidationError(errors);
           // Auto-expand accordion sections that contain errors
           const sectionsWithErrors = new Set<string>();
