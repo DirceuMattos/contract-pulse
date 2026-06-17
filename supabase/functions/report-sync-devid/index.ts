@@ -296,6 +296,12 @@ serve(async (req) => {
 
       console.log(`[FIREFLIES] Reuniões filtradas para o contrato: ${filtered.length}`);
 
+      if (filtered.length > 0) {
+
+        console.log(`[FIREFLIES] Amostra date field: ${JSON.stringify(filtered[0].date)} | dateString: ${JSON.stringify((filtered[0] as Record<string, unknown>).dateString)}`);
+
+      }
+
       // Monta linhas no formato esperado pela seção treinamentos_reunioes
       const linhas = filtered.map((t) => ({
         tipo:     "Reunião",
