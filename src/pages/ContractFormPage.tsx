@@ -9,6 +9,7 @@ import { ContractForm } from '@/components/forms/ContractForm';
 import { ContractFormData } from '@/lib/validators';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { MigrateToSubprojectsDialog } from '@/components/squads/MigrateToSubprojectsDialog';
 
 export default function ContractFormPage() {
@@ -48,7 +49,20 @@ export default function ContractFormPage() {
     );
   }
 
-  const handleSubmit = async (data: ContractFormData) => {
+  const uploadLogoForContract = async (contractId: string, file: File): Promise<string | null> => {
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `contracts/${contractId}/logo-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('client-logos')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: 'Erro ao enviar logo', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    return path;
+  };
+
+  const handleSubmit = async (data: ContractFormData, extras: { pendingLogoFile: File | null }) => {
     setIsLoading(true);
     
     try {
@@ -91,6 +105,7 @@ export default function ContractFormPage() {
         responsavelClienteEmail: data.responsavelClienteEmail,
         responsavelClienteTelefone: data.responsavelClienteTelefone,
         hasSubprojects: data.hasSubprojects,
+        logoUrl: data.logoUrl,
       };
 
       if (isEditing && contract) {
@@ -114,6 +129,13 @@ export default function ContractFormPage() {
       } else {
         const newContract = await addContract(contractData);
         setHasSubprojects(newContract.id, !!data.hasSubprojects);
+        // Upload deferred logo now that we have an id
+        if (extras.pendingLogoFile) {
+          const path = await uploadLogoForContract(newContract.id, extras.pendingLogoFile);
+          if (path) {
+            updateContract(newContract.id, { logoUrl: path });
+          }
+        }
         toast({
           title: 'Contrato criado',
           description: 'O novo contrato foi cadastrado com sucesso.',
