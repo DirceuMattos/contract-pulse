@@ -11,7 +11,8 @@ export function useReportDevidSync() {
     clientEmailDomain?: string,
     firefliesKeywords?: string[],
     month?: number,
-    year?: number
+    year?: number,
+    milvusClientNames?: string[]
   ) => {
     setSyncing(true);
     try {
