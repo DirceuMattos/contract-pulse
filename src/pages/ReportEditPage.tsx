@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { SectionEditor } from '@/components/reports/SectionEditor';
