@@ -20,40 +20,89 @@ async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: s
 }
 
 async function callDevid(token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
+
+  console.log(`[DEVID] Chamando tool: ${tool}`, JSON.stringify(params));
+
+  
+
   const res = await fetch(DEVID_URL, {
+
     method: "POST",
+
     headers: {
+
       "Authorization": `Bearer ${token}`,
+
       "Content-Type": "application/json",
+
       "Accept": "application/json, text/event-stream",
+
     },
+
     body: JSON.stringify({
+
       jsonrpc: "2.0",
+
       id: Date.now(),
+
       method: "tools/call",
+
       params: { name: tool, arguments: params },
+
     }),
+
   });
 
-  if (!res.ok) throw new Error(`DEVID retornou ${res.status}`);
+  console.log(`[DEVID] Status: ${res.status} ${res.statusText}`);
 
-  // Resposta pode ser SSE ou JSON direto
+  
+
+  if (!res.ok) {
+
+    const body = await res.text();
+
+    console.error(`[DEVID] Erro body: ${body}`);
+
+    throw new Error(`DEVID retornou ${res.status}: ${body}`);
+
+  }
+
   const contentType = res.headers.get("content-type") ?? "";
+
+  console.log(`[DEVID] Content-Type: ${contentType}`);
+
+  
+
   if (contentType.includes("text/event-stream")) {
+
     const text = await res.text();
-    // Extrair o JSON do SSE
+
+    console.log(`[DEVID] SSE raw: ${text.substring(0, 500)}`);
+
     const lines = text.split("\n").filter(l => l.startsWith("data:"));
+
     for (const line of lines) {
+
       try {
+
         const json = JSON.parse(line.replace("data:", "").trim());
+
         if (json.result) return json.result;
+
       } catch { continue; }
+
     }
+
     throw new Error("Nenhum resultado válido no SSE");
+
   }
 
   const json = await res.json() as Record<string, unknown>;
+
+  console.log(`[DEVID] JSON result:`, JSON.stringify(json).substring(0, 500));
+
   return json.result;
+
 }
 
 serve(async (req) => {
