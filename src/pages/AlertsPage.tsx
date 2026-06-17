@@ -14,6 +14,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useAlerts } from '@/hooks/useAlerts';
+import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useData } from '@/contexts/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -105,6 +106,16 @@ export default function AlertsPage() {
         >
           <CardContent className="p-4">
             <div className="flex items-start gap-4">
+              {/* Client / contract logo */}
+              {client && (
+                <ClientLogo
+                  nome={client.nomeFantasia || client.razaoSocial}
+                  logoUrl={contract?.logoUrl}
+                  fallbackLogoUrl={client.logoUrl}
+                  size="md"
+                  className="shrink-0"
+                />
+              )}
               {/* Icon */}
               <div className={cn(
                 'p-2 rounded-lg shrink-0',
