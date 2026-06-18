@@ -79,10 +79,21 @@ export function defaultsForSection(key: ReportSectionKey): Record<string, unknow
       return { tarefas: [], linhas: [] };
     case 'maturidade_plataforma':
       return { metricas: [], analise: '' };
+    case 'glossario':
+      return { termos: [], __hidden: false };
+    case 'indicadores':
+      return { __hidden: false };
+    case 'historico_tr_aderencia':
+      return { percentual_global: 0, categorias: [], analise: '', __hidden: false };
+    case 'ambientes':
+      return { ambientes: [], __hidden: false };
+    case 'ambientes_detalhe':
+      return { texto: '', links: [], __hidden: false };
     default:
       return {};
   }
 }
+
 
 export function isSectionEmpty(content: Record<string, unknown>): boolean {
   return !content || Object.keys(content).length === 0;
