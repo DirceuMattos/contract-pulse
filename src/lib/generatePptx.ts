@@ -206,7 +206,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 5: ENTREGAS
-  {
+  if (!sections["entregas"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Evolução e Inovação / Entregas");
