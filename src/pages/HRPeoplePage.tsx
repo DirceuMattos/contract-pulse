@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift, TrendingDown } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift, TrendingDown, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { Button } from '@/components/ui/button';

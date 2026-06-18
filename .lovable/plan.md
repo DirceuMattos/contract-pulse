@@ -1,23 +1,19 @@
-## Objetivo
-Exibir o botão "+ Novo Contrato" (no Header global) somente nas telas dos módulos Contratos e Clientes. Em qualquer outra rota ele fica oculto.
+Sim, é perfeitamente possível tornar a área de filtros retrátil.
 
-## Alteração
-**Arquivo:** `src/components/layout/Header.tsx` (linhas 128–136)
+Como funciona:
 
-- Usar `useLocation()` do `react-router-dom` para obter a rota atual.
-- Renderizar o `<Button>` "Novo Contrato" condicionalmente apenas quando o pathname começar com `/contratos` ou `/clientes`.
+- Adicionamos um botão "Filtros" com ícone de chevron no topo do Card de filtros.
+- Ao clicar, a área dos selects e toggles expande/colapsa com animação suave.
+- O campo de busca (Linha 1) permanece sempre visível — ele é essencial e não ocupa espaço.
+- O estado "aberto/fechado" pode ser persistido no sessionStorage para lembrar a preferência do usuário entre navegações.
 
-```tsx
-const location = useLocation();
-const showNovoContrato =
-  location.pathname.startsWith('/contratos') ||
-  location.pathname.startsWith('/clientes');
+O que muda no código:
 
-{showNovoContrato && (
-  <Button ...>...Novo Contrato...</Button>
-)}
-```
+1. Envolvo as Linhas 2 e 3 do Card de filtros (selects + toggles) em um componente/condicional com transição.
+2. Adiciono um `useState` local para controlar `filtersExpanded`.
+3. Adiciono um botão de toggle no header do Card, ao lado do "Limpar filtros".
+4. Opcionalmente persistir no `sessionStorage`.
 
-## Não alterar
-- `DashboardPage.tsx`, `ContractsPage.tsx`, `ContractFormPage.tsx` permanecem como estão (o botão no DashboardPage é o card-atalho da própria dashboard — não é o mesmo controle do Header; e o `ContractsPage` é módulo Contratos, então deve manter).
-- Nenhuma outra lógica, estilo ou comportamento é tocado.
+Mantemos o campo de busca sempre visível para não prejudicar a usabilidade principal.
+
+Nada mais deve ser alterado.
