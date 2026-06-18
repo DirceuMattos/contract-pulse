@@ -230,9 +230,17 @@ export default function ReportsPage() {
                               <SettingsIcon className="w-4 h-4 mr-2" />Configurar template
                             </DropdownMenuItem>
                           )}
-                          {canDelete && <>
+                          {canDelete && report.status === 'draft' && <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setDeleteId(report.id)} className="text-destructive">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Deletar relatório ${MONTHS_SHORT[report.month - 1]}/${report.year}? Esta ação não pode ser desfeita.`)) {
+                                  handleDelete(report.id);
+                                }
+                              }}
+                              className="text-destructive"
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />Excluir
                             </DropdownMenuItem>
                           </>}
