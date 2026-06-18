@@ -325,24 +325,43 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
 // ============================================
 // Demonstrativo de Horas
 // ============================================
-function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) {
-  const linhas: { recurso: string; servicos: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
+function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorProps) {
+  const linhas: { recurso: string; funcao: string; dedicacao: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
   const total = linhas.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
     onChange({ ...content, linhas: next });
   };
+  // Auto-preencher com squad do contrato se linhas vazias
+  useEffect(() => {
+    if (linhas.length === 0 && meta?.squadMembers && (meta.squadMembers as any[]).length > 0) {
+      const novasLinhas = (meta.squadMembers as any[]).map((m: any) => ({
+        recurso:    m.nome ?? m.name ?? '',
+        funcao:     m.funcao ?? m.role ?? '',
+        dedicacao:  m.dedicacao ?? '',
+        unidade:    'horas',
+        quantidade: 0,
+      }));
+      onChange({ ...content, linhas: novasLinhas });
+    }
+  }, [meta?.squadMembers]);
   return (
     <div className="space-y-3">
+      {linhas.length === 0 && (
+        <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm">
+          ℹ️ Nenhum membro cadastrado. Adicione manualmente ou verifique se a squad está configurada no contrato.
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border">
           <thead className="bg-muted">
             <tr>
               <th className="p-2 text-left">Recurso</th>
-              <th className="p-2 text-left">Serviços</th>
-              <th className="p-2 text-left w-32">Unidade</th>
-              <th className="p-2 text-left w-32">Quantidade</th>
+              <th className="p-2 text-left">Função</th>
+              <th className="p-2 text-left w-32">Dedicação</th>
+              <th className="p-2 text-left w-28">Unidade</th>
+              <th className="p-2 text-left w-28">Quantidade</th>
               <th className="p-2 w-10"></th>
             </tr>
           </thead>
@@ -350,7 +369,8 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) 
             {linhas.map((l, i) => (
               <tr key={i} className="border-t">
                 <td className="p-1"><Input value={l.recurso} onChange={(e) => update(i, { recurso: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.servicos} onChange={(e) => update(i, { servicos: e.target.value })} disabled={readOnly} /></td>
+                <td className="p-1"><Input value={l.funcao ?? ''} onChange={(e) => update(i, { funcao: e.target.value })} disabled={readOnly} /></td>
+                <td className="p-1"><Input value={l.dedicacao ?? ''} onChange={(e) => update(i, { dedicacao: e.target.value })} disabled={readOnly} placeholder="ex: 100%" /></td>
                 <td className="p-1"><Input value={l.unidade} onChange={(e) => update(i, { unidade: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input type="number" value={l.quantidade ?? 0} onChange={(e) => update(i, { quantidade: Number(e.target.value) })} disabled={readOnly} /></td>
                 <td className="p-1">
@@ -358,13 +378,19 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) 
                 </td>
               </tr>
             ))}
-            <tr className="bg-muted font-semibold"><td colSpan={3} className="p-2 text-right">Total</td><td className="p-2">{total}</td><td /></tr>
+            <tr className="bg-muted font-semibold">
+              <td colSpan={4} className="p-2 text-right">Total</td>
+              <td className="p-2">{total}</td>
+              <td />
+            </tr>
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', servicos: '', unidade: 'horas', quantidade: 0 }] })}>
-        <Plus className="w-4 h-4 mr-2" />Adicionar linha
-      </Button>}
+      {!readOnly && (
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', funcao: '', dedicacao: '', unidade: 'horas', quantidade: 0 }] })}>
+          <Plus className="w-4 h-4 mr-2" />Adicionar linha
+        </Button>
+      )}
       <div>
         <Label>Legenda</Label>
         <Textarea value={content.legenda ?? ''} onChange={(e) => onChange({ ...content, legenda: e.target.value })} rows={2} disabled={readOnly} />
