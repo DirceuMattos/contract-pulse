@@ -88,12 +88,24 @@ function CapaEditor({ content, onChange, readOnly, meta }: EditorProps) {
 // ============================================
 // Sumário (simple list)
 // ============================================
-function SumarioEditor({ content, onChange, readOnly }: EditorProps) {
+function SumarioEditor({ content, onChange, readOnly, meta }: EditorProps) {
+  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const mesAno = meta?.month && meta?.year ? `${MESES[meta.month - 1]}/${meta.year}` : '';
+
   return (
-    <div className="max-w-2xl">
-      <Label>Notas do sumário</Label>
-      <Textarea value={content.notas ?? ''} onChange={(e) => onChange({ ...content, notas: e.target.value })} rows={6} disabled={readOnly} />
-      <p className="text-xs text-muted-foreground mt-2">O sumário é gerado automaticamente na exportação a partir das seções ativas.</p>
+    <div className="max-w-2xl space-y-3">
+      <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+        <span className="text-blue-500 mt-0.5">ℹ️</span>
+        <div className="text-sm text-blue-700">
+          <span className="font-medium">Geração automática</span>
+          {mesAno && <span> — Relatório de <span className="font-semibold">{mesAno}</span></span>}
+          <br />O sumário é gerado automaticamente na exportação a partir das seções ativas.
+        </div>
+      </div>
+      <div>
+        <Label>Notas adicionais (opcional)</Label>
+        <Textarea value={content.notas ?? ''} onChange={(e) => onChange({ ...content, notas: e.target.value })} rows={4} disabled={readOnly} placeholder="Observações que devem aparecer no sumário..." />
+      </div>
     </div>
   );
 }
