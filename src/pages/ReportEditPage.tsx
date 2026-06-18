@@ -327,9 +327,10 @@ export default function ReportEditPage() {
         </Card>
 
 
-        {/* Editor */}
-        <Card>
-          <CardContent className="p-6 space-y-4">
+        {/* Editor — own scroll */}
+        <Card className="overflow-hidden flex flex-col">
+          <CardContent className="p-6 space-y-4 overflow-y-auto flex-1">
+
             {activeSec && activeMeta ? (
               <>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
