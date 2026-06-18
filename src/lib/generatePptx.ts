@@ -537,10 +537,10 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const gpX = (deg: number) => GCX + GR * Math.cos(toRad2(deg));
       const gpY = (deg: number) => GCY + GR * Math.sin(toRad2(deg));
       const garc = (s2: number, e2: number) =>
-        \`M \${gpX(s2).toFixed(1)} \${gpY(s2).toFixed(1)} A \${GR} \${GR} 0 0 0 \${gpX(e2).toFixed(1)} \${gpY(e2).toFixed(1)}\`;
+        `M \${gpX(s2).toFixed(1)} \${gpY(s2).toFixed(1)} A \${GR} \${GR} 0 0 0 \${gpX(e2).toFixed(1)} \${gpY(e2).toFixed(1)}`;
       const pnx = (GCX + (GR - 18) * Math.cos(toRad2(gaugeAngleDeg))).toFixed(1);
       const pny = (GCY + (GR - 18) * Math.sin(toRad2(gaugeAngleDeg))).toFixed(1);
-      const gaugeSvg = \`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="185" viewBox="0 0 300 185">
+      const gaugeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="185" viewBox="0 0 300 185">
         <path d="\${garc(180, 225)}" fill="none" stroke="#C81E1E" stroke-width="\${GSW}" stroke-linecap="butt"/>
         <path d="\${garc(225, 270)}" fill="none" stroke="#C85000" stroke-width="\${GSW}" stroke-linecap="butt"/>
         <path d="\${garc(270, 315)}" fill="none" stroke="#C8A000" stroke-width="\${GSW}" stroke-linecap="butt"/>
@@ -550,8 +550,8 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         <circle cx="\${GCX}" cy="\${GCY}" r="7" fill="#1A4F8A"/>
         <text x="12" y="182" font-size="13" fill="#C81E1E" font-family="Arial" font-weight="bold">Crítico</text>
         <text x="232" y="182" font-size="13" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>
-      </svg>\`;
-      const svgB64 = \`data:image/svg+xml;base64,\${btoa(unescape(encodeURIComponent(gaugeSvg)))}\`;
+      </svg>`;
+      const svgB64 = `data:image/svg+xml;base64,\${btoa(unescape(encodeURIComponent(gaugeSvg)))}`;
       s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 1.9 });
 
       // Análise
