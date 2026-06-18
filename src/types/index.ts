@@ -593,14 +593,15 @@ export interface ContractSimulation {
 export type ReportStatus = 'draft' | 'review' | 'approved' | 'published';
 
 export type ReportSectionKey =
-  | 'capa' | 'sumario' | 'objetivo' | 'historico_tr'
-  | 'painel_executivo' | 'evolucao_inovacao' | 'entregas'
+  | 'capa' | 'sumario' | 'glossario' | 'objetivo' | 'indicadores'
+  | 'painel_executivo' | 'historico_tr' | 'historico_tr_aderencia'
+  | 'ambientes' | 'ambientes_detalhe' | 'evolucao_inovacao' | 'entregas'
   | 'priorizadas' | 'demonstrativo_horas' | 'eficiencia_operacional'
   | 'eficiencia_previsibilidade' | 'desempenho_aplicacao'
   | 'engajamento_usuario' | 'maturidade_plataforma'
   | 'treinamentos_reunioes' | 'oportunidades_atencao';
 
-export type ReportSectionSource = 'manual' | 'asana' | 'fireflies' | 'bnphub';
+export type ReportSectionSource = 'manual' | 'asana' | 'fireflies' | 'bnphub' | 'auto';
 
 export interface MonthlyReport {
   id: string;
@@ -631,7 +632,14 @@ export interface ReportSection {
 export interface ReportTemplateConfig {
   id: string;
   contractId: string;
+  showGlossario?: boolean;
+  showObjetivo?: boolean;
+  showIndicadores?: boolean;
+  showPainelExecutivo?: boolean;
   showHistoricoTr: boolean;
+  showHistoricoTrAderencia?: boolean;
+  showAmbientes?: boolean;
+  showAmbientesDetalhe?: boolean;
   showEvolucaoInovacao: boolean;
   showEntregas: boolean;
   showPriorizadas: boolean;
@@ -648,6 +656,7 @@ export interface ReportTemplateConfig {
   firefliesKeywords?: string[];
   milvusClientNames?: string[];
 }
+
 
 export interface ReportCollaborator {
   id: string;

@@ -11,23 +11,29 @@ export interface SectionMeta {
 }
 
 export const SECTION_META: SectionMeta[] = [
-  { key: 'capa', label: 'Capa', source: 'bnphub', configurable: false },
-  { key: 'sumario', label: 'Sumário', source: 'manual', configurable: false },
-  { key: 'objetivo', label: 'Objetivo', source: 'manual', configurable: false },
-  { key: 'historico_tr', label: 'Histórico TR', source: 'bnphub', configurable: true, configFlag: 'showHistoricoTr' },
-  { key: 'painel_executivo', label: 'Painel Executivo', source: 'manual', configurable: false },
-  { key: 'evolucao_inovacao', label: 'Evolução e Inovação', source: 'asana', configurable: true, configFlag: 'showEvolucaoInovacao' },
-  { key: 'entregas', label: 'Entregas', source: 'asana', configurable: true, configFlag: 'showEntregas' },
-  { key: 'priorizadas', label: 'Tarefas Priorizadas', source: 'asana', configurable: true, configFlag: 'showPriorizadas' },
-  { key: 'demonstrativo_horas', label: 'Demonstrativo de Horas', source: 'manual', configurable: true, configFlag: 'showDemonstrativoHoras' },
-  { key: 'eficiencia_operacional', label: 'Eficiência Operacional', source: 'manual', configurable: true, configFlag: 'showEficienciaOperacional' },
-  { key: 'eficiencia_previsibilidade', label: 'Eficiência e Previsibilidade', source: 'asana', configurable: true, configFlag: 'showEficienciaPrevisibilidade' },
-  { key: 'desempenho_aplicacao', label: 'Desempenho da Aplicação', source: 'manual', configurable: true, configFlag: 'showDesempenhoAplicacao' },
-  { key: 'engajamento_usuario', label: 'Engajamento do Usuário', source: 'manual', configurable: true, configFlag: 'showEngajamentoUsuario' },
-  { key: 'maturidade_plataforma', label: 'Maturidade da Plataforma', source: 'manual', configurable: true, configFlag: 'showMaturidadePlataforma' },
-  { key: 'treinamentos_reunioes', label: 'Treinamentos e Reuniões', source: 'fireflies', configurable: true, configFlag: 'showTreinamentosReunioes' },
-  { key: 'oportunidades_atencao', label: 'Oportunidades e Fatores de Atenção', source: 'manual', configurable: true, configFlag: 'showOportunidadesAtencao' },
+  { key: 'capa',                       label: 'Capa',                                    source: 'auto',      configurable: false },
+  { key: 'sumario',                    label: 'Sumário',                                 source: 'manual',    configurable: false },
+  { key: 'glossario',                  label: 'Glossário de Termos',                     source: 'manual',    configurable: true, configFlag: 'showGlossario' },
+  { key: 'objetivo',                   label: 'Objetivo',                                source: 'manual',    configurable: true, configFlag: 'showObjetivo' },
+  { key: 'indicadores',                label: 'Indicadores do Relatório',                source: 'manual',    configurable: true, configFlag: 'showIndicadores' },
+  { key: 'painel_executivo',           label: 'Painel Executivo',                        source: 'manual',    configurable: true, configFlag: 'showPainelExecutivo' },
+  { key: 'historico_tr',               label: 'Histórico TR',                            source: 'auto',      configurable: true, configFlag: 'showHistoricoTr' },
+  { key: 'historico_tr_aderencia',     label: 'Histórico TR — Aderência Global',         source: 'manual',    configurable: true, configFlag: 'showHistoricoTrAderencia' },
+  { key: 'ambientes',                  label: 'Ambientes Implementados',                 source: 'manual',    configurable: true, configFlag: 'showAmbientes' },
+  { key: 'ambientes_detalhe',          label: 'Ambientes — Detalhamento',                source: 'manual',    configurable: true, configFlag: 'showAmbientesDetalhe' },
+  { key: 'evolucao_inovacao',          label: 'Evolução e Inovação',                     source: 'asana',     configurable: true, configFlag: 'showEvolucaoInovacao' },
+  { key: 'entregas',                   label: 'Entregas',                                source: 'asana',     configurable: true, configFlag: 'showEntregas' },
+  { key: 'priorizadas',                label: 'Tarefas Priorizadas',                     source: 'asana',     configurable: true, configFlag: 'showPriorizadas' },
+  { key: 'demonstrativo_horas',        label: 'Demonstrativo de Horas',                  source: 'manual',    configurable: true, configFlag: 'showDemonstrativoHoras' },
+  { key: 'eficiencia_operacional',     label: 'Eficiência Operacional',                  source: 'auto',      configurable: true, configFlag: 'showEficienciaOperacional' },
+  { key: 'eficiencia_previsibilidade', label: 'Eficiência e Previsibilidade',            source: 'auto',      configurable: true, configFlag: 'showEficienciaPrevisibilidade' },
+  { key: 'desempenho_aplicacao',       label: 'Desempenho da Aplicação',                 source: 'manual',    configurable: true, configFlag: 'showDesempenhoAplicacao' },
+  { key: 'engajamento_usuario',        label: 'Engajamento do Usuário',                  source: 'manual',    configurable: true, configFlag: 'showEngajamentoUsuario' },
+  { key: 'maturidade_plataforma',      label: 'Maturidade da Plataforma',                source: 'manual',    configurable: true, configFlag: 'showMaturidadePlataforma' },
+  { key: 'treinamentos_reunioes',      label: 'Treinamentos / Reuniões',                 source: 'fireflies', configurable: true, configFlag: 'showTreinamentosReunioes' },
+  { key: 'oportunidades_atencao',      label: 'Oportunidades e Fatores de Atenção',      source: 'manual',    configurable: true, configFlag: 'showOportunidadesAtencao' },
 ];
+
 
 export const SECTION_META_BY_KEY: Record<ReportSectionKey, SectionMeta> = Object.fromEntries(
   SECTION_META.map((m) => [m.key, m]),
@@ -73,10 +79,21 @@ export function defaultsForSection(key: ReportSectionKey): Record<string, unknow
       return { tarefas: [], linhas: [] };
     case 'maturidade_plataforma':
       return { metricas: [], analise: '' };
+    case 'glossario':
+      return { termos: [], __hidden: false };
+    case 'indicadores':
+      return { __hidden: false };
+    case 'historico_tr_aderencia':
+      return { percentual_global: 0, categorias: [], analise: '', __hidden: false };
+    case 'ambientes':
+      return { ambientes: [], __hidden: false };
+    case 'ambientes_detalhe':
+      return { texto: '', links: [], __hidden: false };
     default:
       return {};
   }
 }
+
 
 export function isSectionEmpty(content: Record<string, unknown>): boolean {
   return !content || Object.keys(content).length === 0;
@@ -97,10 +114,15 @@ export function isSectionComplete(key: ReportSectionKey, content: Record<string,
       const arr = content.linhas ?? content.tarefas;
       return Array.isArray(arr) && (arr as unknown[]).length > 0;
     }
+    case 'historico_tr': {
+      const arr = content.linhas as Array<{ descricao: string; status: string }> | undefined;
+      return Array.isArray(arr) && arr.length > 0 && arr.some((l) => l.descricao?.trim());
+    }
     case 'treinamentos_reunioes':
     case 'oportunidades_atencao':
     case 'demonstrativo_horas':
       return Array.isArray(content.linhas) && (content.linhas as unknown[]).length > 0;
+
     default:
       return Object.keys(content).length > 0;
   }
