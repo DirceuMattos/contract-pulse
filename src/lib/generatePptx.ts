@@ -527,33 +527,32 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       // Simplificado: 4 retângulos curvados representando os arcos
       // Gauge semicírculo usando SVG embutido como imagem
       // Gera SVG do gauge e converte para base64
-      // Gauge: semicírculo de 180° a 0° (sentido anti-horário pelo topo)
-      // cx=150,cy=150 no viewBox 300x170 — arcos de 180° até 0° pelo topo (270°)
-      // Ponteiro: Crítico=200°, Atenção=240°, Adequado=270°(topo), Alta=320°
+      // Gauge velocímetro: centro na base (cy=160), arco abre para cima pelo topo (270°)
+      // ViewBox 300x180, cx=150, cy=165, r=110, sweep-flag=0
+      // Ângulos: 180°=esq-base, 225°=esq-cima, 270°=topo, 315°=dir-cima, 360°=dir-base
       const gaugeAngles: Record<string, number> = { critico: 200, atencao: 240, adequado: 270, alta: 320 };
       const gaugeAngleDeg = gaugeAngles[statusRaw] ?? 270;
       const toRad2 = (deg: number) => (deg * Math.PI) / 180;
-      const GCX = 150; const GCY = 150; const GR = 100; const GSW = 30;
+      const GCX = 150; const GCY = 165; const GR = 110; const GSW = 28;
       const gpX = (deg: number) => GCX + GR * Math.cos(toRad2(deg));
       const gpY = (deg: number) => GCY + GR * Math.sin(toRad2(deg));
-      // arcos no sentido horário de 180→360 pelo topo (usando sweep-flag=0 = anti-horário)
-      // 180°→225° Crítico, 225°→270° Atenção, 270°→315° Adequado, 315°→360° Alta
-      const arc = (s2: number, e2: number) =>
-        `M ${gpX(s2).toFixed(1)} ${gpY(s2).toFixed(1)} A ${GR} ${GR} 0 0 0 ${gpX(e2).toFixed(1)} ${gpY(e2).toFixed(1)}`;
-      const pnx = (GCX + (GR - 15) * Math.cos(toRad2(gaugeAngleDeg))).toFixed(1);
-      const pny = (GCY + (GR - 15) * Math.sin(toRad2(gaugeAngleDeg))).toFixed(1);
-      const gaugeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="170" viewBox="0 0 300 170">
-        <path d="${arc(180, 225)}" fill="none" stroke="#C81E1E" stroke-width="${GSW}" stroke-linecap="butt"/>
-        <path d="${arc(225, 270)}" fill="none" stroke="#C85000" stroke-width="${GSW}" stroke-linecap="butt"/>
-        <path d="${arc(270, 315)}" fill="none" stroke="#C8A000" stroke-width="${GSW}" stroke-linecap="butt"/>
-        <path d="${arc(315, 360)}" fill="none" stroke="#1E8A3E" stroke-width="${GSW}" stroke-linecap="butt"/>
-        <circle cx="${GCX}" cy="${GCY}" r="14" fill="#1A4F8A"/>
-        <line x1="${GCX}" y1="${GCY}" x2="${pnx}" y2="${pny}" stroke="#1A4F8A" stroke-width="5" stroke-linecap="round"/>
-        <text x="18" y="162" font-size="13" fill="#C81E1E" font-family="Arial" font-weight="bold">Crítico</text>
-        <text x="240" y="162" font-size="13" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>
+      const garc = (s2: number, e2: number) =>
+        `M \${gpX(s2).toFixed(1)} \${gpY(s2).toFixed(1)} A \${GR} \${GR} 0 0 0 \${gpX(e2).toFixed(1)} \${gpY(e2).toFixed(1)}`;
+      const pnx = (GCX + (GR - 18) * Math.cos(toRad2(gaugeAngleDeg))).toFixed(1);
+      const pny = (GCY + (GR - 18) * Math.sin(toRad2(gaugeAngleDeg))).toFixed(1);
+      const gaugeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="185" viewBox="0 0 300 185">
+        <path d="\${garc(180, 225)}" fill="none" stroke="#C81E1E" stroke-width="\${GSW}" stroke-linecap="butt"/>
+        <path d="\${garc(225, 270)}" fill="none" stroke="#C85000" stroke-width="\${GSW}" stroke-linecap="butt"/>
+        <path d="\${garc(270, 315)}" fill="none" stroke="#C8A000" stroke-width="\${GSW}" stroke-linecap="butt"/>
+        <path d="\${garc(315, 360)}" fill="none" stroke="#1E8A3E" stroke-width="\${GSW}" stroke-linecap="butt"/>
+        <circle cx="\${GCX}" cy="\${GCY}" r="14" fill="#1A4F8A"/>
+        <line x1="\${GCX}" y1="\${GCY}" x2="\${pnx}" y2="\${pny}" stroke="#1A4F8A" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="\${GCX}" cy="\${GCY}" r="7" fill="#1A4F8A"/>
+        <text x="12" y="182" font-size="13" fill="#C81E1E" font-family="Arial" font-weight="bold">Crítico</text>
+        <text x="232" y="182" font-size="13" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>
       </svg>`;
-      const svgB64 = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(gaugeSvg)))}`;
-      s.addImage({ data: svgB64, x: gx, y: gy + 0.2, w: gw, h: 1.8 });
+      const svgB64 = `data:image/svg+xml;base64,\${btoa(unescape(encodeURIComponent(gaugeSvg)))}`;
+      s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 1.9 });
 
       // Análise
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
