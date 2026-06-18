@@ -14,6 +14,13 @@ interface EditorProps {
   content: Record<string, any>;
   onChange: (next: Record<string, any>) => void;
   readOnly?: boolean;
+  meta?: {
+    contractName?: string;
+    clientName?: string;
+    contractNumber?: string;
+    month?: number;
+    year?: number;
+  };
 }
 
 function StatusSelect({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
