@@ -765,6 +765,26 @@ function EficienciaPrevisibilidadeEditor({ content, onChange, readOnly }: Editor
 // ============================================
 // Desempenho da Aplicação
 // ============================================
+function GaugeChart({ status }: { status: string }) {
+  const angles: Record<string, number> = { critico: -80, atencao: -30, adequado: 30, alta: 80 };
+  const key = status?.toLowerCase().replace('ç', 'c').replace('ã', 'a') ?? 'adequado';
+  const angle = angles[key] ?? 30;
+  const rad = (angle * Math.PI) / 180;
+  const cx = 100; const cy = 90; const r = 70;
+  const nx = cx + r * Math.sin(rad);
+  const ny = cy - r * Math.cos(rad);
+  return (
+    <svg viewBox="0 0 200 110" className="w-full max-w-xs mx-auto">
+      <path d="M 30 90 A 70 70 0 0 1 60 31" stroke="#C81E1E" strokeWidth="18" fill="none" strokeLinecap="butt" />
+      <path d="M 60 31 A 70 70 0 0 1 100 20" stroke="#C85000" strokeWidth="18" fill="none" strokeLinecap="butt" />
+      <path d="M 100 20 A 70 70 0 0 1 140 31" stroke="#C8A000" strokeWidth="18" fill="none" strokeLinecap="butt" />
+      <path d="M 140 31 A 70 70 0 0 1 170 90" stroke="#1E8A3E" strokeWidth="18" fill="none" strokeLinecap="butt" />
+      <circle cx={cx} cy={cy} r="10" fill="#1A4F8A" />
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1A4F8A" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps) {
   const imagens: string[] = content.imagens ?? [];
   const handleImagePaste = (e: React.ClipboardEvent) => {
@@ -774,20 +794,14 @@ function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps)
     const file = imageItem.getAsFile();
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const base64 = ev.target?.result as string;
-      onChange({ ...content, imagens: [...imagens, base64] });
-    };
+    reader.onload = (ev) => onChange({ ...content, imagens: [...imagens, ev.target?.result as string] });
     reader.readAsDataURL(file);
   };
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const base64 = ev.target?.result as string;
-      onChange({ ...content, imagens: [...imagens, base64] });
-    };
+    reader.onload = (ev) => onChange({ ...content, imagens: [...imagens, ev.target?.result as string] });
     reader.readAsDataURL(file);
   };
   return (
@@ -795,14 +809,19 @@ function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps)
       <div className="flex items-center gap-3">
         <Label>Status</Label>
         <div className="flex-1">
-          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+          <StatusSelect value={(content.status as string) ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
         </div>
-        <StatusBadge value={content.status} />
+        <StatusBadge value={content.status as string} />
       </div>
+      {content.status && (
+        <div className="border rounded-lg p-3 bg-muted/30">
+          <GaugeChart status={content.status as string} />
+        </div>
+      )}
       <div>
         <Label>Análise</Label>
         <Textarea
-          value={content.analise ?? ''}
+          value={(content.analise as string) ?? ''}
           onChange={(e) => onChange({ ...content, analise: e.target.value })}
           rows={4}
           disabled={readOnly}
@@ -812,11 +831,11 @@ function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps)
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label>Imagens / Dashboards</Label>
-          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Temporário — será automatizado</Badge>
+          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Temporário</Badge>
         </div>
         {!readOnly && (
           <div
-            className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center text-sm text-muted-foreground cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center text-sm text-muted-foreground hover:border-blue-400 hover:bg-blue-50 transition-colors"
             onPaste={handleImagePaste}
             tabIndex={0}
           >
@@ -833,12 +852,7 @@ function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps)
               <div key={i} className="relative border rounded-lg overflow-hidden">
                 <img src={img} alt={`Dashboard ${i + 1}`} className="w-full object-contain max-h-96" />
                 {!readOnly && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2 opacity-80"
-                    onClick={() => onChange({ ...content, imagens: imagens.filter((_, idx) => idx !== i) })}
-                  >
+                  <Button variant="destructive" size="sm" className="absolute top-2 right-2 opacity-80" onClick={() => onChange({ ...content, imagens: imagens.filter((_, idx) => idx !== i) })}>
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 )}
@@ -850,6 +864,7 @@ function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps)
     </div>
   );
 }
+
 
 // ============================================
 // Engajamento do Usuário
