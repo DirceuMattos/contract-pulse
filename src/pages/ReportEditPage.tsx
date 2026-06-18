@@ -38,7 +38,7 @@ function sectionStatusIcon(content: Record<string, unknown>, key: ReportSectionK
 export default function ReportEditPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
-  const { contracts, getClient } = useData();
+  const { contracts, getClient, getResourcesByContract } = useData();
   const { userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
