@@ -355,6 +355,7 @@ export default function ReportEditPage() {
                     contractNumber: contract?.codigo,
                     month: report?.month,
                     year: report?.year,
+                    squadMembers,
                   }}
                 />
               </>
