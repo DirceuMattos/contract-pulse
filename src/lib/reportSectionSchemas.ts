@@ -114,10 +114,15 @@ export function isSectionComplete(key: ReportSectionKey, content: Record<string,
       const arr = content.linhas ?? content.tarefas;
       return Array.isArray(arr) && (arr as unknown[]).length > 0;
     }
+    case 'historico_tr': {
+      const arr = content.linhas as Array<{ descricao: string; status: string }> | undefined;
+      return Array.isArray(arr) && arr.length > 0 && arr.some((l) => l.descricao?.trim());
+    }
     case 'treinamentos_reunioes':
     case 'oportunidades_atencao':
     case 'demonstrativo_horas':
       return Array.isArray(content.linhas) && (content.linhas as unknown[]).length > 0;
+
     default:
       return Object.keys(content).length > 0;
   }
