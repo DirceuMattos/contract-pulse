@@ -253,9 +253,9 @@ Deno.serve(async (req) => {
 
   const db = createClient(supabaseUrl, supabaseServiceKey)
 
-  const { data: roleCheck } = await db.rpc('has_role', { _user_id: userId, _role: 'c-level' })
+  const { data: roleCheck } = await db.rpc('has_any_role', { _user_id: userId, _roles: ['c-level', 'superadmin'] })
   if (!roleCheck) {
-    return new Response(JSON.stringify({ error: 'Forbidden: c-level only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ error: 'Forbidden: c-level or superadmin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
   // Parse optional sync_mode
