@@ -108,27 +108,30 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
         if (secErr) throw secErr;
       }
 
-      // Fire background syncs (do not await)
-      if (config?.asanaProjectId) {
-        supabase.functions.invoke('report-sync-asana', {
-          body: { reportId: report.id, asanaProjectId: config.asanaProjectId, month, year },
-        }).catch(() => {});
-      }
-      if (config?.clientEmailDomain || (config?.firefliesKeywords && config.firefliesKeywords.length > 0)) {
-        supabase.functions.invoke('report-sync-fireflies', {
-          body: {
-            reportId: report.id,
-            clientEmailDomain: config?.clientEmailDomain,
-            firefliesKeywords: config?.firefliesKeywords ?? [],
-            month,
-            year,
-          },
-        }).catch(() => {});
-      }
+      // Disparar syncs em background — erros não bloqueiam a criação
+      try {
+        if (config?.asanaProjectId) {
+          supabase.functions.invoke('report-sync-asana', {
+            body: { reportId: report.id, asanaProjectId: config.asanaProjectId, month, year },
+          }).catch(() => {});
+        }
+        if (config?.clientEmailDomain || (config?.firefliesKeywords && config.firefliesKeywords.length > 0)) {
+          supabase.functions.invoke('report-sync-fireflies', {
+            body: {
+              reportId: report.id,
+              clientEmailDomain: config?.clientEmailDomain,
+              firefliesKeywords: config?.firefliesKeywords ?? [],
+              month,
+              year,
+            },
+          }).catch(() => {});
+        }
+      } catch { /* syncs opcionais — ignorar erros */ }
 
       toast({ title: 'Relatório criado', description: `${MONTHS[month - 1]}/${year}` });
       queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
       setOpen(false);
+      console.log('[ReportCreate] Relatório criado com sucesso:', report.id);
       navigate(`/relatorios/${report.id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
