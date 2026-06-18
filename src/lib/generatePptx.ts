@@ -402,7 +402,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         [{ text: "TOTAL", options: { bold: true, fill: { color: AZUL_CLARO } } }, "", "", "", { text: String(total), options: { bold: true, fill: { color: AZUL_CLARO } } }],
       ];
       if (sec.legenda) {
-        tableData.push([{ text: sec.legenda as string, options: { italic: true, color: "888888", colspan: 5, fontSize: 8 } }, "", "", "", ""]);
+        tableData.push([{ text: sec.legenda as string, options: { color: "888888", colspan: 5, fontSize: 8 } }, "", "", "", ""]);
       }
       s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
     }
