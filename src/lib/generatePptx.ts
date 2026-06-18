@@ -92,6 +92,8 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9";
 
+  // build: v5-reorder
+
   // ── SLIDE 1: CAPA ──────────────────────────────────────────────
   {
     const s = pres.addSlide();
