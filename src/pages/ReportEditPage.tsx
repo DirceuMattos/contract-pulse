@@ -339,7 +339,7 @@ export default function ReportEditPage() {
         <Card className="overflow-hidden flex flex-col">
           <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
-              {sections.map((s) => {
+              {sortedSections.map((s) => {
                 const meta = SECTION_META_BY_KEY[s.sectionKey];
                 const active = s.sectionKey === activeSection;
                 return (
@@ -352,7 +352,10 @@ export default function ReportEditPage() {
                     )}
                   >
                     <span>{sectionStatusIcon(s.content, s.sectionKey)}</span>
-                    <span className="flex-1 truncate">{meta?.label ?? s.sectionKey}</span>
+                    <span className="flex-1 truncate">
+                      <span className="text-muted-foreground mr-1 text-xs">{String(sortedSections.indexOf(s) + 1).padStart(2, '0')}.</span>
+                      {meta?.label ?? s.sectionKey}
+                    </span>
                     <Badge variant="outline" className={cn('text-[10px] uppercase', s.source !== 'manual' && 'border-blue-400 text-blue-600')}>
                       {s.source === 'manual' ? 'Manual' : 'Auto'}
                     </Badge>
