@@ -527,30 +527,29 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       // Simplificado: 4 retângulos curvados representando os arcos
       // Gauge semicírculo usando SVG embutido como imagem
       // Gera SVG do gauge e converte para base64
-      // Gauge velocímetro: semicírculo abrindo para cima, centro na base
-      const gaugeAngles: Record<string, number> = { critico: 200, atencao: 240, adequado: 270, alta: 320 };
-      const gaugeAngleDeg = gaugeAngles[statusRaw] ?? 270;
-      const toRad2 = (deg: number) => (deg * Math.PI) / 180;
-      const GCX = 150; const GCY = 165; const GR = 110; const GSW = 28;
-      const gpX = (deg: number) => (GCX + GR * Math.cos(toRad2(deg))).toFixed(1);
-      const gpY = (deg: number) => (GCY + GR * Math.sin(toRad2(deg))).toFixed(1);
-      const garc = (s2: number, e2: number) =>
-        "M " + gpX(s2) + " " + gpY(s2) + " A " + GR + " " + GR + " 0 0 0 " + gpX(e2) + " " + gpY(e2);
-      const pnx = (GCX + (GR - 18) * Math.cos(toRad2(gaugeAngleDeg))).toFixed(1);
-      const pny = (GCY + (GR - 18) * Math.sin(toRad2(gaugeAngleDeg))).toFixed(1);
-      const gaugeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="185" viewBox="0 0 300 185">'
-        + '<path d="' + garc(180, 225) + '" fill="none" stroke="#C81E1E" stroke-width="' + GSW + '" stroke-linecap="butt"/>'
-        + '<path d="' + garc(225, 270) + '" fill="none" stroke="#C85000" stroke-width="' + GSW + '" stroke-linecap="butt"/>'
-        + '<path d="' + garc(270, 315) + '" fill="none" stroke="#C8A000" stroke-width="' + GSW + '" stroke-linecap="butt"/>'
-        + '<path d="' + garc(315, 360) + '" fill="none" stroke="#1E8A3E" stroke-width="' + GSW + '" stroke-linecap="butt"/>'
-        + '<circle cx="' + GCX + '" cy="' + GCY + '" r="14" fill="#1A4F8A"/>'
-        + '<line x1="' + GCX + '" y1="' + GCY + '" x2="' + pnx + '" y2="' + pny + '" stroke="#1A4F8A" stroke-width="5" stroke-linecap="round"/>'
-        + '<circle cx="' + GCX + '" cy="' + GCY + '" r="7" fill="#FFFFFF"/>'
-        + '<text x="12" y="182" font-size="13" fill="#C81E1E" font-family="Arial" font-weight="bold">Critico</text>'
-        + '<text x="235" y="182" font-size="13" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>'
+      // Gauge velocímetro — paths fixos pré-calculados (cx=150,cy=150,r=110,sweep=1)
+      // Arco 180°→360° pelo topo (270°=y40). Ponteiro aponta para status ativo.
+      const needlePoints: Record<string, [number,number]> = {
+        critico:  [68.4,  112.0],
+        atencao:  [116.3, 66.6],
+        adequado: [150.0, 60.0],
+        alta:     [213.6, 86.4],
+      };
+      const [npx, npy] = needlePoints[statusRaw] ?? needlePoints.adequado;
+      const gaugeSvg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="165" viewBox="0 0 300 165">'
+        + '<path d="M 40 150 A 110 110 0 0 1 72.2 72.2" fill="none" stroke="#C81E1E" stroke-width="26" stroke-linecap="butt"/>'
+        + '<path d="M 72.2 72.2 A 110 110 0 0 1 150 40" fill="none" stroke="#C85000" stroke-width="26" stroke-linecap="butt"/>'
+        + '<path d="M 150 40 A 110 110 0 0 1 227.8 72.2" fill="none" stroke="#C8A000" stroke-width="26" stroke-linecap="butt"/>'
+        + '<path d="M 227.8 72.2 A 110 110 0 0 1 260 150" fill="none" stroke="#1E8A3E" stroke-width="26" stroke-linecap="butt"/>'
+        + '<line x1="150" y1="150" x2="' + npx + '" y2="' + npy + '" stroke="#1A4F8A" stroke-width="5" stroke-linecap="round"/>'
+        + '<circle cx="150" cy="150" r="12" fill="#1A4F8A"/>'
+        + '<circle cx="150" cy="150" r="5" fill="#FFFFFF"/>'
+        + '<text x="10" y="163" font-size="12" fill="#C81E1E" font-family="Arial" font-weight="bold">Critico</text>'
+        + '<text x="234" y="163" font-size="12" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>'
         + '</svg>';
       const svgB64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(gaugeSvg)));
-      s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 1.9 });
+      s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 1.85 });
 
       // Análise
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
