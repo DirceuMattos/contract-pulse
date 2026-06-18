@@ -242,7 +242,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 6: EFICIÊNCIA OPERACIONAL
-  {
+  if (!sections["eficiencia_operacional"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Eficiência Operacional");
