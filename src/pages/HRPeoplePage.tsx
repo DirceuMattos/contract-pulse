@@ -353,8 +353,20 @@ export default function HRPeoplePage() {
                 Limpar filtros
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={() => setFiltersExpanded(v => !v)}
+              className="gap-2 shrink-0"
+              aria-expanded={filtersExpanded}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {filtersExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
+              {filtersExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
           </div>
 
+          {filtersExpanded && (
+            <>
           {/* Linha 2: Selects de filtro */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="flex flex-col gap-1">
