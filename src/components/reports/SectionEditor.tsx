@@ -220,9 +220,20 @@ function PainelExecutivoEditor({ content, onChange, readOnly }: EditorProps) {
 // Evolução e Inovação (Asana auto)
 // ============================================
 function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
-  const tags = content.tags ?? { 'Novas Funcionalidades': 0, 'Evolução': 0, 'Integrações': 0, 'Outros': 0 };
+  // Suporta formato Asana (contagem_por_tag) e formato legado (tags)
+  const tags = content.contagem_por_tag ?? content.tags ?? {
+    'Novas Funcionalidades': 0, 'Evolução': 0, 'Integrações': 0, 'Outros': 0,
+  };
+  const percentualInovacao = content.percentual_inovacao ?? content.percentualInovacao ?? 0;
+  const totalEntregas = content.total_entregas ?? 0;
+
   return (
     <div className="space-y-3">
+      {totalEntregas > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Total de entregas no período: <span className="font-semibold">{totalEntregas}</span>
+        </p>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {Object.entries(tags).map(([tag, count]) => (
           <Card key={tag}><CardContent className="p-3 text-center">
@@ -233,9 +244,17 @@ function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
       </div>
       <div className="flex items-center gap-3">
         <Label className="m-0">% Inovação:</Label>
-        <Input type="number" className="w-28" value={content.percentualInovacao ?? 0} onChange={(e) => onChange({ ...content, percentualInovacao: Number(e.target.value) })} disabled={readOnly} />
+        <Input
+          type="number"
+          className="w-28"
+          value={percentualInovacao}
+          onChange={(e) => onChange({ ...content, percentual_inovacao: Number(e.target.value), percentualInovacao: Number(e.target.value) })}
+          disabled={readOnly}
+        />
         <StatusBadge value={content.status} />
-        <div className="ml-auto"><StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} /></div>
+        <div className="ml-auto">
+          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+        </div>
       </div>
       <div>
         <Label>Análise</Label>
@@ -249,11 +268,19 @@ function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
 // Entregas / Priorizadas (table)
 // ============================================
 function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
-  const linhas: { tarefa: string; status: string; categoria: string; assignee: string; url?: string }[] = content.linhas ?? [];
+  // Suporta formato Asana (tarefas[].nome) e formato manual (linhas[].tarefa)
+  const rawLinhas = content.linhas ?? content.tarefas ?? [];
+  const linhas: { tarefa: string; status: string; categoria: string; assignee: string; url?: string }[] = rawLinhas.map((t: any) => ({
+    tarefa: t.tarefa ?? t.nome ?? '',
+    status: t.status ?? '',
+    categoria: t.categoria ?? '',
+    assignee: t.assignee ?? '',
+    url: t.url ?? t.link ?? t.permalink_url ?? '',
+  }));
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
-    onChange({ ...content, linhas: next });
+    onChange({ ...content, linhas: next, tarefas: undefined });
   };
   return (
     <div className="space-y-3">
@@ -281,14 +308,14 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
                 <td className="p-1"><Input value={l.categoria} onChange={(e) => update(i, { categoria: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input value={l.assignee} onChange={(e) => update(i, { assignee: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1">
-                  {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i) })}><Trash2 className="w-4 h-4" /></Button>}
+                  {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i), tarefas: undefined })}><Trash2 className="w-4 h-4" /></Button>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tarefa: '', status: '', categoria: '', assignee: '' }] })}>
+      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tarefa: '', status: '', categoria: '', assignee: '' }], tarefas: undefined })}>
         <Plus className="w-4 h-4 mr-2" />Adicionar linha
       </Button>}
     </div>

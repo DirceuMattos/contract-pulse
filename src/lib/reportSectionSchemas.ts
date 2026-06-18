@@ -67,9 +67,10 @@ export function defaultsForSection(key: ReportSectionKey): Record<string, unknow
       return { linhas: [], legenda: 'PO: Product Owner | LT/Dev: Líder Técnico / Desenvolvedor | QA: Quality Assurance' };
     case 'oportunidades_atencao':
     case 'treinamentos_reunioes':
+      return { linhas: [] };
     case 'entregas':
     case 'priorizadas':
-      return { linhas: [] };
+      return { tarefas: [], linhas: [] };
     case 'maturidade_plataforma':
       return { metricas: [], analise: '' };
     default:
@@ -92,7 +93,10 @@ export function isSectionComplete(key: ReportSectionKey, content: Record<string,
         'eficienciaPrevisibilidade', 'desempenhoAplicacao', 'engajamentoUsuario',
       ].every((k) => !!content[k]);
     case 'entregas':
-    case 'priorizadas':
+    case 'priorizadas': {
+      const arr = content.linhas ?? content.tarefas;
+      return Array.isArray(arr) && (arr as unknown[]).length > 0;
+    }
     case 'treinamentos_reunioes':
     case 'oportunidades_atencao':
     case 'demonstrativo_horas':
