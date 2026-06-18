@@ -364,34 +364,93 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       headerBar(s, "Evolução e Inovação");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
 
-      // Gráfico de barras SVG-like via pptxgenjs charts
-      if (tags) {
-        const tagEntries = Object.entries(tags);
-        const maxVal = Math.max(...tagEntries.map(([, v]) => v), 1);
+      // Gráfico histórico de barras por mês (usa historico_mensal se disponível, senão tags do mês atual)
+      {
+        const historico = sec.historico_mensal as Record<string, { total: number; contagem: Record<string, number> }> | undefined;
         const chartW = 4.2; const chartH = 2.8;
         const chartX = 0.4; const chartY = 1.05;
-        const barW = chartW / tagEntries.length * 0.5;
+        const CORES_TAG: Record<string, string> = {
+          "Novas Funcionalidades": AZUL_ESCURO,
+          "Evolução": AZUL_MEDIO,
+          "Integrações": "6BA3CC",
+          "Outros": "AAAAAA",
+        };
 
         s.addShape("rect", { x: chartX, y: chartY, w: chartW, h: chartH, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 } });
 
-        tagEntries.forEach(([tag, count], i) => {
-          const bx = chartX + (i + 0.5) * (chartW / tagEntries.length) - barW / 2;
-          const bh = count > 0 ? (count / maxVal) * (chartH - 0.5) : 0.05;
-          const by = chartY + chartH - 0.3 - bh;
-          const cor = i === 0 ? AZUL_ESCURO : i === 1 ? AZUL_MEDIO : i === 2 ? "6BA3CC" : "AAAAAA";
-          if (bh > 0.05) {
-            s.addShape("rect", { x: bx, y: by, w: barW, h: bh, fill: { color: cor }, line: { color: cor } });
-            s.addText(String(count), { x: bx, y: by - 0.22, w: barW, h: 0.2, fontSize: 9, bold: true, color: cor, align: "center" });
-          }
-          s.addText(tag.length > 8 ? tag.substring(0, 8) + "." : tag, { x: bx - 0.1, y: chartY + chartH - 0.28, w: barW + 0.2, h: 0.25, fontSize: 7, color: "666666", align: "center" });
-        });
+        if (historico && Object.keys(historico).length > 0) {
+          // Gráfico histórico por mês
+          const mesesHist = Object.keys(historico);
+          const maxTotal = Math.max(...mesesHist.map(m => historico[m].total), 1);
+          const colW = chartW / mesesHist.length;
 
-        // Badge % inovação no gráfico
-        s.addShape("ellipse", { x: chartX + chartW * 0.3, y: chartY + chartH * 0.35, w: 0.9, h: 0.5, fill: { color: "1E8A3E" }, line: { color: "1E8A3E" } });
-        s.addText(`${pctEvo}%`, { x: chartX + chartW * 0.3, y: chartY + chartH * 0.35, w: 0.9, h: 0.5, fontSize: 14, bold: true, color: BRANCO, align: "center", valign: "middle" });
+          mesesHist.forEach((mes, mi) => {
+            const dado = historico[mes];
+            const colX = chartX + mi * colW;
+            const baseY = chartY + chartH - 0.35;
+            const tagKeys = ["Novas Funcionalidades", "Evolução", "Integrações", "Outros"];
+            let stackY = baseY;
 
-        // Status badge no gráfico
-        statusBadge(s, chartX + 0.3, chartY + chartH - 0.02, chartW - 0.6, (sec.status as string) ?? "adequado");
+            // Barras empilhadas por categoria
+            tagKeys.forEach(tag => {
+              const count = dado.contagem?.[tag] ?? 0;
+              if (count > 0) {
+                const bh = (count / maxTotal) * (chartH - 0.55);
+                stackY -= bh;
+                const cor = CORES_TAG[tag] ?? "AAAAAA";
+                const bx = colX + colW * 0.2;
+                const bw = colW * 0.6;
+                s.addShape("rect", { x: bx, y: stackY, w: bw, h: bh, fill: { color: cor }, line: { color: cor } });
+                if (count > 0 && bh > 0.18) {
+                  s.addText(String(count), { x: bx, y: stackY + bh/2 - 0.1, w: bw, h: 0.2, fontSize: 8, bold: true, color: BRANCO, align: "center" });
+                }
+              }
+            });
+
+            // Total acima da barra
+            if (dado.total > 0) {
+              s.addText(String(dado.total), { x: colX, y: stackY - 0.22, w: colW, h: 0.2, fontSize: 9, bold: true, color: CINZA_TEXTO, align: "center" });
+            }
+
+            // % inovação como badge
+            const inovacao = (dado.contagem?.["Novas Funcionalidades"] ?? 0) + (dado.contagem?.["Evolução"] ?? 0) + (dado.contagem?.["Integrações"] ?? 0);
+            const pctMes = dado.total > 0 ? Math.round(inovacao / dado.total * 100) : 0;
+            const corBadge = pctMes >= 50 ? "1E8A3E" : pctMes >= 25 ? "C8A000" : "C85000";
+            s.addShape("ellipse", { x: colX + colW * 0.15, y: chartY + chartH - 0.32, w: colW * 0.7, h: 0.28, fill: { color: corBadge }, line: { color: corBadge } });
+            s.addText(pctMes + "%", { x: colX + colW * 0.15, y: chartY + chartH - 0.32, w: colW * 0.7, h: 0.28, fontSize: 8, bold: true, color: BRANCO, align: "center", valign: "middle" });
+
+            // Nome do mês abreviado
+            s.addText(mes.substring(0, 3), { x: colX, y: chartY + chartH - 0.02, w: colW, h: 0.2, fontSize: 8, color: "666666", align: "center" });
+          });
+
+          // Legenda
+          const tagKeys = ["Novas Funcionalidades", "Evolução", "Integrações", "Outros"];
+          tagKeys.forEach((tag, i) => {
+            const lx = chartX + 0.1 + i * 1.0;
+            s.addShape("rect", { x: lx, y: chartY - 0.22, w: 0.15, h: 0.15, fill: { color: CORES_TAG[tag] }, line: { color: CORES_TAG[tag] } });
+            s.addText(tag === "Novas Funcionalidades" ? "Novas Func." : tag, { x: lx + 0.18, y: chartY - 0.22, w: 0.8, h: 0.15, fontSize: 7, color: "555555" });
+          });
+
+        } else if (tags) {
+          // Fallback: gráfico do mês atual por categoria
+          const tagEntries = Object.entries(tags);
+          const maxVal = Math.max(...tagEntries.map(([, v]) => v), 1);
+          const barW = chartW / tagEntries.length * 0.5;
+          tagEntries.forEach(([tag, count], i) => {
+            const bx = chartX + (i + 0.5) * (chartW / tagEntries.length) - barW / 2;
+            const bh = (count as number) > 0 ? ((count as number) / maxVal) * (chartH - 0.5) : 0.05;
+            const by = chartY + chartH - 0.3 - bh;
+            const cor = Object.values(CORES_TAG)[i] ?? "AAAAAA";
+            if (bh > 0.05) {
+              s.addShape("rect", { x: bx, y: by, w: barW, h: bh, fill: { color: cor }, line: { color: cor } });
+              s.addText(String(count), { x: bx, y: by - 0.22, w: barW, h: 0.2, fontSize: 9, bold: true, color: cor, align: "center" });
+            }
+            s.addText(tag.length > 8 ? tag.substring(0, 8) + "." : tag, { x: bx - 0.1, y: chartY + chartH - 0.28, w: barW + 0.2, h: 0.25, fontSize: 7, color: "666666", align: "center" });
+          });
+          s.addShape("ellipse", { x: chartX + chartW * 0.3, y: chartY + chartH * 0.35, w: 0.9, h: 0.5, fill: { color: "1E8A3E" }, line: { color: "1E8A3E" } });
+          s.addText(pctEvo + "%", { x: chartX + chartW * 0.3, y: chartY + chartH * 0.35, w: 0.9, h: 0.5, fontSize: 14, bold: true, color: BRANCO, align: "center", valign: "middle" });
+          statusBadge(s, chartX + 0.3, chartY + chartH - 0.02, chartW - 0.6, (sec.status as string) ?? "adequado");
+        }
       }
 
       // Painel direito — análise
