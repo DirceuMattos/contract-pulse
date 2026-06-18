@@ -478,12 +478,13 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
             s.addText(mes.substring(0, 3), { x: colX, y: chartY + chartH - 0.02, w: colW, h: 0.2, fontSize: 8, color: "666666", align: "center" });
           });
 
-          // Legenda
+          // Legenda abaixo do nome do mês
           const tagKeys = ["Novas Funcionalidades", "Evolução", "Integrações", "Outros"];
+          const legendaY = chartY + chartH + 0.28;
           tagKeys.forEach((tag, i) => {
-            const lx = chartX + 0.1 + i * 1.0;
-            s.addShape("rect", { x: lx, y: chartY - 0.22, w: 0.15, h: 0.15, fill: { color: CORES_TAG[tag] }, line: { color: CORES_TAG[tag] } });
-            s.addText(tag === "Novas Funcionalidades" ? "Novas Func." : tag, { x: lx + 0.18, y: chartY - 0.22, w: 0.8, h: 0.15, fontSize: 7, color: "555555" });
+            const lx = chartX + 0.05 + i * 1.04;
+            s.addShape("rect", { x: lx, y: legendaY, w: 0.13, h: 0.13, fill: { color: CORES_TAG[tag] }, line: { color: CORES_TAG[tag] } });
+            s.addText(tag === "Novas Funcionalidades" ? "Novas Func." : tag, { x: lx + 0.16, y: legendaY, w: 0.85, h: 0.13, fontSize: 7, color: "555555", valign: "middle" });
           });
 
         } else if (tags) {
