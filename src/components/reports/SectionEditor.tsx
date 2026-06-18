@@ -128,6 +128,25 @@ function ObjetivoEditor({ content, onChange, readOnly }: EditorProps) {
 function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
   const linhas: { descricao: string; entregue: boolean }[] = content.linhas ?? [];
   const percentual = linhas.length > 0 ? Math.round((linhas.filter((l) => l.entregue).length / linhas.length) * 100) : 0;
+  if (linhas.length === 0 && readOnly) {
+    return (
+      <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 text-sm">
+        ⚠️ Nenhuma macroentrega do TR encontrada. Verifique se o documento do Termo de Referência está anexado na área de documentos do contrato.
+      </div>
+    );
+  }
+  if (linhas.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 text-sm">
+          ⚠️ Nenhuma macroentrega cadastrada. O documento do TR pode não estar disponível na área de documentos do contrato. Você pode adicionar as macroentregas manualmente abaixo.
+        </div>
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [{ descricao: '', entregue: false }] })}>
+          <Plus className="w-4 h-4 mr-2" />Adicionar macroentrega
+        </Button>
+      </div>
+    );
+  }
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
