@@ -351,12 +351,6 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Visão consolidada do portfólio de contratos"
-        actions={
-          <Button onClick={() => navigate('/contratos/novo')} className="gap-2 w-full sm:w-auto">
-            <Plus className="w-4 h-4" />
-            Novo Contrato
-          </Button>
-        }
       />
 
       {/* Filters Row */}
