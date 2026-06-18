@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { EyeOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -343,6 +346,23 @@ export default function ReportEditPage() {
                       Dados sincronizados {activeSec.syncedAt ? `em ${new Date(activeSec.syncedAt).toLocaleString('pt-BR')}` : '(ainda não sincronizado)'}.
                       Você pode editar livremente.
                     </div>
+                  </div>
+                )}
+                {activeSec.sectionKey !== 'capa' && (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2">
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
+                      <Label htmlFor="hide-slide-switch" className="text-sm font-medium cursor-pointer">
+                        Ocultar slide na geração do PPT
+                      </Label>
+                    </div>
+                    <Switch
+                      id="hide-slide-switch"
+                      checked={Boolean((activeSec.content as Record<string, unknown>)?.__hidden)}
+                      onCheckedChange={(checked) =>
+                        handleContentChange(activeSec, { ...activeSec.content, __hidden: checked })
+                      }
+                    />
                   </div>
                 )}
                 <SectionEditor

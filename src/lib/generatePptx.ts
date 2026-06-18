@@ -163,7 +163,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 3: OBJETIVO
-  {
+  if (!sections["objetivo"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Objetivo do relatório");
@@ -180,7 +180,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 4: PAINEL EXECUTIVO
-  {
+  if (!sections["painel_executivo"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Painel Executivo");
@@ -206,7 +206,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 5: ENTREGAS
-  {
+  if (!sections["entregas"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Evolução e Inovação / Entregas");
@@ -242,7 +242,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 6: EFICIÊNCIA OPERACIONAL
-  {
+  if (!sections["eficiencia_operacional"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Eficiência Operacional");
@@ -262,7 +262,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 7: TREINAMENTOS
-  {
+  if (!sections["treinamentos_reunioes"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Treinamentos / Reuniões");
@@ -294,7 +294,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 8: OPORTUNIDADES
-  {
+  if (!sections["oportunidades_atencao"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Oportunidades e Fatores de Atenção");
