@@ -377,22 +377,71 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) 
 // Eficiência Operacional (manual)
 // ============================================
 function EficienciaOperacionalEditor({ content, onChange, readOnly }: EditorProps) {
-  const fields: Array<[string, string]> = [['sla', 'SLA %'], ['tickets', 'Tickets'], ['crises', 'Crises'], ['bugs', 'Bugs'], ['intercorrencias', 'Intercorrências']];
+  const fields: Array<[string, string]> = [
+    ['sla', 'SLA %'],
+    ['tickets', 'Tickets'],
+    ['crises', 'Crises'],
+    ['bugs', 'Bugs'],
+    ['intercorrencias', 'Intercorrências'],
+  ];
+  const porTipo = content.por_tipo as Record<string, number> | undefined;
+  const tipoLabels: Record<string, string> = {
+    incidente: 'Incidentes',
+    problema: 'Problemas',
+    requisicao: 'Requisições',
+    melhoria: 'Melhorias',
+    duvida: 'Dúvidas',
+  };
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {fields.map(([k, label]) => (
-          <div key={k}><Label>{label}</Label><Input type="number" value={content[k] ?? ''} onChange={(e) => onChange({ ...content, [k]: e.target.value })} disabled={readOnly} /></div>
+          <div key={k}>
+            <Label>{label}</Label>
+            <Input
+              type="number"
+              value={content[k] ?? ''}
+              onChange={(e) => onChange({ ...content, [k]: e.target.value })}
+              disabled={readOnly}
+            />
+          </div>
         ))}
       </div>
+      {porTipo && Object.keys(porTipo).length > 0 && (
+        <div>
+          <Label className="mb-2 block">Breakdown por tipo</Label>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {Object.entries(porTipo).map(([tipo, qtd]) => (
+              <Card key={tipo}>
+                <CardContent className="p-3 text-center">
+                  <div className="text-xs text-muted-foreground">{tipoLabels[tipo] ?? tipo}</div>
+                  <div className="text-2xl font-bold">{qtd}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <StatusBadge value={content.status} />
-        <div className="ml-auto"><StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} /></div>
+        <div className="ml-auto">
+          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+        </div>
       </div>
-      <div><Label>Análise</Label><Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={4} disabled={readOnly} /></div>
+      <div>
+        <Label>Análise</Label>
+        <Textarea
+          value={content.analise ?? ''}
+          onChange={(e) => onChange({ ...content, analise: e.target.value })}
+          rows={5}
+          disabled={readOnly}
+          placeholder="Descreva sua análise sobre a eficiência operacional do período..."
+        />
+      </div>
     </div>
   );
 }
+
 
 // ============================================
 // Eficiência e Previsibilidade (Asana auto)
