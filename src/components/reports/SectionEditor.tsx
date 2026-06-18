@@ -193,13 +193,25 @@ function PainelExecutivoEditor({ content, onChange, readOnly }: EditorProps) {
     ['engajamentoUsuario', 'Engajamento do Usuário'],
   ];
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {fields.map(([key, label]) => (
-        <Card key={key}><CardContent className="p-4 space-y-2">
-          <Label>{label}</Label>
-          <StatusSelect value={content[key] ?? ''} onChange={(v) => onChange({ ...content, [key]: v })} disabled={readOnly} />
-        </CardContent></Card>
-      ))}
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {fields.map(([key, label]) => (
+          <Card key={key}><CardContent className="p-4 space-y-2">
+            <Label>{label}</Label>
+            <StatusSelect value={content[key] ?? ''} onChange={(v) => onChange({ ...content, [key]: v })} disabled={readOnly} />
+          </CardContent></Card>
+        ))}
+      </div>
+      <div>
+        <Label>Observações <span className="text-xs text-muted-foreground">(opcional — não aparece no PPTX se vazio)</span></Label>
+        <Textarea
+          value={content.observacoes ?? ''}
+          onChange={(e) => onChange({ ...content, observacoes: e.target.value })}
+          rows={3}
+          disabled={readOnly}
+          placeholder="Comentários gerais sobre o período..."
+        />
+      </div>
     </div>
   );
 }
