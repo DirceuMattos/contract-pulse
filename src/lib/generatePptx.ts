@@ -117,6 +117,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     const sumItems = [
       "Objetivo do relatório",
       "Glossário de Termos Técnicos",
+      "Indicadores deste Relatório",
       "Ambientes Implementados",
       "Histórico evolutivo do Termo de Referência",
       "Histórico TR — Aderência Global",
@@ -132,7 +133,6 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       "Oportunidades e Fatores de Atenção",
       "Tarefas Priorizadas",
       "Evolução e Inovação / Entregas",
-      "Indicadores deste Relatório",
     ];
     const mid = Math.ceil(sumItems.length / 2);
     sumItems.slice(0, mid).forEach((item, i) => {
@@ -181,7 +181,62 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 5: AMBIENTES IMPLEMENTADOS ───────────────────────────
+  // ── SLIDE 5: INDICADORES ───────────────────────────────────────
+  {
+    const sec = sections["indicadores"] ?? {};
+    if (!isHidden(sec)) {
+      const s = pres.addSlide();
+      s.background = { color: BRANCO };
+      headerBar(s, "Indicadores deste relatório");
+      s.addText("Os indicadores apresentados neste relatório utilizam um modelo de avaliação por faixas (termômetro), permitindo uma leitura rápida do nível de saúde, desempenho e maturidade do projeto.", { x: 0.4, y: 0.72, w: 9.2, h: 0.45, fontSize: 10, color: CINZA_TEXTO, italic: true, wrap: true });
+
+      // Cards de indicadores (2x2 + 1)
+      // 5 cards em coluna única à esquerda (w=5.5), legenda à direita (x=6.1)
+      const inds = [
+        { label: "Evolução e Inovação",           desc: (sec.descEvolucaoInovacao as string) ?? "Mede o percentual de entregas voltadas à melhoria contínua e novas funcionalidades em relação ao total de tarefas trabalhadas no período." },
+        { label: "Eficiência e Previsibilidade",   desc: (sec.descEficienciaPrevisibilidade as string) ?? "Mede a capacidade do time de cumprir prazos planejados e entregar demandas com estabilidade e consistência ao longo do tempo." },
+        { label: "Engajamento e Exp. do Usuário",  desc: (sec.descEngajamentoUsuario as string) ?? "Avalia o uso da plataforma com base em acessos, recorrência, tempo de navegação e profundidade de uso." },
+        { label: "Desempenho da Aplicação",        desc: (sec.descDesempenhoAplicacao as string) ?? "Avalia a performance técnica e a experiência de carregamento, considerando métricas de estabilidade, velocidade e usabilidade." },
+        { label: "Eficiência Operacional",         desc: (sec.descEficienciaOperacional as string) ?? "Mede a capacidade de atendimento, resolução de demandas e cumprimento dentro dos prazos (SLAs)." },
+      ];
+      inds.forEach((ind, i) => {
+        const y = 1.25 + i * 0.72;
+        s.addShape("roundRect", { x: 0.4, y, w: 5.5, h: 0.65, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.06 });
+        s.addText(ind.label, { x: 0.55, y: y+0.04, w: 5.2, h: 0.22, fontSize: 10, bold: true, color: AZUL_ESCURO });
+        s.addText(ind.desc, { x: 0.55, y: y+0.27, w: 5.2, h: 0.34, fontSize: 8, color: CINZA_TEXTO, wrap: true });
+      });
+
+      // Legenda status — coluna direita
+      const statuses = [
+        { cor: "1E8A3E", label: "Alta Performance" },
+        { cor: "C8A000", label: "Adequado" },
+        { cor: "C85000", label: "Atenção" },
+        { cor: "C81E1E", label: "Crítico" },
+      ];
+      s.addShape("roundRect", { x: 6.15, y: 1.25, w: 3.5, h: 3.3, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
+      statuses.forEach((st, i) => {
+        const sy = 1.5 + i * 0.72;
+        s.addShape("ellipse", { x: 6.4, y: sy, w: 0.35, h: 0.35, fill: { color: st.cor }, line: { color: st.cor } });
+        s.addText(st.label, { x: 6.9, y: sy, w: 2.6, h: 0.35, fontSize: 12, color: CINZA_TEXTO, valign: "middle" });
+      });
+
+      // Severidades SLA — abaixo da legenda
+      const sevs = [
+        { label: "Sev. 4 - Baixa",    val: (sec.sev4 as string) ?? "Até 24h úteis" },
+        { label: "Sev. 3 - Moderada", val: (sec.sev3 as string) ?? "Até 12h úteis" },
+        { label: "Sev. 2 - Alta",     val: (sec.sev2 as string) ?? "Até 8h úteis" },
+        { label: "Sev. 1 - Crítica",  val: (sec.sev1 as string) ?? "Até 4h úteis" },
+      ];
+      sevs.forEach((sv, i) => {
+        const col = i % 2; const row = Math.floor(i / 2);
+        const sx = 6.15 + col * 1.78; const sy = 4.65 + row * 0.42;
+        s.addShape("roundRect", { x: sx, y: sy, w: 1.65, h: 0.36, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.04 });
+        s.addText(`${sv.label}\n${sv.val}`, { x: sx, y: sy, w: 1.65, h: 0.36, fontSize: 7, color: AZUL_ESCURO, align: "center", valign: "middle" });
+      });
+    }
+  }
+
+  // ── SLIDE 6: AMBIENTES IMPLEMENTADOS ───────────────────────────
   {
     const sec = sections["ambientes"] ?? {};
     const ambientes = (sec.ambientes as Array<{ nome: string; status: string; itens: string[] }>) ?? [];
@@ -212,7 +267,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 6: AMBIENTES — DETALHAMENTO ──────────────────────────
+  // ── SLIDE 7: AMBIENTES — DETALHAMENTO ──────────────────────────
   {
     const sec = sections["ambientes_detalhe"] ?? {};
     if (!isHidden(sec)) {
@@ -233,7 +288,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 7: HISTÓRICO TR ──────────────────────────────────────
+  // ── SLIDE 8: HISTÓRICO TR ──────────────────────────────────────
   {
     const sec = sections["historico_tr"] ?? {};
     type Linha = { descricao: string; status: string; entregue?: boolean };
@@ -279,7 +334,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 8: HISTÓRICO TR — ADERÊNCIA GLOBAL ───────────────────
+  // ── SLIDE 9: HISTÓRICO TR — ADERÊNCIA GLOBAL ───────────────────
   {
     const sec = sections["historico_tr_aderencia"] ?? {};
     if (!isHidden(sec)) {
@@ -323,7 +378,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 9: PAINEL EXECUTIVO ──────────────────────────────────
+  // ── SLIDE 10: PAINEL EXECUTIVO ──────────────────────────────────
   {
     const sec = sections["painel_executivo"] ?? {};
     if (!isHidden(sec)) {
@@ -353,7 +408,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 10: EVOLUÇÃO E INOVAÇÃO ───────────────────────────────
+  // ── SLIDE 11: EVOLUÇÃO E INOVAÇÃO ───────────────────────────────
   {
     const sec = sections["evolucao_inovacao"] ?? {};
     const tags = (sec.contagem_por_tag ?? sec.tags) as Record<string, number> | undefined;
@@ -464,7 +519,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 11: DEMONSTRATIVO DE HORAS ────────────────────────────
+  // ── SLIDE 12: DEMONSTRATIVO DE HORAS ────────────────────────────
   {
     const sec = sections["demonstrativo_horas"] ?? {};
     const linhasDemo = (sec.linhas as Array<{ recurso: string; funcao?: string; dedicacao?: string; unidade: string; quantidade: number }>) ?? [];
@@ -504,7 +559,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 12: EFICIÊNCIA OPERACIONAL ────────────────────────────
+  // ── SLIDE 13: EFICIÊNCIA OPERACIONAL ────────────────────────────
   {
     const sec = sections["eficiencia_operacional"] ?? {};
     if (!isHidden(sec)) {
@@ -532,7 +587,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 13: EFICIÊNCIA E PREVISIBILIDADE ──────────────────────
+  // ── SLIDE 14: EFICIÊNCIA E PREVISIBILIDADE ──────────────────────
   {
     const sec = sections["eficiencia_previsibilidade"] ?? {};
     const temDados = sec.frequencia_deploy || sec.frequenciaDeploy || sec.lead_time || sec.leadTime || sec.demandas;
@@ -565,7 +620,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 14: DESEMPENHO DA APLICAÇÃO ───────────────────────────
+  // ── SLIDE 15: DESEMPENHO DA APLICAÇÃO ───────────────────────────
   {
     const sec = sections["desempenho_aplicacao"] ?? {};
     if (!isHidden(sec)) {
@@ -619,7 +674,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 15: ENGAJAMENTO DO USUÁRIO ────────────────────────────
+  // ── SLIDE 16: ENGAJAMENTO DO USUÁRIO ────────────────────────────
   {
     const sec = sections["engajamento_usuario"] ?? {};
     const temEngDados = sec.usuariosCadastrados || sec.usuariosUnicos || sec.sessoes || sec.status;
@@ -647,7 +702,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 16: MATURIDADE DA PLATAFORMA ──────────────────────────
+  // ── SLIDE 17: MATURIDADE DA PLATAFORMA ──────────────────────────
   {
     const sec = sections["maturidade_plataforma"] ?? {};
     const metricas = (sec.metricas as Array<{ nome: string; valor: string }>) ?? [];
@@ -670,7 +725,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 17: TREINAMENTOS / REUNIÕES ───────────────────────────
+  // ── SLIDE 18: TREINAMENTOS / REUNIÕES ───────────────────────────
   {
     const sec = sections["treinamentos_reunioes"] ?? {};
     if (!isHidden(sec)) {
@@ -696,7 +751,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 18: OPORTUNIDADES E FATORES DE ATENÇÃO ────────────────
+  // ── SLIDE 19: OPORTUNIDADES E FATORES DE ATENÇÃO ────────────────
   {
     const sec = sections["oportunidades_atencao"] ?? {};
     if (!isHidden(sec)) {
@@ -717,7 +772,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 19: TAREFAS PRIORIZADAS ───────────────────────────────
+  // ── SLIDE 20: TAREFAS PRIORIZADAS ───────────────────────────────
   {
     const sec = sections["priorizadas"] ?? {};
     const tarefasPrio = ((sec.tarefas ?? sec.linhas) as Array<{ nome?: string; tarefa?: string; status: string; categoria: string }>) ?? [];
@@ -751,7 +806,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     }
   }
 
-  // ── SLIDE 20: ENTREGAS ──────────────────────────────────────────
+  // ── SLIDE 21: ENTREGAS ──────────────────────────────────────────
   {
     const sec = sections["entregas"] ?? {};
     if (!isHidden(sec)) {
@@ -772,61 +827,6 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       } else {
         emptyMsg(s, "Nenhuma entrega registrada para o período.");
       }
-    }
-  }
-
-  // ── SLIDE 21: INDICADORES ───────────────────────────────────────
-  {
-    const sec = sections["indicadores"] ?? {};
-    if (!isHidden(sec)) {
-      const s = pres.addSlide();
-      s.background = { color: BRANCO };
-      headerBar(s, "Indicadores deste relatório");
-      s.addText("Os indicadores apresentados neste relatório utilizam um modelo de avaliação por faixas (termômetro), permitindo uma leitura rápida do nível de saúde, desempenho e maturidade do projeto.", { x: 0.4, y: 0.72, w: 9.2, h: 0.45, fontSize: 10, color: CINZA_TEXTO, italic: true, wrap: true });
-
-      // Cards de indicadores (2x2 + 1)
-      // 5 cards em coluna única à esquerda (w=5.5), legenda à direita (x=6.1)
-      const inds = [
-        { label: "Evolução e Inovação",           desc: (sec.descEvolucaoInovacao as string) ?? "Mede o percentual de entregas voltadas à melhoria contínua e novas funcionalidades em relação ao total de tarefas trabalhadas no período." },
-        { label: "Eficiência e Previsibilidade",   desc: (sec.descEficienciaPrevisibilidade as string) ?? "Mede a capacidade do time de cumprir prazos planejados e entregar demandas com estabilidade e consistência ao longo do tempo." },
-        { label: "Engajamento e Exp. do Usuário",  desc: (sec.descEngajamentoUsuario as string) ?? "Avalia o uso da plataforma com base em acessos, recorrência, tempo de navegação e profundidade de uso." },
-        { label: "Desempenho da Aplicação",        desc: (sec.descDesempenhoAplicacao as string) ?? "Avalia a performance técnica e a experiência de carregamento, considerando métricas de estabilidade, velocidade e usabilidade." },
-        { label: "Eficiência Operacional",         desc: (sec.descEficienciaOperacional as string) ?? "Mede a capacidade de atendimento, resolução de demandas e cumprimento dentro dos prazos (SLAs)." },
-      ];
-      inds.forEach((ind, i) => {
-        const y = 1.25 + i * 0.72;
-        s.addShape("roundRect", { x: 0.4, y, w: 5.5, h: 0.65, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.06 });
-        s.addText(ind.label, { x: 0.55, y: y+0.04, w: 5.2, h: 0.22, fontSize: 10, bold: true, color: AZUL_ESCURO });
-        s.addText(ind.desc, { x: 0.55, y: y+0.27, w: 5.2, h: 0.34, fontSize: 8, color: CINZA_TEXTO, wrap: true });
-      });
-
-      // Legenda status — coluna direita
-      const statuses = [
-        { cor: "1E8A3E", label: "Alta Performance" },
-        { cor: "C8A000", label: "Adequado" },
-        { cor: "C85000", label: "Atenção" },
-        { cor: "C81E1E", label: "Crítico" },
-      ];
-      s.addShape("roundRect", { x: 6.15, y: 1.25, w: 3.5, h: 3.3, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
-      statuses.forEach((st, i) => {
-        const sy = 1.5 + i * 0.72;
-        s.addShape("ellipse", { x: 6.4, y: sy, w: 0.35, h: 0.35, fill: { color: st.cor }, line: { color: st.cor } });
-        s.addText(st.label, { x: 6.9, y: sy, w: 2.6, h: 0.35, fontSize: 12, color: CINZA_TEXTO, valign: "middle" });
-      });
-
-      // Severidades SLA — abaixo da legenda
-      const sevs = [
-        { label: "Sev. 4 - Baixa",    val: (sec.sev4 as string) ?? "Até 24h úteis" },
-        { label: "Sev. 3 - Moderada", val: (sec.sev3 as string) ?? "Até 12h úteis" },
-        { label: "Sev. 2 - Alta",     val: (sec.sev2 as string) ?? "Até 8h úteis" },
-        { label: "Sev. 1 - Crítica",  val: (sec.sev1 as string) ?? "Até 4h úteis" },
-      ];
-      sevs.forEach((sv, i) => {
-        const col = i % 2; const row = Math.floor(i / 2);
-        const sx = 6.15 + col * 1.78; const sy = 4.65 + row * 0.42;
-        s.addShape("roundRect", { x: sx, y: sy, w: 1.65, h: 0.36, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.04 });
-        s.addText(`${sv.label}\n${sv.val}`, { x: sx, y: sy, w: 1.65, h: 0.36, fontSize: 7, color: AZUL_ESCURO, align: "center", valign: "middle" });
-      });
     }
   }
 
