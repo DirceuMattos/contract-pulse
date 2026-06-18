@@ -185,10 +185,10 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       ];
       inds.forEach((ind, i) => {
         const col = i % 2; const row = Math.floor(i / 2);
-        const x = 0.4 + col * 4.7; const y = 1.25 + row * 1.55;
-        s.addShape("roundRect", { x, y, w: 4.4, h: 1.4, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
-        s.addText(ind.label, { x: x+0.15, y: y+0.12, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO });
-        s.addText(ind.desc, { x: x+0.15, y: y+0.42, w: 4.1, h: 0.85, fontSize: 9, color: CINZA_TEXTO, wrap: true });
+        const x = 0.4 + col * 4.55; const y = 1.25 + row * 1.55;
+        s.addShape("roundRect", { x, y, w: 4.3, h: 1.4, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
+        s.addText(ind.label, { x: x+0.15, y: y+0.12, w: 3.95, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO });
+        s.addText(ind.desc, { x: x+0.15, y: y+0.42, w: 3.95, h: 0.85, fontSize: 9, color: CINZA_TEXTO, wrap: true });
       });
       // Eficiência Operacional (linha inteira)
       s.addShape("roundRect", { x: 0.4, y: 4.38, w: 5.5, h: 0.72, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
@@ -202,11 +202,11 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         { cor: "C85000", label: "Atenção" },
         { cor: "C81E1E", label: "Crítico" },
       ];
-      s.addShape("roundRect", { x: 6.2, y: 1.25, w: 3.4, h: 3.85, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
+      s.addShape("roundRect", { x: 6.1, y: 1.25, w: 3.5, h: 3.85, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
       statuses.forEach((st, i) => {
         const y = 1.6 + i * 0.82;
-        s.addShape("ellipse", { x: 6.55, y, w: 0.32, h: 0.32, fill: { color: st.cor }, line: { color: st.cor } });
-        s.addText(st.label, { x: 7.0, y, w: 2.4, h: 0.32, fontSize: 13, color: CINZA_TEXTO, valign: "middle" });
+        s.addShape("ellipse", { x: 6.45, y, w: 0.32, h: 0.32, fill: { color: st.cor }, line: { color: st.cor } });
+        s.addText(st.label, { x: 6.9, y, w: 2.5, h: 0.32, fontSize: 13, color: CINZA_TEXTO, valign: "middle" });
       });
 
       // Severidades SLA
@@ -489,15 +489,15 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       headerBar(s, "Demonstrativo de Horas");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       const total = linhasDemo.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
-      const tableData = [
+      const tableData: any[] = [
         [{ text: "RECURSO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "FUNÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DEDICAÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "UNIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "QTD", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
         ...linhasDemo.map(l => [l.recurso ?? "", l.funcao ?? "", l.dedicacao ?? "", l.unidade ?? "horas", String(l.quantidade ?? 0)]),
         [{ text: "TOTAL", options: { bold: true, fill: { color: AZUL_CLARO } } }, "", "", "", { text: String(total), options: { bold: true, fill: { color: AZUL_CLARO } } }],
       ];
-      s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
       if (sec.legenda) {
-        s.addText(sec.legenda as string, { x: 0.4, y: 4.7, w: 9.2, h: 0.35, fontSize: 9, color: "888888", italic: true });
+        tableData.push([{ text: sec.legenda as string, options: { color: "888888", colspan: 5, fontSize: 8 } }, "", "", "", ""]);
       }
+      s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
     }
   }
 
@@ -515,10 +515,12 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       kpiCard(s, 0.5, 2.75, 1.3, 1.0, "Crises", String(sec.crises ?? "0"), "1E8A3E");
       kpiCard(s, 1.9, 2.75, 1.3, 1.0, "Bugs", String(sec.bugs ?? "0"), "C85000");
       const porTipo = sec.por_tipo as Record<string, number> | undefined;
-      if (porTipo) {
+      {
         const tipoLabels: Record<string, string> = { incidente: "Incid.", problema: "Probl.", requisicao: "Req.", melhoria: "Melh.", duvida: "Dúvid." };
-        Object.entries(porTipo).forEach(([tipo, qtd], i) => {
-          kpiCard(s, 0.4 + i * 1.1, 3.9, 0.95, 0.8, tipoLabels[tipo] ?? tipo, String(qtd), AZUL_MEDIO);
+        const tiposOrdem = ["incidente", "problema", "requisicao", "melhoria", "duvida"];
+        tiposOrdem.forEach((tipo, i) => {
+          const qtd = porTipo?.[tipo] ?? 0;
+          kpiCard(s, 0.4 + i * 1.1, 3.9, 0.95, 0.8, tipoLabels[tipo], String(qtd), AZUL_MEDIO);
         });
       }
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
@@ -651,13 +653,17 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       if (reunioes.length > 0) {
         const tableData = [
           [{ text: "TIPO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DATA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DESCRIÇÃO DA ATIVIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-          ...reunioes.map(r => [r.tipo ?? "", `${r.data ?? ""}${r.horario ? " " + r.horario : ""}`, r.descricao ?? ""]),
+          ...reunioes.map(r => {
+            const desc = (r.descricao ?? "");
+            const descTruncada = desc.length > 280 ? desc.substring(0, 280) + "..." : desc;
+            return [r.tipo ?? "", `${r.data ?? ""}${r.horario ? " " + r.horario : ""}`, descTruncada];
+          }),
         ];
-        s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.55, colW: [2.0, 1.5, 5.7], align: "left", valign: "middle" });
+        s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.65, colW: [1.6, 1.3, 6.3], align: "left", valign: "top" });
       } else {
         emptyMsg(s, "Nenhuma reunião registrada para o período.");
       }
-      s.addText((sec.rodape as string) ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.", { x: 0.4, y: 4.7, w: 9.2, h: 0.5, fontSize: 10, bold: true, color: CINZA_TEXTO, italic: true });
+      s.addText((sec.rodape as string) ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.", { x: 0.4, y: 4.6, w: 9.2, h: 0.4, fontSize: 9, bold: true, color: CINZA_TEXTO, italic: true });
     }
   }
 
