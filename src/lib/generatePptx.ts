@@ -163,7 +163,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 3: OBJETIVO
-  {
+  if (!sections["objetivo"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Objetivo do relatório");
