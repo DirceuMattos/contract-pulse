@@ -94,6 +94,20 @@ export default function ReportEditPage() {
   const report = data?.report;
   const sections = useMemo(() => data?.sections ?? [], [data]);
 
+  // Ordenar seções pela ordem definida no SECTION_META
+  const sectionOrder = SECTION_META.map((m) => m.key);
+  const sortedSections = useMemo(() =>
+    [...sections].sort((a, b) => {
+      const ai = sectionOrder.indexOf(a.sectionKey);
+      const bi = sectionOrder.indexOf(b.sectionKey);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sections]
+  );
+
   useEffect(() => {
     if (!activeSection && sections.length > 0) setActiveSection(sections[0].sectionKey);
   }, [sections, activeSection]);
