@@ -139,7 +139,51 @@ serve(async (req) => {
       },
       {
         report_id: reportId, section_key: "evolucao_inovacao",
-        content: conteudoEvolucao,
+        content: {
+          contagem_por_tag: contagemPorTag,
+          total_entregas: totalEntregas,
+          percentual_inovacao: percentualInovacao,
+          status: percentualInovacao >= 60 ? "alta" : percentualInovacao >= 40 ? "adequado" : percentualInovacao >= 20 ? "atencao" : "critico",
+          historico_mensal: await (async () => {
+            const TAG_GID = "1212620863263948";
+            const MESES_NOMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+            const historico: Record<string, { total: number; contagem: Record<string, number> }> = {};
+            for (let offset = 1; offset <= 3; offset++) {
+              try {
+                const d = new Date(Date.UTC(year, month - 1 - offset, 1));
+                const inicioMes = new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1)).toISOString();
+                const fimMes = new Date(Date.UTC(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)).toISOString();
+                const nomeMes = MESES_NOMES[d.getMonth()];
+                const params = new URLSearchParams({
+                  "projects.any": asanaProjectId,
+                  "completed": "true",
+                  "completed_at.after": inicioMes,
+                  "completed_at.before": fimMes,
+                  "opt_fields": "gid,custom_fields",
+                  "limit": "100",
+                });
+                const res = await fetch(`https://app.asana.com/api/1.0/tasks/search?${params}`, {
+                  headers: { "Authorization": `Bearer ${asanaToken}`, "Accept": "application/json" },
+                });
+                if (!res.ok) continue;
+                const data = await res.json() as { data: Array<Record<string, unknown>> };
+                const tasks = data.data ?? [];
+                const contagem: Record<string, number> = { "Novas Funcionalidades": 0, "Evolução": 0, "Integrações": 0, "Outros": 0 };
+                for (const task of tasks) {
+                  const cfs = (task.custom_fields as Array<Record<string, unknown>>) ?? [];
+                  const tagField = cfs.find((cf) => (cf.gid as string) === TAG_GID);
+                  const tagValue = (tagField?.enum_value as Record<string, unknown>)?.name as string;
+                  const key = tagValue && contagem[tagValue] !== undefined ? tagValue : "Outros";
+                  contagem[key]++;
+                }
+                historico[nomeMes] = { total: tasks.length, contagem };
+              } catch { continue; }
+            }
+            const nomeMesAtual = MESES_NOMES[month - 1];
+            historico[nomeMesAtual] = { total: totalEntregas, contagem: contagemPorTag };
+            return historico;
+          })(),
+        },
         source: "asana", synced_at: now,
       },
       {
