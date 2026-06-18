@@ -120,10 +120,11 @@ export default function ReportsPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleDelete = async (id?: string) => {
+    const targetId = id || deleteId;
+    if (!targetId) return;
     try {
-      const { error } = await supabase.from('monthly_reports').delete().eq('id', deleteId);
+      const { error } = await supabase.from('monthly_reports').delete().eq('id', targetId);
       if (error) throw error;
       toast({ title: 'Relatório excluído' });
       queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
