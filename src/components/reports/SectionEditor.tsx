@@ -470,7 +470,7 @@ function MaturidadePlataformaEditor({ content, onChange, readOnly }: EditorProps
 // Treinamentos e Reuniões (Fireflies)
 // ============================================
 function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps) {
-  const linhas: { tipo: string; data: string; descricao: string }[] = content.linhas ?? [];
+  const linhas: { tipo: string; data: string; horario: string; descricao: string }[] = content.linhas ?? [];
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
@@ -484,6 +484,7 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
             <tr>
               <th className="p-2 text-left w-40">Tipo</th>
               <th className="p-2 text-left w-32">Data</th>
+              <th className="p-2 text-left w-28">Horário</th>
               <th className="p-2 text-left">Descrição</th>
               <th className="p-2 w-10"></th>
             </tr>
@@ -493,6 +494,7 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
               <tr key={i} className="border-t">
                 <td className="p-1"><Input value={l.tipo} onChange={(e) => update(i, { tipo: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input type="date" value={l.data} onChange={(e) => update(i, { data: e.target.value })} disabled={readOnly} /></td>
+                <td className="p-1"><Input type="time" value={l.horario ?? ''} onChange={(e) => update(i, { horario: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input value={l.descricao} onChange={(e) => update(i, { descricao: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1">
                   {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i) })}><Trash2 className="w-4 h-4" /></Button>}
