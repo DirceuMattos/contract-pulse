@@ -60,6 +60,29 @@ export default function ReportEditPage() {
       if (error) throw error;
       const { data: sectionsRaw } = await supabase
         .from('report_sections').select('*').eq('report_id', reportId!).order('created_at');
+
+      // Inserir seções que ainda não existem no banco
+      const existingKeys = (sectionsRaw ?? []).map((s: any) => s.section_key);
+      const missingKeys = SECTION_META.map((m) => m.key).filter((k) => !existingKeys.includes(k));
+      if (missingKeys.length > 0) {
+        await Promise.all(
+          missingKeys.map((key) =>
+            supabase.from('report_sections').insert({
+              report_id: reportId,
+              section_key: key,
+              content: defaultsForSection(key as ReportSectionKey) as any,
+              source: 'manual',
+            })
+          )
+        );
+        const { data: sectionsRefresh } = await supabase
+          .from('report_sections').select('*').eq('report_id', reportId!).order('created_at');
+        return {
+          report: monthlyReportFromDb(reportRaw),
+          sections: (sectionsRefresh ?? []).map(reportSectionFromDb),
+        };
+      }
+
       return {
         report: monthlyReportFromDb(reportRaw),
         sections: (sectionsRaw ?? []).map(reportSectionFromDb),
