@@ -38,7 +38,7 @@ function sectionStatusIcon(content: Record<string, unknown>, key: ReportSectionK
 export default function ReportEditPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
-  const { contracts, getClient } = useData();
+  const { contracts, getClient, getResourcesByContract } = useData();
   const { userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -74,6 +74,17 @@ export default function ReportEditPage() {
 
   const contract = report ? contracts.find((c) => c.id === report.contractId) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
+
+  const squadMembers = useMemo(() => {
+    if (!contract?.id) return [];
+    return getResourcesByContract(contract.id)
+      .filter((r) => r.tipo === 'clt' || r.tipo === 'pj')
+      .map((r) => ({
+        nome: r.nome,
+        funcao: r.cargo || '',
+        dedicacao: r.percentualDedicacao ? `${r.percentualDedicacao}%` : '',
+      }));
+  }, [contract?.id, getResourcesByContract]);
 
   const { data: templateConfig } = useQuery({
     queryKey: ['report_template_config', contract?.id],
@@ -344,6 +355,7 @@ export default function ReportEditPage() {
                     contractNumber: contract?.codigo,
                     month: report?.month,
                     year: report?.year,
+                    squadMembers,
                   }}
                 />
               </>

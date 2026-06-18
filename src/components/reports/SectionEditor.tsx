@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,7 @@ interface EditorProps {
     contractNumber?: string;
     month?: number;
     year?: number;
+    squadMembers?: any[];
   };
 }
 
@@ -325,24 +327,43 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
 // ============================================
 // Demonstrativo de Horas
 // ============================================
-function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) {
-  const linhas: { recurso: string; servicos: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
+function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorProps) {
+  const linhas: { recurso: string; funcao: string; dedicacao: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
   const total = linhas.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
     onChange({ ...content, linhas: next });
   };
+  // Auto-preencher com squad do contrato se linhas vazias
+  useEffect(() => {
+    if (linhas.length === 0 && meta?.squadMembers && (meta.squadMembers as any[]).length > 0) {
+      const novasLinhas = (meta.squadMembers as any[]).map((m: any) => ({
+        recurso:    m.nome ?? m.name ?? '',
+        funcao:     m.funcao ?? m.role ?? '',
+        dedicacao:  m.dedicacao ?? '',
+        unidade:    'horas',
+        quantidade: 0,
+      }));
+      onChange({ ...content, linhas: novasLinhas });
+    }
+  }, [meta?.squadMembers]);
   return (
     <div className="space-y-3">
+      {linhas.length === 0 && (
+        <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm">
+          ℹ️ Nenhum membro cadastrado. Adicione manualmente ou verifique se a squad está configurada no contrato.
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border">
           <thead className="bg-muted">
             <tr>
               <th className="p-2 text-left">Recurso</th>
-              <th className="p-2 text-left">Serviços</th>
-              <th className="p-2 text-left w-32">Unidade</th>
-              <th className="p-2 text-left w-32">Quantidade</th>
+              <th className="p-2 text-left">Função</th>
+              <th className="p-2 text-left w-32">Dedicação</th>
+              <th className="p-2 text-left w-28">Unidade</th>
+              <th className="p-2 text-left w-28">Quantidade</th>
               <th className="p-2 w-10"></th>
             </tr>
           </thead>
@@ -350,7 +371,8 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) 
             {linhas.map((l, i) => (
               <tr key={i} className="border-t">
                 <td className="p-1"><Input value={l.recurso} onChange={(e) => update(i, { recurso: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.servicos} onChange={(e) => update(i, { servicos: e.target.value })} disabled={readOnly} /></td>
+                <td className="p-1"><Input value={l.funcao ?? ''} onChange={(e) => update(i, { funcao: e.target.value })} disabled={readOnly} /></td>
+                <td className="p-1"><Input value={l.dedicacao ?? ''} onChange={(e) => update(i, { dedicacao: e.target.value })} disabled={readOnly} placeholder="ex: 100%" /></td>
                 <td className="p-1"><Input value={l.unidade} onChange={(e) => update(i, { unidade: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input type="number" value={l.quantidade ?? 0} onChange={(e) => update(i, { quantidade: Number(e.target.value) })} disabled={readOnly} /></td>
                 <td className="p-1">
@@ -358,13 +380,19 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly }: EditorProps) 
                 </td>
               </tr>
             ))}
-            <tr className="bg-muted font-semibold"><td colSpan={3} className="p-2 text-right">Total</td><td className="p-2">{total}</td><td /></tr>
+            <tr className="bg-muted font-semibold">
+              <td colSpan={4} className="p-2 text-right">Total</td>
+              <td className="p-2">{total}</td>
+              <td />
+            </tr>
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', servicos: '', unidade: 'horas', quantidade: 0 }] })}>
-        <Plus className="w-4 h-4 mr-2" />Adicionar linha
-      </Button>}
+      {!readOnly && (
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', funcao: '', dedicacao: '', unidade: 'horas', quantidade: 0 }] })}>
+          <Plus className="w-4 h-4 mr-2" />Adicionar linha
+        </Button>
+      )}
       <div>
         <Label>Legenda</Label>
         <Textarea value={content.legenda ?? ''} onChange={(e) => onChange({ ...content, legenda: e.target.value })} rows={2} disabled={readOnly} />
@@ -475,14 +503,87 @@ function EficienciaPrevisibilidadeEditor({ content, onChange, readOnly }: Editor
 // Desempenho da Aplicação
 // ============================================
 function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps) {
+  const imagens: string[] = content.imagens ?? [];
+  const handleImagePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      onChange({ ...content, imagens: [...imagens, base64] });
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      onChange({ ...content, imagens: [...imagens, base64] });
+    };
+    reader.readAsDataURL(file);
+  };
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div className="space-y-4 max-w-2xl">
       <div className="flex items-center gap-3">
         <Label>Status</Label>
-        <div className="flex-1"><StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} /></div>
+        <div className="flex-1">
+          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+        </div>
         <StatusBadge value={content.status} />
       </div>
-      <div><Label>Análise</Label><Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={6} disabled={readOnly} /></div>
+      <div>
+        <Label>Análise</Label>
+        <Textarea
+          value={content.analise ?? ''}
+          onChange={(e) => onChange({ ...content, analise: e.target.value })}
+          rows={4}
+          disabled={readOnly}
+          placeholder="Descreva o desempenho da aplicação no período..."
+        />
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>Imagens / Dashboards</Label>
+          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Temporário — será automatizado</Badge>
+        </div>
+        {!readOnly && (
+          <div
+            className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center text-sm text-muted-foreground cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            onPaste={handleImagePaste}
+            tabIndex={0}
+          >
+            <p>Cole uma imagem aqui (Ctrl+V) ou</p>
+            <label className="mt-2 inline-block cursor-pointer text-blue-600 underline">
+              clique para fazer upload
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            </label>
+          </div>
+        )}
+        {imagens.length > 0 && (
+          <div className="space-y-3 mt-3">
+            {imagens.map((img, i) => (
+              <div key={i} className="relative border rounded-lg overflow-hidden">
+                <img src={img} alt={`Dashboard ${i + 1}`} className="w-full object-contain max-h-96" />
+                {!readOnly && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2 opacity-80"
+                    onClick={() => onChange({ ...content, imagens: imagens.filter((_, idx) => idx !== i) })}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -499,18 +600,88 @@ function EngajamentoUsuarioEditor({ content, onChange, readOnly }: EditorProps) 
     ['tempoMedioAtivo', 'Tempo Médio Ativo'],
     ['acessosPorUsuario', 'Acessos por Usuário'],
   ];
+  const imagens: string[] = content.imagens ?? [];
+  const handleImagePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      onChange({ ...content, imagens: [...imagens, base64] });
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      onChange({ ...content, imagens: [...imagens, base64] });
+    };
+    reader.readAsDataURL(file);
+  };
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {fields.map(([k, label]) => (
-          <div key={k}><Label>{label}</Label><Input value={content[k] ?? ''} onChange={(e) => onChange({ ...content, [k]: e.target.value })} disabled={readOnly} /></div>
+          <div key={k}>
+            <Label>{label}</Label>
+            <Input value={content[k] ?? ''} onChange={(e) => onChange({ ...content, [k]: e.target.value })} disabled={readOnly} />
+          </div>
         ))}
       </div>
       <div className="flex items-center gap-3">
         <StatusBadge value={content.status} />
-        <div className="ml-auto"><StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} /></div>
+        <div className="ml-auto">
+          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+        </div>
       </div>
-      <div><Label>Análise</Label><Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={4} disabled={readOnly} /></div>
+      <div>
+        <Label>Análise</Label>
+        <Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={4} disabled={readOnly} />
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>Imagens / Dashboards</Label>
+          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Temporário — será automatizado</Badge>
+        </div>
+        {!readOnly && (
+          <div
+            className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center text-sm text-muted-foreground hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            onPaste={handleImagePaste}
+            tabIndex={0}
+          >
+            <p>Cole uma imagem aqui (Ctrl+V) ou</p>
+            <label className="mt-2 inline-block cursor-pointer text-blue-600 underline">
+              clique para fazer upload
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            </label>
+          </div>
+        )}
+        {imagens.length > 0 && (
+          <div className="space-y-3 mt-3">
+            {imagens.map((img, i) => (
+              <div key={i} className="relative border rounded-lg overflow-hidden">
+                <img src={img} alt={`Dashboard ${i + 1}`} className="w-full object-contain max-h-96" />
+                {!readOnly && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2 opacity-80"
+                    onClick={() => onChange({ ...content, imagens: imagens.filter((_, idx) => idx !== i) })}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -650,7 +821,7 @@ export function SectionEditor({ sectionKey, content, onChange, readOnly, meta }:
     case 'evolucao_inovacao': return <EvolucaoInovacaoEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'entregas':
     case 'priorizadas': return <TaskTableEditor content={content} onChange={onChange} readOnly={readOnly} />;
-    case 'demonstrativo_horas': return <DemonstrativoHorasEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'demonstrativo_horas': return <DemonstrativoHorasEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
     case 'eficiencia_operacional': return <EficienciaOperacionalEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'eficiencia_previsibilidade': return <EficienciaPrevisibilidadeEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'desempenho_aplicacao': return <DesempenhoAplicacaoEditor content={content} onChange={onChange} readOnly={readOnly} />;
