@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift, TrendingDown } from 'lucide-react';
+import { UsersRound, Plus, Search, Download, Upload, Eye, Pencil, UserX, UserCheck, X, ArrowUp, ArrowDown, FileCheck, Clock, MapPin, AlertTriangle, Wallet, Gift, TrendingDown, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { Button } from '@/components/ui/button';
@@ -92,6 +92,15 @@ export default function HRPeoplePage() {
   const [filterProjeto, setFilterProjeto] = useState(storedFilters?.filterProjeto ?? '');
   const [filterSubocupado, setFilterSubocupado] = useState(storedFilters?.filterSubocupado ?? false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('hr-filters-expanded');
+      return raw === null ? true : raw === 'true';
+    } catch { return true; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('hr-filters-expanded', String(filtersExpanded)); } catch {}
+  }, [filtersExpanded]);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
@@ -344,8 +353,20 @@ export default function HRPeoplePage() {
                 Limpar filtros
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={() => setFiltersExpanded(v => !v)}
+              className="gap-2 shrink-0"
+              aria-expanded={filtersExpanded}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {filtersExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
+              {filtersExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
           </div>
 
+          {filtersExpanded && (
+            <>
           {/* Linha 2: Selects de filtro */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="flex flex-col gap-1">
@@ -498,6 +519,8 @@ export default function HRPeoplePage() {
               Sub-Dedicados
             </label>
           </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
