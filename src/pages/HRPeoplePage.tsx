@@ -92,6 +92,15 @@ export default function HRPeoplePage() {
   const [filterProjeto, setFilterProjeto] = useState(storedFilters?.filterProjeto ?? '');
   const [filterSubocupado, setFilterSubocupado] = useState(storedFilters?.filterSubocupado ?? false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('hr-filters-expanded');
+      return raw === null ? true : raw === 'true';
+    } catch { return true; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('hr-filters-expanded', String(filtersExpanded)); } catch {}
+  }, [filtersExpanded]);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
