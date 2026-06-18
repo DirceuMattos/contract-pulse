@@ -39,8 +39,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: roleCheck } = await admin.rpc('has_role', { _user_id: userId, _role: 'c-level' });
-    if (!roleCheck) return jsonResponse({ error: "Acesso restrito a C-Level" }, 403);
+    const { data: roleCheck } = await admin.rpc('has_any_role', { _user_id: userId, _roles: ['c-level', 'superadmin'] });
+    if (!roleCheck) return jsonResponse({ error: "Acesso restrito a C-Level ou Superadmin" }, 403);
 
     const body = await req.json();
     const { runId, itemId, force } = body;
