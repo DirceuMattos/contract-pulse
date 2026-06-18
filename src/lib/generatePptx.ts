@@ -423,7 +423,25 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       if (sec.legenda) {
         tableData.push([{ text: sec.legenda as string, options: { color: "888888", colspan: 5, fontSize: 8 } as any }, "", "", "", ""]);
       }
-      s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
+      const maxLinhasPorSlide = 12;
+      const chunks: typeof tableData[] = [];
+      for (let ci = 1; ci < tableData.length - 1; ci += maxLinhasPorSlide) {
+        chunks.push([tableData[0], ...tableData.slice(ci, ci + maxLinhasPorSlide)]);
+      }
+      if (chunks.length === 0) chunks.push(tableData);
+      else chunks[chunks.length - 1].push(tableData[tableData.length - 1]); // linha TOTAL na última página
+      chunks.forEach((chunk, ci) => {
+        const slideData = ci === 0 ? chunk : [tableData[0], ...chunk.slice(1)];
+        if (ci > 0) {
+          const sExtra = pres.addSlide();
+          sExtra.background = { color: BRANCO };
+          headerBar(sExtra, "Demonstrativo de Horas (cont.)");
+          sExtra.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+          sExtra.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
+        } else {
+          s.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
+        }
+      });
     }
   }
 
@@ -507,13 +525,32 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         { path: "M 0.5,2.4 A 1.2,1.2 0 0 1 0.85,1.55", cor: "C81E1E" },
       ];
       // Simplificado: 4 retângulos curvados representando os arcos
-      const gaugeColors = ["C81E1E", "C85000", "C8A000", "1E8A3E"];
-      const gaugeLabels = ["Crítico", "Atenção", "Adequado", "Alta"];
-      gaugeLabels.forEach((label, i) => {
-        const isActive = (statusRaw === "critico" && i === 0) || (statusRaw === "atencao" && i === 1) || (statusRaw === "adequado" && i === 2) || (statusRaw === "alta" && i === 3);
-        s.addShape("roundRect", { x: gx + i * 0.7, y: gy + 0.5, w: 0.6, h: isActive ? 0.6 : 0.4, fill: { color: gaugeColors[i] }, line: { color: gaugeColors[i] }, rectRadius: 0.04 });
-        s.addText(label, { x: gx + i * 0.7, y: gy + 1.15, w: 0.6, h: 0.2, fontSize: 7, color: gaugeColors[i], align: "center" });
-      });
+      // Gauge semicírculo usando SVG embutido como imagem
+      // Gera SVG do gauge e converte para base64
+      const gaugeAngles: Record<string, number> = { critico: 200, atencao: 245, adequado: 295, alta: 340 };
+      const gaugeAngleDeg = gaugeAngles[statusRaw] ?? 295;
+      const toRad = (deg: number) => (deg * Math.PI) / 180;
+      const cx = 120; const cy = 120; const r = 90; const strokeW = 28;
+      const polarX = (deg: number) => cx + r * Math.cos(toRad(deg));
+      const polarY = (deg: number) => cy + r * Math.sin(toRad(deg));
+      const arcPath = (start: number, end: number) =>
+        `M ${polarX(start)} ${polarY(start)} A ${r} ${r} 0 0 1 ${polarX(end)} ${polarY(end)}`;
+      const nx = cx + (r - 10) * Math.cos(toRad(gaugeAngleDeg));
+      const ny = cy + (r - 10) * Math.sin(toRad(gaugeAngleDeg));
+      const gaugeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
+        <path d="${arcPath(180, 215)}" fill="none" stroke="#C81E1E" stroke-width="${strokeW}" stroke-linecap="butt"/>
+        <path d="${arcPath(215, 250)}" fill="none" stroke="#C85000" stroke-width="${strokeW}" stroke-linecap="butt"/>
+        <path d="${arcPath(250, 285)}" fill="none" stroke="#C8A000" stroke-width="${strokeW}" stroke-linecap="butt"/>
+        <path d="${arcPath(285, 360)}" fill="none" stroke="#1E8A3E" stroke-width="${strokeW}" stroke-linecap="butt"/>
+        <circle cx="${cx}" cy="${cy}" r="12" fill="#1A4F8A"/>
+        <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#1A4F8A" stroke-width="4" stroke-linecap="round"/>
+        <text x="30" y="135" font-size="11" fill="#C81E1E" font-family="Arial">Crítico</text>
+        <text x="82" y="55" font-size="11" fill="#C85000" font-family="Arial">Atenção</text>
+        <text x="148" y="55" font-size="11" fill="#C8A000" font-family="Arial">Adequado</text>
+        <text x="185" y="135" font-size="11" fill="#1E8A3E" font-family="Arial">Alta</text>
+      </svg>`;
+      const svgB64 = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(gaugeSvg)))}`;
+      s.addImage({ data: svgB64, x: gx, y: gy + 0.3, w: gw, h: 1.6 });
 
       // Análise
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
@@ -532,9 +569,6 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       headerBar(s, "Engajamento e Experiência do Usuário");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
-      if (!sec.usuariosCadastrados && !sec.usuariosUnicos && !sec.sessoes && !sec.status) {
-        emptyMsg(s, "Preencha os dados de engajamento na tela de edição.");
-      }
       const kpisEng = [
         { label: "Usuários Cad.", val: String(sec.usuariosCadastrados ?? "—") },
         { label: "Únicos",        val: String(sec.usuariosUnicos ?? "—") },
@@ -636,15 +670,24 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       if (tarefasPrio.length === 0) {
         emptyMsg(s, "Nenhuma tarefa priorizada. Sincronize com o Asana.");
       } else {
-      const tableData = [
-        [{ text: "TAREFAS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "CATEGORIA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-        ...tarefasPrio.map(t => [t.nome ?? t.tarefa ?? "", t.status ?? "", t.categoria ?? ""]),
-      ];
-      s.addTable(tableData as any, { x: 0.4, y: 1.55, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
-      if (sec.total_backlog) {
-        s.addText(`Backlog: ${sec.total_backlog} itens`, { x: 0.4, y: 4.75, w: 4, h: 0.3, fontSize: 10, color: "888888", italic: true });
+        const header = [{ text: "TAREFAS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "CATEGORIA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }];
+        const rows = tarefasPrio.map(t => [t.nome ?? t.tarefa ?? "", t.status ?? "", t.categoria ?? ""]);
+        const maxRows = 9;
+        for (let pi = 0; pi < Math.ceil(rows.length / maxRows); pi++) {
+          const chunk = rows.slice(pi * maxRows, (pi + 1) * maxRows);
+          const tableData = [header, ...chunk];
+          if (pi === 0) {
+            s.addTable(tableData as any, { x: 0.4, y: 1.55, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
+            if (sec.total_backlog) s.addText(`Backlog: ${sec.total_backlog} itens`, { x: 0.4, y: 4.75, w: 4, h: 0.3, fontSize: 10, color: "888888", italic: true });
+          } else {
+            const sP = pres.addSlide();
+            sP.background = { color: BRANCO };
+            headerBar(sP, "Tarefas Priorizadas (cont.)");
+            sP.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+            sP.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
+          }
+        }
       }
-      } // end else priorizadas
     }
   }
 
@@ -690,10 +733,10 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       ];
       inds.forEach((ind, i) => {
         const col = i % 2; const row = Math.floor(i / 2);
-        const x = 0.4 + col * 4.55; const y = 1.25 + row * 1.55;
-        s.addShape("roundRect", { x, y, w: 4.3, h: 1.4, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
-        s.addText(ind.label, { x: x+0.15, y: y+0.12, w: 3.95, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO });
-        s.addText(ind.desc, { x: x+0.15, y: y+0.42, w: 3.95, h: 0.85, fontSize: 9, color: CINZA_TEXTO, wrap: true });
+        const x = 0.4 + col * 4.45; const y = 1.25 + row * 1.55;
+        s.addShape("roundRect", { x, y, w: 4.2, h: 1.4, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
+        s.addText(ind.label, { x: x+0.15, y: y+0.12, w: 3.85, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO });
+        s.addText(ind.desc, { x: x+0.15, y: y+0.42, w: 3.85, h: 0.85, fontSize: 9, color: CINZA_TEXTO, wrap: true });
       });
       // Eficiência Operacional (linha inteira)
       s.addShape("roundRect", { x: 0.4, y: 4.38, w: 5.5, h: 0.72, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
@@ -707,11 +750,11 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         { cor: "C85000", label: "Atenção" },
         { cor: "C81E1E", label: "Crítico" },
       ];
-      s.addShape("roundRect", { x: 6.1, y: 1.25, w: 3.5, h: 3.85, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
+      s.addShape("roundRect", { x: 6.0, y: 1.25, w: 3.6, h: 3.85, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
       statuses.forEach((st, i) => {
         const y = 1.6 + i * 0.82;
-        s.addShape("ellipse", { x: 6.45, y, w: 0.32, h: 0.32, fill: { color: st.cor }, line: { color: st.cor } });
-        s.addText(st.label, { x: 6.9, y, w: 2.5, h: 0.32, fontSize: 13, color: CINZA_TEXTO, valign: "middle" });
+        s.addShape("ellipse", { x: 6.35, y, w: 0.32, h: 0.32, fill: { color: st.cor }, line: { color: st.cor } });
+        s.addText(st.label, { x: 6.82, y, w: 2.6, h: 0.32, fontSize: 13, color: CINZA_TEXTO, valign: "middle" });
       });
 
       // Severidades SLA
