@@ -527,30 +527,33 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       // Simplificado: 4 retângulos curvados representando os arcos
       // Gauge semicírculo usando SVG embutido como imagem
       // Gera SVG do gauge e converte para base64
-      const gaugeAngles: Record<string, number> = { critico: 200, atencao: 245, adequado: 295, alta: 340 };
-      const gaugeAngleDeg = gaugeAngles[statusRaw] ?? 295;
-      const toRad = (deg: number) => (deg * Math.PI) / 180;
-      const cx = 120; const cy = 120; const r = 90; const strokeW = 28;
-      const polarX = (deg: number) => cx + r * Math.cos(toRad(deg));
-      const polarY = (deg: number) => cy + r * Math.sin(toRad(deg));
-      const arcPath = (start: number, end: number) =>
-        `M ${polarX(start)} ${polarY(start)} A ${r} ${r} 0 0 1 ${polarX(end)} ${polarY(end)}`;
-      const nx = cx + (r - 10) * Math.cos(toRad(gaugeAngleDeg));
-      const ny = cy + (r - 10) * Math.sin(toRad(gaugeAngleDeg));
-      const gaugeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
-        <path d="${arcPath(180, 215)}" fill="none" stroke="#C81E1E" stroke-width="${strokeW}" stroke-linecap="butt"/>
-        <path d="${arcPath(215, 250)}" fill="none" stroke="#C85000" stroke-width="${strokeW}" stroke-linecap="butt"/>
-        <path d="${arcPath(250, 285)}" fill="none" stroke="#C8A000" stroke-width="${strokeW}" stroke-linecap="butt"/>
-        <path d="${arcPath(285, 360)}" fill="none" stroke="#1E8A3E" stroke-width="${strokeW}" stroke-linecap="butt"/>
-        <circle cx="${cx}" cy="${cy}" r="12" fill="#1A4F8A"/>
-        <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#1A4F8A" stroke-width="4" stroke-linecap="round"/>
-        <text x="30" y="135" font-size="11" fill="#C81E1E" font-family="Arial">Crítico</text>
-        <text x="82" y="55" font-size="11" fill="#C85000" font-family="Arial">Atenção</text>
-        <text x="148" y="55" font-size="11" fill="#C8A000" font-family="Arial">Adequado</text>
-        <text x="185" y="135" font-size="11" fill="#1E8A3E" font-family="Arial">Alta</text>
+      // Gauge: semicírculo de 180° a 0° (sentido anti-horário pelo topo)
+      // cx=150,cy=150 no viewBox 300x170 — arcos de 180° até 0° pelo topo (270°)
+      // Ponteiro: Crítico=200°, Atenção=240°, Adequado=270°(topo), Alta=320°
+      const gaugeAngles: Record<string, number> = { critico: 200, atencao: 240, adequado: 270, alta: 320 };
+      const gaugeAngleDeg = gaugeAngles[statusRaw] ?? 270;
+      const toRad2 = (deg: number) => (deg * Math.PI) / 180;
+      const GCX = 150; const GCY = 150; const GR = 100; const GSW = 30;
+      const gpX = (deg: number) => GCX + GR * Math.cos(toRad2(deg));
+      const gpY = (deg: number) => GCY + GR * Math.sin(toRad2(deg));
+      // arcos no sentido horário de 180→360 pelo topo (usando sweep-flag=0 = anti-horário)
+      // 180°→225° Crítico, 225°→270° Atenção, 270°→315° Adequado, 315°→360° Alta
+      const arc = (s2: number, e2: number) =>
+        `M ${gpX(s2).toFixed(1)} ${gpY(s2).toFixed(1)} A ${GR} ${GR} 0 0 0 ${gpX(e2).toFixed(1)} ${gpY(e2).toFixed(1)}`;
+      const pnx = (GCX + (GR - 15) * Math.cos(toRad2(gaugeAngleDeg))).toFixed(1);
+      const pny = (GCY + (GR - 15) * Math.sin(toRad2(gaugeAngleDeg))).toFixed(1);
+      const gaugeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="170" viewBox="0 0 300 170">
+        <path d="${arc(180, 225)}" fill="none" stroke="#C81E1E" stroke-width="${GSW}" stroke-linecap="butt"/>
+        <path d="${arc(225, 270)}" fill="none" stroke="#C85000" stroke-width="${GSW}" stroke-linecap="butt"/>
+        <path d="${arc(270, 315)}" fill="none" stroke="#C8A000" stroke-width="${GSW}" stroke-linecap="butt"/>
+        <path d="${arc(315, 360)}" fill="none" stroke="#1E8A3E" stroke-width="${GSW}" stroke-linecap="butt"/>
+        <circle cx="${GCX}" cy="${GCY}" r="14" fill="#1A4F8A"/>
+        <line x1="${GCX}" y1="${GCY}" x2="${pnx}" y2="${pny}" stroke="#1A4F8A" stroke-width="5" stroke-linecap="round"/>
+        <text x="18" y="162" font-size="13" fill="#C81E1E" font-family="Arial" font-weight="bold">Crítico</text>
+        <text x="240" y="162" font-size="13" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>
       </svg>`;
       const svgB64 = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(gaugeSvg)))}`;
-      s.addImage({ data: svgB64, x: gx, y: gy + 0.3, w: gw, h: 1.6 });
+      s.addImage({ data: svgB64, x: gx, y: gy + 0.2, w: gw, h: 1.8 });
 
       // Análise
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
@@ -725,50 +728,47 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.addText("Os indicadores apresentados neste relatório utilizam um modelo de avaliação por faixas (termômetro), permitindo uma leitura rápida do nível de saúde, desempenho e maturidade do projeto.", { x: 0.4, y: 0.72, w: 9.2, h: 0.45, fontSize: 10, color: CINZA_TEXTO, italic: true, wrap: true });
 
       // Cards de indicadores (2x2 + 1)
+      // 5 cards em coluna única à esquerda (w=5.5), legenda à direita (x=6.1)
       const inds = [
         { label: "Evolução e Inovação",           desc: (sec.descEvolucaoInovacao as string) ?? "Mede o percentual de entregas voltadas à melhoria contínua e novas funcionalidades em relação ao total de tarefas trabalhadas no período." },
         { label: "Eficiência e Previsibilidade",   desc: (sec.descEficienciaPrevisibilidade as string) ?? "Mede a capacidade do time de cumprir prazos planejados e entregar demandas com estabilidade e consistência ao longo do tempo." },
         { label: "Engajamento e Exp. do Usuário",  desc: (sec.descEngajamentoUsuario as string) ?? "Avalia o uso da plataforma com base em acessos, recorrência, tempo de navegação e profundidade de uso." },
         { label: "Desempenho da Aplicação",        desc: (sec.descDesempenhoAplicacao as string) ?? "Avalia a performance técnica e a experiência de carregamento, considerando métricas de estabilidade, velocidade e usabilidade." },
+        { label: "Eficiência Operacional",         desc: (sec.descEficienciaOperacional as string) ?? "Mede a capacidade de atendimento, resolução de demandas e cumprimento dentro dos prazos (SLAs)." },
       ];
       inds.forEach((ind, i) => {
-        const col = i % 2; const row = Math.floor(i / 2);
-        const x = 0.4 + col * 4.45; const y = 1.25 + row * 1.55;
-        s.addShape("roundRect", { x, y, w: 4.2, h: 1.4, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
-        s.addText(ind.label, { x: x+0.15, y: y+0.12, w: 3.85, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO });
-        s.addText(ind.desc, { x: x+0.15, y: y+0.42, w: 3.85, h: 0.85, fontSize: 9, color: CINZA_TEXTO, wrap: true });
+        const y = 1.25 + i * 0.72;
+        s.addShape("roundRect", { x: 0.4, y, w: 5.5, h: 0.65, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.06 });
+        s.addText(ind.label, { x: 0.55, y: y+0.04, w: 5.2, h: 0.22, fontSize: 10, bold: true, color: AZUL_ESCURO });
+        s.addText(ind.desc, { x: 0.55, y: y+0.27, w: 5.2, h: 0.34, fontSize: 8, color: CINZA_TEXTO, wrap: true });
       });
-      // Eficiência Operacional (linha inteira)
-      s.addShape("roundRect", { x: 0.4, y: 4.38, w: 5.5, h: 0.72, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.08 });
-      s.addText("Eficiência Operacional", { x: 0.55, y: 4.45, w: 5.2, h: 0.22, fontSize: 11, bold: true, color: AZUL_ESCURO });
-      s.addText((sec.descEficienciaOperacional as string) ?? "Mede a capacidade de atendimento, resolução de demandas e cumprimento dentro dos prazos (SLAs).", { x: 0.55, y: 4.68, w: 5.2, h: 0.35, fontSize: 9, color: CINZA_TEXTO, wrap: true });
 
-      // Legenda status
+      // Legenda status — coluna direita
       const statuses = [
         { cor: "1E8A3E", label: "Alta Performance" },
         { cor: "C8A000", label: "Adequado" },
         { cor: "C85000", label: "Atenção" },
         { cor: "C81E1E", label: "Crítico" },
       ];
-      s.addShape("roundRect", { x: 6.0, y: 1.25, w: 3.6, h: 3.85, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
+      s.addShape("roundRect", { x: 6.15, y: 1.25, w: 3.5, h: 3.3, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
       statuses.forEach((st, i) => {
-        const y = 1.6 + i * 0.82;
-        s.addShape("ellipse", { x: 6.35, y, w: 0.32, h: 0.32, fill: { color: st.cor }, line: { color: st.cor } });
-        s.addText(st.label, { x: 6.82, y, w: 2.6, h: 0.32, fontSize: 13, color: CINZA_TEXTO, valign: "middle" });
+        const sy = 1.5 + i * 0.72;
+        s.addShape("ellipse", { x: 6.4, y: sy, w: 0.35, h: 0.35, fill: { color: st.cor }, line: { color: st.cor } });
+        s.addText(st.label, { x: 6.9, y: sy, w: 2.6, h: 0.35, fontSize: 12, color: CINZA_TEXTO, valign: "middle" });
       });
 
-      // Severidades SLA
+      // Severidades SLA — abaixo da legenda
       const sevs = [
-        { label: "Severidade 4 - Baixa", val: (sec.sev4 as string) ?? "Até 24h úteis" },
-        { label: "Severidade 3 - Moderada", val: (sec.sev3 as string) ?? "Até 12h úteis" },
-        { label: "Severidade 2 - Alta", val: (sec.sev2 as string) ?? "Até 8h úteis" },
-        { label: "Severidade 1 - Crítica", val: (sec.sev1 as string) ?? "Até 4h úteis" },
+        { label: "Sev. 4 - Baixa",    val: (sec.sev4 as string) ?? "Até 24h úteis" },
+        { label: "Sev. 3 - Moderada", val: (sec.sev3 as string) ?? "Até 12h úteis" },
+        { label: "Sev. 2 - Alta",     val: (sec.sev2 as string) ?? "Até 8h úteis" },
+        { label: "Sev. 1 - Crítica",  val: (sec.sev1 as string) ?? "Até 4h úteis" },
       ];
       sevs.forEach((sv, i) => {
         const col = i % 2; const row = Math.floor(i / 2);
-        const x = 6.25 + col * 1.65; const y = 4.38 + row * 0.38;
-        s.addShape("roundRect", { x, y, w: 1.55, h: 0.32, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.04 });
-        s.addText(`${sv.label}\n${sv.val}`, { x, y, w: 1.55, h: 0.32, fontSize: 7, color: AZUL_ESCURO, align: "center", valign: "middle" });
+        const sx = 6.15 + col * 1.78; const sy = 4.65 + row * 0.42;
+        s.addShape("roundRect", { x: sx, y: sy, w: 1.65, h: 0.36, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.04 });
+        s.addText(`${sv.label}\n${sv.val}`, { x: sx, y: sy, w: 1.65, h: 0.36, fontSize: 7, color: AZUL_ESCURO, align: "center", valign: "middle" });
       });
     }
   }
