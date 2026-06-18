@@ -131,8 +131,13 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
       setOpen(false);
       navigate(`/relatorios/${report.id}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar relatório';
-      toast({ title: 'Erro', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : '';
+      const isDuplicate = msg.includes('duplicate key') || msg.includes('unique constraint');
+      toast({
+        title: isDuplicate ? 'Relatório já existe' : 'Erro ao criar relatório',
+        description: isDuplicate ? `Já existe um relatório para ${MONTHS[month - 1]}/${year} neste contrato.` : msg || 'Erro desconhecido',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }

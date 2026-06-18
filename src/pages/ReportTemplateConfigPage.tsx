@@ -43,6 +43,7 @@ export default function ReportTemplateConfigPage() {
         const c = reportTemplateConfigFromDb(data);
         setConfig(c);
         setKeywordsText((c.firefliesKeywords ?? []).join(', '));
+        setMilvusNamesText((c.milvusClientNames ?? []).join('\n'));
       } else {
         const defaults: Partial<ReportTemplateConfig> = {
           contractId,
@@ -66,7 +67,8 @@ export default function ReportTemplateConfigPage() {
     if (!contractId) return;
     setSaving(true);
     const keywords = keywordsText.split(',').map((s) => s.trim()).filter(Boolean);
-    const payload = reportTemplateConfigToDb({ ...config, contractId, firefliesKeywords: keywords });
+    const milvusNames = milvusNamesText.split('\n').map((s) => s.trim()).filter(Boolean);
+    const payload = reportTemplateConfigToDb({ ...config, contractId, firefliesKeywords: keywords, milvusClientNames: milvusNames });
     const { error } = await supabase
       .from('report_template_configs')
       .upsert(payload as any, { onConflict: 'contract_id' });
@@ -123,6 +125,23 @@ export default function ReportTemplateConfigPage() {
           <div>
             <Label>Palavras-chave Fireflies (separadas por vírgula)</Label>
             <Textarea value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} rows={2} placeholder="treinamento, daily, alinhamento" />
+          </div>
+          <div>
+            <Label>Clientes Milvus (um por linha)</Label>
+            <p className="text-xs text-muted-foreground mb-1">
+              Nomes dos clientes no Milvus vinculados a este contrato. Um nome por linha.
+            </p>
+            <Textarea
+              value={milvusNamesText}
+              onChange={(e) => setMilvusNamesText(e.target.value)}
+              rows={6}
+              placeholder={"CLIENTE A\nCLIENTE B\nCLIENTE C"}
+            />
+            {milvusNamesText && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {milvusNamesText.split('\n').filter(Boolean).length} cliente(s) configurado(s)
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
