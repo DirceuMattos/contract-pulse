@@ -131,6 +131,7 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
       toast({ title: 'Relatório criado', description: `${MONTHS[month - 1]}/${year}` });
       queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
       setOpen(false);
+      console.log('[ReportCreate] Relatório criado com sucesso:', report.id);
       navigate(`/relatorios/${report.id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
