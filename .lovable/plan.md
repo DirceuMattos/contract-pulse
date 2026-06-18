@@ -1,14 +1,23 @@
-Replace the full contents of `supabase/functions/report-generate-pptx/index.ts` with the uploaded `report-generate-pptx-index.ts` file, then deploy the edge function.
+## Objetivo
+Exibir o botão "+ Novo Contrato" (no Header global) somente nas telas dos módulos Contratos e Clientes. Em qualquer outra rota ele fica oculto.
 
-Changes brought in by the new file:
-- Expands from 9 to 17 slides
-- Fixes `treinamentos_reunioes` to read `content.linhas` (Fireflies format)
-- Fixes `entregas` to support both `content.tarefas` and `content.linhas`
-- Adds slides: Histórico TR, Evolução e Inovação, Tarefas Priorizadas, Demonstrativo de Horas, Eficiência e Previsibilidade, Desempenho, Engajamento, Maturidade
-- Makes new slides conditional on having content
-- Adds breakdown por tipo in Eficiência Operacional
-- Updates the sumário to include all sections
+## Alteração
+**Arquivo:** `src/components/layout/Header.tsx` (linhas 128–136)
 
-Steps:
-1. Overwrite `supabase/functions/report-generate-pptx/index.ts` with the uploaded file contents.
-2. Deploy `report-generate-pptx` via `supabase--deploy_edge_functions`.
+- Usar `useLocation()` do `react-router-dom` para obter a rota atual.
+- Renderizar o `<Button>` "Novo Contrato" condicionalmente apenas quando o pathname começar com `/contratos` ou `/clientes`.
+
+```tsx
+const location = useLocation();
+const showNovoContrato =
+  location.pathname.startsWith('/contratos') ||
+  location.pathname.startsWith('/clientes');
+
+{showNovoContrato && (
+  <Button ...>...Novo Contrato...</Button>
+)}
+```
+
+## Não alterar
+- `DashboardPage.tsx`, `ContractsPage.tsx`, `ContractFormPage.tsx` permanecem como estão (o botão no DashboardPage é o card-atalho da própria dashboard — não é o mesmo controle do Header; e o `ContractsPage` é módulo Contratos, então deve manter).
+- Nenhuma outra lógica, estilo ou comportamento é tocado.

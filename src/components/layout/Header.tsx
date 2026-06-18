@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Sun, Moon, Plus, X, Menu } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,10 @@ export function Header({ sidebarCollapsed, onMobileMenuToggle }: HeaderProps) {
   const { user } = useAuth();
   const { clients, contracts } = useData();
   const navigate = useNavigate();
+  const location = useLocation();
+  const showNovoContrato =
+    location.pathname.startsWith('/contratos') ||
+    location.pathname.startsWith('/clientes');
   const isMobile = useIsMobile();
   
   const [searchOpen, setSearchOpen] = useState(false);
@@ -125,15 +129,17 @@ export function Header({ sidebarCollapsed, onMobileMenuToggle }: HeaderProps) {
         
         {/* Actions */}
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* New Contract Button - Hidden on mobile since it's in Dashboard */}
-          <Button
-            size="sm"
-            onClick={() => navigate('/contratos/novo')}
-            className="gap-2 bg-primary hover:bg-primary/90 hidden sm:flex"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden md:inline">Novo Contrato</span>
-          </Button>
+          {/* New Contract Button - Only on Contracts and Clients modules */}
+          {showNovoContrato && (
+            <Button
+              size="sm"
+              onClick={() => navigate('/contratos/novo')}
+              className="gap-2 bg-primary hover:bg-primary/90 hidden sm:flex"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden md:inline">Novo Contrato</span>
+            </Button>
+          )}
           
           {/* Notifications */}
           <NotificationCenter />
