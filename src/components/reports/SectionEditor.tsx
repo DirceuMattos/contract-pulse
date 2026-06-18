@@ -564,10 +564,10 @@ function OportunidadesAtencaoEditor({ content, onChange, readOnly }: EditorProps
 // ============================================
 // Dispatcher
 // ============================================
-export function SectionEditor({ sectionKey, content, onChange, readOnly }: { sectionKey: ReportSectionKey } & EditorProps) {
+export function SectionEditor({ sectionKey, content, onChange, readOnly, meta }: { sectionKey: ReportSectionKey } & EditorProps) {
   switch (sectionKey) {
-    case 'capa': return <CapaEditor content={content} onChange={onChange} readOnly={readOnly} />;
-    case 'sumario': return <SumarioEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'capa': return <CapaEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
+    case 'sumario': return <SumarioEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
     case 'objetivo': return <ObjetivoEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'historico_tr': return <HistoricoTrEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'painel_executivo': return <PainelExecutivoEditor content={content} onChange={onChange} readOnly={readOnly} />;
