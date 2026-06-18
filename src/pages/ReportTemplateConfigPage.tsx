@@ -26,6 +26,7 @@ export default function ReportTemplateConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [keywordsText, setKeywordsText] = useState('');
+  const [milvusNamesText, setMilvusNamesText] = useState('');
 
   const allowed = userRole === 'c-level' || userRole === 'superadmin';
 
