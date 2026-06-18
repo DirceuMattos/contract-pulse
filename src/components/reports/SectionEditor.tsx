@@ -650,7 +650,7 @@ export function SectionEditor({ sectionKey, content, onChange, readOnly, meta }:
     case 'evolucao_inovacao': return <EvolucaoInovacaoEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'entregas':
     case 'priorizadas': return <TaskTableEditor content={content} onChange={onChange} readOnly={readOnly} />;
-    case 'demonstrativo_horas': return <DemonstrativoHorasEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'demonstrativo_horas': return <DemonstrativoHorasEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
     case 'eficiencia_operacional': return <EficienciaOperacionalEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'eficiencia_previsibilidade': return <EficienciaPrevisibilidadeEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'desempenho_aplicacao': return <DesempenhoAplicacaoEditor content={content} onChange={onChange} readOnly={readOnly} />;
