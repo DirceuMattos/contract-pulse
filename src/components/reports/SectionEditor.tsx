@@ -14,6 +14,13 @@ interface EditorProps {
   content: Record<string, any>;
   onChange: (next: Record<string, any>) => void;
   readOnly?: boolean;
+  meta?: {
+    contractName?: string;
+    clientName?: string;
+    contractNumber?: string;
+    month?: number;
+    year?: number;
+  };
 }
 
 function StatusSelect({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
@@ -36,16 +43,44 @@ function StatusBadge({ value }: { value?: string }) {
 // ============================================
 // Capa
 // ============================================
-function CapaEditor({ content, onChange, readOnly }: EditorProps) {
+function CapaEditor({ content, onChange, readOnly, meta }: EditorProps) {
+  const projeto = content.projeto || meta?.contractName || '';
+  const cliente = content.cliente || meta?.clientName || '';
+  const numeroContrato = content.numeroContrato || meta?.contractNumber || '';
+
   return (
     <div className="space-y-3 max-w-2xl">
-      <div><Label>Projeto</Label><Input value={content.projeto ?? ''} onChange={(e) => onChange({ ...content, projeto: e.target.value })} disabled={readOnly} /></div>
-      <div><Label>Cliente</Label><Input value={content.cliente ?? ''} onChange={(e) => onChange({ ...content, cliente: e.target.value })} disabled={readOnly} /></div>
+      <div>
+        <Label>Projeto</Label>
+        <div className="flex items-center gap-2">
+          <Input value={projeto} onChange={(e) => onChange({ ...content, projeto: e.target.value })} disabled={readOnly} />
+          {!content.projeto && meta?.contractName && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 whitespace-nowrap">Auto</Badge>
+          )}
+        </div>
+      </div>
+      <div>
+        <Label>Cliente</Label>
+        <div className="flex items-center gap-2">
+          <Input value={cliente} onChange={(e) => onChange({ ...content, cliente: e.target.value })} disabled={readOnly} />
+          {!content.cliente && meta?.clientName && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 whitespace-nowrap">Auto</Badge>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Criado por</Label><Input value={content.criadoPor ?? ''} onChange={(e) => onChange({ ...content, criadoPor: e.target.value })} disabled={readOnly} /></div>
         <div><Label>Revisado por</Label><Input value={content.revisadoPor ?? ''} onChange={(e) => onChange({ ...content, revisadoPor: e.target.value })} disabled={readOnly} /></div>
       </div>
-      <div><Label>Número do contrato</Label><Input value={content.numeroContrato ?? ''} onChange={(e) => onChange({ ...content, numeroContrato: e.target.value })} disabled={readOnly} /></div>
+      <div>
+        <Label>Número do contrato</Label>
+        <div className="flex items-center gap-2">
+          <Input value={numeroContrato} onChange={(e) => onChange({ ...content, numeroContrato: e.target.value })} disabled={readOnly} />
+          {!content.numeroContrato && meta?.contractNumber && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 whitespace-nowrap">Auto</Badge>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -53,12 +88,24 @@ function CapaEditor({ content, onChange, readOnly }: EditorProps) {
 // ============================================
 // Sumário (simple list)
 // ============================================
-function SumarioEditor({ content, onChange, readOnly }: EditorProps) {
+function SumarioEditor({ content, onChange, readOnly, meta }: EditorProps) {
+  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const mesAno = meta?.month && meta?.year ? `${MESES[meta.month - 1]}/${meta.year}` : '';
+
   return (
-    <div className="max-w-2xl">
-      <Label>Notas do sumário</Label>
-      <Textarea value={content.notas ?? ''} onChange={(e) => onChange({ ...content, notas: e.target.value })} rows={6} disabled={readOnly} />
-      <p className="text-xs text-muted-foreground mt-2">O sumário é gerado automaticamente na exportação a partir das seções ativas.</p>
+    <div className="max-w-2xl space-y-3">
+      <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+        <span className="text-blue-500 mt-0.5">ℹ️</span>
+        <div className="text-sm text-blue-700">
+          <span className="font-medium">Geração automática</span>
+          {mesAno && <span> — Relatório de <span className="font-semibold">{mesAno}</span></span>}
+          <br />O sumário é gerado automaticamente na exportação a partir das seções ativas.
+        </div>
+      </div>
+      <div>
+        <Label>Notas adicionais (opcional)</Label>
+        <Textarea value={content.notas ?? ''} onChange={(e) => onChange({ ...content, notas: e.target.value })} rows={4} disabled={readOnly} placeholder="Observações que devem aparecer no sumário..." />
+      </div>
     </div>
   );
 }
@@ -81,6 +128,25 @@ function ObjetivoEditor({ content, onChange, readOnly }: EditorProps) {
 function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
   const linhas: { descricao: string; entregue: boolean }[] = content.linhas ?? [];
   const percentual = linhas.length > 0 ? Math.round((linhas.filter((l) => l.entregue).length / linhas.length) * 100) : 0;
+  if (linhas.length === 0 && readOnly) {
+    return (
+      <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 text-sm">
+        ⚠️ Nenhuma macroentrega do TR encontrada. Verifique se o documento do Termo de Referência está anexado na área de documentos do contrato.
+      </div>
+    );
+  }
+  if (linhas.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 text-sm">
+          ⚠️ Nenhuma macroentrega cadastrada. O documento do TR pode não estar disponível na área de documentos do contrato. Você pode adicionar as macroentregas manualmente abaixo.
+        </div>
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [{ descricao: '', entregue: false }] })}>
+          <Plus className="w-4 h-4 mr-2" />Adicionar macroentrega
+        </Button>
+      </div>
+    );
+  }
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
@@ -127,13 +193,25 @@ function PainelExecutivoEditor({ content, onChange, readOnly }: EditorProps) {
     ['engajamentoUsuario', 'Engajamento do Usuário'],
   ];
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {fields.map(([key, label]) => (
-        <Card key={key}><CardContent className="p-4 space-y-2">
-          <Label>{label}</Label>
-          <StatusSelect value={content[key] ?? ''} onChange={(v) => onChange({ ...content, [key]: v })} disabled={readOnly} />
-        </CardContent></Card>
-      ))}
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {fields.map(([key, label]) => (
+          <Card key={key}><CardContent className="p-4 space-y-2">
+            <Label>{label}</Label>
+            <StatusSelect value={content[key] ?? ''} onChange={(v) => onChange({ ...content, [key]: v })} disabled={readOnly} />
+          </CardContent></Card>
+        ))}
+      </div>
+      <div>
+        <Label>Observações <span className="text-xs text-muted-foreground">(opcional — não aparece no PPTX se vazio)</span></Label>
+        <Textarea
+          value={content.observacoes ?? ''}
+          onChange={(e) => onChange({ ...content, observacoes: e.target.value })}
+          rows={3}
+          disabled={readOnly}
+          placeholder="Comentários gerais sobre o período..."
+        />
+      </div>
     </div>
   );
 }
@@ -392,7 +470,7 @@ function MaturidadePlataformaEditor({ content, onChange, readOnly }: EditorProps
 // Treinamentos e Reuniões (Fireflies)
 // ============================================
 function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps) {
-  const linhas: { tipo: string; data: string; descricao: string }[] = content.linhas ?? [];
+  const linhas: { tipo: string; data: string; horario: string; descricao: string }[] = content.linhas ?? [];
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
@@ -406,6 +484,7 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
             <tr>
               <th className="p-2 text-left w-40">Tipo</th>
               <th className="p-2 text-left w-32">Data</th>
+              <th className="p-2 text-left w-28">Horário</th>
               <th className="p-2 text-left">Descrição</th>
               <th className="p-2 w-10"></th>
             </tr>
@@ -415,6 +494,7 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
               <tr key={i} className="border-t">
                 <td className="p-1"><Input value={l.tipo} onChange={(e) => update(i, { tipo: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input type="date" value={l.data} onChange={(e) => update(i, { data: e.target.value })} disabled={readOnly} /></td>
+                <td className="p-1"><Input type="time" value={l.horario ?? ''} onChange={(e) => update(i, { horario: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input value={l.descricao} onChange={(e) => update(i, { descricao: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1">
                   {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i) })}><Trash2 className="w-4 h-4" /></Button>}
@@ -424,7 +504,7 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tipo: '', data: '', descricao: '' }] })}>
+      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tipo: '', data: '', horario: '', descricao: '' }] })}>
         <Plus className="w-4 h-4 mr-2" />Adicionar linha
       </Button>}
       <div><Label>Rodapé</Label><Textarea value={content.rodape ?? ''} onChange={(e) => onChange({ ...content, rodape: e.target.value })} rows={2} disabled={readOnly} /></div>
@@ -484,10 +564,10 @@ function OportunidadesAtencaoEditor({ content, onChange, readOnly }: EditorProps
 // ============================================
 // Dispatcher
 // ============================================
-export function SectionEditor({ sectionKey, content, onChange, readOnly }: { sectionKey: ReportSectionKey } & EditorProps) {
+export function SectionEditor({ sectionKey, content, onChange, readOnly, meta }: { sectionKey: ReportSectionKey } & EditorProps) {
   switch (sectionKey) {
-    case 'capa': return <CapaEditor content={content} onChange={onChange} readOnly={readOnly} />;
-    case 'sumario': return <SumarioEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'capa': return <CapaEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
+    case 'sumario': return <SumarioEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
     case 'objetivo': return <ObjetivoEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'historico_tr': return <HistoricoTrEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'painel_executivo': return <PainelExecutivoEditor content={content} onChange={onChange} readOnly={readOnly} />;

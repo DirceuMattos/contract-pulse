@@ -338,6 +338,13 @@ export default function ReportEditPage() {
                   sectionKey={activeSec.sectionKey}
                   content={activeSec.content}
                   onChange={(next) => handleContentChange(activeSec, next)}
+                  meta={{
+                    contractName: contract?.nome,
+                    clientName: client?.nomeFantasia || client?.razaoSocial,
+                    contractNumber: contract?.codigo,
+                    month: report?.month,
+                    year: report?.year,
+                  }}
                 />
               </>
             ) : (

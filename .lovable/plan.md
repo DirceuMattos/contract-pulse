@@ -1,28 +1,17 @@
-## Alterações
+Apply the 7 specified changes:
 
-### 1. `supabase/functions/report-sync-devid/index.ts`
-Substituir o conteúdo completo pelo novo código fornecido, que:
-- Adiciona função genérica `callMcp(url, token, tool, params)` para chamadas MCP (reutilizada por DEVID e Fireflies).
-- Mantém `callDevid` como alias para compatibilidade.
-- Adiciona bloco **4. Reuniões do Fireflies via MCP**:
-  - Busca transcripts via `fireflies_get_transcripts` no endpoint MCP `https://api.fireflies.ai/mcp`.
-  - Filtra por `clientEmailDomain` (domínio dos participantes) OU `firefliesKeywords` no título.
-  - Faz upsert em `report_sections` com `section_key = "treinamentos_reunioes"` e `source = "fireflies"`.
-  - Insere log em `report_sync_logs`.
-- Usa secret `FIREFLIES_TOKEN` do vault.
+**`src/components/reports/SectionEditor.tsx`**
+1. Extend `EditorProps` with optional `meta` (contractName, clientName, contractNumber, month, year).
+2. Replace `CapaEditor` to auto-fill Projeto/Cliente/Número do contrato from `meta` with "Auto" badge when field empty.
+3. Replace `SumarioEditor` with highlighted info box including Mês/Ano from `meta` and optional notas.
+4. In `HistoricoTrEditor`, after `percentual` declaration, add two early-return blocks for empty `linhas` (readOnly warning vs editable warning + add button).
+5. Replace `PainelExecutivoEditor` to include an optional "Observações" textarea.
+6. In `TreinamentosReunioesEditor`, add `horario` field: update type, table header (new "Horário" column w-28), each row gets `<Input type="time">` between Data and Descrição, and default new row object includes `horario: ''`.
 
-### 2. `src/pages/ReportEditPage.tsx`
-Corrigir duas chamadas à edge function `report-sync-fireflies`:
+**`src/lib/reportSectionSchemas.ts`**
+7. Rename `priorizadas` label from `'Priorizadas'` to `'Tarefas Priorizadas'`.
 
-**Em `handleSyncAll` (linhas 139-147):**
-- `clientEmailDomain: report.clientEmailDomain` → `clientEmailDomain: templateConfig?.clientEmailDomain`
-- `firefliesKeywords: []` → `firefliesKeywords: templateConfig?.firefliesKeywords ?? []`
+**`src/pages/ReportEditPage.tsx`**
+8. Pass `meta={{ contractName, clientName, contractNumber, month, year }}` to `<SectionEditor>`.
 
-**Em `handleResyncSection` (linhas 169-171):**
-- Mesmas duas substituições.
-
-### Deploy
-Após as edições, faço o deploy da edge function `report-sync-devid`.
-
-### Observação
-A função usa o secret `FIREFLIES_TOKEN` do vault. Se ainda não existir no vault, será necessário adicioná-lo para o bloco Fireflies funcionar (o restante do sync continua funcionando normalmente, apenas o bloco Fireflies registrará erro no `results.fireflies_error`).
+No business logic changes; purely UI/props plumbing and label tweaks.

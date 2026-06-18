@@ -18,7 +18,7 @@ export const SECTION_META: SectionMeta[] = [
   { key: 'painel_executivo', label: 'Painel Executivo', source: 'manual', configurable: false },
   { key: 'evolucao_inovacao', label: 'Evolução e Inovação', source: 'asana', configurable: true, configFlag: 'showEvolucaoInovacao' },
   { key: 'entregas', label: 'Entregas', source: 'asana', configurable: true, configFlag: 'showEntregas' },
-  { key: 'priorizadas', label: 'Priorizadas', source: 'asana', configurable: true, configFlag: 'showPriorizadas' },
+  { key: 'priorizadas', label: 'Tarefas Priorizadas', source: 'asana', configurable: true, configFlag: 'showPriorizadas' },
   { key: 'demonstrativo_horas', label: 'Demonstrativo de Horas', source: 'manual', configurable: true, configFlag: 'showDemonstrativoHoras' },
   { key: 'eficiencia_operacional', label: 'Eficiência Operacional', source: 'manual', configurable: true, configFlag: 'showEficienciaOperacional' },
   { key: 'eficiencia_previsibilidade', label: 'Eficiência e Previsibilidade', source: 'asana', configurable: true, configFlag: 'showEficienciaPrevisibilidade' },
