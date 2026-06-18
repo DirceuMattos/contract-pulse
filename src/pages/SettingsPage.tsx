@@ -43,7 +43,7 @@ export default function SettingsPage() {
   const { settings, updateSettings, resetToDemo, jobTitles, teams } = useData();
   const { canEdit, user } = useAuth();
   const navigate = useNavigate();
-  const isCLevel = user?.role === 'c-level';
+  const isCLevel = user?.role === 'c-level' || user?.role === 'superadmin';
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
