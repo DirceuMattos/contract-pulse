@@ -504,7 +504,7 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tipo: '', data: '', descricao: '' }] })}>
+      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tipo: '', data: '', horario: '', descricao: '' }] })}>
         <Plus className="w-4 h-4 mr-2" />Adicionar linha
       </Button>}
       <div><Label>Rodapé</Label><Textarea value={content.rodape ?? ''} onChange={(e) => onChange({ ...content, rodape: e.target.value })} rows={2} disabled={readOnly} /></div>
