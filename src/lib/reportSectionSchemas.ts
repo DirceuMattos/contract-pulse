@@ -15,6 +15,7 @@ export const SECTION_META: SectionMeta[] = [
   { key: 'sumario',                    label: 'Sumário',                                 source: 'manual',    configurable: false },
   { key: 'glossario',                  label: 'Glossário de Termos',                     source: 'manual',    configurable: true,  configFlag: 'showGlossario' },
   { key: 'objetivo',                   label: 'Objetivo',                                source: 'manual',    configurable: false },
+  { key: 'indicadores',                label: 'Indicadores do Relatório',                source: 'manual',    configurable: true,  configFlag: 'showIndicadores' },
   { key: 'ambientes',                  label: 'Ambientes Implementados',                 source: 'manual',    configurable: true,  configFlag: 'showAmbientes' },
   { key: 'ambientes_detalhe',          label: 'Ambientes — Detalhamento',                source: 'manual',    configurable: true,  configFlag: 'showAmbientesDetalhe' },
   { key: 'historico_tr',               label: 'Histórico TR',                            source: 'manual',    configurable: true,  configFlag: 'showHistoricoTr' },
@@ -31,7 +32,6 @@ export const SECTION_META: SectionMeta[] = [
   { key: 'oportunidades_atencao',      label: 'Oportunidades e Fatores de Atenção',      source: 'manual',    configurable: true,  configFlag: 'showOportunidadesAtencao' },
   { key: 'priorizadas',                label: 'Tarefas Priorizadas',                     source: 'asana',     configurable: true,  configFlag: 'showPriorizadas' },
   { key: 'entregas',                   label: 'Entregas',                                source: 'asana',     configurable: true,  configFlag: 'showEntregas' },
-  { key: 'indicadores',                label: 'Indicadores do Relatório',                source: 'manual',    configurable: true,  configFlag: 'showIndicadores' },
 ];
 
 
