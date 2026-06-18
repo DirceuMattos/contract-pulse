@@ -21,6 +21,10 @@ export function Header({ sidebarCollapsed, onMobileMenuToggle }: HeaderProps) {
   const { user } = useAuth();
   const { clients, contracts } = useData();
   const navigate = useNavigate();
+  const location = useLocation();
+  const showNovoContrato =
+    location.pathname.startsWith('/contratos') ||
+    location.pathname.startsWith('/clientes');
   const isMobile = useIsMobile();
   
   const [searchOpen, setSearchOpen] = useState(false);
