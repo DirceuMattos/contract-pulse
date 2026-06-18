@@ -348,7 +348,7 @@ export default function ReportEditPage() {
                     </div>
                   </div>
                 )}
-                {activeSec.sectionKey !== 'capa' && activeSec.sectionKey !== 'encerramento' && (
+                {activeSec.sectionKey !== 'capa' && (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
                     <div className="flex items-center gap-2">
                       <EyeOff className="w-4 h-4 text-muted-foreground" />
