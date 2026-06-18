@@ -43,16 +43,44 @@ function StatusBadge({ value }: { value?: string }) {
 // ============================================
 // Capa
 // ============================================
-function CapaEditor({ content, onChange, readOnly }: EditorProps) {
+function CapaEditor({ content, onChange, readOnly, meta }: EditorProps) {
+  const projeto = content.projeto || meta?.contractName || '';
+  const cliente = content.cliente || meta?.clientName || '';
+  const numeroContrato = content.numeroContrato || meta?.contractNumber || '';
+
   return (
     <div className="space-y-3 max-w-2xl">
-      <div><Label>Projeto</Label><Input value={content.projeto ?? ''} onChange={(e) => onChange({ ...content, projeto: e.target.value })} disabled={readOnly} /></div>
-      <div><Label>Cliente</Label><Input value={content.cliente ?? ''} onChange={(e) => onChange({ ...content, cliente: e.target.value })} disabled={readOnly} /></div>
+      <div>
+        <Label>Projeto</Label>
+        <div className="flex items-center gap-2">
+          <Input value={projeto} onChange={(e) => onChange({ ...content, projeto: e.target.value })} disabled={readOnly} />
+          {!content.projeto && meta?.contractName && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 whitespace-nowrap">Auto</Badge>
+          )}
+        </div>
+      </div>
+      <div>
+        <Label>Cliente</Label>
+        <div className="flex items-center gap-2">
+          <Input value={cliente} onChange={(e) => onChange({ ...content, cliente: e.target.value })} disabled={readOnly} />
+          {!content.cliente && meta?.clientName && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 whitespace-nowrap">Auto</Badge>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Criado por</Label><Input value={content.criadoPor ?? ''} onChange={(e) => onChange({ ...content, criadoPor: e.target.value })} disabled={readOnly} /></div>
         <div><Label>Revisado por</Label><Input value={content.revisadoPor ?? ''} onChange={(e) => onChange({ ...content, revisadoPor: e.target.value })} disabled={readOnly} /></div>
       </div>
-      <div><Label>Número do contrato</Label><Input value={content.numeroContrato ?? ''} onChange={(e) => onChange({ ...content, numeroContrato: e.target.value })} disabled={readOnly} /></div>
+      <div>
+        <Label>Número do contrato</Label>
+        <div className="flex items-center gap-2">
+          <Input value={numeroContrato} onChange={(e) => onChange({ ...content, numeroContrato: e.target.value })} disabled={readOnly} />
+          {!content.numeroContrato && meta?.contractNumber && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 whitespace-nowrap">Auto</Badge>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
