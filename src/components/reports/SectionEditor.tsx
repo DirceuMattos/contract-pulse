@@ -20,6 +20,7 @@ interface EditorProps {
     contractNumber?: string;
     month?: number;
     year?: number;
+    squadMembers?: any[];
   };
 }
 
