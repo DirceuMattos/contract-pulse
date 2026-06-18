@@ -109,6 +109,13 @@ serve(async (req) => {
     const totalInovacao = contagemPorTag["Novas Funcionalidades"] + contagemPorTag["Integrações"] + contagemPorTag["Evolução"];
     const percentualInovacao = totalEntregas > 0 ? Math.round((totalInovacao / totalEntregas) * 100) : 0;
 
+    const conteudoEvolucao = {
+      contagem_por_tag: contagemPorTag,
+      total_entregas: totalEntregas,
+      percentual_inovacao: percentualInovacao,
+      status: percentualInovacao >= 60 ? "alta" : percentualInovacao >= 40 ? "adequado" : percentualInovacao >= 20 ? "atencao" : "critico",
+    };
+
     // Métricas eficiência e previsibilidade
     const diasNoPeriodo = new Date(year, month, 0).getDate();
     const frequenciaDeploy = totalEntregas > 0 ? Math.round((diasNoPeriodo / totalEntregas) * 10) / 10 : 0;
@@ -132,11 +139,7 @@ serve(async (req) => {
       },
       {
         report_id: reportId, section_key: "evolucao_inovacao",
-        content: {
-          contagem_por_tag: contagemPorTag, total_entregas: totalEntregas,
-          percentual_inovacao: percentualInovacao,
-          status: percentualInovacao >= 60 ? "alta" : percentualInovacao >= 40 ? "adequado" : percentualInovacao >= 20 ? "atencao" : "critico",
-        },
+        content: conteudoEvolucao,
         source: "asana", synced_at: now,
       },
       {
