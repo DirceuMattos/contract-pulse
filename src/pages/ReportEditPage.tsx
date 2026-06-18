@@ -296,11 +296,11 @@ export default function ReportEditPage() {
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
-        {/* Section menu */}
-        <Card className="h-fit sticky top-4">
-          <CardContent className="p-2">
+      {/* Two-column layout with independent scroll */}
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 h-[calc(100vh-12rem)]">
+        {/* Section menu — own scroll */}
+        <Card className="overflow-hidden flex flex-col">
+          <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
               {sections.map((s) => {
                 const meta = SECTION_META_BY_KEY[s.sectionKey];
@@ -325,6 +325,7 @@ export default function ReportEditPage() {
             </div>
           </CardContent>
         </Card>
+
 
         {/* Editor */}
         <Card>
