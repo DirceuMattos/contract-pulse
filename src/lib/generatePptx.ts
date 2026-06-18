@@ -530,11 +530,11 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       // Gauge velocímetro — paths fixos pré-calculados (cx=150,cy=150,r=110,sweep=1)
       // Arco 180°→360° pelo topo (270°=y40). Ponteiro aponta para status ativo.
       const needlePoints: Record<string, [number,number]> = {
-        critico:  [68.4,  112.0],
-        atencao:  [116.3, 66.6],
-        adequado: [150.0, 60.0],
-        alta:     [213.6, 86.4],
-      };
+  critico:  [66.6,  116.3],
+  atencao:  [114.8, 67.2],
+  adequado: [183.7, 66.6],
+  alta:     [232.8, 114.8],
+};
       const [npx, npy] = needlePoints[statusRaw] ?? needlePoints.adequado;
       const gaugeSvg =
         '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="165" viewBox="0 0 300 165">'
