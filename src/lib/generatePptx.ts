@@ -180,7 +180,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 4: PAINEL EXECUTIVO
-  {
+  if (!sections["painel_executivo"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Painel Executivo");
