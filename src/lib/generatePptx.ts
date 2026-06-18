@@ -147,11 +147,14 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["glossario"] ?? {};
     const termos = (sec.termos as Array<{ termo: string; definicao: string }>) ?? [];
-    if (!isHidden(sec) && termos.length > 0) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Glossário dos termos técnicos");
       s.addText("Para facilitar a compreensão das informações apresentadas neste relatório, reunimos abaixo os principais termos técnicos utilizados.", { x: 0.4, y: 0.72, w: 9.2, h: 0.4, fontSize: 10, color: CINZA_TEXTO, wrap: true });
+      if (termos.length === 0) {
+        emptyMsg(s, "Nenhum termo cadastrado. Adicione termos na tela de edição.");
+      } else {
       s.addShape("rect", { x: 0.4, y: 1.2, w: 9.2, h: 0.28, fill: { color: AZUL_MEDIO }, line: { color: AZUL_MEDIO } });
       s.addText("Termos utilizados", { x: 0.5, y: 1.2, w: 9, h: 0.28, fontSize: 10, bold: true, color: BRANCO, valign: "middle" });
       let yPos = 1.55;
@@ -161,6 +164,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         s.addShape("line", { x: 0.4, y: yPos + 0.48, w: 9.2, h: 0, line: { color: "E0E7EF", width: 0.5 } });
         yPos += 0.52;
       });
+      } // end else termos
     }
   }
 
@@ -181,11 +185,14 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["ambientes"] ?? {};
     const ambientes = (sec.ambientes as Array<{ nome: string; status: string; itens: string[] }>) ?? [];
-    if (!isHidden(sec) && ambientes.length > 0) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Ambientes Implementados");
       const COR_AMB: Record<string, string> = { ativo: "1E8A3E", inativo: "C81E1E", parcial: "C8A000" };
+      if (ambientes.length === 0) {
+        emptyMsg(s, "Nenhum ambiente cadastrado. Preencha na tela de edição.");
+      } else {
       ambientes.forEach((amb, i) => {
         const x = 0.4 + i * 4.8;
         const cor = COR_AMB[amb.status] ?? COR_AMB.ativo;
@@ -201,16 +208,20 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
           s.addText(item, { x: x+0.42, y: 1.92 + ii * 0.45, w: 3.85, h: 0.4, fontSize: 10, color: CINZA_TEXTO, wrap: true });
         });
       });
+      } // end else ambientes
     }
   }
 
   // ── SLIDE 6: AMBIENTES — DETALHAMENTO ──────────────────────────
   {
     const sec = sections["ambientes_detalhe"] ?? {};
-    if (!isHidden(sec) && (sec.texto || sec.links)) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Ambientes Implementados");
+      if (!sec.texto && (!sec.links || (sec.links as []).length === 0)) {
+        emptyMsg(s, "Adicione o texto descritivo e links na tela de edição.");
+      }
       if (sec.texto) {
         s.addText(sec.texto as string, { x: 0.4, y: 0.82, w: 9.2, h: 3.8, fontSize: 11, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
@@ -231,7 +242,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       status: l.status ?? (l.entregue === true ? "sim" : "não"),
     })).filter(l => l.descricao.trim());
 
-    if (!isHidden(sec) && linhas.length > 0) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Histórico evolutivo do Termo de Referência");
@@ -243,6 +254,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const nao   = linhas.filter(l => l.status === "não").length;
       const pct   = Math.round(((sim + parc * 0.5) / total) * 100);
 
+      if (linhas.length === 0) {
+        emptyMsg(s, "Nenhuma macroentrega cadastrada. Adicione na tela de edição.");
+      } else {
       // Badge %
       s.addShape("roundRect", { x: 7.5, y: 0.68, w: 2.0, h: 0.36, fill: { color: AZUL_ESCURO }, line: { color: AZUL_ESCURO }, rectRadius: 0.05 });
       s.addText(`${pct}% concluído`, { x: 7.5, y: 0.68, w: 2.0, h: 0.36, fontSize: 10, bold: true, color: BRANCO, align: "center", valign: "middle" });
@@ -261,18 +275,22 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         ]),
       ];
       s.addTable(tableData as any, { x: 0.4, y: 1.32, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.36, colW: [7.8, 1.4], align: "left", valign: "middle" });
+      } // end else histórico TR
     }
   }
 
   // ── SLIDE 8: HISTÓRICO TR — ADERÊNCIA GLOBAL ───────────────────
   {
     const sec = sections["historico_tr_aderencia"] ?? {};
-    if (!isHidden(sec) && (sec.percentual_global || sec.analise)) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Histórico evolutivo do Termo de Referência");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
 
+      if (!sec.percentual_global && !sec.analise) {
+        emptyMsg(s, "Preencha os dados de aderência global na tela de edição.");
+      } else {
       // Card % global
       s.addShape("roundRect", { x: 0.4, y: 1.05, w: 2.5, h: 2.2, fill: { color: AZUL_ESCURO }, line: { color: AZUL_ESCURO }, rectRadius: 0.1 });
       s.addText(`≈ ${sec.percentual_global ?? 0}%`, { x: 0.4, y: 1.35, w: 2.5, h: 0.8, fontSize: 28, bold: true, color: "00D4AA", align: "center" });
@@ -301,6 +319,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         s.addShape("roundRect", { x: 0.4, y: 3.45, w: 9.2, h: 1.65, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
         s.addText(sec.analise as string, { x: 0.55, y: 3.55, w: 8.9, h: 1.45, fontSize: 10, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
+      } // end else aderência
     }
   }
 
@@ -339,7 +358,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     const sec = sections["evolucao_inovacao"] ?? {};
     const tags = (sec.contagem_por_tag ?? sec.tags) as Record<string, number> | undefined;
     const pctEvo = Number(sec.percentual_inovacao ?? sec.percentualInovacao ?? 0);
-    if (!isHidden(sec) && (tags || pctEvo > 0)) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Evolução e Inovação");
@@ -390,7 +409,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["demonstrativo_horas"] ?? {};
     const linhasDemo = (sec.linhas as Array<{ recurso: string; funcao?: string; dedicacao?: string; unidade: string; quantidade: number }>) ?? [];
-    if (!isHidden(sec) && linhasDemo.length > 0) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Demonstrativo de Horas");
@@ -440,12 +459,15 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["eficiencia_previsibilidade"] ?? {};
     const temDados = sec.frequencia_deploy || sec.frequenciaDeploy || sec.lead_time || sec.leadTime || sec.demandas;
-    if (!isHidden(sec) && temDados) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Eficiência e Previsibilidade");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
+      if (!sec.frequencia_deploy && !sec.frequenciaDeploy && !sec.lead_time && !sec.leadTime && !sec.demandas) {
+        emptyMsg(s, "Dados serão preenchidos via Azure DevOps. Configure na tela de edição.");
+      }
       const kpis = [
         { label: "Freq. Deploy",  val: String(sec.frequencia_deploy ?? sec.frequenciaDeploy ?? "—") },
         { label: "Lead Time (d)", val: String(sec.lead_time ?? sec.leadTime ?? "—") },
@@ -469,7 +491,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   // ── SLIDE 14: DESEMPENHO DA APLICAÇÃO ───────────────────────────
   {
     const sec = sections["desempenho_aplicacao"] ?? {};
-    if (!isHidden(sec) && (sec.status || sec.analise)) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Desempenho da Aplicação");
@@ -504,12 +526,15 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["engajamento_usuario"] ?? {};
     const temEngDados = sec.usuariosCadastrados || sec.usuariosUnicos || sec.sessoes || sec.status;
-    if (!isHidden(sec) && temEngDados) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Engajamento e Experiência do Usuário");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
+      if (!sec.usuariosCadastrados && !sec.usuariosUnicos && !sec.sessoes && !sec.status) {
+        emptyMsg(s, "Preencha os dados de engajamento na tela de edição.");
+      }
       const kpisEng = [
         { label: "Usuários Cad.", val: String(sec.usuariosCadastrados ?? "—") },
         { label: "Únicos",        val: String(sec.usuariosUnicos ?? "—") },
@@ -532,11 +557,14 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["maturidade_plataforma"] ?? {};
     const metricas = (sec.metricas as Array<{ nome: string; valor: string }>) ?? [];
-    if (!isHidden(sec) && (metricas.length > 0 || sec.analise)) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Maturidade e Gestão da Plataforma");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      if (metricas.length === 0 && !sec.analise) {
+        emptyMsg(s, "Preencha as métricas de maturidade na tela de edição.");
+      }
       metricas.forEach((m, i) => {
         const col = i % 4; const row = Math.floor(i / 4);
         kpiCard(s, 0.4 + col * 2.35, 1.1 + row * 1.2, 2.1, 1.0, m.nome, m.valor, AZUL_MEDIO);
@@ -599,12 +627,15 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   {
     const sec = sections["priorizadas"] ?? {};
     const tarefasPrio = ((sec.tarefas ?? sec.linhas) as Array<{ nome?: string; tarefa?: string; status: string; categoria: string }>) ?? [];
-    if (!isHidden(sec) && tarefasPrio.length > 0) {
+    if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Tarefas Priorizadas");
       s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       s.addText("Tarefas em andamento e planejadas para o próximo período.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
+      if (tarefasPrio.length === 0) {
+        emptyMsg(s, "Nenhuma tarefa priorizada. Sincronize com o Asana.");
+      } else {
       const tableData = [
         [{ text: "TAREFAS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "CATEGORIA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
         ...tarefasPrio.map(t => [t.nome ?? t.tarefa ?? "", t.status ?? "", t.categoria ?? ""]),
@@ -613,6 +644,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       if (sec.total_backlog) {
         s.addText(`Backlog: ${sec.total_backlog} itens`, { x: 0.4, y: 4.75, w: 4, h: 0.3, fontSize: 10, color: "888888", italic: true });
       }
+      } // end else priorizadas
     }
   }
 
