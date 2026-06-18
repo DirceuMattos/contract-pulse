@@ -519,6 +519,8 @@ export default function HRPeoplePage() {
               Sub-Dedicados
             </label>
           </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
