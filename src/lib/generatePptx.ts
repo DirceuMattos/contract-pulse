@@ -262,7 +262,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 7: TREINAMENTOS
-  {
+  if (!sections["treinamentos_reunioes"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Treinamentos / Reuniões");
