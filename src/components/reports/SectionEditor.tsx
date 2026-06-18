@@ -1094,7 +1094,12 @@ export function SectionEditor({ sectionKey, content, onChange, readOnly, meta }:
     case 'capa': return <CapaEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
     case 'sumario': return <SumarioEditor content={content} onChange={onChange} readOnly={readOnly} meta={meta} />;
     case 'objetivo': return <ObjetivoEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'glossario': return <GlossarioEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'indicadores': return <IndicadoresEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'historico_tr': return <HistoricoTrEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'historico_tr_aderencia': return <HistoricoTrAderenciaEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'ambientes': return <AmbientesEditor content={content} onChange={onChange} readOnly={readOnly} />;
+    case 'ambientes_detalhe': return <AmbientesDetalheEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'painel_executivo': return <PainelExecutivoEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'evolucao_inovacao': return <EvolucaoInovacaoEditor content={content} onChange={onChange} readOnly={readOnly} />;
     case 'entregas':
