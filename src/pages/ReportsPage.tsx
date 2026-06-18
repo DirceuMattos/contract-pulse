@@ -120,10 +120,11 @@ export default function ReportsPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleDelete = async (id?: string) => {
+    const targetId = id || deleteId;
+    if (!targetId) return;
     try {
-      const { error } = await supabase.from('monthly_reports').delete().eq('id', deleteId);
+      const { error } = await supabase.from('monthly_reports').delete().eq('id', targetId);
       if (error) throw error;
       toast({ title: 'Relatório excluído' });
       queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
@@ -230,9 +231,17 @@ export default function ReportsPage() {
                               <SettingsIcon className="w-4 h-4 mr-2" />Configurar template
                             </DropdownMenuItem>
                           )}
-                          {canDelete && <>
+                          {canDelete && report.status === 'draft' && <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setDeleteId(report.id)} className="text-destructive">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Deletar relatório ${MONTHS_SHORT[report.month - 1]}/${report.year}? Esta ação não pode ser desfeita.`)) {
+                                  handleDelete(report.id);
+                                }
+                              }}
+                              className="text-destructive"
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />Excluir
                             </DropdownMenuItem>
                           </>}
@@ -271,7 +280,7 @@ export default function ReportsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={() => handleDelete()} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

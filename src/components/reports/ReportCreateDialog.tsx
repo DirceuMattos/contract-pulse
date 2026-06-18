@@ -54,6 +54,23 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
 
       const config: ReportTemplateConfig | null = configRow ? reportTemplateConfigFromDb(configRow) : null;
 
+      // Verificar se já existe relatório para este contrato/mês/ano
+      const { data: existing } = await supabase
+        .from('monthly_reports')
+        .select('id, status')
+        .eq('contract_id', contractId)
+        .eq('month', month)
+        .eq('year', year)
+        .maybeSingle();
+
+      if (existing) {
+        // Já existe — redirecionar direto
+        toast({ title: 'Relatório já existe', description: `Redirecionando para ${MONTHS[month - 1]}/${year}` });
+        setOpen(false);
+        navigate(`/relatorios/${existing.id}`);
+        return;
+      }
+
       // Create the report
       const { data: reportRow, error: reportErr } = await supabase
         .from('monthly_reports')
