@@ -537,7 +537,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
 };
       const [npx, npy] = needlePoints[statusRaw] ?? needlePoints.adequado;
       const gaugeSvg =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="165" viewBox="0 0 300 165">'
+       '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="185" viewBox="0 0 320 185">'
         + '<path d="M 40 150 A 110 110 0 0 1 72.2 72.2" fill="none" stroke="#C81E1E" stroke-width="26" stroke-linecap="butt"/>'
         + '<path d="M 72.2 72.2 A 110 110 0 0 1 150 40" fill="none" stroke="#C85000" stroke-width="26" stroke-linecap="butt"/>'
         + '<path d="M 150 40 A 110 110 0 0 1 227.8 72.2" fill="none" stroke="#C8A000" stroke-width="26" stroke-linecap="butt"/>'
@@ -545,11 +545,13 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         + '<line x1="150" y1="150" x2="' + npx + '" y2="' + npy + '" stroke="#1A4F8A" stroke-width="5" stroke-linecap="round"/>'
         + '<circle cx="150" cy="150" r="12" fill="#1A4F8A"/>'
         + '<circle cx="150" cy="150" r="5" fill="#FFFFFF"/>'
-        + '<text x="10" y="163" font-size="12" fill="#C81E1E" font-family="Arial" font-weight="bold">Critico</text>'
-        + '<text x="234" y="163" font-size="12" fill="#1E8A3E" font-family="Arial" font-weight="bold">Alta</text>'
+        + '<text x="29.5" y="101.3" font-size="11" fill="#C81E1E" font-family="Arial" font-weight="bold" text-anchor="middle">Critico</text>'
+        + '<text x="99.2" y="30.3" font-size="11" fill="#C85000" font-family="Arial" font-weight="bold" text-anchor="middle">Atencao</text>'
+        + '<text x="198.7" y="29.5" font-size="11" fill="#C8A000" font-family="Arial" font-weight="bold" text-anchor="middle">Adequado</text>'
+        + '<text x="269.7" y="99.2" font-size="11" fill="#1E8A3E" font-family="Arial" font-weight="bold" text-anchor="middle">Alta</text>'
         + '</svg>';
       const svgB64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(gaugeSvg)));
-      s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 1.85 });
+   s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 2.0 });
 
       // Análise
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
