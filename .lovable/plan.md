@@ -1,17 +1,11 @@
-Apply the 7 specified changes:
+Apply the 4 requested edits verbatim:
 
-**`src/components/reports/SectionEditor.tsx`**
-1. Extend `EditorProps` with optional `meta` (contractName, clientName, contractNumber, month, year).
-2. Replace `CapaEditor` to auto-fill Projeto/Cliente/Número do contrato from `meta` with "Auto" badge when field empty.
-3. Replace `SumarioEditor` with highlighted info box including Mês/Ano from `meta` and optional notas.
-4. In `HistoricoTrEditor`, after `percentual` declaration, add two early-return blocks for empty `linhas` (readOnly warning vs editable warning + add button).
-5. Replace `PainelExecutivoEditor` to include an optional "Observações" textarea.
-6. In `TreinamentosReunioesEditor`, add `horario` field: update type, table header (new "Horário" column w-28), each row gets `<Input type="time">` between Data and Descrição, and default new row object includes `horario: ''`.
+1. **`src/components/reports/SectionEditor.tsx` — `TaskTableEditor`**: replace `linhas` declaration with the Asana-compatible mapping (`content.linhas ?? content.tarefas`), and update `update`, add-row, and delete-row handlers to always write back to `linhas` while clearing `tarefas`.
 
-**`src/lib/reportSectionSchemas.ts`**
-7. Rename `priorizadas` label from `'Priorizadas'` to `'Tarefas Priorizadas'`.
+2. **`src/components/reports/SectionEditor.tsx` — `EvolucaoInovacaoEditor`**: replace the entire function with the new version that reads `contagem_por_tag` / `percentual_inovacao` / `total_entregas` while falling back to legacy `tags` / `percentualInovacao`, and writes both new and legacy keys for `percentual_inovacao`.
 
-**`src/pages/ReportEditPage.tsx`**
-8. Pass `meta={{ contractName, clientName, contractNumber, month, year }}` to `<SectionEditor>`.
+3. **`src/lib/reportSectionSchemas.ts` — `isSectionComplete`**: split the shared case so `entregas` and `priorizadas` accept either `content.linhas` or `content.tarefas`; the other three cases keep checking `content.linhas`.
 
-No business logic changes; purely UI/props plumbing and label tweaks.
+4. **`src/lib/reportSectionSchemas.ts` — `defaultsForSection`**: split `entregas` / `priorizadas` to return `{ tarefas: [], linhas: [] }`, keeping the others at `{ linhas: [] }`.
+
+No other files touched; purely format-compatibility changes.
