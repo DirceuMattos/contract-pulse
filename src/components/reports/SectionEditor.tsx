@@ -475,14 +475,87 @@ function EficienciaPrevisibilidadeEditor({ content, onChange, readOnly }: Editor
 // Desempenho da Aplicação
 // ============================================
 function DesempenhoAplicacaoEditor({ content, onChange, readOnly }: EditorProps) {
+  const imagens: string[] = content.imagens ?? [];
+  const handleImagePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      onChange({ ...content, imagens: [...imagens, base64] });
+    };
+    reader.readAsDataURL(file);
+  };
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      onChange({ ...content, imagens: [...imagens, base64] });
+    };
+    reader.readAsDataURL(file);
+  };
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div className="space-y-4 max-w-2xl">
       <div className="flex items-center gap-3">
         <Label>Status</Label>
-        <div className="flex-1"><StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} /></div>
+        <div className="flex-1">
+          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+        </div>
         <StatusBadge value={content.status} />
       </div>
-      <div><Label>Análise</Label><Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={6} disabled={readOnly} /></div>
+      <div>
+        <Label>Análise</Label>
+        <Textarea
+          value={content.analise ?? ''}
+          onChange={(e) => onChange({ ...content, analise: e.target.value })}
+          rows={4}
+          disabled={readOnly}
+          placeholder="Descreva o desempenho da aplicação no período..."
+        />
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>Imagens / Dashboards</Label>
+          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Temporário — será automatizado</Badge>
+        </div>
+        {!readOnly && (
+          <div
+            className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center text-sm text-muted-foreground cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            onPaste={handleImagePaste}
+            tabIndex={0}
+          >
+            <p>Cole uma imagem aqui (Ctrl+V) ou</p>
+            <label className="mt-2 inline-block cursor-pointer text-blue-600 underline">
+              clique para fazer upload
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            </label>
+          </div>
+        )}
+        {imagens.length > 0 && (
+          <div className="space-y-3 mt-3">
+            {imagens.map((img, i) => (
+              <div key={i} className="relative border rounded-lg overflow-hidden">
+                <img src={img} alt={`Dashboard ${i + 1}`} className="w-full object-contain max-h-96" />
+                {!readOnly && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2 opacity-80"
+                    onClick={() => onChange({ ...content, imagens: imagens.filter((_, idx) => idx !== i) })}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
