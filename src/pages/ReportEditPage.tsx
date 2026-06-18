@@ -20,7 +20,7 @@ import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { SectionEditor } from '@/components/reports/SectionEditor';
 import { monthlyReportFromDb, reportSectionFromDb, reportTemplateConfigFromDb } from '@/lib/dbMappers';
-import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty } from '@/lib/reportSectionSchemas';
+import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty, defaultsForSection } from '@/lib/reportSectionSchemas';
 import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus, ReportTemplateConfig } from '@/types';
 import { generatePptx } from '@/lib/generatePptx';
 
@@ -60,6 +60,29 @@ export default function ReportEditPage() {
       if (error) throw error;
       const { data: sectionsRaw } = await supabase
         .from('report_sections').select('*').eq('report_id', reportId!).order('created_at');
+
+      // Inserir seções que ainda não existem no banco
+      const existingKeys = (sectionsRaw ?? []).map((s: any) => s.section_key);
+      const missingKeys = SECTION_META.map((m) => m.key).filter((k) => !existingKeys.includes(k));
+      if (missingKeys.length > 0) {
+        await Promise.all(
+          missingKeys.map((key) =>
+            supabase.from('report_sections').insert({
+              report_id: reportId,
+              section_key: key,
+              content: defaultsForSection(key as ReportSectionKey) as any,
+              source: 'manual',
+            })
+          )
+        );
+        const { data: sectionsRefresh } = await supabase
+          .from('report_sections').select('*').eq('report_id', reportId!).order('created_at');
+        return {
+          report: monthlyReportFromDb(reportRaw),
+          sections: (sectionsRefresh ?? []).map(reportSectionFromDb),
+        };
+      }
+
       return {
         report: monthlyReportFromDb(reportRaw),
         sections: (sectionsRaw ?? []).map(reportSectionFromDb),
@@ -70,6 +93,20 @@ export default function ReportEditPage() {
 
   const report = data?.report;
   const sections = useMemo(() => data?.sections ?? [], [data]);
+
+  // Ordenar seções pela ordem definida no SECTION_META
+  const sectionOrder = SECTION_META.map((m) => m.key);
+  const sortedSections = useMemo(() =>
+    [...sections].sort((a, b) => {
+      const ai = sectionOrder.indexOf(a.sectionKey);
+      const bi = sectionOrder.indexOf(b.sectionKey);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sections]
+  );
 
   useEffect(() => {
     if (!activeSection && sections.length > 0) setActiveSection(sections[0].sectionKey);
@@ -302,7 +339,7 @@ export default function ReportEditPage() {
         <Card className="overflow-hidden flex flex-col">
           <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
-              {sections.map((s) => {
+              {sortedSections.map((s) => {
                 const meta = SECTION_META_BY_KEY[s.sectionKey];
                 const active = s.sectionKey === activeSection;
                 return (
@@ -315,7 +352,10 @@ export default function ReportEditPage() {
                     )}
                   >
                     <span>{sectionStatusIcon(s.content, s.sectionKey)}</span>
-                    <span className="flex-1 truncate">{meta?.label ?? s.sectionKey}</span>
+                    <span className="flex-1 truncate">
+                      <span className="text-muted-foreground mr-1 text-xs">{String(sortedSections.indexOf(s) + 1).padStart(2, '0')}.</span>
+                      {meta?.label ?? s.sectionKey}
+                    </span>
                     <Badge variant="outline" className={cn('text-[10px] uppercase', s.source !== 'manual' && 'border-blue-400 text-blue-600')}>
                       {s.source === 'manual' ? 'Manual' : 'Auto'}
                     </Badge>
