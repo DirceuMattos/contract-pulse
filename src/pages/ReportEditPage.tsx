@@ -348,6 +348,23 @@ export default function ReportEditPage() {
                     </div>
                   </div>
                 )}
+                {activeSec.sectionKey !== 'capa' && activeSec.sectionKey !== 'encerramento' && (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-2">
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
+                      <Label htmlFor="hide-slide-switch" className="text-sm font-medium cursor-pointer">
+                        Ocultar slide na geração do PPT
+                      </Label>
+                    </div>
+                    <Switch
+                      id="hide-slide-switch"
+                      checked={Boolean((activeSec.content as Record<string, unknown>)?.__hidden)}
+                      onCheckedChange={(checked) =>
+                        handleContentChange(activeSec, { ...activeSec.content, __hidden: checked })
+                      }
+                    />
+                  </div>
+                )}
                 <SectionEditor
                   sectionKey={activeSec.sectionKey}
                   content={activeSec.content}
