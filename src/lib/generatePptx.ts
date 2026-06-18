@@ -489,7 +489,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       headerBar(s, "Demonstrativo de Horas");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       const total = linhasDemo.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
-      const tableData = [
+      const tableData: any[] = [
         [{ text: "RECURSO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "FUNÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DEDICAÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "UNIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "QTD", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
         ...linhasDemo.map(l => [l.recurso ?? "", l.funcao ?? "", l.dedicacao ?? "", l.unidade ?? "horas", String(l.quantidade ?? 0)]),
         [{ text: "TOTAL", options: { bold: true, fill: { color: AZUL_CLARO } } }, "", "", "", { text: String(total), options: { bold: true, fill: { color: AZUL_CLARO } } }],
