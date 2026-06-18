@@ -305,7 +305,7 @@ serve(async (req) => {
       // Monta linhas no formato esperado pela seção treinamentos_reunioes
       const linhas = filtered.map((t) => ({
         tipo:     "Reunião",
-        data:     new Date(t.date as string | number).toISOString().slice(0, 10),
+        data:     new Date((t as Record<string, unknown>).dateString as string ?? t.date as string).toISOString().slice(0, 10),
         descricao: (t.title as string) + (
           (t.summary as Record<string, unknown>)?.short_summary
             ? ` — ${(t.summary as Record<string, unknown>).short_summary}`
