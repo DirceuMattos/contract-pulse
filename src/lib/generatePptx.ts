@@ -294,7 +294,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   }
 
   // ── SLIDE 8: OPORTUNIDADES
-  {
+  if (!sections["oportunidades_atencao"]?.__hidden) {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Oportunidades e Fatores de Atenção");
