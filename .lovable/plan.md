@@ -1,19 +1,32 @@
-Sim, é perfeitamente possível tornar a área de filtros retrátil.
+## Causa
 
-Como funciona:
+A edge function `feedz-sync` checa apenas a role `c-level` via `has_role` e retorna **403 Forbidden** para qualquer outro usuário — inclusive `superadmin`. Por isso a sincronização falha com "Edge Function returned a non-2xx status code". O mesmo padrão existe em `feedz-rollback`.
 
-- Adicionamos um botão "Filtros" com ícone de chevron no topo do Card de filtros.
-- Ao clicar, a área dos selects e toggles expande/colapsa com animação suave.
-- O campo de busca (Linha 1) permanece sempre visível — ele é essencial e não ocupa espaço.
-- O estado "aberto/fechado" pode ser persistido no sessionStorage para lembrar a preferência do usuário entre navegações.
+## Correção
 
-O que muda no código:
+Trocar a checagem única por uma checagem que aceite `c-level` **ou** `superadmin`, usando a RPC já existente `has_any_role`.
 
-1. Envolvo as Linhas 2 e 3 do Card de filtros (selects + toggles) em um componente/condicional com transição.
-2. Adiciono um `useState` local para controlar `filtersExpanded`.
-3. Adiciono um botão de toggle no header do Card, ao lado do "Limpar filtros".
-4. Opcionalmente persistir no `sessionStorage`.
+### 1. `supabase/functions/feedz-sync/index.ts` (linha ~256)
 
-Mantemos o campo de busca sempre visível para não prejudicar a usabilidade principal.
+```ts
+const { data: roleCheck } = await db.rpc('has_any_role', {
+  _user_id: userId,
+  _roles: ['c-level', 'superadmin'],
+})
+if (!roleCheck) {
+  return new Response(
+    JSON.stringify({ error: 'Forbidden: c-level or superadmin only' }),
+    { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  )
+}
+```
 
-Nada mais deve ser alterado.
+### 2. `supabase/functions/feedz-rollback/index.ts`
+
+Aplicar a mesma substituição para manter consistência (superadmin também deve poder fazer rollback).
+
+### 3. Redeploy
+
+Fazer redeploy das duas edge functions após as edições.
+
+Nenhuma alteração de frontend, schema ou RLS é necessária — a RPC `has_any_role` já existe no banco.
