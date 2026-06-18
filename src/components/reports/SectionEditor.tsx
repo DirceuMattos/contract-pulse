@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -216,28 +216,148 @@ function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
 // ============================================
 function GlossarioEditor({ content, onChange, readOnly }: EditorProps) {
   type Termo = { termo: string; definicao: string };
+
   const termos: Termo[] = (content.termos as Termo[]) ?? [];
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [importing, setImporting] = useState(false);
+
   const update = (i: number, patch: Partial<Termo>) => {
     const next = [...termos];
     next[i] = { ...next[i], ...patch };
     onChange({ ...content, termos: next });
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      let novosTermos: Termo[] = [];
+
+      if (ext === 'xlsx' || ext === 'xls') {
+        // Parse XLSX usando SheetJS
+        const XLSX = await import('xlsx');
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 }) as string[][];
+        // Detecta colunas: primeira linha pode ser cabeçalho
+        const startRow = (rows[0]?.[0]?.toLowerCase().includes('termo') || rows[0]?.[0]?.toLowerCase().includes('term')) ? 1 : 0;
+        novosTermos = rows.slice(startRow)
+          .filter(r => r[0] || r[1])
+          .map(r => ({ termo: String(r[0] ?? '').trim(), definicao: String(r[1] ?? '').trim() }));
+      } else if (ext === 'docx' || ext === 'doc') {
+        // Parse DOCX usando mammoth
+        const mammoth = await import('mammoth');
+        const buffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+        const lines = result.value.split('\n').filter(l => l.trim());
+        // Tenta detectar padrão "Termo: definição" ou linhas alternadas
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          // Padrão "Termo: definição"
+          if (line.includes(':')) {
+            const idx = line.indexOf(':');
+            const termo = line.substring(0, idx).trim();
+            const definicao = line.substring(idx + 1).trim();
+            if (termo && definicao) {
+              novosTermos.push({ termo, definicao });
+              continue;
+            }
+          }
+          // Padrão: linha ímpar = termo, linha par = definição
+          if (i + 1 < lines.length) {
+            novosTermos.push({ termo: line, definicao: lines[i + 1].trim() });
+            i++;
+          }
+        }
+      }
+
+      if (novosTermos.length > 0) {
+        // Merge com termos existentes (evita duplicatas por termo)
+        const existingTermos = new Set(termos.map(t => t.termo.toLowerCase()));
+        const novosUnicos = novosTermos.filter(t => !existingTermos.has(t.termo.toLowerCase()));
+        onChange({ ...content, termos: [...termos, ...novosUnicos] });
+      }
+    } catch (err) {
+      console.error('Erro ao importar glossário:', err);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Termos técnicos que aparecerão no slide de glossário do relatório.</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Termos técnicos que aparecerão no slide de glossário do relatório.
+        </p>
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
+              {importing ? (
+                <span className="flex items-center gap-1">
+                  <span className="animate-spin">⏳</span> Importando...
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  📂 Importar XLSX / DOCX
+                </span>
+              )}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.docx,.doc"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+          </div>
+        )}
+      </div>
+      <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2">
+        💡 <strong>Dica de importação:</strong> No Excel, use duas colunas — coluna A: Termo, coluna B: Definição.
+        No Word, use o padrão <em>Termo: Definição</em> por linha, ou linhas alternadas (termo / definição).
+      </div>
       <div className="space-y-2">
         {termos.map((t, i) => (
           <div key={i} className="flex gap-2 items-start border rounded-lg p-2">
             <div className="flex-shrink-0 w-48">
               <Label className="text-xs">Termo</Label>
-              <Input value={t.termo} onChange={(e) => update(i, { termo: e.target.value })} disabled={readOnly} placeholder="ex: Backlog" />
+              <Input
+                value={t.termo}
+                onChange={e => update(i, { termo: e.target.value })}
+                disabled={readOnly}
+                placeholder="ex: Backlog"
+              />
             </div>
             <div className="flex-1">
               <Label className="text-xs">Definição</Label>
-              <Textarea value={t.definicao} onChange={(e) => update(i, { definicao: e.target.value })} disabled={readOnly} rows={2} placeholder="Definição do termo..." />
+              <Textarea
+                value={t.definicao}
+                onChange={e => update(i, { definicao: e.target.value })}
+                disabled={readOnly}
+                rows={2}
+                placeholder="Definição do termo..."
+              />
             </div>
             {!readOnly && (
-              <Button variant="ghost" size="icon" className="mt-5" onClick={() => onChange({ ...content, termos: termos.filter((_, idx) => idx !== i) })}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mt-5"
+                onClick={() => onChange({ ...content, termos: termos.filter((_, idx) => idx !== i) })}
+              >
                 <Trash2 className="w-4 h-4" />
               </Button>
             )}
@@ -245,8 +365,12 @@ function GlossarioEditor({ content, onChange, readOnly }: EditorProps) {
         ))}
       </div>
       {!readOnly && (
-        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, termos: [...termos, { termo: '', definicao: '' }] })}>
-          <Plus className="w-4 h-4 mr-2" />Adicionar termo
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange({ ...content, termos: [...termos, { termo: '', definicao: '' }] })}
+        >
+          <Plus className="w-4 h-4 mr-2" />Adicionar termo manualmente
         </Button>
       )}
     </div>
