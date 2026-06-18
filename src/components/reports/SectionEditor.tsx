@@ -129,7 +129,12 @@ function ObjetivoEditor({ content, onChange, readOnly }: EditorProps) {
 // ============================================
 function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
   type Linha = { descricao: string; status: 'sim' | 'não' | 'parcialmente' };
-  const linhas: Linha[] = (content.linhas as Linha[]) ?? [];
+
+  // Migra formato legado { entregue: boolean } para { status: string }
+  const linhas: Linha[] = ((content.linhas as any[]) ?? []).map((l: any) => ({
+    descricao: l.descricao ?? '',
+    status: l.status ?? (l.entregue === true ? 'sim' : l.entregue === false ? 'não' : 'não'),
+  }));
   const update = (i: number, patch: Partial<Linha>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
