@@ -50,6 +50,7 @@ import TransportPage from "@/pages/TransportPage";
 import ReportsPage from "@/pages/ReportsPage";
 import ReportEditPage from "@/pages/ReportEditPage";
 import ReportTemplateConfigPage from "@/pages/ReportTemplateConfigPage";
+import TrustPage from "@/pages/TrustPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +75,8 @@ const App = () => (
                         <Route path="/trocar-senha" element={<ChangePasswordPage />} />
                         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
                         <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+                        <Route path="/seguranca" element={<TrustPage />} />
+                        <Route path="/trust" element={<TrustPage />} />
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route element={<MainLayout />}>
                           <Route path="/dashboard" element={<DashboardPage />} />
