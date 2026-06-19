@@ -50,6 +50,7 @@ import TransportPage from "@/pages/TransportPage";
 import ReportsPage from "@/pages/ReportsPage";
 import ReportEditPage from "@/pages/ReportEditPage";
 import ReportTemplateConfigPage from "@/pages/ReportTemplateConfigPage";
+import TrustPage from "@/pages/TrustPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
