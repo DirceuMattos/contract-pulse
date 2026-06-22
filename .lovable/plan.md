@@ -1,56 +1,36 @@
-## Objetivo
+## Plano: Sidebar - Exibir módulos bloqueados com indicador visual
 
-Substituir `src/pages/ReportsPage.tsx` por uma versão que agrupa relatórios por contrato em cards expansíveis, mostrando status visual das integrações (Asana/Fireflies/Milvus).
+### Contexto
+Atualmente a sidebar oculta completamente os módulos que o usuário não tem acesso. O objetivo é **mostrar todos os módulos**, mas marcar os inacessíveis como bloqueados (com ícone de cadeado) e exibir um toast ao clicar.
 
-## Mudanças
+### Alterações no arquivo `src/components/layout/Sidebar.tsx`
 
-### 1. Nova query: `report_template_configs`
-Adicionar `useQuery` paralela para buscar todos os configs:
-```ts
-supabase.from('report_template_configs').select('contract_id, asana_project_id, client_email_domain, milvus_client_names')
-```
-Mapear para `Map<contractId, { asana: bool, fireflies: bool, milvus: bool }>`.
+#### 1. Importar `Lock` do lucide-react
+Adicionar `Lock` à lista de imports existentes.
 
-### 2. Agrupamento
-`useMemo` que agrupa `filtered` por `contractId` → `Array<{ contract, client, reports, integrations }>`, ordenado pelo nome do contrato.
+#### 2. Substituir `isItemVisible` por `isItemAllowed` e mudar lógica de filtro
+- Renomear `isItemVisible` para `isItemAllowed` (a lógica de permissão permanece a mesma).
+- Em vez de filtrar (`filter`) os itens invisíveis, **mapear** (`map`) todos os itens adicionando a propriedade `locked: !isItemAllowed(item)`.
+- Assim, `visibleGroups` passa a conter todos os grupos e todos os itens, mas com flag de bloqueio.
 
-### 3. Estado de expansão
-`const [expanded, setExpanded] = useState<Set<string>>(new Set())` — toggle por contrato. Por padrão todos colapsados (ou expande o primeiro se houver poucos — decidir: começar **todos colapsados**).
+#### 3. Adicionar handler `handleLockedClick`
+Após `handleComingSoonClick`, adicionar função que:
+- Chama `e.preventDefault()`
+- Exibe toast com título "🔒 Acesso restrito" e descrição informando que o perfil não permite acesso ao módulo
 
-### 4. Layout do header do contrato (card clicável)
-```
-[logo] [Nome contrato]              [● ● ●] [badge N] [⚙️] [chevron]
-       [Nome cliente]                 A F M
-```
-- 3 dots: `bg-green-500` se configurada, `bg-muted` se não. Tooltip mostrando "Asana", "Fireflies", "Milvus".
-- Badge: `<Badge variant="secondary">{reports.length}</Badge>`
-- Botão ⚙️: cor depende de `configuredCount` — verde (3/3), amarelo (1-2), cinza (0). Click navega para `/relatorios/config/${contract.id}` (com `stopPropagation`).
-- Chevron rota baseado em expanded.
+#### 4. Atualizar `renderItemBody`
+- Alterar assinatura para aceitar `item: NavItem & { locked?: boolean }`.
+- Adicionar classes CSS para itens bloqueados: `text-sidebar-foreground/35 cursor-not-allowed opacity-60`.
+- No ícone (`<Icon ...>`), adicionar `opacity-50` quando `locked`.
+- Adicionar badge com ícone `<Lock className="w-3 h-3 ..." />` ao lado do label quando `locked` (similar ao "Em breve").
+- Se `locked`, renderizar `<button type="button" onClick={handleLockedClick} ...>` em vez de `<Link>`.
+- O restante do código existente (`comingSoon`, `external`, `<Link>`) permanece inalterado.
 
-### 5. Grid expandido
-Quando expandido: `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3` com cards de relatório (sem repetir logo/nome do contrato — agora mostram só mês/ano em destaque, status badge, barra progresso e menu `...`).
+#### 5. `initialOpen`
+Nenhuma alteração necessária — como `visibleGroups` agora contém todos os grupos, o cálculo existente continua funcional.
 
-### 6. Menu `...` do relatório
-- Abrir → `navigate(/relatorios/:id)`
-- Duplicar → `handleDuplicate`
-- Excluir → só se `report.status === 'draft' && canDelete` (com confirm)
-
-### 7. Filtros
-- **Remover** filtro de Contrato
-- **Manter** Ano e Status
-- Aplicados antes do agrupamento; contratos sem relatórios após filtro são omitidos.
-
-### 8. Lógica preservada
-- `handleDuplicate`, `handleDelete`, `canDelete`, `ReportCreateDialog`, `AlertDialog` mantidos exatamente como estão.
-- Mesmo `queryKey` `['monthly_reports']` e cálculo de `filledSections/totalSections`.
-
-## Detalhes técnicos
-
-- Imports adicionais: `ChevronDown`, `Badge`, `Tooltip*` do shadcn.
-- Cor do ⚙️ via classe condicional: `text-green-500` / `text-yellow-500` / `text-muted-foreground`.
-- Animação de expansão: `motion.div` com `initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}` ou simplesmente conditional render (mais simples e performante — usar conditional).
-- Nenhuma mudança em schema/DB, em outros componentes, ou em `ReportCreateDialog`.
-
-## Arquivos
-
-- `src/pages/ReportsPage.tsx` — reescrita completa
+### Resultado esperado
+- Todos os módulos aparecem na sidebar, inclusive os sem permissão.
+- Itens bloqueados ficam esmaecidos, com ícone de cadeado, e não são clicáveis como link.
+- Clique em item bloqueado exibe toast informativo.
+- Itens "Em breve" continuam funcionando como antes.
