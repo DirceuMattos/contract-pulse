@@ -383,7 +383,6 @@ export default function ReportEditPage() {
           className="overflow-hidden flex flex-col shrink-0"
         >
           <CardContent className="p-2 overflow-y-auto flex-1">
-          <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
               {sortedSections.map((s) => {
                 const meta = SECTION_META_BY_KEY[s.sectionKey];
@@ -412,9 +411,17 @@ export default function ReportEditPage() {
           </CardContent>
         </Card>
 
+        {/* Resizer */}
+        <div
+          onMouseDown={startResizing}
+          className="w-3 -mx-2 cursor-col-resize z-10 flex items-center justify-center self-stretch group"
+          title="Arraste para redimensionar"
+        >
+          <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/60 transition-colors" />
+        </div>
 
         {/* Editor — own scroll */}
-        <Card className="overflow-hidden flex flex-col">
+        <Card className="overflow-hidden flex flex-col flex-1 min-w-0">
           <CardContent className="p-6 space-y-4 overflow-y-auto flex-1">
 
             {activeSec && activeMeta ? (
