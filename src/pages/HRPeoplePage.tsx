@@ -47,7 +47,7 @@ function formatComite(value: string): string {
 
 type SortField = 'nome' | 'tipoVinculo' | 'cargo' | 'team' | 'localAtuacao' | 'dataAdmissao' | 'tempo' | 'custoTotal' | 'situacao' | 'comiteGestor';
 
-export default function HRPeoplePage() {
+function HRPeoplePageInner() {
   const navigate = useNavigate();
   const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts } = useData();
@@ -745,5 +745,14 @@ export default function HRPeoplePage() {
         onComplete={() => window.location.reload()}
       />
     </div>
+  );
+}
+
+import { AccessGuard as __AccessGuard } from '@/components/layout/AccessGuard';
+export default function HRPeoplePage() {
+  return (
+    <__AccessGuard moduleKey="HR">
+      <HRPeoplePageInner />
+    </__AccessGuard>
   );
 }

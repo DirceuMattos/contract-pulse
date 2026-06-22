@@ -69,7 +69,7 @@ interface Integrations {
   milvus: boolean;
 }
 
-export default function ReportsPage() {
+function ReportsPageInner() {
   const navigate = useNavigate();
   const { contracts, getClient } = useData();
   const { userRole } = useAuth();
@@ -448,5 +448,14 @@ export default function ReportsPage() {
         </AlertDialog>
       </div>
     </TooltipProvider>
+  );
+}
+
+import { AccessGuard as __AccessGuard } from '@/components/layout/AccessGuard';
+export default function ReportsPage() {
+  return (
+    <__AccessGuard moduleKey="REPORTS">
+      <ReportsPageInner />
+    </__AccessGuard>
   );
 }

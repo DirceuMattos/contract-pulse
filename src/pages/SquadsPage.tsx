@@ -114,7 +114,7 @@ function sortTeamsByFixedOrder(teamsArray: SquadTeamData[]): SquadTeamData[] {
 
 // --- Component ---
 
-export default function SquadsPage() {
+function SquadsPageInner() {
   const { clients, contracts, resources: _rawResources, settings, jobTitles, teams } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
@@ -1059,5 +1059,14 @@ export default function SquadsPage() {
         onConfirm={handleRemovePending}
       />
     </div>
+  );
+}
+
+import { AccessGuard as __AccessGuard } from '@/components/layout/AccessGuard';
+export default function SquadsPage() {
+  return (
+    <__AccessGuard moduleKey="SQUADS">
+      <SquadsPageInner />
+    </__AccessGuard>
   );
 }

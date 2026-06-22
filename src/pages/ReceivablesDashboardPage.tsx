@@ -48,7 +48,7 @@ function getMonthRange(offset: number) {
   };
 }
 
-export default function ReceivablesDashboardPage() {
+function ReceivablesDashboardPageInner() {
   const navigate = useNavigate();
   const { contracts, clients } = useData();
   const { canViewValues } = useAuth();
@@ -398,5 +398,14 @@ export default function ReceivablesDashboardPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+import { AccessGuard as __AccessGuard } from '@/components/layout/AccessGuard';
+export default function ReceivablesDashboardPage() {
+  return (
+    <__AccessGuard moduleKey="RECEIVABLES">
+      <ReceivablesDashboardPageInner />
+    </__AccessGuard>
   );
 }
