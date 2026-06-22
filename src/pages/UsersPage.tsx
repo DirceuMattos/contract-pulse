@@ -97,7 +97,7 @@ const roleColors: Record<UserRole, string> = {
   'superadmin': 'bg-purple-500/10 text-purple-700 border-purple-500/20',
 };
 
-export default function UsersPage() {
+function UsersPageInner() {
   const { user: currentUser, canEdit } = useAuth();
   const { users, deleteUser, toggleUserStatus } = useSystemUsers();
   const navigate = useNavigate();
@@ -437,5 +437,14 @@ export default function UsersPage() {
         description={`Tem certeza que deseja excluir ${userToDelete?.name}? Esta ação não pode ser desfeita.`}
       />
     </div>
+  );
+}
+
+import { AccessGuard as __AccessGuard } from '@/components/layout/AccessGuard';
+export default function UsersPage() {
+  return (
+    <__AccessGuard moduleKey="USERS_ADMIN">
+      <UsersPageInner />
+    </__AccessGuard>
   );
 }

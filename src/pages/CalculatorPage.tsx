@@ -34,7 +34,7 @@ function normalizeSimulation(sim: ContractSimulation): ContractSimulation {
   };
 }
 
-export default function CalculatorPage() {
+function CalculatorPageInner() {
   const { user } = useAuth();
   const { settings } = useData();
   const { simulations, deleteSimulation, duplicateSimulation, updateSimulation } = useSimulations();
@@ -193,5 +193,14 @@ export default function CalculatorPage() {
       )}
     </div>
     </TooltipProvider>
+  );
+}
+
+import { AccessGuard as __AccessGuard } from '@/components/layout/AccessGuard';
+export default function CalculatorPage() {
+  return (
+    <__AccessGuard moduleKey="CALCULATOR">
+      <CalculatorPageInner />
+    </__AccessGuard>
   );
 }
