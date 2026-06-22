@@ -125,7 +125,7 @@ interface RoleProfileRow extends ActionFlags {
 
 const MODULE_GROUPS: { title: string; keys: ModuleKey[] }[] = [
   { title: 'Geral', keys: ['DASHBOARD', 'ALERTS'] },
-  { title: 'Clientes e Contratos', keys: ['CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'RECEIVABLES', 'CALCULATOR'] },
+  { title: 'Clientes e Contratos', keys: ['CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'RECEIVABLES', 'CALCULATOR', 'REPORTS'] },
   { title: 'Recursos e Pessoas', keys: ['HR', 'SQUADS', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'] },
   { title: 'Setup', keys: ['SETTINGS', 'USERS_ADMIN', 'IMPORT_EXPORT', 'PROFILES_ADMIN', 'ACCESS_LOGS'] },
   { title: 'IA', keys: ['AI', 'AI_LOGS'] },
