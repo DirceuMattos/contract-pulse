@@ -52,6 +52,46 @@ export default function ReportEditPage() {
   const autoSyncTriggered = useRef(false);
   const { syncDevid } = useReportDevidSync();
 
+  const SIDEBAR_WIDTH_KEY = 'report_edit_sidebar_width';
+  const MIN_SIDEBAR_WIDTH = 200;
+  const MAX_SIDEBAR_WIDTH = 480;
+  const DEFAULT_SIDEBAR_WIDTH = 260;
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(SIDEBAR_WIDTH_KEY) : null;
+    const parsed = saved ? parseInt(saved, 10) : NaN;
+    return Number.isFinite(parsed) ? Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, parsed)) : DEFAULT_SIDEBAR_WIDTH;
+  });
+  const isResizing = useRef(false);
+
+  const startResizing = useCallback(() => {
+    isResizing.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    if (!isResizing.current) return;
+    isResizing.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const next = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, e.clientX - 32));
+    setSidebarWidth(next);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
+
   const { data, isLoading } = useQuery({
     queryKey: ['monthly_report', reportId],
     queryFn: async () => {
