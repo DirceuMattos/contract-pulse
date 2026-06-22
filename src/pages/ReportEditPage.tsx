@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
@@ -44,6 +45,7 @@ export default function ReportEditPage() {
   const { contracts, getClient, getResourcesByContract } = useData();
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<ReportSectionKey | null>(null);
   const [syncing, setSyncing] = useState(false);
