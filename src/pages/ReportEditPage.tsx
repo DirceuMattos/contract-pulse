@@ -376,11 +376,11 @@ export default function ReportEditPage() {
       </div>
 
       {/* Two-column layout with independent scroll */}
-      <div ref={containerRef} className="flex gap-4 h-[calc(100vh-12rem)]">
+      <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-12rem)]">
         {/* Section menu — own scroll */}
         <Card
-          style={{ width: sidebarWidth }}
-          className="overflow-hidden flex flex-col shrink-0"
+          style={{ width: undefined }}
+          className="overflow-hidden flex flex-col lg:shrink-0"
         >
           <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
@@ -414,7 +414,7 @@ export default function ReportEditPage() {
         {/* Resizer */}
         <div
           onMouseDown={startResizing}
-          className="w-3 -mx-2 cursor-col-resize z-10 flex items-center justify-center self-stretch group"
+          className="hidden lg:flex w-3 -mx-2 cursor-col-resize z-10 items-center justify-center self-stretch group"
           title="Arraste para redimensionar"
         >
           <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/60 transition-colors" />
