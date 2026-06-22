@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info } from 'lucide-react';
@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
@@ -44,13 +45,56 @@ export default function ReportEditPage() {
   const { contracts, getClient, getResourcesByContract } = useData();
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<ReportSectionKey | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { syncDevid } = useReportDevidSync();
+
+  const SIDEBAR_WIDTH_KEY = 'report_edit_sidebar_width';
+  const MIN_SIDEBAR_WIDTH = 200;
+  const MAX_SIDEBAR_WIDTH = 480;
+  const DEFAULT_SIDEBAR_WIDTH = 260;
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(SIDEBAR_WIDTH_KEY) : null;
+    const parsed = saved ? parseInt(saved, 10) : NaN;
+    return Number.isFinite(parsed) ? Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, parsed)) : DEFAULT_SIDEBAR_WIDTH;
+  });
+  const isResizing = useRef(false);
+
+  const startResizing = useCallback(() => {
+    isResizing.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    if (!isResizing.current) return;
+    isResizing.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (!isResizing.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const next = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, e.clientX - rect.left));
+    setSidebarWidth(next);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['monthly_report', reportId],
@@ -334,9 +378,12 @@ export default function ReportEditPage() {
       </div>
 
       {/* Two-column layout with independent scroll */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 h-[calc(100vh-12rem)]">
+      <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-12rem)]">
         {/* Section menu — own scroll */}
-        <Card className="overflow-hidden flex flex-col">
+        <Card
+          style={{ width: isMobile ? '100%' : sidebarWidth }}
+          className="overflow-hidden flex flex-col shrink-0"
+        >
           <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
               {sortedSections.map((s) => {
@@ -366,9 +413,17 @@ export default function ReportEditPage() {
           </CardContent>
         </Card>
 
+        {/* Resizer */}
+        <div
+          onMouseDown={startResizing}
+          className="hidden lg:flex w-3 -mx-2 cursor-col-resize z-10 items-center justify-center self-stretch group"
+          title="Arraste para redimensionar"
+        >
+          <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/60 transition-colors" />
+        </div>
 
         {/* Editor — own scroll */}
-        <Card className="overflow-hidden flex flex-col">
+        <Card className="overflow-hidden flex flex-col flex-1 min-w-0">
           <CardContent className="p-6 space-y-4 overflow-y-auto flex-1">
 
             {activeSec && activeMeta ? (
