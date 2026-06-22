@@ -1,4 +1,6 @@
+// v2 - reports access updated
 import { UserRole } from './index';
+
 
 export const MODULE_KEYS = [
   'DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL',
