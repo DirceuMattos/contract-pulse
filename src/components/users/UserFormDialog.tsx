@@ -150,17 +150,9 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
     setModuleSearch('');
   }, [editingUser, form]);
 
-  // When role changes, reconcile moduleAccess
+  // When role changes, reset moduleAccess to the default for the new role
   useEffect(() => {
-    setModuleAccess(prev => {
-      const updated = { ...prev };
-      for (const mod of MODULE_CATALOG) {
-        if (!isRoleAllowedForModule(watchedRole, mod.key)) {
-          updated[mod.key] = false;
-        }
-      }
-      return updated;
-    });
+    setModuleAccess(getDefaultModuleAccess(watchedRole));
   }, [watchedRole]);
 
   const toggleModule = (key: ModuleKey, value: boolean) => {
