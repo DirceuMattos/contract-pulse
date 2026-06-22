@@ -376,9 +376,13 @@ export default function ReportEditPage() {
       </div>
 
       {/* Two-column layout with independent scroll */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 h-[calc(100vh-12rem)]">
+      <div ref={containerRef} className="flex gap-4 h-[calc(100vh-12rem)]">
         {/* Section menu — own scroll */}
-        <Card className="overflow-hidden flex flex-col">
+        <Card
+          style={{ width: sidebarWidth }}
+          className="overflow-hidden flex flex-col shrink-0"
+        >
+          <CardContent className="p-2 overflow-y-auto flex-1">
           <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
               {sortedSections.map((s) => {
