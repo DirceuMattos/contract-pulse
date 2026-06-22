@@ -355,7 +355,7 @@ export default function HRPersonDetailPage() {
                   <Pencil className="h-4 w-4 mr-2" />
                   Editar
                 </Button>
-                {person.situacao === 'ativo' && (
+                {person.situacao === 'ativo' && (userRole === 'superadmin' || userRole === 'rh' || userRole === 'c-level') && (
                   <Button variant="destructive" onClick={() => {
                     setDesligamentoData('');
                     setDesligamentoTipo('');
