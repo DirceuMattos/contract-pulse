@@ -379,8 +379,8 @@ export default function ReportEditPage() {
       <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-12rem)]">
         {/* Section menu — own scroll */}
         <Card
-          style={{ width: undefined }}
-          className="overflow-hidden flex flex-col lg:shrink-0"
+          style={{ width: isMobile ? '100%' : sidebarWidth }}
+          className="overflow-hidden flex flex-col shrink-0"
         >
           <CardContent className="p-2 overflow-y-auto flex-1">
             <div className="space-y-1">
