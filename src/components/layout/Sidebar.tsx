@@ -194,12 +194,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       active && 'bg-sidebar-accent text-sidebar-primary',
       !active && !item.comingSoon && !locked && 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
       item.comingSoon && 'text-sidebar-foreground/40 cursor-not-allowed',
-      locked && 'text-sidebar-foreground/35 cursor-not-allowed opacity-60',
+      locked && 'text-sidebar-foreground/55 cursor-not-allowed',
     );
 
     const inner = (
       <>
-        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary', locked && 'opacity-50')} />
+        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary', locked && 'opacity-40')} />
         {showLabel && <span title={item.label} className="text-sm font-medium leading-snug min-w-0 flex-1 break-words">{item.label}</span>}
         {showLabel && item.comingSoon && (
           <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-sidebar-foreground/10 text-sidebar-foreground/60 shrink-0">
@@ -207,7 +207,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           </span>
         )}
         {showLabel && locked && (
-          <Lock className="w-3 h-3 shrink-0 opacity-50" />
+          <Lock className="w-3.5 h-3.5 shrink-0 opacity-70" />
         )}
       </>
     );
