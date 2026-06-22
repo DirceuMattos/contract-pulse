@@ -28,6 +28,7 @@ import {
   UserCircle2,
   Cog,
   FileBarChart2,
+  Lock,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
@@ -130,14 +131,29 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
     });
   };
 
-  const isItemVisible = (item: NavItem): boolean => {
+  const handleLockedClick = (e: React.MouseEvent, item: NavItem) => {
+    e.preventDefault();
+    toast({
+      title: '🔒 Acesso restrito',
+      description: `Seu perfil não permite acesso ao módulo "${item.label}". Solicite ao administrador do sistema.`,
+    });
+  };
+
+  const isItemAllowed = (item: NavItem): boolean => {
     if (item.moduleKey && !canAccessModule(item.moduleKey)) return false;
     if (item.allowedRoles && (!userRole || !item.allowedRoles.includes(userRole))) return false;
     return true;
   };
 
+  // Mostrar todos os módulos, mas marcar os inacessíveis
   const visibleGroups = navGroups
-    .map((g) => ({ ...g, items: g.items.filter(isItemVisible) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.map((item) => ({
+        ...item,
+        locked: !isItemAllowed(item),
+      })),
+    }))
     .filter((g) => g.items.length > 0);
 
   // Estado de abertura por grupo (apenas para grupos com label).
@@ -168,28 +184,46 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
     (location.pathname === item.path ||
       (item.path !== '/dashboard' && item.path !== '#' && location.pathname.startsWith(item.path)));
 
-  const renderItemBody = (item: NavItem, showLabel: boolean, onNavigate?: () => void) => {
+  const renderItemBody = (item: NavItem & { locked?: boolean }, showLabel: boolean, onNavigate?: () => void) => {
     const Icon = item.icon;
     const active = isActiveItem(item);
+    const locked = item.locked;
 
     const baseClasses = cn(
       'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 w-full',
       active && 'bg-sidebar-accent text-sidebar-primary',
-      !active && !item.comingSoon && 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
+      !active && !item.comingSoon && !locked && 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
       item.comingSoon && 'text-sidebar-foreground/40 cursor-not-allowed',
+      locked && 'text-sidebar-foreground/35 cursor-not-allowed opacity-60',
     );
 
     const inner = (
       <>
-        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary')} />
+        <Icon className={cn('w-5 h-5 shrink-0', active && 'text-sidebar-primary', locked && 'opacity-50')} />
         {showLabel && <span title={item.label} className="text-sm font-medium leading-snug min-w-0 flex-1 break-words">{item.label}</span>}
         {showLabel && item.comingSoon && (
           <span className="text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-sidebar-foreground/10 text-sidebar-foreground/60 shrink-0">
             Em breve
           </span>
         )}
+        {showLabel && locked && (
+          <Lock className="w-3 h-3 shrink-0 opacity-50" />
+        )}
       </>
     );
+
+    if (locked) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => { handleLockedClick(e, item); onNavigate?.(); }}
+          className={cn(baseClasses, 'text-left')}
+          aria-disabled="true"
+        >
+          {inner}
+        </button>
+      );
+    }
 
     if (item.comingSoon) {
       return (
