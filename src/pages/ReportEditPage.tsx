@@ -50,6 +50,7 @@ export default function ReportEditPage() {
   const [generating, setGenerating] = useState(false);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { syncDevid } = useReportDevidSync();
 
   const SIDEBAR_WIDTH_KEY = 'report_edit_sidebar_width';
@@ -78,8 +79,9 @@ export default function ReportEditPage() {
   }, [sidebarWidth]);
 
   const resize = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const next = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, e.clientX - 32));
+    if (!isResizing.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const next = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, e.clientX - rect.left));
     setSidebarWidth(next);
   }, []);
 
