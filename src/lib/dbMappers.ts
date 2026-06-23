@@ -774,7 +774,7 @@ export function reportSectionToDb(s: Partial<ReportSection>): Record<string, unk
 }
 
 export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemplateConfig {
-  return {
+  const config: ReportTemplateConfig = {
     id: row.id,
     contractId: row.contract_id,
     showHistoricoTr: row.show_historico_tr ?? true,
@@ -795,9 +795,10 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
     milvusClientNames: row.milvus_client_names ?? [],
     azureProject: row.azure_project ?? undefined,
     azureTags: row.azure_tags ?? [],
-    // debug-azure-v1
-    console.log('[debug-azure-v1] row.azure_project:', row.azure_project, 'row.azure_tags:', row.azure_tags),
   };
+  // debug-azure-v1
+  console.log('[debug-azure-v1] row.azure_project:', row.azure_project, 'row.azure_tags:', row.azure_tags);
+  return config;
 }
 
 export function reportTemplateConfigToDb(c: Partial<ReportTemplateConfig>): Record<string, unknown> {
