@@ -128,12 +128,13 @@ function ObjetivoEditor({ content, onChange, readOnly }: EditorProps) {
 // Histórico TR
 // ============================================
 function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
-  type Linha = { descricao: string; status: 'sim' | 'não' | 'parcialmente' };
+  type Linha = { descricao: string; status: 'sim' | 'não' | 'parcialmente'; observacoes?: string };
 
   // Migra formato legado { entregue: boolean } para { status: string }
   const linhas: Linha[] = ((content.linhas as any[]) ?? []).map((l: any) => ({
     descricao: l.descricao ?? '',
     status: l.status ?? (l.entregue === true ? 'sim' : l.entregue === false ? 'não' : 'não'),
+    observacoes: l.observacoes ?? '',
   }));
   const update = (i: number, patch: Partial<Linha>) => {
     const next = [...linhas];
@@ -169,6 +170,7 @@ function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
             <tr>
               <th className="p-2 text-left">Macroentrega</th>
               <th className="p-2 text-left w-44">Status</th>
+              <th className="p-2 text-left">Observações</th>
               <th className="p-2 w-10"></th>
             </tr>
           </thead>
@@ -191,6 +193,9 @@ function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
                   </select>
                 </td>
                 <td className="p-1">
+                  <Input value={l.observacoes ?? ''} onChange={(e) => update(i, { observacoes: e.target.value })} disabled={readOnly} placeholder="Observação opcional..." />
+                </td>
+                <td className="p-1">
                   {!readOnly && (
                     <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i) })}>
                       <Trash2 className="w-4 h-4" />
@@ -203,7 +208,7 @@ function HistoricoTrEditor({ content, onChange, readOnly }: EditorProps) {
         </table>
       </div>
       {!readOnly && (
-        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { descricao: '', status: 'não' }] })}>
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { descricao: '', status: 'não', observacoes: '' }] })}>
           <Plus className="w-4 h-4 mr-2" />Adicionar macroentrega
         </Button>
       )}
