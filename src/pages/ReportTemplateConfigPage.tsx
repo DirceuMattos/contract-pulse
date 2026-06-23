@@ -28,6 +28,7 @@ export default function ReportTemplateConfigPage() {
   const [keywordsText, setKeywordsText] = useState('');
   const [milvusNamesText, setMilvusNamesText] = useState('');
   const [azureTagsText, setAzureTagsText] = useState('');
+  const [asanaIdsText, setAsanaIdsText] = useState('');
 
   const allowed = userRole === 'c-level' || userRole === 'superadmin';
 
@@ -46,6 +47,7 @@ export default function ReportTemplateConfigPage() {
         setKeywordsText((c.firefliesKeywords ?? []).join(', '));
         setMilvusNamesText((c.milvusClientNames ?? []).join('\n'));
         setAzureTagsText((c.azureTags ?? []).join(', '));
+        setAsanaIdsText((c.asanaProjectIds ?? (c.asanaProjectId ? [c.asanaProjectId] : [])).join('\n'));
       } else {
         const defaults: Partial<ReportTemplateConfig> = {
           contractId,
@@ -71,7 +73,8 @@ export default function ReportTemplateConfigPage() {
     const keywords = keywordsText.split(',').map((s) => s.trim()).filter(Boolean);
     const milvusNames = milvusNamesText.split('\n').map((s) => s.trim()).filter(Boolean);
     const azureTags = azureTagsText.split(',').map((s) => s.trim()).filter(Boolean);
-    const payload = reportTemplateConfigToDb({ ...config, contractId, firefliesKeywords: keywords, milvusClientNames: milvusNames, azureTags });
+    const asanaProjectIds = asanaIdsText.split('\n').map((s) => s.trim()).filter(Boolean);
+    const payload = reportTemplateConfigToDb({ ...config, contractId, firefliesKeywords: keywords, milvusClientNames: milvusNames, azureTags, asanaProjectIds });
     const { error } = await supabase
       .from('report_template_configs')
       .upsert(payload as any, { onConflict: 'contract_id' });
@@ -118,8 +121,22 @@ export default function ReportTemplateConfigPage() {
         <CardContent className="p-4 space-y-3">
           <h2 className="font-semibold">Integrações</h2>
           <div>
-            <Label>Asana Project ID</Label>
-            <Input value={config.asanaProjectId ?? ''} onChange={(e) => setConfig({ ...config, asanaProjectId: e.target.value })} placeholder="123456789" />
+            <Label>IDs de Projetos no Asana (um por linha)</Label>
+            <Textarea
+              value={asanaIdsText}
+              onChange={(e) => setAsanaIdsText(e.target.value)}
+              rows={3}
+              placeholder={"1205548330088098\n1205548330088099"}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Um ID por linha. Encontre o ID na URL do projeto no Asana (/project/ID).
+            </p>
+            {asanaIdsText && (
+              <p className="text-xs text-muted-foreground">
+                {asanaIdsText.split('\n').filter(Boolean).length} projeto(s) configurado(s)
+              </p>
+            )}
           </div>
           <div>
             <Label>Domínio de e-mail do cliente</Label>
