@@ -24,10 +24,9 @@ serve(async (req) => {
     const startDate = new Date(Date.UTC(year, month - 1, 1)).toISOString().split("T")[0];
     const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59)).toISOString().split("T")[0];
 
-    const tagsFilter =
-      azureTags && azureTags.length > 0
-        ? ` AND (${azureTags.map((t: string) => `[System.Tags] CONTAINS '${t}'`).join(" OR ")})`
-        : "";
+    const tagsFilter = azureTags && azureTags.length > 0
+      ? ` AND (${azureTags.map((t: string) => `[System.Tags] CONTAINS '${t}'`).join(" OR ")})`
+      : "";
 
     const wiql = {
       query: `SELECT [System.Id] FROM WorkItems 
@@ -41,11 +40,7 @@ serve(async (req) => {
 
     const wiqlRes = await fetch(
       `https://dev.azure.com/${azureOrg}/${encodeURIComponent(azureProject)}/_apis/wit/wiql?api-version=7.0`,
-      {
-        method: "POST",
-        headers: { Authorization: authHeader, "Content-Type": "application/json" },
-        body: JSON.stringify(wiql),
-      },
+      { method: "POST", headers: { "Authorization": authHeader, "Content-Type": "application/json" }, body: JSON.stringify(wiql) }
     );
 
     if (!wiqlRes.ok) {
@@ -59,16 +54,10 @@ serve(async (req) => {
     let workItems: Record<string, unknown>[] = [];
     if (ids.length > 0) {
       const fieldsStr = [
-        "System.Id",
-        "System.WorkItemType",
-        "System.State",
-        "Microsoft.VSTS.Common.ClosedDate",
-        "System.CreatedDate",
-        "Microsoft.VSTS.Scheduling.StoryPoints",
-        "System.Tags",
-        "System.AssignedTo",
-        "System.IterationPath",
-        "System.Title",
+        "System.Id", "System.WorkItemType", "System.State",
+        "Microsoft.VSTS.Common.ClosedDate", "System.CreatedDate",
+        "Microsoft.VSTS.Scheduling.StoryPoints", "System.Tags",
+        "System.AssignedTo", "System.IterationPath", "System.Title",
         "Microsoft.VSTS.Common.Priority",
       ].join(",");
 
@@ -76,7 +65,7 @@ serve(async (req) => {
         const batch = ids.slice(i, i + 200);
         const res = await fetch(
           `https://dev.azure.com/${azureOrg}/_apis/wit/workitems?ids=${batch.join(",")}&fields=${fieldsStr}&api-version=7.0`,
-          { headers: { Authorization: authHeader } },
+          { headers: { "Authorization": authHeader } }
         );
         if (res.ok) {
           const d = await res.json();
@@ -117,12 +106,9 @@ serve(async (req) => {
         tipo,
         estado: f["System.State"] as string,
         responsavel: (assignee?.displayName as string) ?? "Não atribuído",
-        tags: ((f["System.Tags"] as string) ?? "")
-          .split(";")
-          .map((t: string) => t.trim())
-          .filter(Boolean),
+        tags: ((f["System.Tags"] as string) ?? "").split(";").map((t: string) => t.trim()).filter(Boolean),
         story_points: sp,
-        iteracao: (f["System.IterationPath"] as string) ?? "",
+        iteracao: f["System.IterationPath"] as string ?? "",
         data_fechamento: closed ?? "",
         lead_time_days: leadDays,
       };
@@ -162,37 +148,20 @@ serve(async (req) => {
     const { error } = await supabase
       .from("report_sections")
       .upsert(
-        {
-          report_id: reportId,
-          section_key: "eficiencia_previsibilidade",
-          content,
-          source: "azure_devops",
-          synced_at: new Date().toISOString(),
-        },
-        { onConflict: "report_id,section_key" },
+        { report_id: reportId, section_key: "eficiencia_previsibilidade", content, source: "azure_devops", synced_at: new Date().toISOString() },
+        { onConflict: "report_id,section_key" }
       );
 
     if (error) throw new Error(`Erro ao salvar: ${error.message}`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        total,
-        bugs: totalBugs,
-        leadTime: leadTimeMedia,
-        freqDeploy,
-        efficiencyRatio,
-        pbiTestedRatio,
-      }),
-      {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ success: true, total, bugs: totalBugs, leadTime: leadTimeMedia, freqDeploy, efficiencyRatio, pbiTestedRatio }), {
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+
   } catch (error) {
     console.error("[AzureDevOps]", (error as Error).message);
     return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...CORS, "Content-Type": "application/json" },
+      status: 500, headers: { ...CORS, "Content-Type": "application/json" },
     });
   }
 });
