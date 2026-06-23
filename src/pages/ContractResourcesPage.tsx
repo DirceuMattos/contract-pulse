@@ -594,13 +594,22 @@ export default function ContractResourcesPage() {
                   return resolved.nome.toLowerCase().includes(searchName.toLowerCase());
                 })
                 .sort((a, b) => {
+                  const aIsHR = a.tipo === 'clt' || a.tipo === 'pj';
+                  const bIsHR = b.tipo === 'clt' || b.tipo === 'pj';
+                  // HR sempre primeiro
+                  if (aIsHR !== bIsHR) return aIsHR ? -1 : 1;
                   const ra = resolveResource(a, peopleMap, jobMap, teamMap);
                   const rb = resolveResource(b, peopleMap, jobMap, teamMap);
+                  // HR: sempre alfabético por nome (ignora dropdown)
+                  if (aIsHR && bIsHR) {
+                    return ra.nome.localeCompare(rb.nome, 'pt-BR', { sensitivity: 'base' });
+                  }
+                  // Outros: respeita o dropdown
                   switch (sortBy) {
                     case 'cargo':
-                      return (ra.cargo || 'zzz').localeCompare(rb.cargo || 'zzz');
+                      return (ra.cargo || 'zzz').localeCompare(rb.cargo || 'zzz', 'pt-BR', { sensitivity: 'base' });
                     case 'nome':
-                      return ra.nome.localeCompare(rb.nome);
+                      return ra.nome.localeCompare(rb.nome, 'pt-BR', { sensitivity: 'base' });
                     case 'tipo': {
                       const order = { clt: 0, pj: 1, outro: 2 };
                       return (order[a.tipo] ?? 3) - (order[b.tipo] ?? 3);
