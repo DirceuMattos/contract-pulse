@@ -148,7 +148,7 @@ serve(async (req) => {
     const { error } = await supabase
       .from("report_sections")
       .upsert(
-        { report_id: reportId, section_key: "eficiencia_previsibilidade", content, source: "azure_devops", synced_at: new Date().toISOString() },
+        { report_id: reportId, section_key: "eficiencia_previsibilidade", content, source: "azuredevops", synced_at: new Date().toISOString() },
         { onConflict: "report_id,section_key" }
       );
 
