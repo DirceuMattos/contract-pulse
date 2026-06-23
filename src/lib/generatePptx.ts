@@ -1,4 +1,3 @@
-// v3 - source footer + analise border fix
 import pptxgen from "pptxgenjs";
 import logoBnpUrl from "@/assets/logo-bnp-final.png";
 import logoBnpBlackUrl from "@/assets/logo-bnp-final-black.png";
@@ -593,16 +592,16 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       kpiCard(s, 1.9, 2.75, 1.3, 1.0, "Bugs", String(sec.bugs ?? "0"), "C85000");
       const porTipo = sec.por_tipo as Record<string, number> | undefined;
       {
-        const tipoLabels: Record<string, string> = { incidente: "Incid.", problema: "Probl.", requisicao: "Req.", melhoria: "Melh.", duvida: "Dúvid." };
+        const tipoLabels: Record<string, string> = { incidente: "Incidentes", problema: "Problemas", requisicao: "Requisições", melhoria: "Melhorias", duvida: "Dúvidas" };
         const tiposOrdem = ["incidente", "problema", "requisicao", "melhoria", "duvida"];
         tiposOrdem.forEach((tipo, i) => {
           const qtd = porTipo?.[tipo] ?? 0;
-          kpiCard(s, 0.4 + i * 1.1, 3.9, 0.95, 0.8, tipoLabels[tipo], String(qtd), AZUL_MEDIO);
+          kpiCard(s, 0.4 + i * 1.1, 3.85, 1.0, 0.9, tipoLabels[tipo], String(qtd), AZUL_MEDIO);
         });
       }
-      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, rectRadius: 0.1 });
+      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 2.6, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, rectRadius: 0.1 });
       s.addText("Análise – Eficiência Operacional", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, margin: 0 });
-      s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
+      s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.55, w: 5.6, h: 2.0, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
     }
   }
 
