@@ -610,6 +610,7 @@ export interface MonthlyReport {
   year: number;
   status: ReportStatus;
   asanaProjectId?: string;
+  asanaProjectIds?: string[];
   clientEmailDomain?: string;
   createdBy?: string;
   reviewedBy?: string;
@@ -652,6 +653,7 @@ export interface ReportTemplateConfig {
   showTreinamentosReunioes: boolean;
   showOportunidadesAtencao: boolean;
   asanaProjectId?: string;
+  asanaProjectIds?: string[];
   clientEmailDomain?: string;
   firefliesKeywords?: string[];
   milvusClientNames?: string[];
