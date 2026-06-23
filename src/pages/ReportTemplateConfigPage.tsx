@@ -27,6 +27,7 @@ export default function ReportTemplateConfigPage() {
   const [saving, setSaving] = useState(false);
   const [keywordsText, setKeywordsText] = useState('');
   const [milvusNamesText, setMilvusNamesText] = useState('');
+  const [azureTagsText, setAzureTagsText] = useState('');
 
   const allowed = userRole === 'c-level' || userRole === 'superadmin';
 
@@ -44,6 +45,7 @@ export default function ReportTemplateConfigPage() {
         setConfig(c);
         setKeywordsText((c.firefliesKeywords ?? []).join(', '));
         setMilvusNamesText((c.milvusClientNames ?? []).join('\n'));
+        setAzureTagsText((c.azureTags ?? []).join(', '));
       } else {
         const defaults: Partial<ReportTemplateConfig> = {
           contractId,
@@ -68,7 +70,8 @@ export default function ReportTemplateConfigPage() {
     setSaving(true);
     const keywords = keywordsText.split(',').map((s) => s.trim()).filter(Boolean);
     const milvusNames = milvusNamesText.split('\n').map((s) => s.trim()).filter(Boolean);
-    const payload = reportTemplateConfigToDb({ ...config, contractId, firefliesKeywords: keywords, milvusClientNames: milvusNames });
+    const azureTags = azureTagsText.split(',').map((s) => s.trim()).filter(Boolean);
+    const payload = reportTemplateConfigToDb({ ...config, contractId, firefliesKeywords: keywords, milvusClientNames: milvusNames, azureTags });
     const { error } = await supabase
       .from('report_template_configs')
       .upsert(payload as any, { onConflict: 'contract_id' });
