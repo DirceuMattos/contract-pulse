@@ -402,6 +402,15 @@ export default function ReportEditPage() {
                     <span className="flex-1 truncate">
                       <span className="text-muted-foreground mr-1 text-xs">{String(sortedSections.indexOf(s) + 1).padStart(2, '0')}.</span>
                       {meta?.label ?? s.sectionKey}
+                      {meta?.source && meta.source !== 'manual' && meta.source !== 'bnphub' && (
+                        <span className="text-[10px] text-muted-foreground italic block leading-tight">
+                          {meta.source === 'asana' ? '📋 Asana'
+                           : meta.source === 'fireflies' ? '🔥 Fireflies'
+                           : meta.source === 'milvus' ? '🎫 Milvus'
+                           : meta.source === 'azure_devops' ? '🔷 Azure DevOps'
+                           : meta.source}
+                        </span>
+                      )}
                     </span>
                     <Badge variant="outline" className={cn('text-[10px] uppercase', s.source !== 'manual' && 'border-blue-400 text-blue-600')}>
                       {s.source === 'manual' ? 'Manual' : 'Auto'}

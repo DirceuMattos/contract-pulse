@@ -1,36 +1,16 @@
-## Plano: Sidebar - Exibir módulos bloqueados com indicador visual
+Ajustar a sidebar de edição de relatório (`src/pages/ReportEditPage.tsx`) para mostrar a fonte sincronizada de cada seção.
 
-### Contexto
-Atualmente a sidebar oculta completamente os módulos que o usuário não tem acesso. O objetivo é **mostrar todos os módulos**, mas marcar os inacessíveis como bloqueados (com ícone de cadeado) e exibir um toast ao clicar.
+Alteração:
+- Localizar o map que renderiza os itens da sidebar (linhas ~389-409), onde cada item exibe o ícone de status, o label da seção e o badge AUTO/MANUAL.
+- Logo após o nome da seção (`{meta?.label ?? s.sectionKey}`), dentro do `<span className="flex-1 truncate">`, adicionar o snippet indicando a fonte quando `meta.source` for diferente de `'manual'` e `'bnphub'`.
+- O snippet deve exibir:
+  - `📋 Asana` para `asana`
+  - `🔥 Fireflies` para `fireflies`
+  - `🎫 Milvus` para `milvus`
+  - `🔷 Azure DevOps` para `azure_dev_ops`
+  - o valor cru de `meta.source` para outras fontes
+- Manter aplicação apenas na sidebar; nenhuma alteração no painel principal de edição.
 
-### Alterações no arquivo `src/components/layout/Sidebar.tsx`
-
-#### 1. Importar `Lock` do lucide-react
-Adicionar `Lock` à lista de imports existentes.
-
-#### 2. Substituir `isItemVisible` por `isItemAllowed` e mudar lógica de filtro
-- Renomear `isItemVisible` para `isItemAllowed` (a lógica de permissão permanece a mesma).
-- Em vez de filtrar (`filter`) os itens invisíveis, **mapear** (`map`) todos os itens adicionando a propriedade `locked: !isItemAllowed(item)`.
-- Assim, `visibleGroups` passa a conter todos os grupos e todos os itens, mas com flag de bloqueio.
-
-#### 3. Adicionar handler `handleLockedClick`
-Após `handleComingSoonClick`, adicionar função que:
-- Chama `e.preventDefault()`
-- Exibe toast com título "🔒 Acesso restrito" e descrição informando que o perfil não permite acesso ao módulo
-
-#### 4. Atualizar `renderItemBody`
-- Alterar assinatura para aceitar `item: NavItem & { locked?: boolean }`.
-- Adicionar classes CSS para itens bloqueados: `text-sidebar-foreground/35 cursor-not-allowed opacity-60`.
-- No ícone (`<Icon ...>`), adicionar `opacity-50` quando `locked`.
-- Adicionar badge com ícone `<Lock className="w-3 h-3 ..." />` ao lado do label quando `locked` (similar ao "Em breve").
-- Se `locked`, renderizar `<button type="button" onClick={handleLockedClick} ...>` em vez de `<Link>`.
-- O restante do código existente (`comingSoon`, `external`, `<Link>`) permanece inalterado.
-
-#### 5. `initialOpen`
-Nenhuma alteração necessária — como `visibleGroups` agora contém todos os grupos, o cálculo existente continua funcional.
-
-### Resultado esperado
-- Todos os módulos aparecem na sidebar, inclusive os sem permissão.
-- Itens bloqueados ficam esmaecidos, com ícone de cadeado, e não são clicáveis como link.
-- Clique em item bloqueado exibe toast informativo.
-- Itens "Em breve" continuam funcionando como antes.
+Validação:
+- Verificar se a condição usa `meta?.source` (com optional chaining) para evitar erro caso `meta` seja undefined.
+- Garantir que o texto adicionado fique visualmente como subtítulo pequeno, em itálico e com cor `text-muted-foreground`, conforme snippet fornecido.
