@@ -180,8 +180,13 @@ serve(async (req) => {
       por_tipo: tiposContagem,
       pbi_tested_ratio: pbiTestedRatio,
       lead_time: leadTimeMedia,
+      leadTime: leadTimeMedia,
       frequencia_deploy: freqDeploy,
+      frequenciaDeploy: freqDeploy,
       efficiency_ratio: efficiencyRatio,
+      efficiencyRatio: efficiencyRatio,
+      pbi_tested_ratio: pbiTestedRatio,
+      pbiTestedRatio: pbiTestedRatio,
       tarefas: tarefas.slice(0, 50),
       status: totalBugs === 0 ? "alta" : totalBugs <= 2 ? "adequado" : totalBugs <= 5 ? "atencao" : "critico",
     };
