@@ -336,16 +336,17 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.addText(`✓ ${sim}  ◑ ${parc}  ✗ ${nao}`, { x: 0.5, y: 1.02, w: 5, h: 0.25, fontSize: 9, color: "666666" });
 
       const tableData = [
-        [{ text: "MACROENTREGA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
+        [{ text: "MACROENTREGA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "OBSERVAÇÕES", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
         ...linhas.map(l => [
           l.descricao,
           {
             text: l.status === "sim" ? "✓ Sim" : l.status === "parcialmente" ? "◑ Parcial" : "✗ Não",
             options: { bold: true, color: COR_STATUS_TR[l.status] ?? "333333" }
-          }
+          },
+          (l as any).observacoes ?? "",
         ]),
       ];
-      s.addTable(tableData as any, { x: 0.4, y: 1.32, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.36, colW: [7.8, 1.4], align: "left", valign: "middle" });
+      s.addTable(tableData as any, { x: 0.4, y: 1.32, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.36, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
       } // end else histórico TR
     }
   }
@@ -548,8 +549,8 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       const total = linhasDemo.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
       const tableData = [
-        [{ text: "RECURSO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "FUNÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DEDICAÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "UNIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "QTD", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-        ...linhasDemo.map(l => [l.recurso ?? "", l.funcao ?? "", l.dedicacao ?? "", l.unidade ?? "horas", String(l.quantidade ?? 0)]),
+        [{ text: "RECURSO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "FUNÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "UNIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "QTD", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
+        ...linhasDemo.map(l => [l.recurso ?? "", l.funcao ?? "", l.unidade ?? "horas", String(l.quantidade ?? 0)]),
         [{ text: "TOTAL", options: { bold: true, fill: { color: AZUL_CLARO } } }, "", "", "", { text: String(total), options: { bold: true, fill: { color: AZUL_CLARO } } }],
       ];
       if (sec.legenda) {
@@ -569,9 +570,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
           sExtra.background = { color: BRANCO };
           headerBar(sExtra, "Demonstrativo de Horas (cont.)");
           sExtra.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-          sExtra.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
+          sExtra.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [3.5, 2.8, 1.5, 1.4], align: "left", valign: "middle" });
         } else {
-          s.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [2.8, 2.0, 1.5, 1.3, 1.6], align: "left", valign: "middle" });
+          s.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [3.5, 2.8, 1.5, 1.4], align: "left", valign: "middle" });
         }
       });
     }
