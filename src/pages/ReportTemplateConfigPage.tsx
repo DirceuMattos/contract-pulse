@@ -146,6 +146,26 @@ export default function ReportTemplateConfigPage() {
               </p>
             )}
           </div>
+       <div>
+            <Label>🔷 Azure DevOps — Nome do Projeto</Label>
+            <Input
+              value={config.azureProject ?? ''}
+              onChange={(e) => setConfig({ ...config, azureProject: e.target.value })}
+              placeholder="ex: SMC"
+              className="mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Nome exato do projeto em dev.azure.com/bnpdesenvolvimento</p>
+          </div>
+          <div>
+            <Label>🔷 Azure DevOps — Tags de filtro (separadas por vírgula)</Label>
+            <Input
+              value={azureTagsText}
+              onChange={(e) => setAzureTagsText(e.target.value)}
+              placeholder="ex: SMC, Todos"
+              className="mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Deixe vazio para buscar todos os work items sem filtro de tag.</p>
+          </div>
         </CardContent>
       </Card>
 
