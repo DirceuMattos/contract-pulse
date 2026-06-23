@@ -795,6 +795,8 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
     milvusClientNames: row.milvus_client_names ?? [],
     azureProject: row.azure_project ?? undefined,
     azureTags: row.azure_tags ?? [],
+    // debug-azure-v1
+    console.log('[debug-azure-v1] row.azure_project:', row.azure_project, 'row.azure_tags:', row.azure_tags),
   };
 }
 
