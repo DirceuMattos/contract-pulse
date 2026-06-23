@@ -793,6 +793,8 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
     clientEmailDomain: row.client_email_domain ?? undefined,
     firefliesKeywords: row.fireflies_keywords ?? [],
     milvusClientNames: row.milvus_client_names ?? [],
+    azureProject: row.azure_project ?? undefined,
+    azureTags: row.azure_tags ?? [],
   };
 }
 
@@ -815,6 +817,8 @@ export function reportTemplateConfigToDb(c: Partial<ReportTemplateConfig>): Reco
   if (c.clientEmailDomain !== undefined) out.client_email_domain = emptyToNull(c.clientEmailDomain);
   if (c.firefliesKeywords !== undefined) out.fireflies_keywords = c.firefliesKeywords ?? [];
   if (c.milvusClientNames !== undefined) out.milvus_client_names = c.milvusClientNames ?? [];
+  if (c.azureProject !== undefined) out.azure_project = c.azureProject;
+  if (c.azureTags !== undefined) out.azure_tags = c.azureTags ?? [];
   return out;
 }
 
