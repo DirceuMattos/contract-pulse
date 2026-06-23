@@ -1919,6 +1919,7 @@ export type Database = {
       report_template_configs: {
         Row: {
           asana_project_id: string | null
+          asana_project_ids: string[] | null
           azure_project: string | null
           azure_tags: string[] | null
           client_email_domain: string | null
@@ -1943,6 +1944,7 @@ export type Database = {
         }
         Insert: {
           asana_project_id?: string | null
+          asana_project_ids?: string[] | null
           azure_project?: string | null
           azure_tags?: string[] | null
           client_email_domain?: string | null
@@ -1967,6 +1969,7 @@ export type Database = {
         }
         Update: {
           asana_project_id?: string | null
+          asana_project_ids?: string[] | null
           azure_project?: string | null
           azure_tags?: string[] | null
           client_email_domain?: string | null
