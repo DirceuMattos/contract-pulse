@@ -12,7 +12,9 @@ export function useReportDevidSync() {
     firefliesKeywords?: string[],
     month?: number,
     year?: number,
-    milvusClientNames?: string[]
+    milvusClientNames?: string[],
+    azureProject?: string,
+    azureTags?: string[]
   ) => {
     setSyncing(true);
     try {
@@ -33,7 +35,18 @@ export function useReportDevidSync() {
       toast({ title: 'Erro ao sincronizar DEVID', description: message, variant: 'destructive' });
       throw err;
     } finally {
-      setSyncing(false);
+      // Sync Azure DevOps (Eficiência e Previsibilidade)
+    if (azureProject) {
+      try {
+        await supabase.functions.invoke('report-sync-azuredevops', {
+          body: { reportId, azureProject, azureTags: azureTags ?? [], month, year },
+        });
+      } catch (e) {
+        console.warn('[AzureDevOps] Sync falhou:', e);
+      }
+    }
+
+    setSyncing(false);
     }
   };
 
