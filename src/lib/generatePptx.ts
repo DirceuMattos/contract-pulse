@@ -599,7 +599,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
           kpiCard(s, 0.4 + i * 1.1, 3.9, 0.95, 0.8, tipoLabels[tipo], String(qtd), AZUL_MEDIO);
         });
       }
-      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
+      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, width: 0.5 }, rectRadius: 0.1 });
       s.addText("Análise – Eficiência Operacional", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, margin: 0 });
       s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
     }
@@ -614,7 +614,6 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.background = { color: BRANCO };
       headerBar(s, "Eficiência e Previsibilidade");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-      sourceFooter(s, 'azure_devops');
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
       if (!sec.frequencia_deploy && !sec.frequenciaDeploy && !sec.lead_time && !sec.leadTime && !sec.demandas) {
         emptyMsg(s, "Dados serão preenchidos via Azure DevOps. Configure na tela de edição.");
@@ -687,7 +686,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 2.05 });
 
       // Análise
-      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
+      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, width: 0.5 }, rectRadius: 0.1 });
       s.addText("Análise – Desempenho da Aplicação", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO });
       s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
     }
@@ -834,7 +833,6 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Evolução e Inovação / Entregas");
-      sourceFooter(s, 'asana');
       s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       s.addText("Tarefas desenvolvidas pelo time durante o período. Todas registradas no Asana.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
       const tarefas = ((sec.tarefas ?? sec.linhas) as Array<{ nome?: string; tarefa?: string; status: string; categoria: string }>) ?? [];
