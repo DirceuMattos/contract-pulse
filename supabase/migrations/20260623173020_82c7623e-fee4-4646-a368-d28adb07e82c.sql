@@ -1,0 +1,2 @@
+ALTER TABLE public.report_sections DROP CONSTRAINT report_sections_source_check;
+ALTER TABLE public.report_sections ADD CONSTRAINT report_sections_source_check CHECK (source = ANY (ARRAY['manual'::text, 'asana'::text, 'fireflies'::text, 'bnphub'::text, 'devid'::text, 'milvus'::text, 'azuredevops'::text]));
