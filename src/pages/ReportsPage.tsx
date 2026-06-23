@@ -67,6 +67,7 @@ interface Integrations {
   asana: boolean;
   fireflies: boolean;
   milvus: boolean;
+  azure: boolean;
 }
 
 function ReportsPageInner() {
@@ -116,7 +117,7 @@ function ReportsPageInner() {
     queryFn: async (): Promise<Map<string, Integrations>> => {
       const { data, error } = await supabase
         .from('report_template_configs')
-        .select('contract_id, asana_project_id, client_email_domain, milvus_client_names');
+        .select('contract_id, asana_project_id, client_email_domain, milvus_client_names, azure_project');
       if (error) throw error;
       const map = new Map<string, Integrations>();
       (data ?? []).forEach((c: any) => {
@@ -124,6 +125,7 @@ function ReportsPageInner() {
           asana: !!c.asana_project_id,
           fireflies: !!c.client_email_domain,
           milvus: Array.isArray(c.milvus_client_names) && c.milvus_client_names.length > 0,
+          azure: !!c.azure_project,
         });
       });
       return map;
@@ -157,6 +159,7 @@ function ReportsPageInner() {
         asana: false,
         fireflies: false,
         milvus: false,
+        azure: false,
       };
       return { contractId, contract, client, reports: reps, integrations };
     });
@@ -225,7 +228,8 @@ function ReportsPageInner() {
 
   const settingsColor = (i: Integrations) => {
     const n = (i.asana ? 1 : 0) + (i.fireflies ? 1 : 0) + (i.milvus ? 1 : 0);
-    if (n === 3) return 'text-green-500 hover:text-green-600';
+    if (n === 4) return 'text-green-500 hover:text-green-600';
+    if (n === 3) return 'text-yellow-500 hover:text-yellow-600';
     if (n >= 1) return 'text-yellow-500 hover:text-yellow-600';
     return 'text-muted-foreground hover:text-foreground';
   };
@@ -309,9 +313,9 @@ function ReportsPageInner() {
                       </div>
 
                       <div className="flex items-center gap-1.5 px-2">
-                        {(['asana', 'fireflies', 'milvus'] as const).map((key) => {
+                        {(['asana', 'fireflies', 'milvus', 'azure'] as const).map((key) => {
                           const on = integrations[key];
-                          const label = key === 'asana' ? 'Asana' : key === 'fireflies' ? 'Fireflies' : 'Milvus';
+                          const label = key === 'asana' ? 'Asana' : key === 'fireflies' ? 'Fireflies' : key === 'milvus' ? 'Milvus' : 'Azure DevOps';
                           return (
                             <Tooltip key={key}>
                               <TooltipTrigger asChild>
