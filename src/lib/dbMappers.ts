@@ -727,6 +727,7 @@ export function monthlyReportFromDb(row: Record<string, any>): MonthlyReport {
     year: row.year,
     status: row.status as ReportStatus,
     asanaProjectId: row.asana_project_id ?? undefined,
+    asanaProjectIds: row.asana_project_ids ?? [],
     clientEmailDomain: row.client_email_domain ?? undefined,
     createdBy: row.created_by ?? undefined,
     reviewedBy: row.reviewed_by ?? undefined,
@@ -790,6 +791,7 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
     showTreinamentosReunioes: row.show_treinamentos_reunioes ?? true,
     showOportunidadesAtencao: row.show_oportunidades_atencao ?? true,
     asanaProjectId: row.asana_project_id ?? undefined,
+    asanaProjectIds: row.asana_project_ids ?? [],
     clientEmailDomain: row.client_email_domain ?? undefined,
     firefliesKeywords: row.fireflies_keywords ?? [],
     milvusClientNames: row.milvus_client_names ?? [],
@@ -817,6 +819,7 @@ export function reportTemplateConfigToDb(c: Partial<ReportTemplateConfig>): Reco
   if (c.showTreinamentosReunioes !== undefined) out.show_treinamentos_reunioes = c.showTreinamentosReunioes;
   if (c.showOportunidadesAtencao !== undefined) out.show_oportunidades_atencao = c.showOportunidadesAtencao;
   if (c.asanaProjectId !== undefined) out.asana_project_id = emptyToNull(c.asanaProjectId);
+  if (c.asanaProjectIds !== undefined) out.asana_project_ids = c.asanaProjectIds ?? [];
   if (c.clientEmailDomain !== undefined) out.client_email_domain = emptyToNull(c.clientEmailDomain);
   if (c.firefliesKeywords !== undefined) out.fireflies_keywords = c.firefliesKeywords ?? [];
   if (c.milvusClientNames !== undefined) out.milvus_client_names = c.milvusClientNames ?? [];
