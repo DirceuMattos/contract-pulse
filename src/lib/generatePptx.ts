@@ -1,3 +1,4 @@
+// v4 - eficiencia operacional layout fix
 import pptxgen from "pptxgenjs";
 import logoBnpUrl from "@/assets/logo-bnp-final.png";
 import logoBnpBlackUrl from "@/assets/logo-bnp-final-black.png";
