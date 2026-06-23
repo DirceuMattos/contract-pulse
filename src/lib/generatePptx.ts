@@ -33,6 +33,21 @@ function normalizeStatus(raw: string): string {
     .replace("altaperformance", "alta");
 }
 
+function sourceFooter(slide: any, source: string) {
+  const labels: Record<string, string> = {
+    asana: 'Fonte: Asana',
+    fireflies: 'Fonte: Fireflies',
+    milvus: 'Fonte: Milvus (Helpdesk)',
+    azure_devops: 'Fonte: Azure DevOps',
+  };
+  const label = labels[source];
+  if (!label) return;
+  slide.addText(label, {
+    x: 0.4, y: 5.05, w: 9.2, h: 0.22,
+    fontSize: 8, italic: true, color: "AAAAAA", align: "right",
+  });
+}
+
 function headerBar(slide: any, titulo: string) {
   slide.addShape("rect", { x: 0, y: 0, w: 10, h: 0.65, fill: { color: AZUL_ESCURO }, line: { color: AZUL_ESCURO } });
   slide.addText(titulo, { x: 0.35, y: 0, w: 7.5, h: 0.65, fontSize: 16, bold: true, color: BRANCO, valign: "middle", margin: 0 });
@@ -418,6 +433,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.background = { color: BRANCO };
       headerBar(s, "Evolução e Inovação");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      sourceFooter(s, 'asana');
 
       // Gráfico histórico de barras por mês (usa historico_mensal se disponível, senão tags do mês atual)
       {
@@ -567,6 +583,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Eficiência Operacional");
+      sourceFooter(s, 'milvus');
       s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
       kpiCard(s, 0.5, 1.6, 1.3, 1.0, "SLA", String(sec.sla ?? "—"), "1E8A3E");
@@ -597,6 +614,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.background = { color: BRANCO };
       headerBar(s, "Eficiência e Previsibilidade");
       s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      sourceFooter(s, 'azure_devops');
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
       if (!sec.frequencia_deploy && !sec.frequenciaDeploy && !sec.lead_time && !sec.leadTime && !sec.demandas) {
         emptyMsg(s, "Dados serão preenchidos via Azure DevOps. Configure na tela de edição.");
@@ -733,6 +751,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Treinamentos / Reuniões");
+      sourceFooter(s, 'fireflies');
       s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       const reunioes = ((sec.linhas ?? sec.reunioes) as Array<{ tipo: string; data: string; horario?: string; descricao: string }>) ?? [];
       if (reunioes.length > 0) {
@@ -781,6 +800,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Tarefas Priorizadas");
+      sourceFooter(s, 'asana');
       s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       s.addText("Tarefas em andamento e planejadas para o próximo período.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
       if (tarefasPrio.length === 0) {
@@ -814,6 +834,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Evolução e Inovação / Entregas");
+      sourceFooter(s, 'asana');
       s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
       s.addText("Tarefas desenvolvidas pelo time durante o período. Todas registradas no Asana.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
       const tarefas = ((sec.tarefas ?? sec.linhas) as Array<{ nome?: string; tarefa?: string; status: string; categoria: string }>) ?? [];
