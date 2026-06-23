@@ -655,6 +655,8 @@ export interface ReportTemplateConfig {
   clientEmailDomain?: string;
   firefliesKeywords?: string[];
   milvusClientNames?: string[];
+  azureProject?: string;
+  azureTags?: string[];
 }
 
 
