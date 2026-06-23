@@ -48,37 +48,46 @@ serve(async (req) => {
       ? ` AND (${azureTags.map((t: string) => `[System.Tags] CONTAINS '${t}'`).join(" OR ")})`
       : "";
 
-    const wiql = {
-      query: `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], 
-              [System.AssignedTo], [System.Tags], [Microsoft.VSTS.Common.ClosedDate],
-              [Microsoft.VSTS.Scheduling.StoryPoints], [System.IterationPath]
-              FROM WorkItems 
-              WHERE [System.TeamProject] = '${azureProject}'
-              AND [System.State] IN ('Done', 'Closed', 'Resolved', 'Completed')
-              AND [Microsoft.VSTS.Common.ClosedDate] >= '${startStr}'
-              AND [Microsoft.VSTS.Common.ClosedDate] <= '${endStr}'
-              ${tagsFilter}
-              ORDER BY [Microsoft.VSTS.Common.ClosedDate] DESC`,
-    };
-
-    const wiqlUrl = `https://dev.azure.com/${azureOrg}/${encodeURIComponent(azureProject)}/_apis/wit/wiql?api-version=7.0`;
-    const wiqlRes = await fetch(wiqlUrl, {
-      method: "POST",
-      headers: { "Authorization": authHeader, "Content-Type": "application/json" },
-      body: JSON.stringify(wiql),
-    });
-
-    if (!wiqlRes.ok) {
-      const err = await wiqlRes.text();
-      throw new Error(`Azure DevOps WIQL error ${wiqlRes.status}: ${err}`);
-    }
-
-    const wiqlData = await wiqlRes.json();
-    const workItemIds: number[] = (wiqlData.workItems ?? []).map((w: { id: number }) => w.id);
+    // Suporta múltiplos projetos separados por vírgula
+    const projects: string[] = String(azureProject)
+      .split(",")
+      .map((p: string) => p.trim())
+      .filter(Boolean);
 
     let workItems: Record<string, unknown>[] = [];
 
-    if (workItemIds.length > 0) {
+    for (const project of projects) {
+      const wiql = {
+        query: `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], 
+                [System.AssignedTo], [System.Tags], [Microsoft.VSTS.Common.ClosedDate],
+                [Microsoft.VSTS.Scheduling.StoryPoints], [System.IterationPath]
+                FROM WorkItems 
+                WHERE [System.TeamProject] = '${project}'
+                AND [System.State] IN ('Done', 'Closed', 'Resolved', 'Completed')
+                AND [Microsoft.VSTS.Common.ClosedDate] >= '${startStr}'
+                AND [Microsoft.VSTS.Common.ClosedDate] <= '${endStr}'
+                ${tagsFilter}
+                ORDER BY [Microsoft.VSTS.Common.ClosedDate] DESC`,
+      };
+
+      const wiqlUrl = `https://dev.azure.com/${azureOrg}/${encodeURIComponent(project)}/_apis/wit/wiql?api-version=7.0`;
+      const wiqlRes = await fetch(wiqlUrl, {
+        method: "POST",
+        headers: { "Authorization": authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify(wiql),
+      });
+
+      if (!wiqlRes.ok) {
+        const err = await wiqlRes.text();
+        console.error(`[AzureDevOps] Projeto "${project}" falhou: ${wiqlRes.status} ${err}`);
+        continue;
+      }
+
+      const wiqlData = await wiqlRes.json();
+      const workItemIds: number[] = (wiqlData.workItems ?? []).map((w: { id: number }) => w.id);
+
+      if (workItemIds.length === 0) continue;
+
       // Buscar detalhes em lotes de 200
       const BATCH = 200;
       for (let i = 0; i < workItemIds.length; i += BATCH) {
@@ -90,7 +99,7 @@ serve(async (req) => {
           "System.AreaPath", "Microsoft.VSTS.Common.Priority",
         ].join(",");
 
-        const detailUrl = `https://dev.azure.com/${azureOrg}/_apis/wit/workitems?ids=${batch.join(",")}&fields=${fields}&api-version=7.0`;
+        const detailUrl = `https://dev.azure.com/${azureOrg}/${encodeURIComponent(project)}/_apis/wit/workitems?ids=${batch.join(",")}&fields=${fields}&api-version=7.0`;
         const detailRes = await fetch(detailUrl, {
           headers: { "Authorization": authHeader },
         });
