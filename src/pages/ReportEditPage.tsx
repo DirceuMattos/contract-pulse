@@ -228,7 +228,7 @@ export default function ReportEditPage() {
       const tasks: Promise<any>[] = [];
       if (report.asanaProjectId) {
         tasks.push(supabase.functions.invoke('report-sync-asana', {
-          body: { reportId: report.id, asanaProjectId: report.asanaProjectId, month: report.month, year: report.year },
+          body: { reportId: report.id, asanaProjectId: report.asanaProjectId, asanaProjectIds: templateConfig?.asanaProjectIds, month: report.month, year: report.year },
         }));
       }
       tasks.push(supabase.functions.invoke('report-sync-fireflies', {
