@@ -599,7 +599,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
           kpiCard(s, 0.4 + i * 1.1, 3.9, 0.95, 0.8, tipoLabels[tipo], String(qtd), AZUL_MEDIO);
         });
       }
-      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, width: 0.5 }, rectRadius: 0.1 });
+      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, rectRadius: 0.1 });
       s.addText("Análise – Eficiência Operacional", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, margin: 0 });
       s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
     }
@@ -686,7 +686,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.addImage({ data: svgB64, x: gx, y: gy + 0.1, w: gw, h: 2.05 });
 
       // Análise
-      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, width: 0.5 }, rectRadius: 0.1 });
+      s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, rectRadius: 0.1 });
       s.addText("Análise – Desempenho da Aplicação", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO });
       s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
     }
