@@ -178,7 +178,7 @@ serve(async (req) => {
         report_id: reportId,
         section_key: "eficiencia_previsibilidade",
         content: eficienciaContent,
-        source: "azure_devops",
+        source: "azuredevops",
         synced_at: now,
       }, { onConflict: "report_id,section_key" });
 
