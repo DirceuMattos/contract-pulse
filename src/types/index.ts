@@ -601,7 +601,7 @@ export type ReportSectionKey =
   | 'engajamento_usuario' | 'maturidade_plataforma'
   | 'treinamentos_reunioes' | 'oportunidades_atencao';
 
-export type ReportSectionSource = 'manual' | 'asana' | 'fireflies' | 'bnphub' | 'auto' | 'milvus' | 'azure_devops' | 'azuredevops';
+export type ReportSectionSource = 'manual' | 'asana' | 'fireflies' | 'bnphub' | 'auto' | 'devid' | 'milvus' | 'azuredevops';
 
 export interface MonthlyReport {
   id: string;
