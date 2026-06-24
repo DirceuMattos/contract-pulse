@@ -236,6 +236,7 @@ export default function ReportEditPage() {
       if (ids.length === 0) return;
       ids.forEach((id) => clearTimeout(saveTimers.current[id]));
       saveTimers.current = {};
+      setPendingSaveCount(0);
       // Fire-and-forget no cleanup — não pode usar await em cleanup
       ids.forEach((id) => {
         const content = pendingContents.current[id];
