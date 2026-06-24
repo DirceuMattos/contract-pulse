@@ -1,3 +1,4 @@
+// v3 - fix source constraint
 import type { ReportSectionKey, ReportSectionSource, ReportTemplateConfig } from '@/types';
 
 export interface SectionMeta {
