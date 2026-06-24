@@ -53,6 +53,7 @@ export default function ReportEditPage() {
   const [activeSection, setActiveSection] = useState<ReportSectionKey | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [pendingSaveCount, setPendingSaveCount] = useState(0);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -214,6 +215,7 @@ export default function ReportEditPage() {
     // Cancela os timers e grava tudo de uma vez
     ids.forEach((id) => clearTimeout(saveTimers.current[id]));
     saveTimers.current = {};
+    setPendingSaveCount(0);
     await Promise.all(
       ids.map((id) => {
         const content = pendingContents.current[id];
@@ -234,6 +236,7 @@ export default function ReportEditPage() {
       if (ids.length === 0) return;
       ids.forEach((id) => clearTimeout(saveTimers.current[id]));
       saveTimers.current = {};
+      setPendingSaveCount(0);
       // Fire-and-forget no cleanup — não pode usar await em cleanup
       ids.forEach((id) => {
         const content = pendingContents.current[id];
@@ -266,10 +269,13 @@ export default function ReportEditPage() {
     // 3. Debounce de 800ms por seção — cancela timer anterior da mesma seção
     if (saveTimers.current[section.id]) {
       clearTimeout(saveTimers.current[section.id]);
+    } else {
+      setPendingSaveCount((c) => c + 1);
     }
     saveTimers.current[section.id] = setTimeout(async () => {
       delete saveTimers.current[section.id];
       delete pendingContents.current[section.id];
+      setPendingSaveCount((c) => Math.max(0, c - 1));
       const { error } = await supabase
         .from('report_sections')
         .update({ content: next as any, updated_at: new Date().toISOString() })
@@ -431,6 +437,9 @@ export default function ReportEditPage() {
           <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing}>
             <RefreshCw className={cn('w-4 h-4 mr-2', syncing && 'animate-spin')} />Sincronizar Dados
           </Button>
+          {pendingSaveCount > 0 && (
+            <span className="text-sm text-muted-foreground animate-pulse">Salvando...</span>
+          )}
           <Button onClick={handleGeneratePPTX} disabled={generating}>
             <Download className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar PPTX'}
           </Button>
