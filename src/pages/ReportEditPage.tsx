@@ -437,6 +437,9 @@ export default function ReportEditPage() {
           <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing}>
             <RefreshCw className={cn('w-4 h-4 mr-2', syncing && 'animate-spin')} />Sincronizar Dados
           </Button>
+          {pendingSaveCount > 0 && (
+            <span className="text-sm text-muted-foreground animate-pulse">Salvando...</span>
+          )}
           <Button onClick={handleGeneratePPTX} disabled={generating}>
             <Download className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar PPTX'}
           </Button>
