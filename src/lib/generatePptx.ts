@@ -39,7 +39,7 @@ function sourceFooter(slide: any, source: string) {
     asana: 'Fonte: Asana',
     fireflies: 'Fonte: Fireflies',
     milvus: 'Fonte: Milvus (Helpdesk)',
-    azure_devops: 'Fonte: Azure DevOps',
+    azuredevops: 'Fonte: Azure DevOps',
   };
   const label = labels[source];
   if (!label) return;
