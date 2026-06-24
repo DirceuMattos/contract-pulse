@@ -1,4 +1,3 @@
-// v2 - observacoes historico tr
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -726,7 +725,7 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
 // Demonstrativo de Horas
 // ============================================
 function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorProps) {
-  const linhas: { recurso: string; funcao: string; dedicacao: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
+  const linhas: { recurso: string; funcao: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
   const total = linhas.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
@@ -739,7 +738,6 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
       const novasLinhas = (meta.squadMembers as any[]).map((m: any) => ({
         recurso:    m.nome ?? m.name ?? '',
         funcao:     m.funcao ?? m.role ?? '',
-        dedicacao:  m.dedicacao ?? '',
         unidade:    'horas',
         quantidade: 0,
       }));
@@ -759,7 +757,6 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
             <tr>
               <th className="p-2 text-left">Recurso</th>
               <th className="p-2 text-left">Função</th>
-              <th className="p-2 text-left w-32">Dedicação</th>
               <th className="p-2 text-left w-28">Unidade</th>
               <th className="p-2 text-left w-28">Quantidade</th>
               <th className="p-2 w-10"></th>
@@ -770,7 +767,6 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
               <tr key={i} className="border-t">
                 <td className="p-1"><Input value={l.recurso} onChange={(e) => update(i, { recurso: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input value={l.funcao ?? ''} onChange={(e) => update(i, { funcao: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.dedicacao ?? ''} onChange={(e) => update(i, { dedicacao: e.target.value })} disabled={readOnly} placeholder="ex: 100%" /></td>
                 <td className="p-1"><Input value={l.unidade} onChange={(e) => update(i, { unidade: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input type="number" value={l.quantidade ?? 0} onChange={(e) => update(i, { quantidade: Number(e.target.value) })} disabled={readOnly} /></td>
                 <td className="p-1">
@@ -779,7 +775,7 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
               </tr>
             ))}
             <tr className="bg-muted font-semibold">
-              <td colSpan={4} className="p-2 text-right">Total</td>
+              <td colSpan={3} className="p-2 text-right">Total</td>
               <td className="p-2">{total}</td>
               <td />
             </tr>
@@ -787,7 +783,7 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
         </table>
       </div>
       {!readOnly && (
-        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', funcao: '', dedicacao: '', unidade: 'horas', quantidade: 0 }] })}>
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', funcao: '', unidade: 'horas', quantidade: 0 }] })}>
           <Plus className="w-4 h-4 mr-2" />Adicionar linha
         </Button>
       )}
