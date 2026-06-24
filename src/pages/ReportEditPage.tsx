@@ -215,6 +215,7 @@ export default function ReportEditPage() {
     // Cancela os timers e grava tudo de uma vez
     ids.forEach((id) => clearTimeout(saveTimers.current[id]));
     saveTimers.current = {};
+    setPendingSaveCount(0);
     await Promise.all(
       ids.map((id) => {
         const content = pendingContents.current[id];
