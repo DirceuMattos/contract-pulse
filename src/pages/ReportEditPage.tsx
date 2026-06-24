@@ -42,6 +42,7 @@ function sectionStatusIcon(content: Record<string, unknown>, key: ReportSectionK
 }
 
 export default function ReportEditPage() {
+  // build:v4-flush-saves
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
   const { contracts, getClient, getResourcesByContract } = useData();
