@@ -53,6 +53,8 @@ export default function ReportEditPage() {
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingSyncing = useRef(false);
   const { syncDevid } = useReportDevidSync();
 
   const SIDEBAR_WIDTH_KEY = 'report_edit_sidebar_width';
@@ -200,23 +202,32 @@ export default function ReportEditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.id]);
 
-  const handleContentChange = async (section: ReportSection, next: Record<string, unknown>) => {
-    // Optimistic local update
+  const handleContentChange = (section: ReportSection, next: Record<string, unknown>) => {
+    // 1. Atualização otimista imediata no cache local
     queryClient.setQueryData(['monthly_report', reportId], (prev: any) => {
       if (!prev) return prev;
       return {
         ...prev,
-        sections: prev.sections.map((s: ReportSection) => s.id === section.id ? { ...s, content: next } : s),
+        sections: prev.sections.map((s: ReportSection) =>
+          s.id === section.id ? { ...s, content: next } : s
+        ),
       };
     });
-    // Debounced save: just write immediately (debouncing handled visually by react)
-    const { error } = await supabase
-      .from('report_sections')
-      .update({ content: next as any, updated_at: new Date().toISOString() })
-      .eq('id', section.id);
-    if (error) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+
+    // 2. Debounce de 800ms por seção — cancela timer anterior da mesma seção
+    if (saveTimers.current[section.id]) {
+      clearTimeout(saveTimers.current[section.id]);
     }
+    saveTimers.current[section.id] = setTimeout(async () => {
+      delete saveTimers.current[section.id];
+      const { error } = await supabase
+        .from('report_sections')
+        .update({ content: next as any, updated_at: new Date().toISOString() })
+        .eq('id', section.id);
+      if (error) {
+        toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      }
+    }, 800);
   };
 
   const handleSyncAll = async (silent = false) => {
@@ -242,7 +253,11 @@ export default function ReportEditPage() {
       }));
       tasks.push(syncDevid(report.id, templateConfig?.clientEmailDomain, templateConfig?.firefliesKeywords, report.month, report.year, templateConfig?.milvusClientNames, templateConfig?.azureProject, templateConfig?.azureTags));
       await Promise.allSettled(tasks);
-      await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
+      // Só re-fetcha do banco se não houver edições pendentes (debounce ativo)
+      const hasPending = Object.keys(saveTimers.current).length > 0;
+      if (!hasPending) {
+        await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
+      }
       if (!silent) toast({ title: 'Sincronização concluída' });
     } catch (err) {
       toast({ title: 'Erro na sincronização', description: err instanceof Error ? err.message : 'Erro', variant: 'destructive' });
