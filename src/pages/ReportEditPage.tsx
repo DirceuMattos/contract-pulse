@@ -53,6 +53,7 @@ export default function ReportEditPage() {
   const [activeSection, setActiveSection] = useState<ReportSectionKey | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [pendingSaveCount, setPendingSaveCount] = useState(0);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
   const autoSyncTriggered = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
