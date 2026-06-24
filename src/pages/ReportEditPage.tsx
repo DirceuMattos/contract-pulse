@@ -269,10 +269,13 @@ export default function ReportEditPage() {
     // 3. Debounce de 800ms por seção — cancela timer anterior da mesma seção
     if (saveTimers.current[section.id]) {
       clearTimeout(saveTimers.current[section.id]);
+    } else {
+      setPendingSaveCount((c) => c + 1);
     }
     saveTimers.current[section.id] = setTimeout(async () => {
       delete saveTimers.current[section.id];
       delete pendingContents.current[section.id];
+      setPendingSaveCount((c) => Math.max(0, c - 1));
       const { error } = await supabase
         .from('report_sections')
         .update({ content: next as any, updated_at: new Date().toISOString() })
