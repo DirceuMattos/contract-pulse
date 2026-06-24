@@ -407,7 +407,7 @@ export default function ReportEditPage() {
                           {meta.source === 'asana' ? '📋 Asana'
                            : meta.source === 'fireflies' ? '🔥 Fireflies'
                            : meta.source === 'milvus' ? '🎫 Milvus'
-                           : meta.source === 'azure_devops' ? '🔷 Azure DevOps'
+                           : meta.source === 'azuredevops' ? '🔷 Azure DevOps'
                            : meta.source}
                         </span>
                       )}
