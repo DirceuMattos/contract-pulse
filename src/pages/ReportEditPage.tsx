@@ -55,6 +55,8 @@ export default function ReportEditPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const pendingSyncing = useRef(false);
+  // Guarda o conteúdo mais recente de cada seção com save pendente
+  const pendingContents = useRef<Record<string, Record<string, unknown>>>({});
   const { syncDevid } = useReportDevidSync();
 
   const SIDEBAR_WIDTH_KEY = 'report_edit_sidebar_width';
@@ -202,6 +204,47 @@ export default function ReportEditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.id]);
 
+  // Grava imediatamente todos os saves com debounce pendente
+  const flushPendingSaves = useCallback(async () => {
+    const ids = Object.keys(saveTimers.current);
+    if (ids.length === 0) return;
+    // Cancela os timers e grava tudo de uma vez
+    ids.forEach((id) => clearTimeout(saveTimers.current[id]));
+    saveTimers.current = {};
+    await Promise.all(
+      ids.map((id) => {
+        const content = pendingContents.current[id];
+        if (!content) return Promise.resolve();
+        delete pendingContents.current[id];
+        return supabase
+          .from('report_sections')
+          .update({ content: content as any, updated_at: new Date().toISOString() })
+          .eq('id', id);
+      })
+    );
+  }, []);
+
+  // Flush no unmount da página (logout, navegação para fora)
+  useEffect(() => {
+    return () => {
+      const ids = Object.keys(saveTimers.current);
+      if (ids.length === 0) return;
+      ids.forEach((id) => clearTimeout(saveTimers.current[id]));
+      saveTimers.current = {};
+      // Fire-and-forget no cleanup — não pode usar await em cleanup
+      ids.forEach((id) => {
+        const content = pendingContents.current[id];
+        if (!content) return;
+        delete pendingContents.current[id];
+        supabase
+          .from('report_sections')
+          .update({ content: content as any, updated_at: new Date().toISOString() })
+          .eq('id', id);
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleContentChange = (section: ReportSection, next: Record<string, unknown>) => {
     // 1. Atualização otimista imediata no cache local
     queryClient.setQueryData(['monthly_report', reportId], (prev: any) => {
@@ -214,12 +257,16 @@ export default function ReportEditPage() {
       };
     });
 
-    // 2. Debounce de 800ms por seção — cancela timer anterior da mesma seção
+    // 2. Guarda o conteúdo mais recente para o flush forçado
+    pendingContents.current[section.id] = next;
+
+    // 3. Debounce de 800ms por seção — cancela timer anterior da mesma seção
     if (saveTimers.current[section.id]) {
       clearTimeout(saveTimers.current[section.id]);
     }
     saveTimers.current[section.id] = setTimeout(async () => {
       delete saveTimers.current[section.id];
+      delete pendingContents.current[section.id];
       const { error } = await supabase
         .from('report_sections')
         .update({ content: next as any, updated_at: new Date().toISOString() })
@@ -407,7 +454,10 @@ export default function ReportEditPage() {
                 return (
                   <button
                     key={s.id}
-                    onClick={() => setActiveSection(s.sectionKey)}
+                    onClick={async () => {
+                      await flushPendingSaves();
+                      setActiveSection(s.sectionKey);
+                    }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2',
                       active ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
