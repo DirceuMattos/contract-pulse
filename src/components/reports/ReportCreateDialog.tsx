@@ -134,7 +134,11 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
       console.log('[ReportCreate] Relatório criado com sucesso:', report.id);
       navigate(`/relatorios/${report.id}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
+      console.error('[ReportCreate] Erro:', err);
+      const msg = err instanceof Error ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message)
+        : typeof err === 'string' ? err
+        : JSON.stringify(err);
       const isDuplicate = msg.includes('duplicate key') || msg.includes('unique constraint');
       toast({
         title: isDuplicate ? 'Relatório já existe' : 'Erro ao criar relatório',
