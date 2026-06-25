@@ -218,18 +218,38 @@ export default function ReportEditPage() {
     ids.forEach((id) => clearTimeout(saveTimers.current[id]));
     saveTimers.current = {};
     setPendingSaveCount(0);
-    await Promise.all(
-      ids.map((id) => {
-        const content = pendingContents.current[id];
-        if (!content) return Promise.resolve();
+
+    // Captura snapshot dos conteúdos antes de limpar
+    const toSave: Record<string, Record<string, unknown>> = {};
+    ids.forEach((id) => {
+      if (pendingContents.current[id]) {
+        toSave[id] = pendingContents.current[id];
         delete pendingContents.current[id];
-        return supabase
+      }
+    });
+
+    // Aguarda todos os PATCHes terminarem
+    await Promise.all(
+      Object.entries(toSave).map(([id, content]) =>
+        supabase
           .from('report_sections')
           .update({ content: content as any, updated_at: new Date().toISOString() })
-          .eq('id', id);
-      })
+          .eq('id', id)
+      )
     );
-  }, []);
+
+    // Após confirmar o save no banco, atualiza o cache local com os valores salvos
+    // Isso evita que qualquer re-fetch subsequente sobrescreva com dado antigo
+    queryClient.setQueryData(['monthly_report', reportId], (prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sections: prev.sections.map((s: any) =>
+          toSave[s.id] ? { ...s, content: toSave[s.id] } : s
+        ),
+      };
+    });
+  }, [queryClient, reportId]);
 
   // Flush no unmount da página (logout, navegação para fora)
   useEffect(() => {
