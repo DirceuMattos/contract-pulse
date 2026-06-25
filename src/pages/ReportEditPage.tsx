@@ -141,6 +141,8 @@ export default function ReportEditPage() {
       };
     },
     enabled: !!reportId,
+    staleTime: 5 * 60 * 1000,   // 5 min — não re-fetcha enquanto o usuário edita
+    refetchOnWindowFocus: false, // evita sobrescrever edições ao trocar de aba
   });
 
   const report = data?.report;
