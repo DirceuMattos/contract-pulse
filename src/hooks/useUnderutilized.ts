@@ -29,6 +29,7 @@ export function useUnderutilized() {
     // Calcular dedicação total por pessoa
     const dedicacaoMap = new Map<string, number>();
     resources
+      resources
       .filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId && activeContractIds.has(r.contractId))
       .forEach(r => {
         const current = dedicacaoMap.get(r.hrPersonId!) || 0;
