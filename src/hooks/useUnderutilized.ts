@@ -29,12 +29,12 @@ export function useUnderutilized() {
     // Calcular dedicação total por pessoa
     const dedicacaoMap = new Map<string, number>();
     resources
-      resources
-      .filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId && activeContractIds.has(r.contractId))
-      .forEach(r => {
-        const current = dedicacaoMap.get(r.hrPersonId!) || 0;
-        dedicacaoMap.set(r.hrPersonId!, current + (r.percentualDedicacao || 0));
-      });
+     resources
+        .filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId)
+        .forEach(r => {
+          const current = dedicacaoMap.get(r.hrPersonId!) || 0;
+          dedicacaoMap.set(r.hrPersonId!, current + (r.percentualDedicacao || 0));
+        });
 
     // Contratos onde cada pessoa ainda não está alocada (para sugestões)
     const activeContracts = contracts.filter(c => activeContractIds.has(c.id));
