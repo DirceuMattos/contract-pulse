@@ -692,7 +692,7 @@ export default function ContractsPage() {
                           <Eye className="w-4 h-4 mr-2" />
                           Ver detalhes
                         </DropdownMenuItem>
-                        {canEdit && userRole !== 'lider_tribo' && (
+                        {canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos') && (
                           <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}/editar`)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Editar

@@ -59,7 +59,7 @@ function HRPeoplePageInner() {
   }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
   const canViewComite = userRole === 'c-level' || userRole === 'rh' || userRole === 'superadmin';
-  const canEditComite = canEdit && userRole !== 'lider_tribo';
+  const canEditComite = canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos');
   const { underutilized } = useUnderutilized();
   const underutilizedByPerson = useMemo(() => {
     const m = new Map<string, typeof underutilized[number]>();
@@ -278,7 +278,7 @@ function HRPeoplePageInner() {
                 Exportar
               </Button>
             )}
-            {canEdit && userRole !== 'lider_tribo' && (
+            {canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos') && (
               <>
                 <Button variant="outline" onClick={() => setCorrectionRunsOpen(true)}>
                   <Clock className="h-4 w-4 mr-2" />
@@ -569,7 +569,7 @@ function HRPeoplePageInner() {
                       const hasFlag = p.isTalento || p.isGuardiao || p.isEmAvaliacao;
                       const borderColor = p.isEmAvaliacao ? 'border-l-yellow-500' : p.isTalento && p.isGuardiao ? 'border-l-purple-500' : p.isTalento ? 'border-l-amber-500' : p.isGuardiao ? 'border-l-sky-600' : '';
                       return (
-                        <TableRow key={p.id} className={`${userRole === 'lider_tribo' ? 'cursor-default' : 'cursor-pointer'} hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => { if (userRole !== 'lider_tribo') navigate(`/rh/pessoas/${p.id}`); }}>
+                        <TableRow key={p.id} className={`${userRole === 'lider_tribo' ? 'cursor-default' : 'cursor-pointer'} hover:bg-muted/50 ${hasFlag ? 'border-l-[3px]' : ''} ${borderColor}`} onClick={() => { if ((userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos')) navigate(`/rh/pessoas/${p.id}`); }}>
                           <TableCell className="py-2 px-1 w-[40px]" onClick={(e) => e.stopPropagation()}>
                             <HRAvatar nome={p.nome} email={p.email} fotoUrl={p.fotoUrl} size="sm" />
                           </TableCell>
@@ -682,7 +682,7 @@ function HRPeoplePageInner() {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/rh/pessoas/${p.id}`)}>
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
-                              {canEdit && userRole !== 'lider_tribo' && (
+                              {canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos') && (
                                 <>
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPerson(p); setDialogOpen(true); }}>
                                     <Pencil className="h-3.5 w-3.5" />
