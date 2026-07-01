@@ -96,7 +96,7 @@ const navGroups: NavGroup[] = [
         label: 'Requisição de Vagas',
         icon: ClipboardList,
         comingSoon: true,
-        allowedRoles: ['c-level', 'intermediario', 'lider_tribo'],
+        allowedRoles: ['c-level', 'intermediario', 'lider_tribo', 'coordenacao_suporte', 'projetos_produtos'],
       },
       { path: '#', label: 'Skills de Vagas', icon: Sparkles, comingSoon: true },
     ],
