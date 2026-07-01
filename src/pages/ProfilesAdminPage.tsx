@@ -43,6 +43,8 @@ const roleColors: Record<UserRole, string> = {
   'administrativo': 'bg-slate-500/10 text-slate-700 border-slate-500/20',
   'demo': 'bg-orange-500/10 text-orange-700 border-orange-500/20',
   'superadmin': 'bg-purple-500/10 text-purple-700 border-purple-500/20',
+  'coordenacao_suporte': 'bg-teal-500/10 text-teal-700 border-teal-500/20',
+  'projetos_produtos': 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20',
 };
 
 const roleLabels: Record<UserRole, string> = {
@@ -56,6 +58,8 @@ const roleLabels: Record<UserRole, string> = {
   'administrativo': 'Administrativo',
   'demo': 'Demonstração',
   'superadmin': 'Super Admin',
+  'coordenacao_suporte': 'Coordenação Suporte',
+  'projetos_produtos': 'Projetos-Produtos',
 };
 
 const ROLE_ORDER: UserRole[] = [
@@ -64,6 +68,8 @@ const ROLE_ORDER: UserRole[] = [
   'intermediario',
   'administrativo',
   'lider_tribo',
+  'coordenacao_suporte',
+  'projetos_produtos',
   'rh',
   'juridico',
   'comercial',
@@ -77,6 +83,8 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'HR', 'CALCULATOR', 'HISTORY', 'DOCUMENTS', 'RESOURCES', 'IMPORT_EXPORT', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'CALCULATOR'],
   lider_tribo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  projetos_produtos: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   juridico: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
   rh: ['DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS'],
   administrativo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
