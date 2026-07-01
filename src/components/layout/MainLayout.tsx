@@ -35,8 +35,8 @@ export function MainLayout() {
   const { settings } = useData();
   const underutilizedThreshold = settings?.thresholdSubocupacao ?? 50;
 
-  const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo';
-  const canSeeUnderutilizedBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'rh';
+  const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte' || userRole === 'projetos_produtos';
+  const canSeeUnderutilizedBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte' || userRole === 'projetos_produtos' || userRole === 'rh';
 
   useEffect(() => {
     if (!isAuthenticated || !canSeeBanner) return;

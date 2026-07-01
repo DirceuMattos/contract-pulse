@@ -63,7 +63,7 @@ const userFormSchema = z.object({
   name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
   email: z.string().email('E-mail inválido').max(255),
   password: passwordSchema,
-  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo', 'demo', 'superadmin'] as const),
+  role: z.enum(['c-level', 'intermediario', 'leitor', 'comercial', 'lider_tribo', 'juridico', 'rh', 'administrativo', 'demo', 'superadmin', 'coordenacao_suporte', 'projetos_produtos'] as const),
   active: z.boolean(),
 });
 
@@ -88,6 +88,8 @@ const roleLabels: Record<UserRole, string> = {
   'administrativo': 'Administrativo',
   'demo': 'Demo',
   'superadmin': 'Super Admin',
+  'coordenacao_suporte': 'Coordenação Suporte',
+  'projetos_produtos': 'Projetos-Produtos',
 };
 
 const roleDescriptions: Record<UserRole, string> = {
@@ -101,6 +103,8 @@ const roleDescriptions: Record<UserRole, string> = {
   'administrativo': 'Acesso controlado por flags de módulo',
   'demo': 'Acesso de demonstração apenas para visualização',
   'superadmin': 'Acesso total irrestrito a todos os módulos do sistema',
+  'coordenacao_suporte': 'Mesmos direitos do Líder de Tribo',
+  'projetos_produtos': 'Mesmos direitos do Líder de Tribo, sem edição em Squads e RH',
 };
 
 export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogProps) {

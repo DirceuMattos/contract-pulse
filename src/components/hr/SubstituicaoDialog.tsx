@@ -39,7 +39,7 @@ export function SubstituicaoDialog({
   const { hrPeople } = useHR();
   const { updateResource, contracts } = useData();
   const { userRole } = useAuth();
-  const canUse = userRole === 'c-level' || userRole === 'lider_tribo';
+  const canUse = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte';
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [keepSame, setKeepSame] = useState(true);
