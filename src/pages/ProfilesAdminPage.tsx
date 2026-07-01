@@ -114,6 +114,8 @@ const DEFAULT_ACTION_FLAGS_BY_ROLE: Record<UserRole, ActionFlags> = {
   'leitor':        { can_edit: false, can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
   'coordenacao_suporte': { can_edit: true,  can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: true  },
   'projetos_produtos':   { can_edit: true,  can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
+};
+
 
 interface ActionFlags {
   can_edit: boolean;
