@@ -120,7 +120,7 @@ function SquadsPageInner() {
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const { canEdit, canCreate, canAllocate, userRole } = useAuth();
-  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo';
+  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte';
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
