@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS ump_insert ON public.user_module_permissions;
+CREATE POLICY ump_insert ON public.user_module_permissions FOR INSERT TO authenticated WITH CHECK (has_any_role(auth.uid(), ARRAY['c-level'::app_role, 'superadmin'::app_role]));
