@@ -2785,6 +2785,8 @@ export type Database = {
         | "administrativo"
         | "demo"
         | "superadmin"
+        | "coordenacao_suporte"
+        | "projetos_produtos"
       contract_segment: "govtech" | "privado"
       contract_status: "implantacao" | "operacao" | "suspenso" | "encerrado"
       contract_type: "sistema" | "infraestrutura" | "hibrido"
@@ -2996,6 +2998,8 @@ export const Constants = {
         "administrativo",
         "demo",
         "superadmin",
+        "coordenacao_suporte",
+        "projetos_produtos",
       ],
       contract_segment: ["govtech", "privado"],
       contract_status: ["implantacao", "operacao", "suspenso", "encerrado"],
