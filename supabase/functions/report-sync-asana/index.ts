@@ -339,7 +339,7 @@ serve(async (req) => {
       source: "asana",
       status: projectErrors.length === 0 ? "success" : "partial",
       records_fetched: totalEntregas + tarefasPriorizadas.length,
-      details: projectErrors.length > 0 ? { erros: projectErrors } : undefined,
+      error_message: projectErrors.length > 0 ? projectErrors.join("; ") : null,
     });
 
     return new Response(
