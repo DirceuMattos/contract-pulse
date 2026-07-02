@@ -120,7 +120,7 @@ function SquadsPageInner() {
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const { canEdit, canCreate, canAllocate, userRole } = useAuth();
-  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte';
+  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo';
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -647,7 +647,7 @@ function SquadsPageInner() {
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-base">{cd.contractNome || cd.contractCodigo}</CardTitle>
+                <CardTitle className={cn("text-base", contractHasPending && "text-red-50")}>{cd.contractNome || cd.contractCodigo}</CardTitle>
                 {cardContract?.status === 'encerrado' && (
                   <Badge className="text-[10px] bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
                 )}
@@ -686,10 +686,10 @@ function SquadsPageInner() {
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`, { state: { from: '/squads' } })}>
+            <Button variant="ghost" size="sm" className={cn("text-xs", contractHasPending && "text-red-100 hover:text-red-50 hover:bg-red-900/40")} onClick={() => navigate(`/contratos/${cd.contractId}`, { state: { from: '/squads' } })}>
               <FileText className="w-3 h-3 mr-1" /> Ver contrato
             </Button>
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}/recursos`, { state: { from: '/squads' } })}>
+            <Button variant="ghost" size="sm" className={cn("text-xs", contractHasPending && "text-red-100 hover:text-red-50 hover:bg-red-900/40")} onClick={() => navigate(`/contratos/${cd.contractId}/recursos`, { state: { from: '/squads' } })}>
               <Users className="w-3 h-3 mr-1" /> Ver recursos
             </Button>
           </div>
