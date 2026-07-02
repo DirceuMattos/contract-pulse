@@ -315,9 +315,12 @@ export default function ReportEditPage() {
     else toast({ title: 'Sincronizando dados em segundo plano...', description: 'Atualizando Asana e Fireflies.' });
     try {
       const tasks: Promise<any>[] = [];
-      if (report.asanaProjectId) {
+      const asanaIds = templateConfig?.asanaProjectIds?.length
+        ? templateConfig.asanaProjectIds
+        : report.asanaProjectId ? [report.asanaProjectId] : [];
+      if (asanaIds.length > 0) {
         tasks.push(supabase.functions.invoke('report-sync-asana', {
-          body: { reportId: report.id, asanaProjectId: report.asanaProjectId, asanaProjectIds: templateConfig?.asanaProjectIds, month: report.month, year: report.year },
+          body: { reportId: report.id, asanaProjectIds: asanaIds, month: report.month, year: report.year },
         }));
       }
       tasks.push(supabase.functions.invoke('report-sync-fireflies', {
@@ -349,9 +352,12 @@ export default function ReportEditPage() {
     setSyncing(true);
     try {
       const meta = SECTION_META_BY_KEY[key];
-      if (meta.source === 'asana' && report.asanaProjectId) {
+      const asanaIdsForSection = templateConfig?.asanaProjectIds?.length
+        ? templateConfig.asanaProjectIds
+        : report.asanaProjectId ? [report.asanaProjectId] : [];
+      if (meta.source === 'asana' && asanaIdsForSection.length > 0) {
         await supabase.functions.invoke('report-sync-asana', {
-          body: { reportId: report.id, asanaProjectId: report.asanaProjectId, month: report.month, year: report.year, sectionKey: key },
+          body: { reportId: report.id, asanaProjectIds: asanaIdsForSection, month: report.month, year: report.year, sectionKey: key },
         });
       } else if (meta.source === 'fireflies') {
         await supabase.functions.invoke('report-sync-fireflies', {
