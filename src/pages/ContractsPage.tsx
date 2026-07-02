@@ -135,10 +135,13 @@ export default function ContractsPage() {
   }), [contracts, resources, settings, clients, getAlertsForContract, getAllocation]);
   
   // Apply filters
-  const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts }) => {
-    const matchesSearch = 
-      contract.nome.toLowerCase().includes(search.toLowerCase()) ||
-      contract.codigo.toLowerCase().includes(search.toLowerCase());
+  const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts, client }) => {
+    const searchLower = search.toLowerCase();
+    const matchesSearch = !search ||
+      contract.nome.toLowerCase().includes(searchLower) ||
+      contract.codigo.toLowerCase().includes(searchLower) ||
+      (client?.nomeFantasia?.toLowerCase().includes(searchLower)) ||
+      (client?.razaoSocial?.toLowerCase().includes(searchLower));
     
     const matchesSegmento = filters.segmento === 'all' || contract.segmento === filters.segmento;
     const matchesTipo = filters.tipo === 'all' || contract.tipo === filters.tipo;
@@ -692,7 +695,7 @@ export default function ContractsPage() {
                           <Eye className="w-4 h-4 mr-2" />
                           Ver detalhes
                         </DropdownMenuItem>
-                        {canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos') && (
+                        {canEdit && userRole !== 'lider_tribo' && (
                           <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}/editar`)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Editar
