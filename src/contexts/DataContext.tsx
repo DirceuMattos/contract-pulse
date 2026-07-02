@@ -318,6 +318,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteResource = useCallback(async (id: string): Promise<void> => {
     const prev = resources.find(r => r.id === id);
     setResources(p => p.filter(r => r.id !== id));
+    // Remove pendências de substituição vinculadas antes de excluir o recurso
+    // (sem isso, a FK pending_replacements_resource_id_fkey bloqueia o delete)
+    const { error: pendingErr } = await supabase.from('pending_replacements').delete().eq('resource_id', id);
+    if (pendingErr) { setResources(p => prev ? [...p, prev] : p); handleError(pendingErr, 'Erro ao excluir recurso.'); return; }
     const { error } = await supabase.from('resources').delete().eq('id', id);
     if (error) { setResources(p => prev ? [...p, prev] : p); handleError(error, 'Erro ao excluir recurso.'); }
     else if (prev) await updateContract(prev.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
