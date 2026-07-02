@@ -111,9 +111,12 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
 
       // Disparar syncs em background — erros não bloqueiam a criação
       try {
-        if (config?.asanaProjectId) {
+        const asanaIds = config?.asanaProjectIds?.length
+          ? config.asanaProjectIds
+          : config?.asanaProjectId ? [config.asanaProjectId] : [];
+        if (asanaIds.length > 0) {
           supabase.functions.invoke('report-sync-asana', {
-            body: { reportId: report.id, asanaProjectId: config.asanaProjectId, month, year },
+            body: { reportId: report.id, asanaProjectIds: asanaIds, month, year },
           }).catch(() => {});
         }
         if (config?.clientEmailDomain || (config?.firefliesKeywords && config.firefliesKeywords.length > 0)) {
