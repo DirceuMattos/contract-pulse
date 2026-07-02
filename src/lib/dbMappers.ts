@@ -778,7 +778,12 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
   const config: ReportTemplateConfig = {
     id: row.id,
     contractId: row.contract_id,
+    showGlossario: row.show_glossario ?? true,
+    showIndicadores: row.show_indicadores ?? true,
+    showAmbientes: row.show_ambientes ?? true,
+    showAmbientesDetalhe: row.show_ambientes_detalhe ?? true,
     showHistoricoTr: row.show_historico_tr ?? true,
+    showHistoricoTrAderencia: row.show_historico_tr_aderencia ?? true,
     showEvolucaoInovacao: row.show_evolucao_inovacao ?? true,
     showEntregas: row.show_entregas ?? true,
     showPriorizadas: row.show_priorizadas ?? true,
@@ -806,7 +811,12 @@ export function reportTemplateConfigFromDb(row: Record<string, any>): ReportTemp
 export function reportTemplateConfigToDb(c: Partial<ReportTemplateConfig>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (c.contractId !== undefined) out.contract_id = c.contractId;
+  if (c.showGlossario !== undefined) out.show_glossario = c.showGlossario;
+  if (c.showIndicadores !== undefined) out.show_indicadores = c.showIndicadores;
+  if (c.showAmbientes !== undefined) out.show_ambientes = c.showAmbientes;
+  if (c.showAmbientesDetalhe !== undefined) out.show_ambientes_detalhe = c.showAmbientesDetalhe;
   if (c.showHistoricoTr !== undefined) out.show_historico_tr = c.showHistoricoTr;
+  if (c.showHistoricoTrAderencia !== undefined) out.show_historico_tr_aderencia = c.showHistoricoTrAderencia;
   if (c.showEvolucaoInovacao !== undefined) out.show_evolucao_inovacao = c.showEvolucaoInovacao;
   if (c.showEntregas !== undefined) out.show_entregas = c.showEntregas;
   if (c.showPriorizadas !== undefined) out.show_priorizadas = c.showPriorizadas;
