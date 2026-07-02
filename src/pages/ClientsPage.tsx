@@ -83,16 +83,20 @@ export default function ClientsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   
   // Filter clients
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = 
-      client.razaoSocial.toLowerCase().includes(search.toLowerCase()) ||
-      client.nomeFantasia?.toLowerCase().includes(search.toLowerCase()) ||
-      client.cnpj.includes(search);
-    
-    const matchesSegment = segmentFilter === 'all' || client.segmento === segmentFilter;
-    
-    return matchesSearch && matchesSegment;
-  });
+  const filteredClients = clients
+    .filter(client => {
+      const matchesSearch = 
+        client.razaoSocial.toLowerCase().includes(search.toLowerCase()) ||
+        client.nomeFantasia?.toLowerCase().includes(search.toLowerCase()) ||
+        client.cnpj.includes(search);
+      
+      const matchesSegment = segmentFilter === 'all' || client.segmento === segmentFilter;
+      
+      return matchesSearch && matchesSegment;
+    })
+    .sort((a, b) =>
+      (a.nomeFantasia || a.razaoSocial).localeCompare(b.nomeFantasia || b.razaoSocial, 'pt-BR')
+    );
   
   // Get contract count for each client
   const getContractCount = (clientId: string) => 
@@ -192,7 +196,7 @@ export default function ClientsPage() {
                             <Eye className="w-4 h-4 mr-2" />
                             Ver detalhes
                           </DropdownMenuItem>
-                          {canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos') && (
+                          {canEdit && userRole !== 'lider_tribo' && (
                             <>
                               <DropdownMenuItem onClick={() => navigate(`/clientes/${client.id}/editar`)}>
                                 <Pencil className="w-4 h-4 mr-2" />
