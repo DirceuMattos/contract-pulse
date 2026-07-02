@@ -1928,6 +1928,8 @@ export type Database = {
           fireflies_keywords: string[] | null
           id: string
           milvus_client_names: string[] | null
+          show_ambientes: boolean | null
+          show_ambientes_detalhe: boolean | null
           show_demonstrativo_horas: boolean | null
           show_desempenho_aplicacao: boolean | null
           show_eficiencia_operacional: boolean | null
@@ -1935,7 +1937,10 @@ export type Database = {
           show_engajamento_usuario: boolean | null
           show_entregas: boolean | null
           show_evolucao_inovacao: boolean | null
+          show_glossario: boolean | null
           show_historico_tr: boolean | null
+          show_historico_tr_aderencia: boolean | null
+          show_indicadores: boolean | null
           show_maturidade_plataforma: boolean | null
           show_oportunidades_atencao: boolean | null
           show_priorizadas: boolean | null
@@ -1953,6 +1958,8 @@ export type Database = {
           fireflies_keywords?: string[] | null
           id?: string
           milvus_client_names?: string[] | null
+          show_ambientes?: boolean | null
+          show_ambientes_detalhe?: boolean | null
           show_demonstrativo_horas?: boolean | null
           show_desempenho_aplicacao?: boolean | null
           show_eficiencia_operacional?: boolean | null
@@ -1960,7 +1967,10 @@ export type Database = {
           show_engajamento_usuario?: boolean | null
           show_entregas?: boolean | null
           show_evolucao_inovacao?: boolean | null
+          show_glossario?: boolean | null
           show_historico_tr?: boolean | null
+          show_historico_tr_aderencia?: boolean | null
+          show_indicadores?: boolean | null
           show_maturidade_plataforma?: boolean | null
           show_oportunidades_atencao?: boolean | null
           show_priorizadas?: boolean | null
@@ -1978,6 +1988,8 @@ export type Database = {
           fireflies_keywords?: string[] | null
           id?: string
           milvus_client_names?: string[] | null
+          show_ambientes?: boolean | null
+          show_ambientes_detalhe?: boolean | null
           show_demonstrativo_horas?: boolean | null
           show_desempenho_aplicacao?: boolean | null
           show_eficiencia_operacional?: boolean | null
@@ -1985,7 +1997,10 @@ export type Database = {
           show_engajamento_usuario?: boolean | null
           show_entregas?: boolean | null
           show_evolucao_inovacao?: boolean | null
+          show_glossario?: boolean | null
           show_historico_tr?: boolean | null
+          show_historico_tr_aderencia?: boolean | null
+          show_indicadores?: boolean | null
           show_maturidade_plataforma?: boolean | null
           show_oportunidades_atencao?: boolean | null
           show_priorizadas?: boolean | null
