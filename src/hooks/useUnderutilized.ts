@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 
 export interface UnderutilizedPerson {
   personId: string;
@@ -8,13 +9,14 @@ export interface UnderutilizedPerson {
   tipoVinculo: string;
   totalPercent: number;
   threshold: number;
-  gap: number; // threshold - totalPercent
+  gap: number;
   availableContracts: { id: string; nome: string; clientName: string }[];
 }
 
 export function useUnderutilized() {
   const { resources, contracts, clients, settings } = useData();
   const { hrPeople } = useHR();
+  const { allocations: subprojectAllocations } = useSubprojects();
 
   const underutilized = useMemo(() => {
     const threshold = settings?.thresholdSubocupacao ?? 50;
@@ -26,15 +28,22 @@ export function useUnderutilized() {
         .map(c => c.id)
     );
 
-    // Calcular dedicação total por pessoa
+    // Dedicação via recursos diretos em contratos
     const dedicacaoMap = new Map<string, number>();
     resources
-     resources
-        .filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId)
-        .forEach(r => {
-          const current = dedicacaoMap.get(r.hrPersonId!) || 0;
-          dedicacaoMap.set(r.hrPersonId!, current + (r.percentualDedicacao || 0));
-        });
+      .filter(r => (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId)
+      .forEach(r => {
+        const current = dedicacaoMap.get(r.hrPersonId!) || 0;
+        dedicacaoMap.set(r.hrPersonId!, current + (r.percentualDedicacao || 0));
+      });
+
+    // Dedicação via subprojetos — soma dedicationPercent de subprojectAllocations
+    subprojectAllocations
+      .filter(a => a.hrPersonId)
+      .forEach(a => {
+        const current = dedicacaoMap.get(a.hrPersonId!) || 0;
+        dedicacaoMap.set(a.hrPersonId!, current + (a.dedicationPercent || 0));
+      });
 
     // Contratos onde cada pessoa ainda não está alocada (para sugestões)
     const activeContracts = contracts.filter(c => activeContractIds.has(c.id));
@@ -48,7 +57,7 @@ export function useUnderutilized() {
         const totalPercent = dedicacaoMap.get(p.id) || 0;
         if (totalPercent >= threshold) return null;
 
-        // Contratos onde não está alocado
+        // Contratos onde não está alocado (para sugestões)
         const allocatedContractIds = new Set(
           resources
             .filter(r => r.hrPersonId === p.id)
@@ -73,7 +82,7 @@ export function useUnderutilized() {
         };
       })
       .filter(Boolean) as UnderutilizedPerson[];
-  }, [hrPeople, resources, contracts, clients, settings]);
+  }, [hrPeople, resources, contracts, clients, settings, subprojectAllocations]);
 
   return { underutilized, count: underutilized.length };
 }
