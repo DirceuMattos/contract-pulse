@@ -326,7 +326,6 @@ export default function ReportEditPage() {
           body: { reportId: report.id, asanaProjectIds: asanaIds, month: report.month, year: report.year },
         }));
       }
-      }
       tasks.push(supabase.functions.invoke('report-sync-fireflies', {
         body: {
           reportId: report.id,
