@@ -318,10 +318,14 @@ export default function ReportEditPage() {
       const asanaIds = templateConfig?.asanaProjectIds?.length
         ? templateConfig.asanaProjectIds
         : report.asanaProjectId ? [report.asanaProjectId] : [];
+      console.log('[SYNC-DEBUG] templateConfig:', JSON.stringify(templateConfig));
+      console.log('[SYNC-DEBUG] asanaIds:', asanaIds);
+      console.log('[SYNC-DEBUG] contract?.id:', contract?.id);
       if (asanaIds.length > 0) {
         tasks.push(supabase.functions.invoke('report-sync-asana', {
           body: { reportId: report.id, asanaProjectIds: asanaIds, month: report.month, year: report.year },
         }));
+      }
       }
       tasks.push(supabase.functions.invoke('report-sync-fireflies', {
         body: {
