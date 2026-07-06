@@ -65,12 +65,16 @@ Deno.serve(async (req) => {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: userData, error: userError } = await callerClient.auth.getUser();
-  if (userError || !userData?.user) {
+  // Decodifica o JWT para obter o user id sem depender de getClaims/getUser
+  const token = authHeader.replace("Bearer ", "");
+  let callerId: string;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    callerId = payload.sub as string;
+    if (!callerId) throw new Error("no sub");
+  } catch {
     return err("Unauthorized", 401);
   }
-
-  const callerId = userData.user.id;
 
   // Verify caller is c-level
   const { data: callerRole } = await adminClient
