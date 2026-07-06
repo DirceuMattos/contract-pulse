@@ -16,6 +16,7 @@ import {
 import { useAlerts } from '@/hooks/useAlerts';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,12 +76,17 @@ export default function AlertsPage() {
   const navigate = useNavigate();
   const { alerts, criticalCount, warningCount, totalCount } = useAlerts();
   const { getContract, getClient, settings } = useData();
-  
+  const { canViewValues } = useAuth();
+
   const [filterType, setFilterType] = useState<AlertType | 'all'>('all');
   const [filterSeverity, setFilterSeverity] = useState<AlertSeverity | 'all'>('all');
-  
+
+  // Tipos de alerta que expõem valores financeiros — ocultos para perfis sem canViewValues
+  const FINANCIAL_ALERT_TYPES: AlertType[] = ['financeiro-deficit', 'financeiro-margem-baixa', 'tendencia-deterioracao', 'concentracao-custo'];
+
   // Filtra alertas
   const filteredAlerts = alerts.filter(alert => {
+    if (!canViewValues && FINANCIAL_ALERT_TYPES.includes(alert.type)) return false;
     if (filterType !== 'all' && alert.type !== filterType) return false;
     if (filterSeverity !== 'all' && alert.severity !== filterSeverity) return false;
     return true;
@@ -234,9 +240,11 @@ export default function AlertsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os Tipos</SelectItem>
-            {Object.entries(alertTypeLabels).map(([key, label]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
+            {Object.entries(alertTypeLabels)
+              .filter(([key]) => canViewValues || !FINANCIAL_ALERT_TYPES.includes(key as AlertType))
+              .map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
           </SelectContent>
         </Select>
         
