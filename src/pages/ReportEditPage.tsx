@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -379,6 +379,11 @@ export default function ReportEditPage() {
 
   const handleStatusChange = async (next: ReportStatus) => {
     if (!report) return;
+    if (!allowedStatusTransitions.includes(next)) {
+      toast({ title: 'Ação não permitida', description: 'Seu perfil não pode realizar essa transição de status.', variant: 'destructive' });
+      return;
+    }
+    const prev = report.status;
     const patch: Record<string, unknown> = { status: next };
     if (next === 'published') patch.published_at = new Date().toISOString();
     const { error } = await supabase.from('monthly_reports').update(patch).eq('id', report.id);
@@ -388,7 +393,11 @@ export default function ReportEditPage() {
     }
     queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
     queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
-    toast({ title: 'Status atualizado' });
+    const STATUS_LABELS: Record<string, string> = { draft: 'Rascunho', review: 'Em Revisão', approved: 'Aprovado', published: 'Publicado' };
+    toast({
+      title: 'Status atualizado',
+      description: `${STATUS_LABELS[prev]} → ${STATUS_LABELS[next]}`,
+    });
   };
 
   const handleGeneratePPTX = async () => {
@@ -445,6 +454,33 @@ export default function ReportEditPage() {
   const activeMeta = activeSection ? SECTION_META_BY_KEY[activeSection] : null;
   const canConfig = userRole === 'c-level' || userRole === 'superadmin';
 
+  // Regras de travamento por status
+  const isSuperAdmin = userRole === 'superadmin';
+  const isCLevel = userRole === 'c-level';
+  const isLiderTribo = userRole === 'lider_tribo';
+  const isProjProd = userRole === 'projetos_produtos';
+
+  // Quem pode editar o conteúdo das seções por status
+  const canEditContent = (() => {
+    if (report.status === 'draft') return isSuperAdmin || isCLevel || isLiderTribo || isProjProd;
+    if (report.status === 'review') return isSuperAdmin || isCLevel || isLiderTribo;
+    return false; // approved e published: ninguém edita
+  })();
+
+  // Quais opções de status cada perfil pode selecionar
+  const allowedStatusTransitions = (() => {
+    if (isSuperAdmin) return ['draft', 'review', 'approved', 'published']; // superadmin vê tudo
+    if (isCLevel) return ['draft', 'review', 'approved', 'published'];
+    if (isLiderTribo) {
+      if (report.status === 'draft') return ['draft', 'review']; // pode enviar para revisão
+      if (report.status === 'review') return ['draft', 'review']; // pode voltar para rascunho
+      return [report.status]; // approved/published: não pode mudar
+    }
+    return [report.status]; // demais perfis: não podem mudar status
+  })();
+
+  const isLocked = !canEditContent;
+
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
@@ -461,11 +497,15 @@ export default function ReportEditPage() {
           <ReportStatusBadge status={report.status} />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={report.status} onValueChange={(v) => handleStatusChange(v as ReportStatus)}>
+          <Select value={report.status} onValueChange={(v) => handleStatusChange(v as ReportStatus)} disabled={allowedStatusTransitions.length <= 1}>
             <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-            <SelectContent>{STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+            <SelectContent>
+              {STATUS_OPTIONS
+                .filter(o => allowedStatusTransitions.includes(o.value))
+                .map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing}>
+          <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing || isLocked}>
             <RefreshCw className={cn('w-4 h-4 mr-2', syncing && 'animate-spin')} />Sincronizar Dados
           </Button>
           {pendingSaveCount > 0 && (
@@ -547,13 +587,26 @@ export default function ReportEditPage() {
               <>
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h2 className="text-lg font-semibold">{activeMeta.label}</h2>
-                  {activeSec.source !== 'manual' && (
+                  {activeSec.source !== 'manual' && !isLocked && (
                     <Button variant="outline" size="sm" onClick={() => setResyncKey(activeSec.sectionKey)} disabled={syncing}>
                       <RefreshCw className="w-3 h-3 mr-2" />Re-sincronizar
                     </Button>
                   )}
                 </div>
-                {activeSec.source !== 'manual' && (
+                {isLocked && (
+                  <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-md p-3 text-sm flex gap-2 items-start">
+                    <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="font-medium">Relatório bloqueado para edição.</span>
+                      {report.status === 'published'
+                        ? ' Este relatório foi publicado. Apenas o superadmin pode alterar o status.'
+                        : report.status === 'approved'
+                        ? ' Este relatório está aprovado. Apenas c-level ou superadmin podem reabri-lo.'
+                        : ' Seu perfil não tem permissão para editar neste status.'}
+                    </div>
+                  </div>
+                )}
+                {activeSec.source !== 'manual' && !isLocked && (
                   <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-3 text-sm flex gap-2 items-start">
                     <Info className="w-4 h-4 mt-0.5 shrink-0" />
                     <div>
@@ -562,7 +615,7 @@ export default function ReportEditPage() {
                     </div>
                   </div>
                 )}
-                {activeSec.sectionKey !== 'capa' && (
+                {activeSec.sectionKey !== 'capa' && !isLocked && (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
                     <div className="flex items-center gap-2">
                       <EyeOff className="w-4 h-4 text-muted-foreground" />
@@ -583,6 +636,7 @@ export default function ReportEditPage() {
                   sectionKey={activeSec.sectionKey}
                   content={activeSec.content}
                   onChange={(next) => handleContentChange(activeSec, next)}
+                  readOnly={isLocked}
                   meta={{
                     contractName: contract?.nome,
                     clientName: client?.nomeFantasia || client?.razaoSocial,
