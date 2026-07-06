@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   // --- Auth check ---
   const authHeader = req.headers.get("Authorization");
@@ -60,10 +59,6 @@ Deno.serve(async (req) => {
   if (!authHeader?.startsWith("Bearer ")) {
     return err("Unauthorized", 401);
   }
-
-  const callerClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
 
   // Decodifica o JWT para obter o user id sem depender de getClaims/getUser
   const token = authHeader.replace("Bearer ", "");
