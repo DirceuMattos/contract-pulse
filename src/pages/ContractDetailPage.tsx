@@ -88,7 +88,7 @@ export default function ContractDetailPage() {
   const location = useLocation();
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts } = useData();
   const { resolvedResources: allResolvedResources } = useResolvedResources();
-  const { canEdit, canViewValues, canViewHRCosts } = useAuth();
+  const { canEdit, canViewValues, canViewHRCosts, userRole } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsByContract } = useSubprojects();
@@ -273,7 +273,7 @@ export default function ContractDetailPage() {
             </div>
           </div>
         </div>
-        {canEdit && (
+        {canEdit && userRole !== 'projetos_produtos' && (
           <div className="flex gap-2 ml-12 lg:ml-0">
             <Button variant="outline" onClick={() => navigate(`/contratos/${id}/recursos`, { state: location.state })} className="gap-2">
               <Users className="w-4 h-4" />
@@ -697,7 +697,7 @@ export default function ContractDetailPage() {
         
         <TabsContent value="recursos" className="space-y-6">
           {/* Manage button */}
-          {canEdit && (
+          {canEdit && userRole !== 'projetos_produtos' && (
             <div className="flex justify-end">
               <Button variant="outline" onClick={() => navigate(`/contratos/${id}/recursos`, { state: location.state })} className="gap-2">
                 <Settings2 className="w-4 h-4" />
@@ -712,7 +712,7 @@ export default function ContractDetailPage() {
                 <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Nenhum recurso alocado</h3>
                 <p className="text-muted-foreground mb-4">Adicione recursos para calcular a saúde financeira.</p>
-                {canEdit && (
+                {canEdit && userRole !== 'projetos_produtos' && (
                   <Button onClick={() => navigate(`/contratos/${id}/recursos`, { state: location.state })} className="gap-2">
                     <Users className="w-4 h-4" />
                     Gerenciar Recursos
