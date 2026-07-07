@@ -236,11 +236,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [clients, handleError]);
 
   const deleteClient = useCallback(async (id: string): Promise<void> => {
+    // Verifica se há contratos vinculados antes de tentar excluir
+    const linkedContracts = contracts.filter(c => c.clientId === id);
+    if (linkedContracts.length > 0) {
+      handleError(
+        { message: `Este cliente possui ${linkedContracts.length} contrato(s) vinculado(s). Remova os contratos antes de excluir o cliente.` },
+        'Não é possível excluir o cliente.'
+      );
+      return;
+    }
     const snapshot = clients;
     setClients(prev => prev.filter(c => c.id !== id));
     const { error } = await supabase.from('clients').delete().eq('id', id);
     if (error) { setClients(snapshot); handleError(error, 'Erro ao excluir cliente.'); }
-  }, [clients, handleError]);
+  }, [clients, contracts, handleError]);
 
   const getClient = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
 
