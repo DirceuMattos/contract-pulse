@@ -350,7 +350,7 @@ export default function ReportEditPage() {
       });
 
       tasks.push({
-        label: 'Milvus / Azure DevOps / Discord',
+        label: 'MCP — Milvus / DevOps / Devid',
         promise: syncDevid(report.id, templateConfig?.clientEmailDomain, templateConfig?.firefliesKeywords, report.month, report.year, templateConfig?.milvusClientNames, templateConfig?.azureProject, templateConfig?.azureTags),
       });
 
