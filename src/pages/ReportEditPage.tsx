@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info, Lock, CheckCircle2, XCircle, AlertTriangle, X } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info, Lock, CheckCircle2, XCircle, AlertTriangle, X, ClipboardCopy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -60,6 +60,7 @@ export default function ReportEditPage() {
     status: 'success' | 'error' | 'skipped';
     detail?: string;
   }[] | null>(null);
+  const [copyingManual, setCopyingManual] = useState(false);
   const autoSyncTriggered = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -486,6 +487,78 @@ export default function ReportEditPage() {
   };
 
 
+  // Copia seções manuais do relatório imediatamente anterior ao atual
+  const handleCopyManualFromPrevious = async () => {
+    if (!report || !contract) return;
+    setCopyingManual(true);
+    try {
+      // Busca relatório anterior do mesmo contrato
+      const { data: prevReports } = await supabase
+        .from('monthly_reports')
+        .select('id, month, year')
+        .eq('contract_id', contract.id)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
+
+      const prev = (prevReports ?? []).find((r: any) =>
+        r.year < report.year || (r.year === report.year && r.month < report.month)
+      );
+
+      if (!prev) {
+        toast({ title: 'Nenhum relatório anterior encontrado', variant: 'destructive' });
+        return;
+      }
+
+      const { data: prevSections } = await supabase
+        .from('report_sections')
+        .select('section_key, content')
+        .eq('report_id', prev.id)
+        .eq('source', 'manual');
+
+      if (!prevSections || prevSections.length === 0) {
+        toast({ title: 'Relatório anterior não tem seções manuais', variant: 'destructive' });
+        return;
+      }
+
+      const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      let copied = 0;
+      for (const prevSec of prevSections) {
+        const content = prevSec.content as Record<string, unknown>;
+        const isEmpty = !content || Object.keys(content).every(k => {
+          const v = content[k];
+          return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+        });
+        if (isEmpty) continue;
+
+        // Atualiza a seção correspondente no relatório atual
+        const { data: currSec } = await supabase
+          .from('report_sections')
+          .select('id')
+          .eq('report_id', report.id)
+          .eq('section_key', prevSec.section_key)
+          .maybeSingle();
+
+        if (currSec) {
+          await supabase
+            .from('report_sections')
+            .update({ content: content as any, updated_at: new Date().toISOString() })
+            .eq('id', currSec.id);
+          copied++;
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
+      toast({
+        title: 'Seções copiadas com sucesso',
+        description: `${copied} seção(ões) copiada(s) de ${MESES[prev.month - 1]}/${prev.year}`,
+      });
+    } catch (err) {
+      toast({ title: 'Erro ao copiar seções', description: err instanceof Error ? err.message : 'Erro', variant: 'destructive' });
+    } finally {
+      setCopyingManual(false);
+    }
+  };
+
   if (isLoading || !report) {
     return <div className="p-6 text-sm text-muted-foreground">Carregando...</div>;
   }
@@ -548,6 +621,12 @@ export default function ReportEditPage() {
           <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing || isLocked}>
             <RefreshCw className={cn('w-4 h-4 mr-2', syncing && 'animate-spin')} />Sincronizar Dados
           </Button>
+          {!isLocked && (
+            <Button variant="outline" onClick={handleCopyManualFromPrevious} disabled={copyingManual} title="Copiar seções manuais do relatório anterior">
+              <ClipboardCopy className={cn('w-4 h-4 mr-2', copyingManual && 'animate-pulse')} />
+              {copyingManual ? 'Copiando...' : 'Copiar mês anterior'}
+            </Button>
+          )}
           {pendingSaveCount > 0 && (
             <span className="text-sm text-muted-foreground animate-pulse">Salvando...</span>
           )}
