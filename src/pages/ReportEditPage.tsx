@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info, Lock } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Download, Settings as SettingsIcon, Plus, Info, Lock, CheckCircle2, XCircle, AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -55,6 +55,11 @@ export default function ReportEditPage() {
   const [generating, setGenerating] = useState(false);
   const [pendingSaveCount, setPendingSaveCount] = useState(0);
   const [resyncKey, setResyncKey] = useState<ReportSectionKey | null>(null);
+  const [syncResults, setSyncResults] = useState<{
+    label: string;
+    status: 'success' | 'error' | 'skipped';
+    detail?: string;
+  }[] | null>(null);
   const autoSyncTriggered = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -311,40 +316,75 @@ export default function ReportEditPage() {
   const handleSyncAll = async (silent = false) => {
     if (!report) return;
     setSyncing(true);
-    if (!silent) toast({ title: 'Sincronizando...', description: 'Buscando dados do Asana e Fireflies.' });
-    else toast({ title: 'Sincronizando dados em segundo plano...', description: 'Atualizando Asana e Fireflies.' });
+    if (!silent) setSyncResults(null);
     try {
-      const tasks: Promise<any>[] = [];
       const asanaIds = templateConfig?.asanaProjectIds?.length
         ? templateConfig.asanaProjectIds
         : report.asanaProjectId ? [report.asanaProjectId] : [];
-      console.log('[SYNC-DEBUG] templateConfig:', JSON.stringify(templateConfig));
-      console.log('[SYNC-DEBUG] asanaIds:', asanaIds);
-      console.log('[SYNC-DEBUG] contract?.id:', contract?.id);
+
+      type SyncTask = { label: string; promise: Promise<any> };
+      const tasks: SyncTask[] = [];
+
       if (asanaIds.length > 0) {
-        tasks.push(supabase.functions.invoke('report-sync-asana', {
-          body: { reportId: report.id, asanaProjectIds: asanaIds, month: report.month, year: report.year },
-        }));
+        tasks.push({
+          label: `Asana (${asanaIds.length} projeto${asanaIds.length > 1 ? 's' : ''})`,
+          promise: supabase.functions.invoke('report-sync-asana', {
+            body: { reportId: report.id, asanaProjectIds: asanaIds, month: report.month, year: report.year },
+          }),
+        });
+      } else {
+        tasks.push({ label: 'Asana', promise: Promise.resolve({ data: null, error: { message: 'Nenhum ID de projeto configurado' } }) });
       }
-      tasks.push(supabase.functions.invoke('report-sync-fireflies', {
-        body: {
-          reportId: report.id,
-          clientEmailDomain: templateConfig?.clientEmailDomain,
-          firefliesKeywords: templateConfig?.firefliesKeywords ?? [],
-          month: report.month,
-          year: report.year,
-        },
-      }));
-      tasks.push(syncDevid(report.id, templateConfig?.clientEmailDomain, templateConfig?.firefliesKeywords, report.month, report.year, templateConfig?.milvusClientNames, templateConfig?.azureProject, templateConfig?.azureTags));
-      await Promise.allSettled(tasks);
-      // Só re-fetcha do banco se não houver edições pendentes (debounce ativo)
+
+      tasks.push({
+        label: 'Fireflies',
+        promise: supabase.functions.invoke('report-sync-fireflies', {
+          body: {
+            reportId: report.id,
+            clientEmailDomain: templateConfig?.clientEmailDomain,
+            firefliesKeywords: templateConfig?.firefliesKeywords ?? [],
+            month: report.month,
+            year: report.year,
+          },
+        }),
+      });
+
+      tasks.push({
+        label: 'Milvus / Azure DevOps / Discord',
+        promise: syncDevid(report.id, templateConfig?.clientEmailDomain, templateConfig?.firefliesKeywords, report.month, report.year, templateConfig?.milvusClientNames, templateConfig?.azureProject, templateConfig?.azureTags),
+      });
+
+      const settled = await Promise.allSettled(tasks.map(t => t.promise));
+
+      if (!silent) {
+        const results = settled.map((result, i) => {
+          const label = tasks[i].label;
+          if (result.status === 'rejected') {
+            return { label, status: 'error' as const, detail: result.reason?.message ?? 'Erro desconhecido' };
+          }
+          const val = result.value as any;
+          // supabase.functions.invoke retorna { data, error }
+          if (val?.error) {
+            return { label, status: 'error' as const, detail: typeof val.error === 'string' ? val.error : val.error?.message ?? 'Erro na função' };
+          }
+          // Asana pode retornar projetos_com_erro
+          if (val?.data?.projetos_com_erro?.length > 0) {
+            return { label, status: 'error' as const, detail: val.data.projetos_com_erro.join(', ') };
+          }
+          if (label === 'Asana' && asanaIds.length === 0) {
+            return { label, status: 'skipped' as const, detail: 'Nenhum projeto configurado' };
+          }
+          return { label, status: 'success' as const };
+        });
+        setSyncResults(results);
+      }
+
       const hasPending = Object.keys(saveTimers.current).length > 0;
       if (!hasPending) {
         await queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
       }
-      if (!silent) toast({ title: 'Sincronização concluída' });
     } catch (err) {
-      toast({ title: 'Erro na sincronização', description: err instanceof Error ? err.message : 'Erro', variant: 'destructive' });
+      if (!silent) setSyncResults([{ label: 'Sincronização', status: 'error', detail: err instanceof Error ? err.message : 'Erro inesperado' }]);
     } finally {
       setSyncing(false);
     }
@@ -521,6 +561,33 @@ export default function ReportEditPage() {
           )}
         </div>
       </div>
+
+      {/* Painel de resultados de sincronização */}
+      {syncResults && (
+        <div className="rounded-lg border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="text-sm font-semibold">Resultado da Sincronização</span>
+            <button onClick={() => setSyncResults(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="divide-y divide-border">
+            {syncResults.map((r) => (
+              <div key={r.label} className="flex items-start gap-3 px-4 py-3">
+                {r.status === 'success' && <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />}
+                {r.status === 'error' && <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />}
+                {r.status === 'skipped' && <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{r.label}</p>
+                  {r.status === 'success' && <p className="text-xs text-green-600">Sincronizado com sucesso</p>}
+                  {r.status === 'error' && <p className="text-xs text-red-600 break-words">{r.detail ?? 'Falha na sincronização'}</p>}
+                  {r.status === 'skipped' && <p className="text-xs text-yellow-600">{r.detail ?? 'Ignorado'}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Two-column layout with independent scroll */}
       <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-12rem)]">
