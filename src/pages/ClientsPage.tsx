@@ -102,10 +102,9 @@ export default function ClientsPage() {
   const getContractCount = (clientId: string) => 
     contracts.filter(c => c.clientId === clientId && (c.status === 'operacao' || c.status === 'implantacao')).length;
   
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId) {
-      deleteClient(deleteId);
-      toast.success('Cliente excluído com sucesso');
+      await deleteClient(deleteId);
       setDeleteId(null);
     }
   };
