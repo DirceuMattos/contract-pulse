@@ -11,6 +11,7 @@ import { Trash2, Plus, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PAINEL_STATUSES, PAINEL_STATUS_COLORS, type PainelStatus } from '@/lib/reportSectionSchemas';
 import type { ReportSectionKey } from '@/types';
+import { useHR } from '@/contexts/HRContext';
 
 interface EditorProps {
   content: Record<string, any>;
@@ -50,6 +51,10 @@ function CapaEditor({ content, onChange, readOnly, meta }: EditorProps) {
   const projeto = content.projeto || meta?.contractName || '';
   const cliente = content.cliente || meta?.clientName || '';
   const numeroContrato = content.numeroContrato || meta?.contractNumber || '';
+  const { hrPeople } = useHR();
+  const activeRH = hrPeople
+    .filter(p => p.situacao === 'ativo')
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
   return (
     <div className="space-y-3 max-w-2xl">
@@ -72,8 +77,24 @@ function CapaEditor({ content, onChange, readOnly, meta }: EditorProps) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><Label>Criado por</Label><Input value={content.criadoPor ?? ''} onChange={(e) => onChange({ ...content, criadoPor: e.target.value })} disabled={readOnly} /></div>
-        <div><Label>Revisado por</Label><Input value={content.revisadoPor ?? ''} onChange={(e) => onChange({ ...content, revisadoPor: e.target.value })} disabled={readOnly} /></div>
+        <div>
+          <Label>Criado por</Label>
+          <Select value={content.criadoPor ?? ''} onValueChange={(v) => onChange({ ...content, criadoPor: v })} disabled={readOnly}>
+            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              {activeRH.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Revisado por</Label>
+          <Select value={content.revisadoPor ?? ''} onValueChange={(v) => onChange({ ...content, revisadoPor: v })} disabled={readOnly}>
+            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent>
+              {activeRH.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div>
         <Label>Número do contrato</Label>
