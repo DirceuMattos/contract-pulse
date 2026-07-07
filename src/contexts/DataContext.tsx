@@ -249,6 +249,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setClients(prev => prev.filter(c => c.id !== id));
     const { error } = await supabase.from('clients').delete().eq('id', id);
     if (error) { setClients(snapshot); handleError(error, 'Erro ao excluir cliente.'); }
+    else toast({ title: 'Cliente excluído com sucesso' });
   }, [clients, contracts, handleError]);
 
   const getClient = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
