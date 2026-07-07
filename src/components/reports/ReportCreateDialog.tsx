@@ -1,12 +1,12 @@
-// v2 - better error handling
-import { useState } from 'react';
+// v3 - replicacao de secoes manuais do mes anterior
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, Copy } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,13 @@ interface Props {
   triggerLabel?: string;
 }
 
+interface PreviousReport {
+  id: string;
+  month: number;
+  year: number;
+  manualSectionsCount: number;
+}
+
 export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) {
   const { contracts } = useData();
   const { user } = useAuth();
@@ -36,8 +43,66 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [loading, setLoading] = useState(false);
+  const [previousReport, setPreviousReport] = useState<PreviousReport | null>(null);
+  const [copyManual, setCopyManual] = useState(true);
+  const [loadingPrevious, setLoadingPrevious] = useState(false);
 
   const activeContracts = contracts.filter((c) => c.status !== 'encerrado');
+
+  // Busca relatório anterior do mesmo contrato quando contrato ou mês/ano mudam
+  useEffect(() => {
+    if (!contractId) { setPreviousReport(null); return; }
+
+    const fetchPrevious = async () => {
+      setLoadingPrevious(true);
+      try {
+        // Busca todos os relatórios do contrato e pega o mais recente antes do mês selecionado
+        const { data } = await supabase
+          .from('monthly_reports')
+          .select('id, month, year')
+          .eq('contract_id', contractId)
+          .order('year', { ascending: false })
+          .order('month', { ascending: false });
+
+        if (!data || data.length === 0) { setPreviousReport(null); return; }
+
+        // Pega o relatório mais recente que seja anterior ao mês/ano selecionado
+        const prev = data.find((r: any) =>
+          r.year < year || (r.year === year && r.month < month)
+        );
+
+        if (!prev) { setPreviousReport(null); return; }
+
+        // Conta seções manuais com conteúdo
+        const { data: sections } = await supabase
+          .from('report_sections')
+          .select('source, content')
+          .eq('report_id', prev.id)
+          .eq('source', 'manual');
+
+        const manualWithContent = (sections ?? []).filter((s: any) => {
+          const content = s.content as Record<string, unknown>;
+          return content && Object.keys(content).some(k => {
+            const v = content[k];
+            return v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0);
+          });
+        });
+
+        setPreviousReport({
+          id: prev.id,
+          month: prev.month,
+          year: prev.year,
+          manualSectionsCount: manualWithContent.length,
+        });
+      } catch {
+        setPreviousReport(null);
+      } finally {
+        setLoadingPrevious(false);
+      }
+    };
+
+    fetchPrevious();
+  }, [contractId, month, year]);
 
   const handleCreate = async () => {
     if (!contractId) {
@@ -46,7 +111,6 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
     }
     setLoading(true);
     try {
-      // Fetch config (if exists) to know which sections to create
       const { data: configRow } = await supabase
         .from('report_template_configs')
         .select('*')
@@ -65,14 +129,13 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
         .maybeSingle();
 
       if (existing) {
-        // Já existe — redirecionar direto
         toast({ title: 'Relatório já existe', description: `Redirecionando para ${MONTHS[month - 1]}/${year}` });
         setOpen(false);
         navigate(`/relatorios/${existing.id}`);
         return;
       }
 
-      // Create the report
+      // Criar o relatório
       const { data: reportRow, error: reportErr } = await supabase
         .from('monthly_reports')
         .insert({
@@ -90,17 +153,34 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
       if (reportErr) throw reportErr;
       const report = monthlyReportFromDb(reportRow);
 
-      // Create empty sections (filtering by config flags)
+      // Buscar seções manuais do relatório anterior se o usuário optou por copiar
+      let previousManualSections: Record<string, Record<string, unknown>> = {};
+      if (copyManual && previousReport) {
+        const { data: prevSections } = await supabase
+          .from('report_sections')
+          .select('section_key, content')
+          .eq('report_id', previousReport.id)
+          .eq('source', 'manual');
+
+        (prevSections ?? []).forEach((s: any) => {
+          previousManualSections[s.section_key] = s.content;
+        });
+      }
+
+      // Criar seções filtrando por config flags
       const activeSections = SECTION_META.filter((m) => {
         if (!m.configurable) return true;
-        if (!config) return true; // defaults: all active
+        if (!config) return true;
         return Boolean(config[m.configFlag!] as boolean);
       });
 
       const sectionRows = activeSections.map((m) => ({
         report_id: report.id,
         section_key: m.key,
-        content: defaultsForSection(m.key) as any,
+        // Se for manual e tiver conteúdo do mês anterior, usa ele; senão usa default
+        content: (m.source === 'manual' && previousManualSections[m.key])
+          ? previousManualSections[m.key] as any
+          : defaultsForSection(m.key) as any,
         source: m.source,
       }));
 
@@ -109,7 +189,7 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
         if (secErr) throw secErr;
       }
 
-      // Disparar syncs em background — erros não bloqueiam a criação
+      // Disparar syncs em background
       try {
         const asanaIds = config?.asanaProjectIds?.length
           ? config.asanaProjectIds
@@ -130,15 +210,16 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
             },
           }).catch(() => {});
         }
-      } catch { /* syncs opcionais — ignorar erros */ }
+      } catch { /* syncs opcionais */ }
 
-      toast({ title: 'Relatório criado', description: `${MONTHS[month - 1]}/${year}` });
+      const copiedMsg = copyManual && previousReport && previousReport.manualSectionsCount > 0
+        ? ` · ${previousReport.manualSectionsCount} seção(ões) copiada(s) de ${MONTHS[previousReport.month - 1]}/${previousReport.year}`
+        : '';
+      toast({ title: 'Relatório criado', description: `${MONTHS[month - 1]}/${year}${copiedMsg}` });
       queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
       setOpen(false);
-      console.log('[ReportCreate] Relatório criado com sucesso:', report.id);
       navigate(`/relatorios/${report.id}`);
     } catch (err) {
-      console.error('[ReportCreate] Erro:', err);
       const msg = err instanceof Error ? err.message
         : typeof err === 'object' && err !== null && 'message' in err ? String((err as any).message)
         : typeof err === 'string' ? err
@@ -157,7 +238,7 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setContractId(''); setPreviousReport(null); setCopyManual(true); } }}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="w-4 h-4 mr-2" />
@@ -200,6 +281,55 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
               </Select>
             </div>
           </div>
+
+          {/* Painel de replicação do mês anterior */}
+          {contractId && !loadingPrevious && previousReport && previousReport.manualSectionsCount > 0 && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <Copy className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    Relatório anterior encontrado — {MONTHS[previousReport.month - 1]}/{previousReport.year}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    {previousReport.manualSectionsCount} seção(ões) com conteúdo manual disponível(is) para cópia.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCopyManual(true)}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium border transition-colors ${
+                    copyManual
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  Sim, copiar seções manuais
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCopyManual(false)}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium border transition-colors ${
+                    !copyManual
+                      ? 'bg-slate-600 text-white border-slate-600'
+                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  Não, começar do zero
+                </button>
+              </div>
+            </div>
+          )}
+
+          {contractId && loadingPrevious && (
+            <p className="text-xs text-muted-foreground">Verificando relatório anterior...</p>
+          )}
+
+          {contractId && !loadingPrevious && (!previousReport || previousReport.manualSectionsCount === 0) && (
+            <p className="text-xs text-muted-foreground">Nenhum relatório anterior com conteúdo manual encontrado.</p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>Cancelar</Button>
