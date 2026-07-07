@@ -117,12 +117,12 @@ function ReportsPageInner() {
     queryFn: async (): Promise<Map<string, Integrations>> => {
       const { data, error } = await supabase
         .from('report_template_configs')
-        .select('contract_id, asana_project_id, client_email_domain, milvus_client_names, azure_project');
+        .select('contract_id, asana_project_id, asana_project_ids, client_email_domain, milvus_client_names, azure_project');
       if (error) throw error;
       const map = new Map<string, Integrations>();
       (data ?? []).forEach((c: any) => {
         map.set(c.contract_id, {
-          asana: !!c.asana_project_id,
+          asana: !!c.asana_project_id || (Array.isArray(c.asana_project_ids) && c.asana_project_ids.length > 0),
           fireflies: !!c.client_email_domain,
           milvus: Array.isArray(c.milvus_client_names) && c.milvus_client_names.length > 0,
           azure: !!c.azure_project,
