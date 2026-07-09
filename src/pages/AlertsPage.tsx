@@ -205,6 +205,60 @@ export default function AlertsPage() {
         }
       />
       
+      {/* Deploy & Infra Health */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Saúde do Deploy & Infra</CardTitle>
+          <Button variant="ghost" size="sm" onClick={() => checkNow()} className="gap-2 h-8">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Verificar agora
+          </Button>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              'w-3 h-3 rounded-full shrink-0',
+              deployStatus.uptime === 'ok' && 'bg-health-healthy animate-pulse',
+              deployStatus.uptime === 'down' && 'bg-health-critical',
+              deployStatus.uptime === 'checking' && 'bg-muted-foreground/40',
+            )} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Uptime (Site)</p>
+              <p className="text-xs text-muted-foreground">
+                {deployStatus.uptime === 'ok' && `Online · ${deployStatus.uptimeLatencyMs}ms`}
+                {deployStatus.uptime === 'down' && `Offline (${deployStatus.consecutiveFailures.uptime}x)`}
+                {deployStatus.uptime === 'checking' && 'Verificando...'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              'w-3 h-3 rounded-full shrink-0',
+              deployStatus.backend === 'ok' && 'bg-health-healthy animate-pulse',
+              deployStatus.backend === 'down' && 'bg-health-critical',
+              deployStatus.backend === 'checking' && 'bg-muted-foreground/40',
+            )} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Backend (Cloud)</p>
+              <p className="text-xs text-muted-foreground">
+                {deployStatus.backend === 'ok' && `Operacional · ${deployStatus.backendLatencyMs}ms`}
+                {deployStatus.backend === 'down' && `Indisponível (${deployStatus.consecutiveFailures.backend}x)`}
+                {deployStatus.backend === 'checking' && 'Verificando...'}
+              </p>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <p className="font-medium text-foreground mb-1">Monitoramento ativo</p>
+            <p>Health check a cada 5 min. Alertas críticos aparecem no sino e como notificação no navegador.</p>
+            {deployStatus.lastCheck && (
+              <p className="mt-1 opacity-70">
+                Última: {new Date(deployStatus.lastCheck).toLocaleTimeString('pt-BR')}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-l-4 border-l-health-critical">
