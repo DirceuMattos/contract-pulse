@@ -14,6 +14,8 @@ import {
   Settings
 } from 'lucide-react';
 import { useAlerts } from '@/hooks/useAlerts';
+import { useDeployMonitoring } from '@/hooks/useDeployMonitoring';
+import { useNotificationContext } from '@/contexts/NotificationContext';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
