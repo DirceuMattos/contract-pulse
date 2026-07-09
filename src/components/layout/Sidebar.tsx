@@ -113,12 +113,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Ajuda',
-    icon: HelpCircle,
-    items: [
-      { path: '/ajuda', label: 'Central de Ajuda', icon: BookOpen },
-      { path: '/ajuda/relatorios', label: 'Relatórios Mensais', icon: FileBarChart2 },
-    ],
+    items: [{ path: '/ajuda', label: 'Ajuda', icon: HelpCircle }],
   },
 ];
 
