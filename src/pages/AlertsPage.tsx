@@ -44,6 +44,9 @@ const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'governanca-contatos': <Users className="w-5 h-5" />,
   'renovacao-proxima': <Calendar className="w-5 h-5" />,
   'hr-links-quebrados': <Users className="w-5 h-5" />,
+  'deploy-uptime': <RefreshCw className="w-5 h-5" />,
+  'deploy-backend': <RefreshCw className="w-5 h-5" />,
+  'deploy-build': <RefreshCw className="w-5 h-5" />,
 };
 
 const alertTypeLabels: Record<AlertType, string> = {
