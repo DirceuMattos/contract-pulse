@@ -46,6 +46,9 @@ const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'governanca-contatos': <Users className="w-4 h-4" />,
   'renovacao-proxima': <Calendar className="w-4 h-4" />,
   'hr-links-quebrados': <Users className="w-4 h-4" />,
+  'deploy-uptime': <RefreshCw className="w-4 h-4" />,
+  'deploy-backend': <RefreshCw className="w-4 h-4" />,
+  'deploy-build': <RefreshCw className="w-4 h-4" />,
 };
 
 interface NotificationItemProps {
