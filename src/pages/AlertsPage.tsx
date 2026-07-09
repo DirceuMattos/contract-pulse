@@ -85,6 +85,10 @@ export default function AlertsPage() {
   const { alerts, criticalCount, warningCount, totalCount } = useAlerts();
   const { getContract, getClient, settings } = useData();
   const { canViewValues } = useAuth();
+  const { processAlerts } = useNotificationContext();
+  const { status: deployStatus, checkNow } = useDeployMonitoring((alert) => {
+    processAlerts([alert]);
+  });
 
   const [filterType, setFilterType] = useState<AlertType | 'all'>('all');
   const [filterSeverity, setFilterSeverity] = useState<AlertSeverity | 'all'>('all');
