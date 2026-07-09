@@ -241,7 +241,10 @@ export type AlertType =
   | 'vigencia-vencido'
   | 'governanca-contatos'
   | 'renovacao-proxima'
-  | 'hr-links-quebrados';
+  | 'hr-links-quebrados'
+  | 'deploy-uptime'
+  | 'deploy-backend'
+  | 'deploy-build';
 
 export type AlertSeverity = 'atencao' | 'critico' | 'info';
 
