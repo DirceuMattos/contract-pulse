@@ -1,3 +1,4 @@
+// app-version: 2026-07-09-v2
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
