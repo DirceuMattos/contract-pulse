@@ -29,6 +29,7 @@ import {
   Cog,
   FileBarChart2,
   Lock,
+  BookOpen,
 } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
@@ -112,7 +113,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    items: [{ path: '/ajuda', label: 'Ajuda', icon: HelpCircle }],
+    label: 'Ajuda',
+    icon: HelpCircle,
+    items: [
+      { path: '/ajuda', label: 'Central de Ajuda', icon: BookOpen },
+      { path: '/ajuda/relatorios', label: 'Relatórios Mensais', icon: FileBarChart2 },
+    ],
   },
 ];
 
