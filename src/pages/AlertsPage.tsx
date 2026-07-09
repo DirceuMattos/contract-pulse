@@ -61,6 +61,9 @@ const alertTypeLabels: Record<AlertType, string> = {
   'governanca-contatos': 'Contatos Incompletos',
   'renovacao-proxima': 'Renovação Próxima',
   'hr-links-quebrados': 'Vínculos RH Quebrados',
+  'deploy-uptime': 'Site Offline (Uptime)',
+  'deploy-backend': 'Backend Indisponível',
+  'deploy-build': 'Falha de Build/Deploy',
 };
 
 const severityColors: Record<AlertSeverity, string> = {
