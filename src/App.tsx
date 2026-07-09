@@ -15,6 +15,8 @@ import { HRProvider } from "@/contexts/HRContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
+import HelpPage from "@/pages/HelpPage";
+import HelpReportsPage from "@/pages/HelpReportsPage";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import ClientFormPage from "@/pages/ClientFormPage";
@@ -121,7 +123,8 @@ const App = () => (
                           
                           
                           
-                          <Route path="/ajuda" element={<DashboardPage />} />
+                          <Route path="/ajuda" element={<HelpPage />} />
+                          <Route path="/ajuda/relatorios" element={<HelpReportsPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>
