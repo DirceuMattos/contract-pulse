@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { AuthError, requireAnyRole } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,9 +25,6 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  // --- Auth check ---
-  const authHeader = req.headers.get("Authorization");
 
   // Admin client (service role) for admin operations
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -55,31 +53,17 @@ Deno.serve(async (req) => {
     return await handleSeedTeamsJobTitles(adminClient);
   }
 
-  // All other actions require c-level auth
-  if (!authHeader?.startsWith("Bearer ")) {
-    return err("Unauthorized", 401);
-  }
-
-  // Decodifica o JWT para obter o user id sem depender de getClaims/getUser
-  const token = authHeader.replace("Bearer ", "");
+  // All other actions require a valid authenticated c-level or superadmin user.
   let callerId: string;
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    callerId = payload.sub as string;
-    if (!callerId) throw new Error("no sub");
-  } catch {
+    const caller = await requireAnyRole(req, adminClient, ["c-level", "superadmin"]);
+    callerId = caller.id;
+  } catch (authError) {
+    if (authError instanceof AuthError) {
+      return err(authError.message, authError.status);
+    }
+    console.error("Auth check failed:", authError);
     return err("Unauthorized", 401);
-  }
-
-  // Verify caller is c-level
-  const { data: callerRole } = await adminClient
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", callerId)
-    .single();
-
-  if (callerRole?.role !== "c-level" && callerRole?.role !== "superadmin") {
-    return err("Forbidden: only c-level or superadmin users can manage users", 403);
   }
 
   switch (action) {
@@ -107,8 +91,12 @@ async function handleSeedAdmin(
   body: Record<string, unknown>
 ) {
   const email = (body.email as string) || "admin@bnp.com.br";
-  const password = (body.password as string) || "admin123";
+  const password = typeof body.password === "string" ? body.password : "";
   const name = (body.name as string) || "Administrador";
+
+  if (password.length < 12) {
+    return err("Seed admin requires an explicit password with at least 12 characters.", 400);
+  }
 
   // Check if any c-level user exists
   const { data: existing } = await admin
