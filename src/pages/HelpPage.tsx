@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronRight, FileBarChart2 } from 'lucide-react';
+import { BookOpen, ChevronRight, FileBarChart2, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 const TUTORIALS = [
@@ -9,6 +9,13 @@ const TUTORIALS = [
     title: 'Relatórios Mensais',
     description: 'Como criar, editar, sincronizar e exportar relatórios mensais dos contratos.',
     topics: ['Criar relatório', 'Editar seções', 'Sincronizar dados', 'Fluxo de status', 'Gerar PPTX'],
+  },
+  {
+    path: '/ajuda/squads',
+    icon: Users,
+    title: 'Squads',
+    description: 'Como atualizar equipes, gerenciar subprojetos e alocar membros por frente de trabalho.',
+    topics: ['Editar alocação', 'Subprojetos', 'Criar subprojeto', 'Alocar membros', 'Remover alocação'],
   },
 ];
 
