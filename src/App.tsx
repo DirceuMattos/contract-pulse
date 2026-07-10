@@ -19,6 +19,8 @@ import DashboardPage from "@/pages/DashboardPage";
 import HelpPage from "@/pages/HelpPage";
 import HelpReportsPage from "@/pages/HelpReportsPage";
 import HelpSquadsPage from "@/pages/HelpSquadsPage";
+import HelpClientsPage from "@/pages/HelpClientsPage";
+import HelpContractsPage from "@/pages/HelpContractsPage";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import ClientFormPage from "@/pages/ClientFormPage";
@@ -128,6 +130,8 @@ const App = () => (
                           <Route path="/ajuda" element={<HelpPage />} />
                           <Route path="/ajuda/relatorios" element={<HelpReportsPage />} />
                           <Route path="/ajuda/squads" element={<HelpSquadsPage />} />
+                          <Route path="/ajuda/clientes" element={<HelpClientsPage />} />
+                          <Route path="/ajuda/contratos" element={<HelpContractsPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>
