@@ -427,7 +427,7 @@ export default function ReportEditPage() {
     const prev = report.status;
     const patch: Record<string, unknown> = { status: next };
     if (next === 'published') patch.published_at = new Date().toISOString();
-    const { error } = await supabase.from('monthly_reports').update(patch).eq('id', report.id);
+    const { error } = await supabase.from('monthly_reports').update(patch as any).eq('id', report.id);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
       return;

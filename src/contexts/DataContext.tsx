@@ -231,7 +231,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const merged = { ...prev, ...data };
     const dbData: Record<string, unknown> = clientToDb(merged);
     setClients(prevList => prevList.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
-    const { error } = await supabase.from('clients').update(dbData).eq('id', id);
+    const { error } = await supabase.from('clients').update(dbData as any).eq('id', id);
     if (error) { setClients(prevList => prevList.map(c => c.id === id ? prev : c)); handleError(error, 'Erro ao atualizar cliente.'); }
   }, [clients, handleError]);
 
@@ -270,7 +270,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const dbData = contractToDb(merged);
     if (data.ultimaAtualizacaoRecursos) dbData.ultima_atualizacao_recursos = data.ultimaAtualizacaoRecursos;
     setContracts(prevList => prevList.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
-    const { error } = await supabase.from('contracts').update(dbData).eq('id', id);
+    const { error } = await supabase.from('contracts').update(dbData as any).eq('id', id);
     if (error) { setContracts(prevList => prevList.map(c => c.id === id ? prev : c)); handleError(error, 'Erro ao atualizar contrato.'); }
   }, [contracts, handleError]);
 
@@ -320,7 +320,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     const merged = { ...prev, ...data };
     setResources(prevList => prevList.map(r => r.id === id ? { ...r, ...data, updatedAt: new Date().toISOString() } : r));
-    const { error } = await supabase.from('resources').update(resourceToDb(merged)).eq('id', id);
+    const { error } = await supabase.from('resources').update(resourceToDb(merged) as any).eq('id', id);
     if (error) { setResources(prevList => prevList.map(r => r.id === id ? prev : r)); handleError(error, 'Erro ao atualizar recurso.'); }
     else await updateContract(prev.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
   }, [resources, handleError, updateContract]);
@@ -349,7 +349,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const prev = settings;
     setSettings(s => ({ ...s, ...data }));
     if (settingsId) {
-      const { error } = await supabase.from('settings').update(settingsToDb(data)).eq('id', settingsId);
+      const { error } = await supabase.from('settings').update(settingsToDb(data) as any).eq('id', settingsId);
       if (error) { setSettings(prev); handleError(error, 'Erro ao atualizar configurações.'); }
     }
   }, [settings, settingsId, handleError]);
@@ -382,7 +382,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!prev) return;
     const merged = { ...prev, ...data };
     setOverheadItems(prevList => prevList.map(o => o.id === id ? { ...o, ...data, updatedAt: new Date().toISOString() } : o));
-    const { error } = await supabase.from('overhead_items').update(overheadToDb(merged)).eq('id', id);
+    const { error } = await supabase.from('overhead_items').update(overheadToDb(merged) as any).eq('id', id);
     if (error) { setOverheadItems(prevList => prevList.map(o => o.id === id ? prev : o)); handleError(error, 'Erro ao atualizar overhead.'); }
   }, [overheadItems, handleError]);
 
@@ -408,7 +408,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!prev) return;
     const merged = { ...prev, ...data };
     setHistoryEvents(prevList => prevList.map(e => e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e));
-    const { error } = await supabase.from('history_events').update(historyEventToDb(merged)).eq('id', id);
+    const { error } = await supabase.from('history_events').update(historyEventToDb(merged) as any).eq('id', id);
     if (error) { setHistoryEvents(prevList => prevList.map(e => e.id === id ? prev : e)); handleError(error, 'Erro ao atualizar evento.'); }
   }, [historyEvents, handleError]);
 
@@ -436,7 +436,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (data.descriptionType !== undefined) dbData.description_type = data.descriptionType;
     if (data.descriptionText !== undefined) dbData.description_text = data.descriptionText;
     if (data.notes !== undefined) dbData.notes = data.notes;
-    const { error } = await supabase.from('document_attachments').update(dbData).eq('id', id);
+    const { error } = await supabase.from('document_attachments').update(dbData as any).eq('id', id);
     if (error) { handleError(error, 'Erro ao atualizar anexo.'); return; }
     setAttachments(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
   }, [handleError]);
@@ -466,7 +466,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const prev = attachmentConfigs.find(c => c.id === id)!;
     if (!prev) return;
     setAttachmentConfigs(prevList => prevList.map(c => c.id === id ? { ...c, ...data } : c));
-    const { error } = await supabase.from('attachment_description_configs').update(attachmentConfigToDb({ ...prev, ...data })).eq('id', id);
+    const { error } = await supabase.from('attachment_description_configs').update(attachmentConfigToDb({ ...prev, ...data }) as any).eq('id', id);
     if (error) { setAttachmentConfigs(prevList => prevList.map(c => c.id === id ? prev : c)); handleError(error, 'Erro ao atualizar configuração.'); }
   }, [attachmentConfigs, handleError]);
 
@@ -486,7 +486,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const prev = jobTitles.find(jt => jt.id === id)!;
     if (!prev) return;
     setJobTitles(prevList => prevList.map(jt => jt.id === id ? { ...jt, ...data } : jt));
-    const { error } = await supabase.from('job_titles').update(jobTitleToDb({ ...prev, ...data })).eq('id', id);
+    const { error } = await supabase.from('job_titles').update(jobTitleToDb({ ...prev, ...data }) as any).eq('id', id);
     if (error) { setJobTitles(prevList => prevList.map(jt => jt.id === id ? prev : jt)); handleError(error, 'Erro ao atualizar cargo.'); }
   }, [jobTitles, handleError]);
 
@@ -512,7 +512,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const prev = teams.find(t => t.id === id)!;
     if (!prev) return;
     setTeams(prevList => prevList.map(t => t.id === id ? { ...t, ...data } : t));
-    const { error } = await supabase.from('teams').update(teamToDb({ ...prev, ...data })).eq('id', id);
+    const { error } = await supabase.from('teams').update(teamToDb({ ...prev, ...data }) as any).eq('id', id);
     if (error) { setTeams(prevList => prevList.map(t => t.id === id ? prev : t)); handleError(error, 'Erro ao atualizar equipe.'); }
   }, [teams, handleError]);
 
@@ -581,7 +581,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ]);
 
       if (settingsId) {
-        await supabase.from('settings').update(settingsToDb(defaultSettings)).eq('id', settingsId);
+        await supabase.from('settings').update(settingsToDb(defaultSettings) as any).eq('id', settingsId);
       }
 
       // Reload
@@ -628,7 +628,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const mappedJobTitles = defaultJobTitles.map(jt => ({
         ...jobTitleToDb({ ...jt, teamId: jt.teamId ? teamNameMap[jt.teamId] ?? jt.teamId : undefined }),
       }));
-      await supabase.from('job_titles').insert(mappedJobTitles);
+      await supabase.from('job_titles').insert(mappedJobTitles as any);
       const { data: jtData } = await supabase.from('job_titles').select('*').order('label');
       setJobTitles((jtData ?? []).map(r => jobTitleFromDb(r as unknown as Record<string, unknown>)));
       setTeams((newTeams ?? []).map(r => teamFromDb(r as unknown as Record<string, unknown>)));
