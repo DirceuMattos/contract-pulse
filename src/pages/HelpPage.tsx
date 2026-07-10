@@ -4,20 +4,6 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const TUTORIALS = [
   {
-    path: '/ajuda/relatorios',
-    icon: FileBarChart2,
-    title: 'Relatórios Mensais',
-    description: 'Como criar, editar, sincronizar e exportar relatórios mensais dos contratos.',
-    topics: ['Criar relatório', 'Editar seções', 'Sincronizar dados', 'Fluxo de status', 'Gerar PPTX'],
-  },
-  {
-    path: '/ajuda/squads',
-    icon: Users,
-    title: 'Squads',
-    description: 'Como atualizar equipes, gerenciar subprojetos e alocar membros por frente de trabalho.',
-    topics: ['Editar alocação', 'Subprojetos', 'Criar subprojeto', 'Alocar membros', 'Remover alocação'],
-  },
-  {
     path: '/ajuda/clientes',
     icon: Building2,
     title: 'Clientes',
@@ -30,6 +16,20 @@ const TUTORIALS = [
     title: 'Contratos',
     description: 'Como criar e gerenciar contratos, equipes, saúde financeira e alertas.',
     topics: ['Criar contrato', 'Indicadores de saúde', 'Filtros', 'Recursos', 'Status'],
+  },
+  {
+    path: '/ajuda/relatorios',
+    icon: FileBarChart2,
+    title: 'Relatórios Mensais',
+    description: 'Como criar, editar, sincronizar e exportar relatórios mensais dos contratos.',
+    topics: ['Criar relatório', 'Editar seções', 'Sincronizar dados', 'Fluxo de status', 'Gerar PPTX'],
+  },
+  {
+    path: '/ajuda/squads',
+    icon: Users,
+    title: 'Squads',
+    description: 'Como atualizar equipes, gerenciar subprojetos e alocar membros por frente de trabalho.',
+    topics: ['Editar alocação', 'Subprojetos', 'Criar subprojeto', 'Alocar membros', 'Remover alocação'],
   },
 ];
 
