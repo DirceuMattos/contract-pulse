@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronRight, FileBarChart2, Users } from 'lucide-react';
+import { BookOpen, ChevronRight, FileBarChart2, Users, Building2, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 const TUTORIALS = [
@@ -16,6 +16,20 @@ const TUTORIALS = [
     title: 'Squads',
     description: 'Como atualizar equipes, gerenciar subprojetos e alocar membros por frente de trabalho.',
     topics: ['Editar alocação', 'Subprojetos', 'Criar subprojeto', 'Alocar membros', 'Remover alocação'],
+  },
+  {
+    path: '/ajuda/clientes',
+    icon: Building2,
+    title: 'Clientes',
+    description: 'Como cadastrar, editar e gerenciar a base de clientes da BNP.',
+    topics: ['Cadastrar cliente', 'Editar dados', 'Upload de logo', 'Segmentos', 'Excluir cliente'],
+  },
+  {
+    path: '/ajuda/contratos',
+    icon: FileText,
+    title: 'Contratos',
+    description: 'Como criar e gerenciar contratos, equipes, saúde financeira e alertas.',
+    topics: ['Criar contrato', 'Indicadores de saúde', 'Filtros', 'Recursos', 'Status'],
   },
 ];
 
