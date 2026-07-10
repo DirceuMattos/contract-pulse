@@ -18,6 +18,7 @@ import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HelpPage from "@/pages/HelpPage";
 import HelpReportsPage from "@/pages/HelpReportsPage";
+import HelpSquadsPage from "@/pages/HelpSquadsPage";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import ClientFormPage from "@/pages/ClientFormPage";
@@ -126,6 +127,7 @@ const App = () => (
                           
                           <Route path="/ajuda" element={<HelpPage />} />
                           <Route path="/ajuda/relatorios" element={<HelpReportsPage />} />
+                          <Route path="/ajuda/squads" element={<HelpSquadsPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>
