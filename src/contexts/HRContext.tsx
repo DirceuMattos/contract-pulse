@@ -87,7 +87,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
     if (!prev) return;
     const merged = { ...prev, ...data };
     setHrPeople(prevList => prevList.map(p => p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p));
-    const { error } = await supabase.from('hr_people').update(hrPersonToDb(merged)).eq('id', id);
+    const { error } = await supabase.from('hr_people').update(hrPersonToDb(merged) as any).eq('id', id);
     if (error) { setHrPeople(prevList => prevList.map(p => p.id === id ? prev : p)); handleError(error, 'Erro ao atualizar pessoa.'); }
   }, [hrPeople, handleError]);
 
@@ -124,7 +124,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
     if (!prev) return;
     const merged = { ...prev, ...data };
     setHrTimeline(prevList => prevList.map(e => e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e));
-    const { error } = await supabase.from('hr_timeline').update(hrTimelineToDb(merged)).eq('id', id);
+    const { error } = await supabase.from('hr_timeline').update(hrTimelineToDb(merged) as any).eq('id', id);
     if (error) { setHrTimeline(prevList => prevList.map(e => e.id === id ? prev : e)); handleError(error, 'Erro ao atualizar evento.'); }
   }, [hrTimeline, handleError]);
 
