@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, FileText, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 interface Props {
   open: boolean;
@@ -13,133 +14,25 @@ interface Props {
   modelo?: '99corp' | 'uber';
 }
 
-// ─── ZIP entry extraction (cópia local do parser nativo do projeto) ────────────
-async function extractZipEntry(bytes: Uint8Array, name: string): Promise<Uint8Array | null> {
-  const nameBytes = new TextEncoder().encode(name);
-  for (let i = 0; i < bytes.length - 30; i++) {
-    if (bytes[i] !== 0x50 || bytes[i + 1] !== 0x4b || bytes[i + 2] !== 0x03 || bytes[i + 3] !== 0x04) continue;
-    const compressionMethod = bytes[i + 8] | (bytes[i + 9] << 8);
-    const compSize = bytes[i + 18] | (bytes[i + 19] << 8) | (bytes[i + 20] << 16) | (bytes[i + 21] << 24);
-    const nameLen = bytes[i + 26] | (bytes[i + 27] << 8);
-    const extraLen = bytes[i + 28] | (bytes[i + 29] << 8);
-    const entryName = bytes.slice(i + 30, i + 30 + nameLen);
-    if (entryName.length !== nameBytes.length || !entryName.every((b, j) => b === nameBytes[j])) continue;
-    const dataStart = i + 30 + nameLen + extraLen;
-    const rawData = bytes.slice(dataStart, dataStart + compSize);
-    if (compressionMethod === 0) return rawData;
-    if (compressionMethod === 8) {
-      let ds: DecompressionStream;
-      let inputData: Uint8Array = rawData;
-      try {
-        ds = new DecompressionStream('deflate-raw' as CompressionFormat);
-      } catch {
-        ds = new DecompressionStream('deflate');
-        const withHeader = new Uint8Array(rawData.length + 2);
-        withHeader[0] = 0x78;
-        withHeader[1] = 0x01;
-        withHeader.set(rawData, 2);
-        inputData = withHeader;
-      }
-      const writer = ds.writable.getWriter();
-      writer.write(inputData as any);
-      writer.close();
-      const reader = ds.readable.getReader();
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      const total = chunks.reduce((s, c) => s + c.length, 0);
-      const out = new Uint8Array(total);
-      let off = 0;
-      for (const c of chunks) {
-        out.set(c, off);
-        off += c.length;
-      }
-      return out;
-    }
-    return null;
-  }
-  return null;
-}
-
-// ─── XLSX parser ───────────────────────────────────────────────────────────────
+// ─── XLSX parser (SheetJS) ────────────────────────────────────────────────────
 async function parseXlsx(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
   const ab = await file.arrayBuffer();
-  const bytes = new Uint8Array(ab);
-  const dec = new TextDecoder();
-  const dom = new DOMParser();
+  const wb = XLSX.read(ab, { type: 'array', cellText: false, cellDates: false });
 
-  // Encontrar a sheet
-  const wbRaw = await extractZipEntry(bytes, 'xl/workbook.xml');
-  const relsRaw = await extractZipEntry(bytes, 'xl/_rels/workbook.xml.rels');
-  let sheetPath = 'xl/worksheets/sheet1.xml';
-  if (wbRaw && relsRaw) {
-    const wbDoc = dom.parseFromString(dec.decode(wbRaw), 'application/xml');
-    const relsDoc = dom.parseFromString(dec.decode(relsRaw), 'application/xml');
-    const sheets = Array.from(wbDoc.getElementsByTagName('sheet'));
-    const target =
-      sheets.find((s) => (s.getAttribute('name') || '').toLowerCase() === 'matrizmovimentototal') || sheets[0];
-    if (target) {
-      const rid = target.getAttribute('r:id') || target.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
-      const rels = Array.from(relsDoc.getElementsByTagName('Relationship'));
-      const rel = rels.find((r) => r.getAttribute('Id') === rid);
-      const targetAttr = rel?.getAttribute('Target') || '';
-      if (targetAttr) {
-        sheetPath = targetAttr.startsWith('/') ? targetAttr.slice(1) : `xl/${targetAttr.replace(/^\.\//, '')}`;
-      }
-    }
-  }
+  // Preferir sheet MatrizMovimentoTotal, senão a primeira
+  const sheetName =
+    wb.SheetNames.find((n) => n.toLowerCase() === 'matrizmovimentototal') ||
+    wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  if (!ws) throw new Error('Arquivo XLSX inválido — nenhuma sheet encontrada');
 
-  const [ssRaw, sheetRaw] = await Promise.all([
-    extractZipEntry(bytes, 'xl/sharedStrings.xml'),
-    extractZipEntry(bytes, sheetPath),
-  ]);
-  if (!sheetRaw) throw new Error('Arquivo XLSX inválido');
+  const raw: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+  if (!raw.length) return { headers: [], rows: [] };
 
-  const shared: string[] = [];
-  if (ssRaw) {
-    const ssDoc = dom.parseFromString(dec.decode(ssRaw), 'application/xml');
-    ssDoc.querySelectorAll('si').forEach((si) => {
-      const ts = si.querySelectorAll('t');
-      shared.push(Array.from(ts).map((t) => t.textContent ?? '').join(''));
-    });
-  }
-
-  const sheetDoc = dom.parseFromString(dec.decode(sheetRaw), 'application/xml');
-  const rowEls = Array.from(sheetDoc.querySelectorAll('row'));
-  if (!rowEls.length) return { headers: [], rows: [] };
-
-  const colIdx = (ref: string) => {
-    const m = ref.match(/^([A-Z]+)/);
-    if (!m) return 0;
-    let n = 0;
-    for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
-    return n - 1;
-  };
-  const cellValue = (c: Element): string => {
-    const t = c.getAttribute('t');
-    if (t === 's') return shared[parseInt(c.querySelector('v')?.textContent ?? '0', 10)] ?? '';
-    if (t === 'inlineStr') return c.querySelector('t')?.textContent ?? '';
-    return c.querySelector('v')?.textContent ?? '';
-  };
-  const parseRow = (r: Element): string[] => {
-    const out: string[] = [];
-    Array.from(r.querySelectorAll('c')).forEach((c) => {
-      const ref = c.getAttribute('r') || '';
-      const i = colIdx(ref);
-      while (out.length < i) out.push('');
-      out[i] = cellValue(c);
-    });
-    return out;
-  };
-
-  const headers = parseRow(rowEls[0]).map((h) => h.trim());
-  const rows = rowEls.slice(1).map((r) => {
-    const v = parseRow(r);
+  const headers = (raw[0] as string[]).map((h) => String(h ?? '').trim());
+  const rows = raw.slice(1).map((row) => {
     const o: Record<string, string> = {};
-    headers.forEach((h, i) => (o[h] = v[i] ?? ''));
+    headers.forEach((h, i) => (o[h] = String((row as string[])[i] ?? '').trim()));
     return o;
   }).filter((r) => Object.values(r).some((v) => v && v.trim() !== ''));
 
