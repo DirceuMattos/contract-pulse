@@ -1,24 +1,28 @@
-## Reorganização da lista de recursos do contrato
+## Exportar o banco via Lovable Cloud
 
-Na página `src/pages/ContractResourcesPage.tsx`, a seção "Recursos Alocados" lista hoje todos os recursos em uma única lista ordenada pelo dropdown "Ordenar por" (custo padrão). O requisito é garantir que **recursos humanos (CLT/PJ) apareçam sempre primeiro e em ordem alfabética**, e só depois os **demais recursos (Outros)** com a ordenação selecionável atual.
+Não preciso mexer em código — o próprio Lovable Cloud gera o dump completo do banco (schema + dados + policies + functions) num formato pronto para restaurar em outro projeto Supabase.
 
-### Mudança
+### Passo a passo
 
-Alterar a lógica de `.sort()` (linhas ~596–611) e da renderização da lista (lines ~587–766) para:
+1. Abra a aba **Cloud** no topo do editor (ao lado de Preview/Code).
+2. Vá em **Advanced settings**.
+3. Clique em **Export data**.
+4. Aguarde a preparação — o Cloud notifica quando o arquivo estiver pronto para download.
 
-1. **Particionar** os recursos filtrados em dois grupos:
-   - `hrResources`: `tipo === 'clt' || tipo === 'pj'`
-   - `otherResources`: `tipo === 'outro'`
-2. **Ordenar `hrResources`** sempre por nome (usando `resolveResource(...).nome.localeCompare(...)`, em pt-BR e case-insensitive), ignorando o valor do dropdown.
-3. **Ordenar `otherResources`** mantendo a lógica atual do dropdown `sortBy` (`custo` | `cargo` | `nome` | `tipo`).
-4. **Renderizar `[...hrResources, ...otherResources]`** dentro do mesmo `AnimatePresence`, preservando os cards atuais, animações e a regra existente que oculta RH individual quando o contrato usa subprojetos (esse cenário continua intacto — o card resumo "Recursos Humanos (via Subprojetos)" permanece no topo, conforme confirmado).
+### O que vem no export
 
-### Detalhes técnicos
+- Schema completo do `public` (tabelas, colunas, constraints, sequences)
+- Todos os dados das ~50 tabelas listadas
+- RLS policies, functions (`has_role`, `handle_new_user`, etc.) e triggers
+- Enums (`app_role`) e tipos customizados
 
-- A função de comparação por nome deve usar `localeCompare(rb.nome, 'pt-BR', { sensitivity: 'base' })` para tratar acentos e maiúsculas/minúsculas corretamente.
-- O dropdown "Ordenar por" continua existindo e visível, mas passa a afetar **apenas** os recursos "Outros". Não vamos adicionar um aviso na UI para não poluir — o comportamento fica implícito (RH sempre alfabético).
-- Nenhuma mudança em cálculos, estilos, RBAC, banner de subprojetos ou no card de Overhead.
+### Restaurando no projeto Supabase de destino
 
-### Arquivo alterado
+- Use `psql` apontando para a connection string do projeto novo e rode o dump.
+- Buckets de storage (`contract-documents`, `ai-exports`, `hr-avatars`, `client-logos`) precisam ser recriados manualmente no destino e os arquivos re-enviados — o dump do banco não inclui os binários do Storage.
+- Secrets (Feedz, Superlogica, etc.) também precisam ser recadastrados no destino.
+- Usuários do `auth.users` só migram se você tiver acesso ao dashboard Supabase do destino para importar — no Lovable Cloud isso não é exposto.
 
-- `src/pages/ContractResourcesPage.tsx` — apenas a seção da lista de recursos (filtro/sort/map dentro do `AnimatePresence`).
+### Se o Export data falhar ou você precisar de algo específico
+
+Me avisa que eu faço fallback exportando tabela por tabela em CSV para `/mnt/documents/`.
