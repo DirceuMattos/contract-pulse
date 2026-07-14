@@ -20,29 +20,46 @@ function deriveSyncKey(item: Record<string, unknown>): string {
 }
 
 // Mescla a lista coletada com o content atual, preservando itens manuais.
+// Idempotente: re-sincronizar N vezes produz o mesmo resultado.
+// - TODOS os itens manuais do content atual são preservados (nunca removidos).
+// - Os itens de origem "sync" antigos são DESCARTADOS e substituídos pelos
+//   recém-coletados (dedup por syncKey), para não acumular cópias a cada sync.
 function mergeLinhas(
   currentContent: Record<string, unknown> | null | undefined,
   incoming: Record<string, unknown>[],
 ): Record<string, unknown>[] {
   const cur = (currentContent?.linhas ?? currentContent?.tarefas ?? []) as any[];
+
+  // 1. Preserva itens manuais, mantendo TODOS os campos (inclusive gid) e o syncKey imutável.
   const manualItems = cur
     .filter((it) => it?.origem === "manual")
     .map((it) => ({ ...it, origem: "manual", syncKey: it.syncKey ?? deriveSyncKey(it) }));
-  const syncItems = incoming.map((it) => ({ ...it, origem: "sync", syncKey: deriveSyncKey(it) }));
 
+  // 2. Itens do sync: dedup por syncKey (a fonte pode, em teoria, repetir).
+  const seenSync = new Set<string>();
+  const syncItems: any[] = [];
+  for (const it of incoming) {
+    const k = deriveSyncKey(it);
+    if (seenSync.has(k)) continue;
+    seenSync.add(k);
+    syncItems.push({ ...it, origem: "sync", syncKey: k });
+  }
+
+  // 3. Ordena agrupando por nome normalizado: manual antes do sync correspondente.
+  const norm = (it: any) => String(it.tarefa ?? it.nome ?? "").trim().toLowerCase();
   const order: string[] = [];
-  const byKey = new Map<string, any[]>();
+  const byName = new Map<string, any[]>();
   const push = (it: any) => {
-    const k = it.syncKey ?? deriveSyncKey(it);
-    if (!byKey.has(k)) { byKey.set(k, []); order.push(k); }
-    byKey.get(k)!.push(it);
+    const n = norm(it);
+    if (!byName.has(n)) { byName.set(n, []); order.push(n); }
+    byName.get(n)!.push(it);
   };
   manualItems.forEach(push);
   syncItems.forEach(push);
 
   const result: any[] = [];
-  for (const k of order) {
-    const group = byKey.get(k)!;
+  for (const n of order) {
+    const group = byName.get(n)!;
     group.sort((a, b) => (a.origem === "manual" ? -1 : 1) - (b.origem === "manual" ? -1 : 1));
     result.push(...group);
   }

@@ -1,4 +1,4 @@
-// v4 - merge-preserva-manual: piloto TaskTableEditor (entregas)
+// v5 - fix: merge idempotente, preserva gid e congela syncKey (manual nao some em re-syncs)
 import { useEffect, useRef, useState } from 'react';
 import { deriveSyncKey, markManualField, isManualField, type Origem } from '@/lib/reportMergeManual';
 import { Button } from '@/components/ui/button';
@@ -691,11 +691,13 @@ function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
 // Entregas / Priorizadas (table)
 // ============================================
 interface TaskRow {
+  gid?: string;
   tarefa: string;
   status: string;
   categoria: string;
   assignee: string;
   url?: string;
+  completed_at?: string;
   origem: Origem;
   syncKey: string;
 }
@@ -706,27 +708,35 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
   // (content.tarefas[].nome, sem origem) tratando itens sem origem como 'sync'.
   const rawLinhas = (content.linhas ?? content.tarefas ?? []) as any[];
   const linhas: TaskRow[] = rawLinhas.map((t: any) => {
-    const base = {
+    // syncKey é IMUTÁVEL: se o item já tem um, preserva-o sempre. Só deriva quando ausente.
+    const syncKey = t.syncKey ?? deriveSyncKey(t);
+    return {
+      gid: t.gid ?? undefined,
       tarefa: t.tarefa ?? t.nome ?? '',
       status: t.status ?? '',
       categoria: t.categoria ?? '',
       assignee: t.assignee ?? '',
       url: t.url ?? t.link ?? t.permalink_url ?? '',
-    };
-    return {
-      ...base,
+      completed_at: t.completed_at ?? undefined,
       origem: (t.origem as Origem) ?? 'sync',
-      syncKey: t.syncKey ?? deriveSyncKey(t),
+      syncKey,
     };
   });
 
   // Persiste sempre em `linhas`, some com `tarefas` (formato legado do sync no front).
   const persist = (next: TaskRow[]) => onChange({ ...content, linhas: next, tarefas: undefined });
 
-  // Editar/criar/remover é toque do usuário → item vira 'manual'.
+  // Editar um item do SYNC não muda o item do sync no lugar — cria uma cópia manual
+  // com syncKey próprio (manual:...), deixando o item do sync intacto ao lado.
+  // Isso garante que a re-sincronização nunca elimine a versão do usuário.
   const update = (i: number, patch: Partial<TaskRow>) => {
     const next = [...linhas];
-    next[i] = { ...next[i], ...patch, origem: 'manual' };
+    const cur = next[i];
+    if (cur.origem === 'sync') {
+      next[i] = { ...cur, ...patch, origem: 'manual', syncKey: `manual:${Date.now()}-${i}` };
+    } else {
+      next[i] = { ...cur, ...patch, origem: 'manual' };
+    }
     persist(next);
   };
   const remove = (i: number) => {
@@ -738,14 +748,18 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
     persist([...linhas, novo]);
   };
 
-  // Duplicatas: mesma syncKey com manual + sync. Marca a linha visualmente.
-  const dupKeys = new Set<string>();
-  const byKey = new Map<string, Set<Origem>>();
+  // Duplicatas: itens manuais e itens de sync com o mesmo "conteúdo" (nome) lado a lado.
+  // Agrupa por nome normalizado para o destaque visual, sem depender do syncKey.
+  const normNome = (s: string) => s.trim().toLowerCase();
+  const dupNames = new Set<string>();
+  const byName = new Map<string, Set<Origem>>();
   linhas.forEach((l) => {
-    if (!byKey.has(l.syncKey)) byKey.set(l.syncKey, new Set());
-    byKey.get(l.syncKey)!.add(l.origem);
+    const n = normNome(l.tarefa);
+    if (!n) return;
+    if (!byName.has(n)) byName.set(n, new Set());
+    byName.get(n)!.add(l.origem);
   });
-  byKey.forEach((origens, k) => { if (origens.has('manual') && origens.has('sync')) dupKeys.add(k); });
+  byName.forEach((origens, n) => { if (origens.has('manual') && origens.has('sync')) dupNames.add(n); });
 
   // Escalar `total`: se o usuário tocou, mostra seu valor × valor do sync.
   const totalUser = content.total;
@@ -754,7 +768,7 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
 
   return (
     <div className="space-y-3">
-      {dupKeys.size > 0 && (
+      {dupNames.size > 0 && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-2 text-xs flex gap-2 items-start">
           <span className="font-medium">⚠️ Itens duplicados destacados.</span>
           <span>A sincronização trouxe versões novas ao lado das suas. Revise e remova a que não deve permanecer.</span>
@@ -774,7 +788,7 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
           </thead>
           <tbody>
             {linhas.map((l, i) => {
-              const isDup = dupKeys.has(l.syncKey);
+              const isDup = dupNames.has(normNome(l.tarefa));
               return (
                 <tr key={i} className={cn('border-t', isDup && 'bg-amber-50/60')}>
                   <td className="p-1">
