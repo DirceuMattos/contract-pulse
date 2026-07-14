@@ -46,12 +46,18 @@ function mergeLinhas(
   }
 
   // 3. Ordena agrupando por nome normalizado: manual antes do sync correspondente.
-  const norm = (it: any) => String(it.tarefa ?? it.nome ?? "").trim().toLowerCase();
+  const norm = (it: any) =>
+    String(it.tarefa ?? it.nome ?? "")
+      .trim()
+      .toLowerCase();
   const order: string[] = [];
   const byName = new Map<string, any[]>();
   const push = (it: any) => {
     const n = norm(it);
-    if (!byName.has(n)) { byName.set(n, []); order.push(n); }
+    if (!byName.has(n)) {
+      byName.set(n, []);
+      order.push(n);
+    }
     byName.get(n)!.push(it);
   };
   manualItems.forEach(push);
@@ -385,10 +391,12 @@ serve(async (req) => {
       ...mergeScalar(entregaContent, "total", totalEntregas),
     };
 
-    await supabase.from("report_sections").upsert(
-      { report_id: reportId, section_key: "entregas", content: entregasMerged, source: "asana", synced_at: now },
-      { onConflict: "report_id,section_key" },
-    );
+    await supabase
+      .from("report_sections")
+      .upsert(
+        { report_id: reportId, section_key: "entregas", content: entregasMerged, source: "asana", synced_at: now },
+        { onConflict: "report_id,section_key" },
+      );
 
     // Demais seções: comportamento atual (serão migradas na Fase 2).
     const secoes = [
