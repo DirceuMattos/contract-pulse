@@ -804,7 +804,7 @@ export default function ReportEditPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Re-sincronizar seção?</AlertDialogTitle>
-            <AlertDialogDescription>Os dados atuais serão substituídos pelos dados mais recentes da fonte.</AlertDialogDescription>
+            <AlertDialogDescription>Seus dados inseridos manualmente serão mantidos. A sincronização trará os dados mais recentes da fonte ao lado dos seus — o que pode gerar itens duplicados para você revisar e ajustar.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>

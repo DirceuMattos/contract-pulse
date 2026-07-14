@@ -10,6 +10,59 @@ const FIELD_TAG_PRODUTO = "1212620863263948";
 const FIELD_TIPO = "1211693385884904";
 const FIELD_STATUS = "1144694301084828";
 
+// ── merge-preserva-manual (espelho de src/lib/reportMergeManual.ts) ──
+// Deno não importa de src/, então a lógica é replicada aqui. Manter em sincronia.
+function deriveSyncKey(item: Record<string, unknown>): string {
+  const gid = item.gid ?? item.id ?? item.task_id;
+  if (gid != null && String(gid).trim() !== "") return `gid:${String(gid)}`;
+  const nome = (item.tarefa ?? item.nome ?? "") as string;
+  return `nome:${nome.trim().toLowerCase()}`;
+}
+
+// Mescla a lista coletada com o content atual, preservando itens manuais.
+function mergeLinhas(
+  currentContent: Record<string, unknown> | null | undefined,
+  incoming: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const cur = (currentContent?.linhas ?? currentContent?.tarefas ?? []) as any[];
+  const manualItems = cur
+    .filter((it) => it?.origem === "manual")
+    .map((it) => ({ ...it, origem: "manual", syncKey: it.syncKey ?? deriveSyncKey(it) }));
+  const syncItems = incoming.map((it) => ({ ...it, origem: "sync", syncKey: deriveSyncKey(it) }));
+
+  const order: string[] = [];
+  const byKey = new Map<string, any[]>();
+  const push = (it: any) => {
+    const k = it.syncKey ?? deriveSyncKey(it);
+    if (!byKey.has(k)) { byKey.set(k, []); order.push(k); }
+    byKey.get(k)!.push(it);
+  };
+  manualItems.forEach(push);
+  syncItems.forEach(push);
+
+  const result: any[] = [];
+  for (const k of order) {
+    const group = byKey.get(k)!;
+    group.sort((a, b) => (a.origem === "manual" ? -1 : 1) - (b.origem === "manual" ? -1 : 1));
+    result.push(...group);
+  }
+  return result;
+}
+
+// Escalar: se o usuário tocou (_manualFields inclui `field`), preserva o valor
+// dele e grava o coletado em `field__sync`. Senão, atualiza direto.
+function mergeScalar(
+  currentContent: Record<string, unknown> | null | undefined,
+  field: string,
+  incomingValue: unknown,
+): Record<string, unknown> {
+  const mf = Array.isArray(currentContent?._manualFields) ? (currentContent!._manualFields as string[]) : [];
+  if (mf.includes(field)) {
+    return { [field]: currentContent?.[field], [`${field}__sync`]: incomingValue };
+  }
+  return { [field]: incomingValue };
+}
+
 // Nomes de seção reconhecidos (case-insensitive) para categorizar sem depender de GID fixo
 const SECTION_CONCLUIDO_NAMES = ["concluído", "concluido", "done", "entregue", "entregues", "concluídas", "concluidas"];
 const SECTION_EM_ANDAMENTO_NAMES = ["em andamento", "in progress", "fazendo", "doing", "em progresso"];
@@ -286,14 +339,42 @@ serve(async (req) => {
 
     // Salvar seções
     const now = new Date().toISOString();
+
+    // ── PILOTO merge-preserva-manual: seção "entregas" ──
+    // Lê o content atual, mescla listas (preserva itens manuais) e escalar `total`.
+    const { data: entregaAtual } = await supabase
+      .from("report_sections")
+      .select("content")
+      .eq("report_id", reportId)
+      .eq("section_key", "entregas")
+      .maybeSingle();
+    const entregaContent = (entregaAtual?.content ?? {}) as Record<string, unknown>;
+
+    // Normaliza itens do Asana para os nomes de campo do editor (tarefa/url).
+    const entregasIncoming = tarefasEntregas.map((t) => ({
+      gid: t.gid,
+      tarefa: t.nome,
+      status: t.status,
+      categoria: t.categoria,
+      assignee: t.assignee,
+      url: t.link,
+      completed_at: t.completed_at,
+    }));
+
+    const entregasMerged = {
+      ...entregaContent,
+      linhas: mergeLinhas(entregaContent, entregasIncoming),
+      tarefas: undefined, // consolida no formato `linhas`
+      ...mergeScalar(entregaContent, "total", totalEntregas),
+    };
+
+    await supabase.from("report_sections").upsert(
+      { report_id: reportId, section_key: "entregas", content: entregasMerged, source: "asana", synced_at: now },
+      { onConflict: "report_id,section_key" },
+    );
+
+    // Demais seções: comportamento atual (serão migradas na Fase 2).
     const secoes = [
-      {
-        report_id: reportId,
-        section_key: "entregas",
-        content: { tarefas: tarefasEntregas, total: totalEntregas },
-        source: "asana",
-        synced_at: now,
-      },
       {
         report_id: reportId,
         section_key: "priorizadas",

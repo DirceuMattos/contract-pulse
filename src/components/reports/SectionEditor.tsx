@@ -1,5 +1,6 @@
-// v3 - remove dedicacao + add observacoes
+// v4 - merge-preserva-manual: piloto TaskTableEditor (entregas)
 import { useEffect, useRef, useState } from 'react';
+import { deriveSyncKey, markManualField, isManualField, type Origem } from '@/lib/reportMergeManual';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { PAINEL_STATUSES, PAINEL_STATUS_COLORS, type PainelStatus } from '@/lib/reportSectionSchemas';
 import type { ReportSectionKey } from '@/types';
 import { useHR } from '@/contexts/HRContext';
+import { cn } from '@/lib/utils';
 
 interface EditorProps {
   content: Record<string, any>;
@@ -688,27 +690,81 @@ function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
 // ============================================
 // Entregas / Priorizadas (table)
 // ============================================
+interface TaskRow {
+  tarefa: string;
+  status: string;
+  categoria: string;
+  assignee: string;
+  url?: string;
+  origem: Origem;
+  syncKey: string;
+}
+
 function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
-  // Suporta formato Asana (tarefas[].nome) e formato manual (linhas[].tarefa)
-  const rawLinhas = content.linhas ?? content.tarefas ?? [];
-  const linhas: { tarefa: string; status: string; categoria: string; assignee: string; url?: string }[] = rawLinhas.map((t: any) => ({
-    tarefa: t.tarefa ?? t.nome ?? '',
-    status: t.status ?? '',
-    categoria: t.categoria ?? '',
-    assignee: t.assignee ?? '',
-    url: t.url ?? t.link ?? t.permalink_url ?? '',
-  }));
-  const update = (i: number, patch: Partial<typeof linhas[0]>) => {
+  // Formato unificado: após o merge-preserva-manual, as linhas vivem em `content.linhas`
+  // com { origem, syncKey }. Mantém retrocompatibilidade com o formato antigo
+  // (content.tarefas[].nome, sem origem) tratando itens sem origem como 'sync'.
+  const rawLinhas = (content.linhas ?? content.tarefas ?? []) as any[];
+  const linhas: TaskRow[] = rawLinhas.map((t: any) => {
+    const base = {
+      tarefa: t.tarefa ?? t.nome ?? '',
+      status: t.status ?? '',
+      categoria: t.categoria ?? '',
+      assignee: t.assignee ?? '',
+      url: t.url ?? t.link ?? t.permalink_url ?? '',
+    };
+    return {
+      ...base,
+      origem: (t.origem as Origem) ?? 'sync',
+      syncKey: t.syncKey ?? deriveSyncKey(t),
+    };
+  });
+
+  // Persiste sempre em `linhas`, some com `tarefas` (formato legado do sync no front).
+  const persist = (next: TaskRow[]) => onChange({ ...content, linhas: next, tarefas: undefined });
+
+  // Editar/criar/remover é toque do usuário → item vira 'manual'.
+  const update = (i: number, patch: Partial<TaskRow>) => {
     const next = [...linhas];
-    next[i] = { ...next[i], ...patch };
-    onChange({ ...content, linhas: next, tarefas: undefined });
+    next[i] = { ...next[i], ...patch, origem: 'manual' };
+    persist(next);
   };
+  const remove = (i: number) => {
+    // Remover é decisão do usuário e é respeitada — inclusive sobre itens do sync.
+    persist(linhas.filter((_, idx) => idx !== i));
+  };
+  const add = () => {
+    const novo: TaskRow = { tarefa: '', status: '', categoria: '', assignee: '', origem: 'manual', syncKey: `manual:${Date.now()}` };
+    persist([...linhas, novo]);
+  };
+
+  // Duplicatas: mesma syncKey com manual + sync. Marca a linha visualmente.
+  const dupKeys = new Set<string>();
+  const byKey = new Map<string, Set<Origem>>();
+  linhas.forEach((l) => {
+    if (!byKey.has(l.syncKey)) byKey.set(l.syncKey, new Set());
+    byKey.get(l.syncKey)!.add(l.origem);
+  });
+  byKey.forEach((origens, k) => { if (origens.has('manual') && origens.has('sync')) dupKeys.add(k); });
+
+  // Escalar `total`: se o usuário tocou, mostra seu valor × valor do sync.
+  const totalUser = content.total;
+  const totalSync = content.total__sync;
+  const totalTocado = isManualField(content, 'total') && totalSync !== undefined && totalSync !== totalUser;
+
   return (
     <div className="space-y-3">
+      {dupKeys.size > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-2 text-xs flex gap-2 items-start">
+          <span className="font-medium">⚠️ Itens duplicados destacados.</span>
+          <span>A sincronização trouxe versões novas ao lado das suas. Revise e remova a que não deve permanecer.</span>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border">
           <thead className="bg-muted">
             <tr>
+              <th className="p-2 text-left w-20">Origem</th>
               <th className="p-2 text-left">Tarefa</th>
               <th className="p-2 text-left w-32">Status</th>
               <th className="p-2 text-left w-40">Categoria</th>
@@ -717,26 +773,45 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
             </tr>
           </thead>
           <tbody>
-            {linhas.map((l, i) => (
-              <tr key={i} className="border-t">
-                <td className="p-1">
-                  <div className="flex items-center gap-1">
-                    <Input value={l.tarefa} onChange={(e) => update(i, { tarefa: e.target.value })} disabled={readOnly} />
-                    {l.url && <a href={l.url} target="_blank" rel="noreferrer"><ExternalLink className="w-3 h-3" /></a>}
-                  </div>
-                </td>
-                <td className="p-1"><Input value={l.status} onChange={(e) => update(i, { status: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.categoria} onChange={(e) => update(i, { categoria: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.assignee} onChange={(e) => update(i, { assignee: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1">
-                  {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i), tarefas: undefined })}><Trash2 className="w-4 h-4" /></Button>}
-                </td>
-              </tr>
-            ))}
+            {linhas.map((l, i) => {
+              const isDup = dupKeys.has(l.syncKey);
+              return (
+                <tr key={i} className={cn('border-t', isDup && 'bg-amber-50/60')}>
+                  <td className="p-1">
+                    <Badge variant="outline" className={cn('text-[10px] uppercase', l.origem === 'manual' ? 'border-emerald-400 text-emerald-600' : 'border-blue-400 text-blue-600')}>
+                      {l.origem === 'manual' ? 'Manual' : 'Sync'}
+                    </Badge>
+                  </td>
+                  <td className="p-1">
+                    <div className="flex items-center gap-1">
+                      <Input value={l.tarefa} onChange={(e) => update(i, { tarefa: e.target.value })} disabled={readOnly} />
+                      {l.url && <a href={l.url} target="_blank" rel="noreferrer"><ExternalLink className="w-3 h-3" /></a>}
+                    </div>
+                  </td>
+                  <td className="p-1"><Input value={l.status} onChange={(e) => update(i, { status: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1"><Input value={l.categoria} onChange={(e) => update(i, { categoria: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1"><Input value={l.assignee} onChange={(e) => update(i, { assignee: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1">
+                    {!readOnly && <Button variant="ghost" size="icon" onClick={() => remove(i)}><Trash2 className="w-4 h-4" /></Button>}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tarefa: '', status: '', categoria: '', assignee: '' }], tarefas: undefined })}>
+      {totalTocado && (
+        <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2 text-xs">
+          <span>Total — <strong>seu valor:</strong> {String(totalUser)} · <strong>sync trouxe:</strong> {String(totalSync)}</span>
+          {!readOnly && (
+            <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => {
+              const mf = (content._manualFields ?? []).filter((f: string) => f !== 'total');
+              onChange({ ...content, total: totalSync, total__sync: undefined, _manualFields: mf });
+            }}>Adotar valor do sync</Button>
+          )}
+        </div>
+      )}
+      {!readOnly && <Button variant="outline" size="sm" onClick={add}>
         <Plus className="w-4 h-4 mr-2" />Adicionar linha
       </Button>}
     </div>
