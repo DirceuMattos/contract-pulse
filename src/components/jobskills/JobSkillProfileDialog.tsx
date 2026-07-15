@@ -1,4 +1,4 @@
-// v1 - módulo Skills de Vagas: dialog de CRUD do perfil de skill
+// v2 - Skills de Vagas: dialog aceita prefillCargo
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,12 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: ProfileWithMeta | null;
+  prefillCargo?: string | null;
   allSkills: Skill[];
   onSaved: () => void;
 }
 
-export function JobSkillProfileDialog({ open, onOpenChange, editing, allSkills, onSaved }: Props) {
+export function JobSkillProfileDialog({ open, onOpenChange, editing, prefillCargo, allSkills, onSaved }: Props) {
   const { jobTitles, addJobTitle } = useData();
 
   const [cargoLabel, setCargoLabel] = useState('');
@@ -56,12 +57,12 @@ export function JobSkillProfileDialog({ open, onOpenChange, editing, allSkills, 
       setIsActive(editing.is_active);
       setSelectedSkillIds(new Set((editing.skills ?? []).map((s) => s.id)));
     } else {
-      setCargoLabel(''); setNivel(''); setDescricao(''); setAtribuicoes('');
+      setCargoLabel(prefillCargo ?? ''); setNivel(''); setDescricao(''); setAtribuicoes('');
       setHardDesc(''); setSoftDesc(''); setAnosExp(''); setIdadeMin(''); setIdadeMax('');
       setIsActive(true); setSelectedSkillIds(new Set());
     }
     setLocalSkills([]); setNewSkillNome(''); setNewSkillTipo('hard');
-  }, [open, editing]);
+  }, [open, editing, prefillCargo]);
 
   const skillsPool = [...allSkills, ...localSkills];
   const hardSkills = skillsPool.filter((s) => s.tipo === 'hard');
