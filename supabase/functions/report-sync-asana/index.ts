@@ -398,15 +398,41 @@ serve(async (req) => {
         { onConflict: "report_id,section_key" },
       );
 
+    // ── PILOTO merge-preserva-manual: seção "priorizadas" (mesmo padrão de entregas) ──
+    const { data: priorizadaAtual } = await supabase
+      .from("report_sections")
+      .select("content")
+      .eq("report_id", reportId)
+      .eq("section_key", "priorizadas")
+      .maybeSingle();
+    const priorizadaContent = (priorizadaAtual?.content ?? {}) as Record<string, unknown>;
+
+    const priorizadasIncoming = tarefasPriorizadas.map((t) => ({
+      gid: t.gid,
+      tarefa: t.nome,
+      status: t.status,
+      categoria: t.categoria,
+      assignee: t.assignee,
+      url: t.link,
+    }));
+
+    const priorizadasMerged = {
+      ...priorizadaContent,
+      linhas: mergeLinhas(priorizadaContent, priorizadasIncoming),
+      tarefas: undefined,
+      ...mergeScalar(priorizadaContent, "total", tarefasPriorizadas.length),
+      ...mergeScalar(priorizadaContent, "total_backlog", allBacklog.length),
+    };
+
+    await supabase
+      .from("report_sections")
+      .upsert(
+        { report_id: reportId, section_key: "priorizadas", content: priorizadasMerged, source: "asana", synced_at: now },
+        { onConflict: "report_id,section_key" },
+      );
+
     // Demais seções: comportamento atual (serão migradas na Fase 2).
     const secoes = [
-      {
-        report_id: reportId,
-        section_key: "priorizadas",
-        content: { tarefas: tarefasPriorizadas, total: tarefasPriorizadas.length, total_backlog: allBacklog.length },
-        source: "asana",
-        synced_at: now,
-      },
       {
         report_id: reportId,
         section_key: "evolucao_inovacao",
