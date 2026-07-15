@@ -1500,6 +1500,234 @@ export type Database = {
           },
         ]
       }
+      job_request_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          job_request_id: string
+          motivo: string | null
+          status_anterior:
+            | Database["public"]["Enums"]["job_request_status"]
+            | null
+          status_novo: Database["public"]["Enums"]["job_request_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          job_request_id: string
+          motivo?: string | null
+          status_anterior?:
+            | Database["public"]["Enums"]["job_request_status"]
+            | null
+          status_novo: Database["public"]["Enums"]["job_request_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          job_request_id?: string
+          motivo?: string | null
+          status_anterior?:
+            | Database["public"]["Enums"]["job_request_status"]
+            | null
+          status_novo?: Database["public"]["Enums"]["job_request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_request_status_history_job_request_id_fkey"
+            columns: ["job_request_id"]
+            isOneToOne: false
+            referencedRelation: "job_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_requests: {
+        Row: {
+          anos_experiencia: number | null
+          contract_id: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          job_skill_profile_id: string | null
+          job_title_id: string | null
+          nivel: string | null
+          observacoes: string | null
+          pending_replacement_id: string | null
+          quantidade: number
+          skills_avulsas: Json | null
+          solicitante_id: string | null
+          status: Database["public"]["Enums"]["job_request_status"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          anos_experiencia?: number | null
+          contract_id?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          job_skill_profile_id?: string | null
+          job_title_id?: string | null
+          nivel?: string | null
+          observacoes?: string | null
+          pending_replacement_id?: string | null
+          quantidade?: number
+          skills_avulsas?: Json | null
+          solicitante_id?: string | null
+          status?: Database["public"]["Enums"]["job_request_status"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          anos_experiencia?: number | null
+          contract_id?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          job_skill_profile_id?: string | null
+          job_title_id?: string | null
+          nivel?: string | null
+          observacoes?: string | null
+          pending_replacement_id?: string | null
+          quantidade?: number
+          skills_avulsas?: Json | null
+          solicitante_id?: string | null
+          status?: Database["public"]["Enums"]["job_request_status"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_requests_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_job_skill_profile_id_fkey"
+            columns: ["job_skill_profile_id"]
+            isOneToOne: false
+            referencedRelation: "job_skill_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_job_title_id_fkey"
+            columns: ["job_title_id"]
+            isOneToOne: false
+            referencedRelation: "job_titles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_pending_replacement_id_fkey"
+            columns: ["pending_replacement_id"]
+            isOneToOne: false
+            referencedRelation: "pending_replacements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_skill_profile_skills: {
+        Row: {
+          created_at: string
+          id: string
+          job_skill_profile_id: string
+          obrigatoria: boolean
+          skill_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_skill_profile_id: string
+          obrigatoria?: boolean
+          skill_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_skill_profile_id?: string
+          obrigatoria?: boolean
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_skill_profile_skills_job_skill_profile_id_fkey"
+            columns: ["job_skill_profile_id"]
+            isOneToOne: false
+            referencedRelation: "job_skill_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_skill_profile_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_skill_profiles: {
+        Row: {
+          anos_experiencia: number | null
+          atribuicoes: string | null
+          created_at: string
+          descricao: string | null
+          hard_skills_desc: string | null
+          ia_pesquisa: Json | null
+          id: string
+          idade_max: number | null
+          idade_min: number | null
+          is_active: boolean
+          job_title_id: string
+          nivel: string | null
+          soft_skills_desc: string | null
+          updated_at: string
+        }
+        Insert: {
+          anos_experiencia?: number | null
+          atribuicoes?: string | null
+          created_at?: string
+          descricao?: string | null
+          hard_skills_desc?: string | null
+          ia_pesquisa?: Json | null
+          id?: string
+          idade_max?: number | null
+          idade_min?: number | null
+          is_active?: boolean
+          job_title_id: string
+          nivel?: string | null
+          soft_skills_desc?: string | null
+          updated_at?: string
+        }
+        Update: {
+          anos_experiencia?: number | null
+          atribuicoes?: string | null
+          created_at?: string
+          descricao?: string | null
+          hard_skills_desc?: string | null
+          ia_pesquisa?: Json | null
+          id?: string
+          idade_max?: number | null
+          idade_min?: number | null
+          is_active?: boolean
+          job_title_id?: string
+          nivel?: string | null
+          soft_skills_desc?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_skill_profiles_job_title_id_fkey"
+            columns: ["job_title_id"]
+            isOneToOne: false
+            referencedRelation: "job_titles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_titles: {
         Row: {
           created_at: string
@@ -2393,6 +2621,36 @@ export type Database = {
         }
         Relationships: []
       }
+      skills: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          origem: Database["public"]["Enums"]["skill_origin"]
+          tipo: Database["public"]["Enums"]["skill_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          origem?: Database["public"]["Enums"]["skill_origin"]
+          tipo: Database["public"]["Enums"]["skill_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          origem?: Database["public"]["Enums"]["skill_origin"]
+          tipo?: Database["public"]["Enums"]["skill_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       snapshots: {
         Row: {
           contract_id: string
@@ -2829,6 +3087,12 @@ export type Database = {
         | "juridico"
         | "operacional"
         | "governanca"
+      job_request_status:
+        | "solicitado"
+        | "em_avaliacao"
+        | "aprovado_em_contratacao"
+        | "preenchida"
+        | "suspenso"
       module_key:
         | "DASHBOARD"
         | "CLIENTS"
@@ -2873,6 +3137,8 @@ export type Database = {
       simulation_contract_type: "gov" | "private"
       simulation_pricing_model: "mensal" | "total"
       simulation_status: "draft" | "archived"
+      skill_origin: "manual" | "ia" | "import"
+      skill_type: "hard" | "soft"
       subproject_status: "ativo" | "suspenso" | "encerrado"
     }
     CompositeTypes: {
@@ -3045,6 +3311,13 @@ export const Constants = {
         "operacional",
         "governanca",
       ],
+      job_request_status: [
+        "solicitado",
+        "em_avaliacao",
+        "aprovado_em_contratacao",
+        "preenchida",
+        "suspenso",
+      ],
       module_key: [
         "DASHBOARD",
         "CLIENTS",
@@ -3091,6 +3364,8 @@ export const Constants = {
       simulation_contract_type: ["gov", "private"],
       simulation_pricing_model: ["mensal", "total"],
       simulation_status: ["draft", "archived"],
+      skill_origin: ["manual", "ia", "import"],
+      skill_type: ["hard", "soft"],
       subproject_status: ["ativo", "suspenso", "encerrado"],
     },
   },
