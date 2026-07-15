@@ -1,4 +1,4 @@
-// v2 - camelCase fields + lead time + pbi tested
+// v3 - merge-preserva-manual: eficiencia_previsibilidade (nao apaga campos manuais)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -6,6 +6,20 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// mergeScalar (espelho de src/lib/reportMergeManual.ts): preserva o valor do
+// usuário quando o campo foi tocado (_manualFields), guardando o coletado em __sync.
+function mergeScalar(
+  currentContent: Record<string, unknown> | null | undefined,
+  field: string,
+  incomingValue: unknown,
+): Record<string, unknown> {
+  const mf = Array.isArray(currentContent?._manualFields) ? (currentContent!._manualFields as string[]) : [];
+  if (mf.includes(field)) {
+    return { [field]: currentContent?.[field], [`${field}__sync`]: incomingValue };
+  }
+  return { [field]: incomingValue };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -125,10 +139,18 @@ serve(async (req) => {
 
     const status = totalBugs === 0 ? "alta" : totalBugs <= 2 ? "adequado" : totalBugs <= 5 ? "atencao" : "critico";
 
-    // Salvar com AMBOS os formatos para compatibilidade
+    // Merge-preserva-manual: lê o content atual e preserva os campos que o
+    // usuário tocou. O editor edita em camelCase, então são esses que protegemos
+    // via mergeScalar. Os campos snake_case (compatibilidade de leitura) e os
+    // dados puros do sync (story_points, por_tipo, tarefas) atualizam direto.
+    const { data: atual } = await supabase
+      .from("report_sections").select("content")
+      .eq("report_id", reportId).eq("section_key", "eficiencia_previsibilidade").maybeSingle();
+    const cur = (atual?.content ?? {}) as Record<string, unknown>;
+
     const content = {
-      // snake_case
-      demandas: total,
+      ...cur,
+      // snake_case (compatibilidade de leitura / dados do sync)
       bugs: totalBugs,
       story_points: totalSP,
       por_tipo: tiposContagem,
@@ -136,13 +158,14 @@ serve(async (req) => {
       frequencia_deploy: freqDeploy,
       efficiency_ratio: efficiencyRatio,
       pbi_tested_ratio: pbiTestedRatio,
-      // camelCase (lido pelo editor)
-      leadTime: leadTimeMedia,
-      frequenciaDeploy: freqDeploy,
-      efficiencyRatio: efficiencyRatio,
-      pbiTestedRatio: pbiTestedRatio,
-      status,
       tarefas: tarefas.slice(0, 50),
+      // camelCase (lido e editado pelo usuário) — preserva se tocado
+      ...mergeScalar(cur, "leadTime", leadTimeMedia),
+      ...mergeScalar(cur, "frequenciaDeploy", freqDeploy),
+      ...mergeScalar(cur, "efficiencyRatio", efficiencyRatio),
+      ...mergeScalar(cur, "pbiTestedRatio", pbiTestedRatio),
+      ...mergeScalar(cur, "demandas", total),
+      ...mergeScalar(cur, "status", status),
     };
 
     const { error } = await supabase
