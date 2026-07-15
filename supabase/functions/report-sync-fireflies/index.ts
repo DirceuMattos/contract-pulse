@@ -1,3 +1,4 @@
+// v2 - merge-preserva-manual: treinamentos_reunioes (nao apaga itens/rodape manuais)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -6,6 +7,56 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/fireflies';
+
+// ── merge-preserva-manual (espelho de src/lib/reportMergeManual.ts) ──
+function deriveSyncKey(item: Record<string, unknown>): string {
+  const gid = item.gid ?? item.id ?? item.task_id;
+  if (gid != null && String(gid).trim() !== '') return `gid:${String(gid)}`;
+  const desc = (item.descricao ?? item.tarefa ?? item.nome ?? '') as string;
+  const data = (item.data ?? '') as string;
+  return `nome:${desc.trim().toLowerCase()}|${data}`;
+}
+function mergeLinhas(
+  currentContent: Record<string, unknown> | null | undefined,
+  incoming: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const cur = (currentContent?.linhas ?? []) as any[];
+  const manualItems = cur
+    .filter((it) => it?.origem === 'manual')
+    .map((it) => ({ ...it, origem: 'manual', syncKey: it.syncKey ?? deriveSyncKey(it) }));
+  const seen = new Set<string>();
+  const syncItems: any[] = [];
+  for (const it of incoming) {
+    const k = deriveSyncKey(it);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    syncItems.push({ ...it, origem: 'sync', syncKey: k });
+  }
+  const norm = (it: any) => String(it.descricao ?? it.tarefa ?? it.nome ?? '').trim().toLowerCase();
+  const order: string[] = [];
+  const byName = new Map<string, any[]>();
+  const push = (it: any) => { const n = norm(it); if (!byName.has(n)) { byName.set(n, []); order.push(n); } byName.get(n)!.push(it); };
+  manualItems.forEach(push);
+  syncItems.forEach(push);
+  const result: any[] = [];
+  for (const n of order) {
+    const g = byName.get(n)!;
+    g.sort((a, b) => (a.origem === 'manual' ? -1 : 1) - (b.origem === 'manual' ? -1 : 1));
+    result.push(...g);
+  }
+  return result;
+}
+function mergeScalar(
+  currentContent: Record<string, unknown> | null | undefined,
+  field: string,
+  incomingValue: unknown,
+): Record<string, unknown> {
+  const mf = Array.isArray(currentContent?._manualFields) ? (currentContent!._manualFields as string[]) : [];
+  if (mf.includes(field)) {
+    return { [field]: currentContent?.[field], [`${field}__sync`]: incomingValue };
+  }
+  return { [field]: incomingValue };
+}
 
 interface Body {
   reportId: string;
@@ -85,8 +136,19 @@ Deno.serve(async (req) => {
     }));
 
     const now = new Date().toISOString();
+
+    // Merge-preserva-manual: lê o content atual, preserva itens/rodape manuais.
+    const { data: trAtual } = await supabase
+      .from('report_sections').select('content')
+      .eq('report_id', reportId).eq('section_key', 'treinamentos_reunioes').maybeSingle();
+    const trContent = (trAtual?.content ?? {}) as Record<string, unknown>;
+    const trMerged = {
+      ...trContent,
+      linhas: mergeLinhas(trContent, linhas),
+      ...mergeScalar(trContent, 'rodape', (trContent.rodape as string) ?? ''),
+    };
     await supabase.from('report_sections')
-      .update({ content: { linhas, rodape: '' }, synced_at: now, source: 'fireflies', updated_at: now })
+      .update({ content: trMerged, synced_at: now, source: 'fireflies', updated_at: now })
       .eq('report_id', reportId).eq('section_key', 'treinamentos_reunioes');
 
     await supabase.from('report_sync_logs').insert({
