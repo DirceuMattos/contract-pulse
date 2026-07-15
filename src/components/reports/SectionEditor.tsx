@@ -1,4 +1,4 @@
-// v5 - fix: merge idempotente, preserva gid e congela syncKey (manual nao some em re-syncs)
+// v6 - Fase 2: merge-preserva-manual em evolucao_inovacao e eficiencia_previsibilidade (escalares)
 import { useEffect, useRef, useState } from 'react';
 import { deriveSyncKey, markManualField, isManualField, type Origem } from '@/lib/reportMergeManual';
 import { Button } from '@/components/ui/button';
@@ -650,6 +650,18 @@ function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
   const percentualInovacao = content.percentual_inovacao ?? content.percentualInovacao ?? 0;
   const totalEntregas = content.total_entregas ?? 0;
 
+  // Editar um campo escalar marca-o como manual, para o sync não sobrescrever.
+  const setManual = (patch: Record<string, unknown>, fields: string[]) => {
+    let mf = Array.isArray(content._manualFields) ? [...content._manualFields] : [];
+    for (const f of fields) mf = markManualField({ ...content, _manualFields: mf }, f);
+    onChange({ ...content, ...patch, _manualFields: mf });
+  };
+
+  const pctSync = content.percentual_inovacao__sync;
+  const pctTocado = isManualField(content, 'percentual_inovacao') && pctSync !== undefined && pctSync !== percentualInovacao;
+  const statusSync = content.status__sync;
+  const statusTocado = isManualField(content, 'status') && statusSync !== undefined && statusSync !== content.status;
+
   return (
     <div className="space-y-3">
       {totalEntregas > 0 && (
@@ -671,14 +683,36 @@ function EvolucaoInovacaoEditor({ content, onChange, readOnly }: EditorProps) {
           type="number"
           className="w-28"
           value={percentualInovacao}
-          onChange={(e) => onChange({ ...content, percentual_inovacao: Number(e.target.value), percentualInovacao: Number(e.target.value) })}
+          onChange={(e) => setManual({ percentual_inovacao: Number(e.target.value), percentualInovacao: Number(e.target.value) }, ['percentual_inovacao'])}
           disabled={readOnly}
         />
         <StatusBadge value={content.status} />
         <div className="ml-auto">
-          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+          <StatusSelect value={content.status ?? ''} onChange={(v) => setManual({ status: v }, ['status'])} disabled={readOnly} />
         </div>
       </div>
+      {(pctTocado || statusTocado) && (
+        <div className="rounded-md border border-border bg-muted/30 p-2 text-xs space-y-1">
+          {pctTocado && (
+            <div className="flex items-center gap-3">
+              <span>% Inovação — <strong>seu valor:</strong> {String(percentualInovacao)} · <strong>sync trouxe:</strong> {String(pctSync)}</span>
+              {!readOnly && <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => {
+                const mf = (content._manualFields ?? []).filter((f: string) => f !== 'percentual_inovacao');
+                onChange({ ...content, percentual_inovacao: pctSync, percentualInovacao: pctSync, percentual_inovacao__sync: undefined, _manualFields: mf });
+              }}>Adotar sync</Button>}
+            </div>
+          )}
+          {statusTocado && (
+            <div className="flex items-center gap-3">
+              <span>Status — <strong>seu valor:</strong> {String(content.status)} · <strong>sync trouxe:</strong> {String(statusSync)}</span>
+              {!readOnly && <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => {
+                const mf = (content._manualFields ?? []).filter((f: string) => f !== 'status');
+                onChange({ ...content, status: statusSync, status__sync: undefined, _manualFields: mf });
+              }}>Adotar sync</Button>}
+            </div>
+          )}
+        </div>
+      )}
       <div>
         <Label>Análise</Label>
         <Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={4} disabled={readOnly} />
@@ -988,16 +1022,21 @@ function EficienciaPrevisibilidadeEditor({ content, onChange, readOnly }: Editor
     ['demandas', 'Demandas'],
     ['falhasEvitadas', 'Falhas Evitadas'],
   ];
+  // Editar um campo marca-o como manual → o sync não o sobrescreve.
+  const setManual = (key: string, value: unknown) => {
+    const mf = markManualField(content, key);
+    onChange({ ...content, [key]: value, _manualFields: mf });
+  };
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {fields.map(([k, label]) => (
-          <div key={k}><Label>{label}</Label><Input value={content[k] ?? ''} onChange={(e) => onChange({ ...content, [k]: e.target.value })} disabled={readOnly} /></div>
+          <div key={k}><Label>{label}</Label><Input value={content[k] ?? ''} onChange={(e) => setManual(k, e.target.value)} disabled={readOnly} /></div>
         ))}
       </div>
       <div className="flex items-center gap-3">
         <StatusBadge value={content.status} />
-        <div className="ml-auto"><StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} /></div>
+        <div className="ml-auto"><StatusSelect value={content.status ?? ''} onChange={(v) => setManual('status', v)} disabled={readOnly} /></div>
       </div>
       <div><Label>Análise</Label><Textarea value={content.analise ?? ''} onChange={(e) => onChange({ ...content, analise: e.target.value })} rows={4} disabled={readOnly} /></div>
     </div>

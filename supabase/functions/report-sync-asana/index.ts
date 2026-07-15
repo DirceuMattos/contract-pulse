@@ -431,35 +431,44 @@ serve(async (req) => {
         { onConflict: "report_id,section_key" },
       );
 
-    // Demais seções: comportamento atual (serão migradas na Fase 2).
+    // ── Fase 2 merge-preserva-manual: seções de escalar ──
+    // Lê o content atual e preserva os campos que o usuário tocou (_manualFields),
+    // gravando o valor coletado em `campo__sync` quando houver divergência.
+    // `...atual` no início garante que QUALQUER campo manual extra (inclusive em
+    // camelCase, fora dos escalares abaixo) nunca seja apagado pelo upsert.
+
+    const { data: evoAtual } = await supabase
+      .from("report_sections").select("content")
+      .eq("report_id", reportId).eq("section_key", "evolucao_inovacao").maybeSingle();
+    const evoContent = (evoAtual?.content ?? {}) as Record<string, unknown>;
+    const evoMerged = {
+      ...evoContent,
+      // Campos só do sync (usuário não edita): sempre atualizam.
+      contagem_por_tag: contagemPorTag,
+      total_entregas: totalEntregas,
+      historico_mensal: historico,
+      projetos_sincronizados: projectsSynced,
+      projetos_com_erro: projectErrors,
+      // Escalares que o usuário pode ter tocado: preserva o dele, guarda o sync ao lado.
+      ...mergeScalar(evoContent, "percentual_inovacao", percentualInovacao),
+      ...mergeScalar(evoContent, "status", statusInovacao),
+    };
+
+    const { data: efpAtual } = await supabase
+      .from("report_sections").select("content")
+      .eq("report_id", reportId).eq("section_key", "eficiencia_previsibilidade").maybeSingle();
+    const efpContent = (efpAtual?.content ?? {}) as Record<string, unknown>;
+    const efpMerged = {
+      ...efpContent,
+      ...mergeScalar(efpContent, "frequencia_deploy", frequenciaDeploy),
+      ...mergeScalar(efpContent, "lead_time", leadTimeMedia),
+      ...mergeScalar(efpContent, "demandas", totalEntregas),
+      ...mergeScalar(efpContent, "status", "adequado"),
+    };
+
     const secoes = [
-      {
-        report_id: reportId,
-        section_key: "evolucao_inovacao",
-        content: {
-          contagem_por_tag: contagemPorTag,
-          total_entregas: totalEntregas,
-          percentual_inovacao: percentualInovacao,
-          status: statusInovacao,
-          historico_mensal: historico,
-          projetos_sincronizados: projectsSynced,
-          projetos_com_erro: projectErrors,
-        },
-        source: "asana",
-        synced_at: now,
-      },
-      {
-        report_id: reportId,
-        section_key: "eficiencia_previsibilidade",
-        content: {
-          frequencia_deploy: frequenciaDeploy,
-          lead_time: leadTimeMedia,
-          demandas: totalEntregas,
-          status: "adequado",
-        },
-        source: "asana",
-        synced_at: now,
-      },
+      { report_id: reportId, section_key: "evolucao_inovacao", content: evoMerged, source: "asana", synced_at: now },
+      { report_id: reportId, section_key: "eficiencia_previsibilidade", content: efpMerged, source: "asana", synced_at: now },
     ];
 
     for (const secao of secoes) {
