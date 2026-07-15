@@ -99,7 +99,7 @@ const navGroups: NavGroup[] = [
         comingSoon: true,
         allowedRoles: ['c-level', 'intermediario', 'lider_tribo', 'coordenacao_suporte', 'projetos_produtos'],
       },
-      { path: '#', label: 'Skills de Vagas', icon: Sparkles, comingSoon: true },
+      { path: '/skills-vagas', label: 'Skills de Vagas', icon: Sparkles, moduleKey: 'JOB_SKILLS' },
     ],
   },
   {
