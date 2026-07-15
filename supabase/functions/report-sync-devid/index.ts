@@ -1,4 +1,4 @@
-// v2 - fireflies integration
+// v3 - merge-preserva-manual: eficiencia_operacional + treinamentos_reunioes
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -19,6 +19,60 @@ async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: s
     return sqlData as string;
   }
   return data as string;
+}
+
+// ── merge-preserva-manual (espelho de src/lib/reportMergeManual.ts) ──
+// Manter em sincronia. Aqui deriveSyncKey usa gid quando existe, senão
+// descricao+data (reuniões do Fireflies não têm gid).
+function deriveSyncKey(item: Record<string, unknown>): string {
+  const gid = item.gid ?? item.id ?? item.task_id;
+  if (gid != null && String(gid).trim() !== "") return `gid:${String(gid)}`;
+  const desc = (item.descricao ?? item.tarefa ?? item.nome ?? "") as string;
+  const data = (item.data ?? "") as string;
+  return `nome:${desc.trim().toLowerCase()}|${data}`;
+}
+
+function mergeLinhas(
+  currentContent: Record<string, unknown> | null | undefined,
+  incoming: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const cur = (currentContent?.linhas ?? []) as any[];
+  const manualItems = cur
+    .filter((it) => it?.origem === "manual")
+    .map((it) => ({ ...it, origem: "manual", syncKey: it.syncKey ?? deriveSyncKey(it) }));
+  const seen = new Set<string>();
+  const syncItems: any[] = [];
+  for (const it of incoming) {
+    const k = deriveSyncKey(it);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    syncItems.push({ ...it, origem: "sync", syncKey: k });
+  }
+  const norm = (it: any) => String(it.descricao ?? it.tarefa ?? it.nome ?? "").trim().toLowerCase();
+  const order: string[] = [];
+  const byName = new Map<string, any[]>();
+  const push = (it: any) => { const n = norm(it); if (!byName.has(n)) { byName.set(n, []); order.push(n); } byName.get(n)!.push(it); };
+  manualItems.forEach(push);
+  syncItems.forEach(push);
+  const result: any[] = [];
+  for (const n of order) {
+    const g = byName.get(n)!;
+    g.sort((a, b) => (a.origem === "manual" ? -1 : 1) - (b.origem === "manual" ? -1 : 1));
+    result.push(...g);
+  }
+  return result;
+}
+
+function mergeScalar(
+  currentContent: Record<string, unknown> | null | undefined,
+  field: string,
+  incomingValue: unknown,
+): Record<string, unknown> {
+  const mf = Array.isArray(currentContent?._manualFields) ? (currentContent!._manualFields as string[]) : [];
+  if (mf.includes(field)) {
+    return { [field]: currentContent?.[field], [`${field}__sync`]: incomingValue };
+  }
+  return { [field]: incomingValue };
 }
 
 async function callMcp(url: string, token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
@@ -193,19 +247,26 @@ serve(async (req) => {
         status: slaPercentual >= 95 ? "alta" : slaPercentual >= 80 ? "adequado" : slaPercentual >= 60 ? "atencao" : "critico",
       };
 
+      const { data: efoAtual } = await supabase
+        .from("report_sections").select("content")
+        .eq("report_id", reportId).eq("section_key", "eficiencia_operacional").maybeSingle();
+      const efoContent = (efoAtual?.content ?? {}) as Record<string, unknown>;
+      const efoMerged = {
+        ...efoContent,
+        // por_tipo é dado do sync (não editável): sempre atualiza.
+        por_tipo: porTipo,
+        // Escalares que o usuário pode ter tocado: preserva o dele, guarda o sync ao lado.
+        ...mergeScalar(efoContent, "tickets", totalTickets),
+        ...mergeScalar(efoContent, "bugs", bugs),
+        ...mergeScalar(efoContent, "crises", 0),
+        ...mergeScalar(efoContent, "intercorrencias", porTipo.incidente),
+        ...mergeScalar(efoContent, "sla", `${slaPercentual}%`),
+        ...mergeScalar(efoContent, "status", results.milvus.status),
+      };
       await supabase.from("report_sections").upsert({
         report_id:   reportId,
         section_key: "eficiencia_operacional",
-        content: {
-          tickets:         totalTickets,
-          bugs,
-          crises:          0,
-          intercorrencias: porTipo.incidente,
-          sla:             `${slaPercentual}%`,
-          por_tipo:        porTipo,
-          status:          results.milvus.status,
-          analise:         "",
-        },
+        content:     efoMerged,
         source:    "devid",
         synced_at: now,
       }, { onConflict: "report_id,section_key" });
@@ -315,14 +376,21 @@ serve(async (req) => {
 
       results.fireflies = { total: transcripts.length, filtradas: filtered.length };
 
-      // Salva seção treinamentos_reunioes (substitui conteúdo anterior)
+      // Salva seção treinamentos_reunioes preservando itens manuais.
+      const { data: trAtual } = await supabase
+        .from("report_sections").select("content")
+        .eq("report_id", reportId).eq("section_key", "treinamentos_reunioes").maybeSingle();
+      const trContent = (trAtual?.content ?? {}) as Record<string, unknown>;
+      const trMerged = {
+        ...trContent,
+        linhas: mergeLinhas(trContent, linhas),
+        // rodape é escalar tocável: preserva se o usuário editou.
+        ...mergeScalar(trContent, "rodape", "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores."),
+      };
       await supabase.from("report_sections").upsert({
         report_id:   reportId,
         section_key: "treinamentos_reunioes",
-        content: {
-          linhas,
-          rodape: "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.",
-        },
+        content:     trMerged,
         source:    "fireflies",
         synced_at: now,
       }, { onConflict: "report_id,section_key" });

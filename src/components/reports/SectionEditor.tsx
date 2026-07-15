@@ -1,4 +1,4 @@
-// v6 - Fase 2: merge-preserva-manual em evolucao_inovacao e eficiencia_previsibilidade (escalares)
+// v7 - Fase 2: merge-preserva-manual em eficiencia_operacional e treinamentos_reunioes (DevID)
 import { useEffect, useRef, useState } from 'react';
 import { deriveSyncKey, markManualField, isManualField, type Origem } from '@/lib/reportMergeManual';
 import { Button } from '@/components/ui/button';
@@ -959,6 +959,11 @@ function EficienciaOperacionalEditor({ content, onChange, readOnly }: EditorProp
     melhoria: 'Melhorias',
     duvida: 'Dúvidas',
   };
+  // Editar um campo marca-o como manual → o sync não o sobrescreve.
+  const setManual = (key: string, value: unknown) => {
+    const mf = markManualField(content, key);
+    onChange({ ...content, [key]: value, _manualFields: mf });
+  };
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -968,7 +973,7 @@ function EficienciaOperacionalEditor({ content, onChange, readOnly }: EditorProp
             <Input
               type="number"
               value={content[k] ?? ''}
-              onChange={(e) => onChange({ ...content, [k]: e.target.value })}
+              onChange={(e) => setManual(k, e.target.value)}
               disabled={readOnly}
             />
           </div>
@@ -992,7 +997,7 @@ function EficienciaOperacionalEditor({ content, onChange, readOnly }: EditorProp
       <div className="flex items-center gap-3">
         <StatusBadge value={content.status} />
         <div className="ml-auto">
-          <StatusSelect value={content.status ?? ''} onChange={(v) => onChange({ ...content, status: v })} disabled={readOnly} />
+          <StatusSelect value={content.status ?? ''} onChange={(v) => setManual('status', v)} disabled={readOnly} />
         </div>
       </div>
       <div>
@@ -1276,18 +1281,49 @@ function MaturidadePlataformaEditor({ content, onChange, readOnly }: EditorProps
 // Treinamentos e Reuniões (Fireflies)
 // ============================================
 function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps) {
-  const linhas: { tipo: string; data: string; horario: string; descricao: string }[] = content.linhas ?? [];
-  const update = (i: number, patch: Partial<typeof linhas[0]>) => {
+  interface ReuniaoRow { tipo: string; data: string; horario?: string; descricao: string; origem: Origem; syncKey: string; }
+  const raw = (content.linhas ?? []) as any[];
+  const linhas: ReuniaoRow[] = raw.map((l: any) => ({
+    tipo: l.tipo ?? '',
+    data: l.data ?? '',
+    horario: l.horario ?? '',
+    descricao: l.descricao ?? '',
+    origem: (l.origem as Origem) ?? 'sync',
+    // syncKey imutável: preserva se já existe, senão deriva de data+descricao.
+    syncKey: l.syncKey ?? `nome:${String(l.descricao ?? '').trim().toLowerCase()}|${l.data ?? ''}`,
+  }));
+  const persist = (next: ReuniaoRow[]) => onChange({ ...content, linhas: next });
+  const update = (i: number, patch: Partial<ReuniaoRow>) => {
     const next = [...linhas];
-    next[i] = { ...next[i], ...patch };
-    onChange({ ...content, linhas: next });
+    const cur = next[i];
+    if (cur.origem === 'sync') {
+      next[i] = { ...cur, ...patch, origem: 'manual', syncKey: `manual:${Date.now()}-${i}` };
+    } else {
+      next[i] = { ...cur, ...patch, origem: 'manual' };
+    }
+    persist(next);
   };
+  const add = () => persist([...linhas, { tipo: '', data: '', horario: '', descricao: '', origem: 'manual', syncKey: `manual:${Date.now()}` }]);
+
+  // Duplicatas por descrição normalizada (manual + sync lado a lado).
+  const norm = (s: string) => s.trim().toLowerCase();
+  const dupDesc = new Set<string>();
+  const byDesc = new Map<string, Set<Origem>>();
+  linhas.forEach((l) => { const n = norm(l.descricao); if (!n) return; if (!byDesc.has(n)) byDesc.set(n, new Set()); byDesc.get(n)!.add(l.origem); });
+  byDesc.forEach((o, n) => { if (o.has('manual') && o.has('sync')) dupDesc.add(n); });
+
   return (
     <div className="space-y-3">
+      {dupDesc.size > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-2 text-xs">
+          <span className="font-medium">⚠️ Itens duplicados destacados.</span> A sincronização trouxe versões novas ao lado das suas. Revise e remova a que não deve permanecer.
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border">
           <thead className="bg-muted">
             <tr>
+              <th className="p-2 text-left w-20">Origem</th>
               <th className="p-2 text-left w-40">Tipo</th>
               <th className="p-2 text-left w-32">Data</th>
               <th className="p-2 text-left w-28">Horário</th>
@@ -1296,21 +1332,29 @@ function TreinamentosReunioesEditor({ content, onChange, readOnly }: EditorProps
             </tr>
           </thead>
           <tbody>
-            {linhas.map((l, i) => (
-              <tr key={i} className="border-t">
-                <td className="p-1"><Input value={l.tipo} onChange={(e) => update(i, { tipo: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input type="date" value={l.data} onChange={(e) => update(i, { data: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input type="time" value={l.horario ?? ''} onChange={(e) => update(i, { horario: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.descricao} onChange={(e) => update(i, { descricao: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1">
-                  {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i) })}><Trash2 className="w-4 h-4" /></Button>}
-                </td>
-              </tr>
-            ))}
+            {linhas.map((l, i) => {
+              const isDup = dupDesc.has(norm(l.descricao));
+              return (
+                <tr key={i} className={cn('border-t', isDup && 'bg-amber-50/60')}>
+                  <td className="p-1">
+                    <Badge variant="outline" className={cn('text-[10px] uppercase', l.origem === 'manual' ? 'border-emerald-400 text-emerald-600' : 'border-blue-400 text-blue-600')}>
+                      {l.origem === 'manual' ? 'Manual' : 'Sync'}
+                    </Badge>
+                  </td>
+                  <td className="p-1"><Input value={l.tipo} onChange={(e) => update(i, { tipo: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1"><Input type="date" value={l.data} onChange={(e) => update(i, { data: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1"><Input type="time" value={l.horario ?? ''} onChange={(e) => update(i, { horario: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1"><Input value={l.descricao} onChange={(e) => update(i, { descricao: e.target.value })} disabled={readOnly} /></td>
+                  <td className="p-1">
+                    {!readOnly && <Button variant="ghost" size="icon" onClick={() => persist(linhas.filter((_, idx) => idx !== i))}><Trash2 className="w-4 h-4" /></Button>}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      {!readOnly && <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { tipo: '', data: '', horario: '', descricao: '' }] })}>
+      {!readOnly && <Button variant="outline" size="sm" onClick={add}>
         <Plus className="w-4 h-4 mr-2" />Adicionar linha
       </Button>}
       <div><Label>Rodapé</Label><Textarea value={content.rodape ?? ''} onChange={(e) => onChange({ ...content, rodape: e.target.value })} rows={2} disabled={readOnly} /></div>
