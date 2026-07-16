@@ -109,8 +109,10 @@ const recorrenciaOptions = [
 export function ResourceForm({ resource, contractId, settings, existingHrPersonIds = [], onSubmit, onCancel }: ResourceFormProps) {
   const { getActiveJobTitles, teams } = useData();
   const { hrPeople } = useHR();
-  const { canViewHRCosts } = useAuth();
+  const { canViewHRCosts, userRole } = useAuth();
   const activeJobTitles = getActiveJobTitles();
+  const canEditResourceForm = userRole === 'c-level' || userRole === 'administrativo' || userRole === 'superadmin';
+  const isReadOnly = Boolean(resource) && !canEditResourceForm;
   
   const [selectedHrPersonId, setSelectedHrPersonId] = useState<string | undefined>(resource?.hrPersonId);
 
@@ -203,6 +205,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
   };
 
   const handleSelectHrPerson = (personId: string) => {
+    if (isReadOnly) return;
 
     const person = hrPeople.find(p => p.id === personId);
     if (!person) return;
@@ -230,6 +233,8 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
   };
 
   const handleFormSubmit = (data: ResourceFormData) => {
+    if (isReadOnly) return;
+
     onSubmit({
       contractId,
       tipo: data.tipo,
@@ -272,7 +277,9 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                   <button
                     key={tipo.value}
                     type="button"
+                    disabled={isReadOnly}
                     onClick={() => {
+                      if (isReadOnly) return;
                       field.onChange(tipo.value);
                       // If switching to "outro", clear HR link
                       if (tipo.value === 'outro') {
@@ -282,9 +289,12 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                     }}
                     className={cn(
                       'p-4 rounded-lg border-2 transition-all text-left',
+                      isReadOnly && 'cursor-not-allowed opacity-70',
                       field.value === tipo.value
                         ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
+                        : isReadOnly
+                          ? 'border-border'
+                          : 'border-border hover:border-primary/50'
                     )}
                   >
                     <tipo.icon className={cn(
@@ -312,7 +322,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Categoria *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione a categoria" />
@@ -337,7 +347,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Recorrência</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -365,7 +375,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                 <FormItem>
                   <FormLabel>Descrição *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: AWS Cloud" {...field} />
+                    <Input placeholder="Ex: AWS Cloud" disabled={isReadOnly} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -389,6 +399,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                           type="number"
                           step="0.01"
                           className="pl-10"
+                          disabled={isReadOnly}
                           {...field}
                           onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         />
@@ -412,6 +423,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                           min="0"
                           max="100"
                           className="pr-8"
+                          disabled={isReadOnly}
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
@@ -452,6 +464,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                       <Select
                         onValueChange={handleSelectHrPerson}
                         value={selectedHrPersonId || ''}
+                        disabled={isReadOnly}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -513,6 +526,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                     <FormItem>
                       <FormLabel>Cargo / Papel</FormLabel>
                       <Select
+                        disabled={isReadOnly}
                         onValueChange={(val) => {
                           if (val === '__other__') {
                             field.onChange('');
@@ -548,7 +562,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Senioridade</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione" />
@@ -588,6 +602,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                           type="number"
                           step="0.01"
                           className="pl-10"
+                          disabled={isReadOnly}
                           {...field}
                           onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         />
@@ -615,6 +630,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                           min="0"
                           max="100"
                           className="pr-8"
+                          disabled={isReadOnly}
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
@@ -648,6 +664,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                             step="0.1"
                             placeholder={`Padrão: ${settings.percentualEncargosCLT}%`}
                             className="pr-8"
+                            disabled={isReadOnly}
                             {...field}
                             value={field.value ?? ''}
                             onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
@@ -682,6 +699,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                             step="0.1"
                             placeholder={`Padrão: ${settings.percentualImpostosPJ}%`}
                             className="pr-8"
+                            disabled={isReadOnly}
                             {...field}
                             value={field.value ?? ''}
                             onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
@@ -712,7 +730,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
               <FormItem>
                 <FormLabel>Data de Início *</FormLabel>
                 <FormControl>
-                  <DatePickerInput value={field.value} onChange={field.onChange} />
+                  <DatePickerInput value={field.value} onChange={field.onChange} disabled={isReadOnly} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -726,7 +744,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
               <FormItem>
                 <FormLabel>Data de Fim (opcional)</FormLabel>
                 <FormControl>
-                  <DatePickerInput value={field.value || ''} onChange={field.onChange} />
+                  <DatePickerInput value={field.value || ''} onChange={field.onChange} disabled={isReadOnly} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -745,6 +763,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                 <Textarea 
                   placeholder="Informações adicionais sobre este recurso..."
                   rows={3}
+                  disabled={isReadOnly}
                   {...field} 
                 />
               </FormControl>
@@ -800,11 +819,13 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
+            {isReadOnly ? 'Fechar' : 'Cancelar'}
           </Button>
-          <Button type="submit">
-            {resource ? 'Salvar Alterações' : 'Adicionar Recurso'}
-          </Button>
+          {!isReadOnly && (
+            <Button type="submit">
+              {resource ? 'Salvar Alterações' : 'Adicionar Recurso'}
+            </Button>
+          )}
         </div>
       </form>
     </Form>
