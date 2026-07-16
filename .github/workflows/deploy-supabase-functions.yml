@@ -51,14 +51,14 @@ jobs:
 
       - name: Deploy das edge functions P0
         run: |
-        set -euo pipefail
-        functions=(manage-users feedz-test-photo)
-        for fn in "${functions[@]}"; do
-        echo "::group::Deploy $fn"
-        supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
-        echo "OK: $fn"
-        echo "::endgroup::"
-      done
+          set -euo pipefail
+          functions=(manage-users feedz-test-photo)
+          for fn in "${functions[@]}"; do
+            echo "::group::Deploy $fn"
+            supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+            echo "OK: $fn"
+            echo "::endgroup::"
+          done
 
       # ── Quando validado, trocar o passo acima por este (deploya TODAS): ──
       # - name: Deploy de todas as edge functions
