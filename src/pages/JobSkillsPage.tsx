@@ -1,4 +1,4 @@
-// v7 - Skills: cards em ordem alfabetica por cargo+nivel
+// v8 - Skills: card clicavel abre edicao (lapis mantido como affordance)
 import { useState } from 'react';
 import { Sparkles, Plus, Pencil, Users, Layers, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -130,7 +130,8 @@ export default function JobSkillsPage() {
               {profilesFiltrados.map((p) => {
                 const color = cargoColor(p.jobTitleLabel);
                 return (
-                <Card key={p.id} className="relative overflow-hidden hover:shadow-md transition-shadow">
+                <Card key={p.id} onClick={() => canEdit && openEdit(p)}
+                  className={`relative overflow-hidden hover:shadow-md transition-shadow ${canEdit ? 'cursor-pointer' : ''}`}>
                   <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: color }} />
                   <CardHeader className="pb-3 pl-6">
                     <div className="flex items-start justify-between gap-3">
@@ -152,10 +153,10 @@ export default function JobSkillsPage() {
                       </div>
                       {canEdit && (
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" title="Exportar vaga" onClick={() => setExportProfile(p)}>
+                          <Button variant="ghost" size="icon" title="Exportar vaga" onClick={(e) => { e.stopPropagation(); setExportProfile(p); }}>
                             <Share2 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" title="Editar" onClick={() => openEdit(p)}>
+                          <Button variant="ghost" size="icon" title="Editar" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         </div>
