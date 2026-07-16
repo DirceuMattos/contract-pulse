@@ -75,7 +75,7 @@ const periodicidades = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bienal'];
 
 export function ContractForm({ contract, onSubmit, onCancel, isLoading }: ContractFormProps) {
   const { clients, settings } = useData();
-  const { canViewValues } = useAuth();
+  const { canViewValues, userRole } = useAuth();
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']);
@@ -84,6 +84,8 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | undefined>(undefined);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const canEditContractForm = userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin';
+  const isReadOnly = Boolean(contract) && !canEditContractForm;
 
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractFormSchema),
@@ -149,6 +151,8 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   }, [toast]);
 
   const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
+
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -180,16 +184,18 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
       setLogoUrl(undefined);
       setLogoPreviewUrl(URL.createObjectURL(file));
     }
-  }, [contract?.id, uploadLogoForContract, toast, logoUrl]);
+  }, [contract?.id, uploadLogoForContract, toast, logoUrl, isReadOnly]);
 
   const handleLogoRemove = useCallback(async () => {
+    if (isReadOnly) return;
+
     if (contract?.id && logoUrl && !/^https?:/i.test(logoUrl)) {
       await supabase.storage.from('client-logos').remove([logoUrl]);
     }
     setLogoUrl(undefined);
     setPendingLogoFile(null);
     setLogoPreviewUrl(undefined);
-  }, [contract?.id, logoUrl]);
+  }, [contract?.id, logoUrl, isReadOnly]);
 
   const watchModeloReceita = form.watch('modeloReceita');
   const watchClientId = form.watch('clientId');
@@ -207,6 +213,8 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   }, [watchClientId, clients, form, contract]);
 
   const handleAddTag = () => {
+    if (isReadOnly) return;
+
     const trimmedTag = tagInput.trim().toLowerCase();
     if (trimmedTag && !watchTags.includes(trimmedTag)) {
       form.setValue('tags', [...watchTags, trimmedTag]);
@@ -215,10 +223,14 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
+    if (isReadOnly) return;
+
     form.setValue('tags', watchTags.filter(tag => tag !== tagToRemove));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isReadOnly) return;
+
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddTag();
@@ -227,7 +239,10 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
 
   return (
     <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => onSubmit(data, { pendingLogoFile }), (errors) => {
+        <form onSubmit={form.handleSubmit((data) => {
+          if (isReadOnly) return;
+          onSubmit(data, { pendingLogoFile });
+        }, (errors) => {
           handleFormValidationError(errors);
           // Auto-expand accordion sections that contain errors
           const sectionsWithErrors = new Set<string>();
@@ -255,6 +270,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 pb-6">
+              <fieldset disabled={isReadOnly} className="m-0 min-w-0 border-0 p-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -504,6 +520,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   )}
                 />
               </div>
+              </fieldset>
             </AccordionContent>
           </AccordionItem>
 
@@ -521,6 +538,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 pb-6">
+              <fieldset disabled={isReadOnly} className="m-0 min-w-0 border-0 p-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -690,6 +708,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   )}
                 />
               </div>
+              </fieldset>
             </AccordionContent>
           </AccordionItem>
 
@@ -709,6 +728,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 pb-6">
+              <fieldset disabled={isReadOnly} className="m-0 min-w-0 border-0 p-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -788,6 +808,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   )}
                 />
               </div>
+              </fieldset>
             </AccordionContent>
           </AccordionItem>
 
@@ -808,6 +829,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 pb-6">
+              <fieldset disabled={isReadOnly} className="m-0 min-w-0 border-0 p-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -942,6 +964,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   />
                 </div>
               </div>
+              </fieldset>
             </AccordionContent>
           </AccordionItem>
           )}
@@ -962,6 +985,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 pb-6">
+              <fieldset disabled={isReadOnly} className="m-0 min-w-0 border-0 p-0">
               <div className="space-y-4">
                 <FormField
                   control={form.control}
@@ -1035,6 +1059,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   )}
                 />
               </div>
+              </fieldset>
             </AccordionContent>
           </AccordionItem>
 
@@ -1054,6 +1079,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4 pb-6">
+              <fieldset disabled={isReadOnly} className="m-0 min-w-0 border-0 p-0">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
@@ -1149,6 +1175,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   />
                 </div>
               </div>
+              </fieldset>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -1156,11 +1183,13 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
         {/* Submit */}
         <div className="flex justify-end gap-3 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
+            {isReadOnly ? 'Fechar' : 'Cancelar'}
           </Button>
+          {!isReadOnly && (
           <Button type="submit" disabled={isLoading}>
             {isLoading ? 'Salvando...' : contract ? 'Salvar Alterações' : 'Criar Contrato'}
           </Button>
+          )}
         </div>
       </form>
     </Form>

@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Loader2, Plus, X, Upload, Trash2 } from 'lucide-react'
 import { Client } from '@/types';
 import { clientFormSchema, ClientFormData } from '@/lib/validators';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { handleFormValidationError } from '@/lib/formValidation';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,6 +80,7 @@ function maskCEP(value: string): string {
 export function ClientForm({ client, mode }: ClientFormProps) {
   const navigate = useNavigate();
   const { addClient, updateClient } = useData();
+  const { userRole } = useAuth();
   const { toast } = useToast();
   const [newTag, setNewTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +89,8 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const canEditClientForm = userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin';
+  const isReadOnly = mode === 'edit' && !canEditClientForm;
 
   const uploadLogoForClient = useCallback(async (clientId: string, file: File): Promise<string | null> => {
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
@@ -102,6 +106,8 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   }, [toast]);
 
   const handleLogoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
+
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -128,15 +134,17 @@ export function ClientForm({ client, mode }: ClientFormProps) {
       const objectUrl = URL.createObjectURL(file);
       setLogoUrl(objectUrl);
     }
-  }, [client?.id, uploadLogoForClient, toast]);
+  }, [client?.id, uploadLogoForClient, toast, isReadOnly]);
 
   const handleLogoRemove = useCallback(async () => {
+    if (isReadOnly) return;
+
     if (client?.id && logoUrl && !logoUrl.startsWith('blob:') && !/^https?:/i.test(logoUrl)) {
       await supabase.storage.from('client-logos').remove([logoUrl]);
     }
     setLogoUrl(undefined);
     setPendingLogoFile(null);
-  }, [client?.id, logoUrl]);
+  }, [client?.id, logoUrl, isReadOnly]);
 
   const fetchAddressByCep = useCallback(async (cepValue: string) => {
     const digits = cepValue.replace(/\D/g, '');
@@ -188,6 +196,8 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   const tags = form.watch('tags');
 
   const addTag = () => {
+    if (isReadOnly) return;
+
     const trimmed = newTag.trim().toLowerCase();
     if (trimmed && !tags.includes(trimmed)) {
       form.setValue('tags', [...tags, trimmed]);
@@ -196,10 +206,14 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   };
 
   const removeTag = (tagToRemove: string) => {
+    if (isReadOnly) return;
+
     form.setValue('tags', tags.filter(t => t !== tagToRemove));
   };
 
   const onSubmit = async (data: ClientFormData) => {
+    if (isReadOnly) return;
+
     setIsSubmitting(true);
     try {
       const clientData = {
@@ -246,10 +260,12 @@ export function ClientForm({ client, mode }: ClientFormProps) {
         });
         navigate(`/clientes/${client.id}`);
       }
-    } catch (error: any) {
-      const isDuplicate = error?.message?.includes('idx_clients_cnpj_unique') || 
-                          error?.code === '23505' ||
-                          error?.message?.includes('duplicate key');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '';
+      const errorCode = typeof error === 'object' && error && 'code' in error ? error.code : undefined;
+      const isDuplicate = errorMessage.includes('idx_clients_cnpj_unique') ||
+                          errorCode === '23505' ||
+                          errorMessage.includes('duplicate key');
       toast({
         title: isDuplicate ? 'CNPJ já cadastrado' : 'Erro',
         description: isDuplicate 
@@ -287,6 +303,7 @@ export function ClientForm({ client, mode }: ClientFormProps) {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit, handleFormValidationError)} className="space-y-6">
+          <fieldset disabled={isReadOnly} className="m-0 min-w-0 space-y-6 border-0 p-0">
           {/* Identification */}
           <Card>
             <CardHeader>
@@ -677,12 +694,14 @@ export function ClientForm({ client, mode }: ClientFormProps) {
               />
             </CardContent>
           </Card>
+          </fieldset>
 
           {/* Actions */}
           <div className="flex justify-end gap-4">
             <Button type="button" variant="outline" onClick={() => navigate('/clientes')}>
-              Cancelar
+              {isReadOnly ? 'Fechar' : 'Cancelar'}
             </Button>
+            {!isReadOnly && (
             <Button type="submit" disabled={isSubmitting} className="gap-2">
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -691,6 +710,7 @@ export function ClientForm({ client, mode }: ClientFormProps) {
               )}
               {mode === 'create' ? 'Cadastrar Cliente' : 'Salvar Alterações'}
             </Button>
+            )}
           </div>
         </form>
       </Form>
