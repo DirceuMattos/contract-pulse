@@ -8,6 +8,7 @@ const SECTIONS = [
   { id: 'cards',          label: 'Lendo os Cards' },
   { id: 'filtros',        label: 'Filtros e Busca' },
   { id: 'editar-alloc',   label: 'Editar Alocação' },
+  { id: 'realocar-rh',    label: 'Realocar RH' },
   { id: 'subprojetos',    label: '⭐ Subprojetos' },
   { id: 'criar-sp',       label: 'Criar Subprojeto' },
   { id: 'alocar-sp',      label: 'Alocar em Subprojeto' },
@@ -176,6 +177,17 @@ export default function HelpSquadsPage() {
               { title: 'Salve', body: 'Clique em Salvar. A alteração é refletida imediatamente no card.' },
             ]} />
             <Callout type="info">Alterações de dedicação afetam o cálculo de FTE Total do card e os alertas de sub-dedicação no módulo de RH.</Callout>
+          </SectionBlock>
+
+          <SectionBlock id="realocar-rh" title="Realocar RH entre Projetos">
+            <p className="text-sm text-muted-foreground mb-4">A realocação de pessoas fica na visão <strong>Por Recurso</strong>. Essa visão mostra cada colaborador e todos os projetos onde ele está alocado.</p>
+            <Steps items={[
+              { title: 'Mude para Por Recurso', body: 'No filtro Visão, selecione "Por Recurso". Os cards passam a ser agrupados por pessoa, e não por projeto.' },
+              { title: 'Use o botão + no card da pessoa', body: 'O botão abre o fluxo "Adicionar a Projeto" para alocar o RH em outro contrato ou subprojeto.' },
+              { title: 'Edite uma alocação existente', body: 'Use o ícone de lápis em uma linha de projeto para alterar dedicação, mover para outro projeto ou retirar a pessoa daquele projeto.' },
+              { title: 'Substitua quando houver pendência', body: 'Quando o RH está inativo e existe substituição pendente, o botão "Substituir" aparece na linha da alocação.' },
+            ]} />
+            <Callout type="warn">Líder de Tribo e SuperAdmin usam esse fluxo para realocar RHs sem editar o cadastro mestre do RH e sem acessar valores financeiros.</Callout>
           </SectionBlock>
 
           {/* ── SUBPROJETOS — SEÇÃO DESTACADA ── */}

@@ -120,7 +120,7 @@ function SquadsPageInner() {
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
   const { canEdit, canCreate, canAllocate, userRole } = useAuth();
-  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo';
+  const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'superadmin';
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -526,7 +526,7 @@ function SquadsPageInner() {
 
     return (
       <div key={td.teamName} className="flex items-center gap-2 text-sm">
-        <span className={cn("w-32 truncate font-medium", hasPending ? "text-red-200" : "text-foreground")}>
+        <span className="w-32 truncate font-medium text-foreground">
           {td.teamName}
         </span>
         <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
@@ -549,13 +549,13 @@ function SquadsPageInner() {
         )}
         {viewMode === 'compact' ? (
           <>
-            <span className={cn("w-20 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{td.resources.length} rec.</span>
-            <span className={cn("w-14 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{resourcePercent.toFixed(0)}%</span>
+            <span className="w-20 text-right tabular-nums text-muted-foreground">{td.resources.length} rec.</span>
+            <span className="w-14 text-right tabular-nums text-muted-foreground">{resourcePercent.toFixed(0)}%</span>
           </>
         ) : (
           <>
-            <span className={cn("w-20 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{td.resources.length} rec.</span>
-            <span className={cn("w-14 text-right tabular-nums", hasPending ? "text-red-100" : "text-muted-foreground")}>{td.percent.toFixed(0)}%</span>
+            <span className="w-20 text-right tabular-nums text-muted-foreground">{td.resources.length} rec.</span>
+            <span className="w-14 text-right tabular-nums text-muted-foreground">{td.percent.toFixed(0)}%</span>
           </>
         )}
       </div>
@@ -571,14 +571,14 @@ function SquadsPageInner() {
             <AccordionTrigger className="py-2 text-sm hover:no-underline">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">{td.teamName}</Badge>
-                <span className={cn("text-xs", hasPending ? "text-red-300" : "text-muted-foreground")}>{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-muted-foreground">{td.resources.length} recurso{td.resources.length !== 1 ? 's' : ''}</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
                 {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink, isVacant }) => (
                   <div key={r.id} className={cn("flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0", isVacant && "bg-destructive/5")}>
-                    <span className={cn("font-medium", isVacant ? "text-destructive" : hasPending && "text-red-200")}>{resolvedNome || 'Sem nome'}</span>
+                    <span className={cn("font-medium", isVacant && "text-destructive")}>{resolvedNome || 'Sem nome'}</span>
                     {isVacant && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -611,9 +611,9 @@ function SquadsPageInner() {
                         <TooltipContent>Pessoa não encontrada no RH Mestre — dados podem estar desatualizados</TooltipContent>
                       </Tooltip>
                     )}
-                    <span className={cn(hasPending ? "text-red-300" : "text-muted-foreground")}>—</span>
-                    <span className={cn(hasPending ? "text-red-300" : "text-muted-foreground")}>{resolvedCargo || 'Sem cargo'}</span>
-                    <span className={cn("ml-auto tabular-nums font-medium", hasPending && "text-red-100")}>{r.percentualDedicacao}%</span>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">{resolvedCargo || 'Sem cargo'}</span>
+                    <span className="ml-auto tabular-nums font-medium">{r.percentualDedicacao}%</span>
                     {r.percentualDedicacao > 100 && <Badge variant="destructive" className="text-[10px]">&gt;100%</Badge>}
                   </div>
                 ))}
@@ -637,9 +637,9 @@ function SquadsPageInner() {
     const pendingCountForCard = pendingItems.filter(p => p.contract_id === cd.contractId).length;
 
     return (
-      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-red-950 border-red-700')}>
+      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-destructive/5 border-destructive/40')}>
         {contractHasPending && (
-          <div className="px-4 py-2 bg-red-900/60 text-red-100 text-xs font-medium border-b border-red-700">
+          <div className="px-4 py-2 bg-destructive/10 text-destructive text-xs font-medium border-b border-destructive/30">
             ⚠️ {pendingCountForCard} substituição(ões) pendente(s)
           </div>
         )}
@@ -647,16 +647,16 @@ function SquadsPageInner() {
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className={cn("text-base", contractHasPending && "text-red-50")}>{cd.contractNome || cd.contractCodigo}</CardTitle>
+                <CardTitle className="text-base">{cd.contractNome || cd.contractCodigo}</CardTitle>
                 {cardContract?.status === 'encerrado' && (
                   <Badge className="text-[10px] bg-red-900 text-red-100 hover:bg-red-900 border-red-800">Encerrado</Badge>
                 )}
                 {cardContract?.status === 'suspenso' && (
                   <Badge className="text-[10px] bg-yellow-900 text-yellow-100 hover:bg-yellow-900 border-yellow-800">Suspenso</Badge>
                 )}
-                <span className={cn("text-sm", contractHasPending ? "text-red-300" : "text-muted-foreground")}>· {cd.contractCodigo}</span>
+                <span className="text-sm text-muted-foreground">· {cd.contractCodigo}</span>
               </div>
-              <p className={cn("text-sm", contractHasPending ? "text-red-300" : "text-muted-foreground")}>{cd.clientName}</p>
+              <p className="text-sm text-muted-foreground">{cd.clientName}</p>
               {cd.subprojectName && (
                 <div className="flex items-center gap-1.5">
                   <FolderTree className="w-3.5 h-3.5 text-primary" />
@@ -676,8 +676,8 @@ function SquadsPageInner() {
 
           {/* FTE Summary at the end */}
           <div className="border-t pt-3 mt-3">
-            <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs", contractHasPending ? "text-red-200" : "text-muted-foreground")}>
-              <span className={cn("font-medium", contractHasPending ? "text-red-200" : "text-foreground")}>FTE Total: {cd.totalFTE.toFixed(2)}</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">FTE Total: {cd.totalFTE.toFixed(2)}</span>
               <span>RH: {cd.hrCount}</span>
               {cardData.teams.map(td => (
                 <span key={td.teamName} className="tabular-nums">{td.teamName}: {td.fte.toFixed(1)}</span>
@@ -686,10 +686,10 @@ function SquadsPageInner() {
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="ghost" size="sm" className={cn("text-xs", contractHasPending && "text-red-100 hover:text-red-50 hover:bg-red-900/40")} onClick={() => navigate(`/contratos/${cd.contractId}`, { state: { from: '/squads' } })}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}`, { state: { from: '/squads' } })}>
               <FileText className="w-3 h-3 mr-1" /> Ver contrato
             </Button>
-            <Button variant="ghost" size="sm" className={cn("text-xs", contractHasPending && "text-red-100 hover:text-red-50 hover:bg-red-900/40")} onClick={() => navigate(`/contratos/${cd.contractId}/recursos`, { state: { from: '/squads' } })}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/contratos/${cd.contractId}/recursos`, { state: { from: '/squads' } })}>
               <Users className="w-3 h-3 mr-1" /> Ver recursos
             </Button>
           </div>
@@ -708,7 +708,7 @@ function SquadsPageInner() {
     const cardHasInactivePending = isInactivePendingPerson(hrPersonIdForCard);
 
     return (
-      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-red-950 border-red-700')}>
+      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-destructive/5 border-destructive/40')}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
