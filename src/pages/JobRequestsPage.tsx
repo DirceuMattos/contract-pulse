@@ -1,6 +1,6 @@
-// v1 - módulo Requisição de Vagas: listagem + CRUD + fluxo de status
+// v2 - Vagas: ponte com reposicoes pendentes (abrir vaga em 1 clique)
 import { useState } from 'react';
-import { Briefcase, Plus, Pencil, Users } from 'lucide-react';
+import { Briefcase, Plus, Pencil, Users, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import {
   useJobRequests, type JobRequest, type JobRequestStatus,
   STATUS_META, STATUS_FLOW,
 } from '@/hooks/useJobRequests';
+import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsForVaga';
 import { JobRequestDialog } from '@/components/jobrequests/JobRequestDialog';
 
 const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
@@ -36,12 +37,34 @@ function StatusBadge({ status }: { status: JobRequestStatus }) {
 export default function JobRequestsPage() {
   const { canEdit } = useAuth();
   const { requests, loading, error, reload } = useJobRequests();
+  const { items: reposicoes, reload: reloadReposicoes } = usePendingReplacementsForVaga();
   const [filter, setFilter] = useState<JobRequestStatus | 'todos'>('todos');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<JobRequest | null>(null);
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: JobRequest) => { setEditing(r); setDialogOpen(true); };
+
+  // Cria vaga pré-preenchida a partir de uma reposição pendente (1 clique).
+  const abrirVagaDeReposicao = async (rep: typeof reposicoes[number]) => {
+    const titulo = rep.cargoLabel
+      ? `${rep.cargoLabel}${rep.nivel ? ` (${rep.nivel})` : ''}`
+      : `Reposição — ${rep.pessoaNome}`;
+    const { error: e } = await supabase.from('job_requests').insert({
+      titulo,
+      descricao: `Reposição de ${rep.pessoaNome}.`,
+      job_title_id: rep.cargoId,
+      nivel: rep.nivel,
+      quantidade: 1,
+      status: 'solicitado',
+      pending_replacement_id: rep.id,
+      contract_id: rep.contract_id,
+      solicitante_id: null,
+    });
+    if (e) { toast.error('Erro ao abrir vaga'); return; }
+    toast.success('Vaga aberta a partir da reposição');
+    reload(); reloadReposicoes();
+  };
 
   const changeStatus = async (r: JobRequest, novo: JobRequestStatus) => {
     const { error: e } = await supabase.from('job_requests').update({ status: novo }).eq('id', r.id);
@@ -80,6 +103,31 @@ export default function JobRequestsPage() {
       </div>
 
       {error && <Card><CardContent className="p-4 text-sm text-destructive">Erro ao carregar: {error}</CardContent></Card>}
+
+      {/* Reposições pendentes (desligamentos sem vaga aberta) */}
+      {canEdit && reposicoes.filter((r) => !r.jaTemVaga).length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+            <UserMinus className="h-4 w-4" />
+            Reposições pendentes ({reposicoes.filter((r) => !r.jaTemVaga).length})
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {reposicoes.filter((r) => !r.jaTemVaga).map((rep) => (
+              <div key={rep.id} className="flex items-center gap-3 rounded-md border bg-background p-2.5 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{rep.pessoaNome}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {rep.cargoLabel ?? 'Cargo não informado'}{rep.nivel ? ` · ${rep.nivel}` : ''}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => abrirVagaDeReposicao(rep)}>
+                  Abrir vaga
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando…</CardContent></Card>
