@@ -1556,6 +1556,8 @@ export type Database = {
           nivel: string | null
           observacoes: string | null
           pending_replacement_id: string | null
+          preenchida_em: string | null
+          preenchida_por_hr_person_id: string | null
           quantidade: number
           skills_avulsas: Json | null
           solicitante_id: string | null
@@ -1574,6 +1576,8 @@ export type Database = {
           nivel?: string | null
           observacoes?: string | null
           pending_replacement_id?: string | null
+          preenchida_em?: string | null
+          preenchida_por_hr_person_id?: string | null
           quantidade?: number
           skills_avulsas?: Json | null
           solicitante_id?: string | null
@@ -1592,6 +1596,8 @@ export type Database = {
           nivel?: string | null
           observacoes?: string | null
           pending_replacement_id?: string | null
+          preenchida_em?: string | null
+          preenchida_por_hr_person_id?: string | null
           quantidade?: number
           skills_avulsas?: Json | null
           solicitante_id?: string | null
@@ -1626,6 +1632,13 @@ export type Database = {
             columns: ["pending_replacement_id"]
             isOneToOne: false
             referencedRelation: "pending_replacements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_preenchida_por_hr_person_id_fkey"
+            columns: ["preenchida_por_hr_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
             referencedColumns: ["id"]
           },
         ]
