@@ -93,11 +93,10 @@ const navGroups: NavGroup[] = [
       { path: '#', label: 'Adm Horas Extras', icon: Clock, comingSoon: true },
       { path: '/adm-transportes', label: 'Adm Deslocamentos (Aplicativo)', icon: Truck },
       {
-        path: '#',
+        path: '/requisicao-vagas',
         label: 'Requisição de Vagas',
         icon: ClipboardList,
-        comingSoon: true,
-        allowedRoles: ['c-level', 'intermediario', 'lider_tribo', 'coordenacao_suporte', 'projetos_produtos'],
+        moduleKey: 'JOB_REQUESTS',
       },
       { path: '/skills-vagas', label: 'Skills de Vagas', icon: Sparkles, moduleKey: 'JOB_SKILLS' },
     ],

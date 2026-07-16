@@ -32,6 +32,7 @@ import ImportExportPage from "@/pages/ImportExportPage";
 import SettingsPage from "@/pages/SettingsPage";
 import JobTitlesPage from "@/pages/JobTitlesPage";
 import JobSkillsPage from "@/pages/JobSkillsPage";
+import JobRequestsPage from "@/pages/JobRequestsPage";
 import TeamsPage from "@/pages/TeamsPage";
 import AlertsPage from "@/pages/AlertsPage";
 import SquadsPage from "@/pages/SquadsPage";
@@ -110,6 +111,7 @@ const App = () => (
                           <Route path="/calculadora/:id" element={<CalculatorWizardPage />} />
                           <Route path="/rh" element={<HRPeoplePage />} />
                           <Route path="/skills-vagas" element={<JobSkillsPage />} />
+                          <Route path="/requisicao-vagas" element={<JobRequestsPage />} />
                           <Route path="/rh/pessoas/:id" element={<HRPersonDetailPage />} />
                           <Route path="/rh/cargos" element={<JobTitlesPage />} />
                           <Route path="/rh/equipes" element={<TeamsPage />} />
