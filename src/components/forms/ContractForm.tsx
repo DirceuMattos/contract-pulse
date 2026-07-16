@@ -75,7 +75,7 @@ const periodicidades = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bienal'];
 
 export function ContractForm({ contract, onSubmit, onCancel, isLoading }: ContractFormProps) {
   const { clients, settings } = useData();
-  const { canViewValues, userRole } = useAuth();
+  const { canViewValues, userRole, canModuleAction } = useAuth();
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']);
@@ -84,7 +84,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | undefined>(undefined);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const canEditContractForm = userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin';
+  const canEditContractForm = (userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin') && canModuleAction('CONTRACTS', 'can_edit');
   const isReadOnly = Boolean(contract) && !canEditContractForm;
 
   const form = useForm<ContractFormData>({

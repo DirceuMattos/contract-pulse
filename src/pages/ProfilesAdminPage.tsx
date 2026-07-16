@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Loader2, Settings2 } from 'lucide-react';
@@ -9,6 +10,15 @@ import {
   ModuleKey,
   isRoleAllowedForModule,
 } from '@/types/moduleAccess';
+import {
+  ACTION_FLAG_LABELS,
+  ActionFlagKey,
+  ActionFlags,
+  DEFAULT_ACTION_FLAGS_BY_ROLE,
+  EMPTY_ACTION_FLAGS,
+  ModuleActionPermissions,
+  getDefaultModuleActionPermissions,
+} from '@/types/modulePermissions';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -101,37 +111,12 @@ function defaultModulesFor(role: UserRole): ModuleKey[] {
   return allAllowed;
 }
 
-const DEFAULT_ACTION_FLAGS_BY_ROLE: Record<UserRole, ActionFlags> = {
-  'c-level':       { can_edit: true,  can_create: true,  can_delete: true,  can_export: true,  can_view_values: true,  can_view_hr_costs: true,  can_allocate: true  },
-  'superadmin':    { can_edit: true,  can_create: true,  can_delete: true,  can_export: true,  can_view_values: true,  can_view_hr_costs: true,  can_allocate: true  },
-  'intermediario': { can_edit: true,  can_create: true,  can_delete: true,  can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: true  },
-  'administrativo':{ can_edit: true,  can_create: true,  can_delete: true,  can_export: true,  can_view_values: true,  can_view_hr_costs: true,  can_allocate: true  },
-  'lider_tribo':   { can_edit: true,  can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: true  },
-  'rh':            { can_edit: true,  can_create: true,  can_delete: true,  can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: true  },
-  'juridico':      { can_edit: false, can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
-  'comercial':     { can_edit: false, can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
-  'demo':          { can_edit: false, can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
-  'leitor':        { can_edit: false, can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
-  'coordenacao_suporte': { can_edit: true,  can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: true  },
-  'projetos_produtos':   { can_edit: true,  can_create: false, can_delete: false, can_export: false, can_view_values: false, can_view_hr_costs: false, can_allocate: false },
-};
-
-
-interface ActionFlags {
-  can_edit: boolean;
-  can_create: boolean;
-  can_delete: boolean;
-  can_export: boolean;
-  can_view_values: boolean;
-  can_view_hr_costs: boolean;
-  can_allocate: boolean;
-}
-
 interface RoleProfileRow extends ActionFlags {
   id?: string;
   role: UserRole;
   label: string;
   modules: ModuleKey[];
+  moduleActions: ModuleActionPermissions;
 }
 
 const MODULE_GROUPS: { title: string; keys: ModuleKey[] }[] = [
@@ -140,16 +125,6 @@ const MODULE_GROUPS: { title: string; keys: ModuleKey[] }[] = [
   { title: 'Recursos e Pessoas', keys: ['HR', 'SQUADS', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'] },
   { title: 'Setup', keys: ['SETTINGS', 'USERS_ADMIN', 'IMPORT_EXPORT', 'PROFILES_ADMIN', 'ACCESS_LOGS'] },
   { title: 'IA', keys: ['AI', 'AI_LOGS'] },
-];
-
-const ACTION_FLAG_LABELS: { key: keyof ActionFlags; label: string }[] = [
-  { key: 'can_edit', label: 'Pode editar registros' },
-  { key: 'can_create', label: 'Pode criar registros' },
-  { key: 'can_delete', label: 'Pode excluir registros' },
-  { key: 'can_export', label: 'Pode exportar dados' },
-  { key: 'can_view_values', label: 'Pode ver valores financeiros' },
-  { key: 'can_view_hr_costs', label: 'Pode ver custos de RH' },
-  { key: 'can_allocate', label: 'Pode alocar recursos' },
 ];
 
 export default function ProfilesAdminPage() {
@@ -169,13 +144,38 @@ export default function ProfilesAdminPage() {
       if (error) {
         toast.error('Erro ao carregar perfis: ' + error.message);
       } else {
+        const { data: actionRows, error: actionError } = await (supabase as any)
+          .from('role_module_permissions')
+          .select('role, module_key, can_access, can_edit, can_create, can_delete, can_export, can_view_values, can_view_hr_costs, can_allocate');
+
+        if (actionError) {
+          toast.error('Erro ao carregar permissões por módulo: ' + actionError.message);
+        }
+
+        const actionMap: Record<string, ModuleActionPermissions> = {};
+        for (const row of actionRows || []) {
+          if (!row.can_access) continue;
+          actionMap[row.role] ||= {};
+          actionMap[row.role][row.module_key as ModuleKey] = {
+            can_edit: !!row.can_edit,
+            can_create: !!row.can_create,
+            can_delete: !!row.can_delete,
+            can_export: !!row.can_export,
+            can_view_values: !!row.can_view_values,
+            can_view_hr_costs: !!row.can_view_hr_costs,
+            can_allocate: !!row.can_allocate,
+          };
+        }
+
         const map: Record<string, RoleProfileRow> = {};
         for (const r of data || []) {
+          const role = r.role as UserRole;
           map[r.role] = {
             id: r.id,
-            role: r.role,
+            role,
             label: r.label,
             modules: (r.modules || []) as ModuleKey[],
+            moduleActions: actionMap[r.role] || getDefaultModuleActionPermissions(role),
             can_edit: !!r.can_edit,
             can_create: !!r.can_create,
             can_delete: !!r.can_delete,
@@ -205,6 +205,7 @@ export default function ProfilesAdminPage() {
       role,
       label: roleLabels[role],
       modules: defaultModulesFor(role),
+      moduleActions: getDefaultModuleActionPermissions(role),
       ...DEFAULT_ACTION_FLAGS_BY_ROLE[role],
     };
   }
@@ -218,12 +219,21 @@ export default function ProfilesAdminPage() {
     const set = new Set(editing.modules);
     if (checked) set.add(key);
     else set.delete(key);
-    setEditing({ ...editing, modules: Array.from(set) });
+    const moduleActions = { ...editing.moduleActions };
+    moduleActions[key] = checked ? (moduleActions[key] || { ...DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role] }) : { ...EMPTY_ACTION_FLAGS };
+    setEditing({ ...editing, modules: Array.from(set), moduleActions });
   }
 
-  function setFlag(key: keyof ActionFlags, value: boolean) {
-    if (!editing) return;
-    setEditing({ ...editing, [key]: value });
+  function setModuleFlag(moduleKey: ModuleKey, key: ActionFlagKey, value: boolean) {
+    if (!editing || !editing.modules.includes(moduleKey)) return;
+    const current = editing.moduleActions[moduleKey] || { ...DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role] };
+    setEditing({
+      ...editing,
+      moduleActions: {
+        ...editing.moduleActions,
+        [moduleKey]: { ...current, [key]: value },
+      },
+    });
   }
 
   function resetToDefault() {
@@ -231,6 +241,7 @@ export default function ProfilesAdminPage() {
     setEditing({
       ...editing,
       modules: defaultModulesFor(editing.role),
+      moduleActions: getDefaultModuleActionPermissions(editing.role),
       ...DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role],
     });
     toast.info('Valores padrão carregados (não salvos)');
@@ -284,6 +295,41 @@ export default function ProfilesAdminPage() {
         .from('role_profiles')
         .upsert(payload, { onConflict: 'role' });
       if (error) throw error;
+
+      const { error: deleteActionError } = await (supabase as any)
+        .from('role_module_permissions')
+        .delete()
+        .eq('role', editing.role);
+      if (deleteActionError) throw deleteActionError;
+
+      const actionRows = MODULE_CATALOG
+        .filter((mod) => isRoleAllowedForModule(editing.role, mod.key))
+        .map((mod) => {
+          const hasAccess = editing.modules.includes(mod.key);
+          const flags = hasAccess
+            ? (editing.moduleActions[mod.key] || DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role])
+            : EMPTY_ACTION_FLAGS;
+          return {
+            role: editing.role,
+            module_key: mod.key,
+            can_access: hasAccess,
+            can_edit: hasAccess && flags.can_edit,
+            can_create: hasAccess && flags.can_create,
+            can_delete: hasAccess && flags.can_delete,
+            can_export: hasAccess && flags.can_export,
+            can_view_values: hasAccess && flags.can_view_values,
+            can_view_hr_costs: hasAccess && flags.can_view_hr_costs,
+            can_allocate: hasAccess && flags.can_allocate,
+            updated_at: new Date().toISOString(),
+          };
+        });
+
+      if (actionRows.length > 0) {
+        const { error: insertActionError } = await (supabase as any)
+          .from('role_module_permissions')
+          .insert(actionRows);
+        if (insertActionError) throw insertActionError;
+      }
 
       const affected = await propagateProfileChanges(editing.role, editing.modules);
 
@@ -350,31 +396,47 @@ export default function ProfilesAdminPage() {
 
                 <div className="space-y-6 mt-6">
                   <section className="space-y-4">
-                    <h3 className="font-semibold text-sm">Módulos com acesso</h3>
+                    <h3 className="font-semibold text-sm">Módulos e permissões de ação</h3>
                     {MODULE_GROUPS.map((group) => (
-                      <div key={group.title} className="space-y-2">
+                      <div key={group.title} className="space-y-3">
                         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                           {group.title}
                         </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="space-y-2">
                           {group.keys.map((key) => {
                             const mod = MODULE_CATALOG.find((m) => m.key === key);
                             if (!mod) return null;
                             const allowed = isRoleAllowedForModule(editing.role, key);
                             const checked = allowed && editing.modules.includes(key);
+                            const flags = editing.moduleActions[key] || EMPTY_ACTION_FLAGS;
                             const node = (
-                              <label
-                                className={`flex items-center gap-2 rounded-md border p-2 text-sm ${
-                                  allowed ? 'cursor-pointer hover:bg-muted/50' : 'opacity-50 cursor-not-allowed bg-muted/30'
-                                }`}
-                              >
-                                <Checkbox
-                                  checked={checked}
-                                  disabled={!allowed}
-                                  onCheckedChange={(v) => toggleModule(key, !!v)}
-                                />
-                                <span>{mod.label}</span>
-                              </label>
+                              <div className={`rounded-md border p-3 ${allowed ? 'bg-background' : 'opacity-50 bg-muted/30'}`}>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                  <label className={`flex items-center gap-2 text-sm font-medium ${allowed ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                                    <Checkbox
+                                      checked={checked}
+                                      disabled={!allowed}
+                                      onCheckedChange={(v) => toggleModule(key, !!v)}
+                                    />
+                                    <span>{mod.label}</span>
+                                  </label>
+                                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                    {ACTION_FLAG_LABELS.map(({ key: actionKey, label }) => (
+                                      <div key={actionKey} className="flex items-center justify-between gap-2 rounded border bg-muted/20 px-2 py-1.5">
+                                        <Label htmlFor={`flag-${key}-${actionKey}`} className="text-[11px] font-normal leading-tight">
+                                          {label}
+                                        </Label>
+                                        <Switch
+                                          id={`flag-${key}-${actionKey}`}
+                                          checked={checked && flags[actionKey]}
+                                          disabled={!allowed || !checked}
+                                          onCheckedChange={(v) => setModuleFlag(key, actionKey, v)}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
                             );
                             return allowed ? (
                               <div key={key}>{node}</div>
@@ -392,23 +454,6 @@ export default function ProfilesAdminPage() {
                     ))}
                   </section>
 
-                  <section className="space-y-3">
-                    <h3 className="font-semibold text-sm">Permissões de ação</h3>
-                    <div className="space-y-2">
-                      {ACTION_FLAG_LABELS.map(({ key, label }) => (
-                        <div key={key} className="flex items-center justify-between rounded-md border p-3">
-                          <Label htmlFor={`flag-${key}`} className="text-sm font-normal">
-                            {label}
-                          </Label>
-                          <Switch
-                            id={`flag-${key}`}
-                            checked={editing[key]}
-                            onCheckedChange={(v) => setFlag(key, v)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </section>
                 </div>
 
                 <SheetFooter className="mt-6 flex-col sm:flex-row gap-2">

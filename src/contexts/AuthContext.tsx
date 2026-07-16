@@ -1,8 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, UserRole } from '@/types';
 import { ModuleKey } from '@/types/moduleAccess';
+import { ActionFlagKey, ActionFlags, ModuleActionPermissions, getDefaultActionFlagsForRole } from '@/types/modulePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
+
+interface RoleModulePermissionRow {
+  module_key: ModuleKey;
+  can_access: boolean;
+  can_edit: boolean;
+  can_create: boolean;
+  can_delete: boolean;
+  can_export: boolean;
+  can_view_values: boolean;
+  can_view_hr_costs: boolean;
+  can_allocate: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +32,8 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   userRole: UserRole | null;
   modulePermissions: Record<ModuleKey, boolean> | null;
+  moduleActionPermissions: ModuleActionPermissions | null;
+  canModuleAction: (moduleKey: ModuleKey, action: ActionFlagKey) => boolean;
   mustChangePassword: boolean;
 }
 
@@ -28,11 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [modulePermissions, setModulePermissions] = useState<Record<ModuleKey, boolean> | null>(null);
+  const [moduleActionPermissions, setModuleActionPermissions] = useState<ModuleActionPermissions | null>(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const initializedRef = useRef(false);
 
-  async function fetchRoleAndPermissions(userId: string): Promise<{ role: UserRole; perms: Record<ModuleKey, boolean> | null }> {
+  async function fetchRoleAndPermissions(userId: string): Promise<{ role: UserRole; perms: Record<ModuleKey, boolean> | null; actionPerms: ModuleActionPermissions | null }> {
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
@@ -54,12 +70,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return { role, perms };
+    const roleModulePermissionsClient = supabase as unknown as {
+      from: (table: 'role_module_permissions') => {
+        select: (columns: string) => {
+          eq: (column: 'role', value: UserRole) => Promise<{ data: RoleModulePermissionRow[] | null }>;
+        };
+      };
+    };
+
+    const { data: actionRows } = await roleModulePermissionsClient
+      .from('role_module_permissions')
+      .select('module_key, can_access, can_edit, can_create, can_delete, can_export, can_view_values, can_view_hr_costs, can_allocate')
+      .eq('role', role);
+
+    let actionPerms: ModuleActionPermissions | null = null;
+    if (actionRows && actionRows.length > 0) {
+      actionPerms = {};
+      for (const row of actionRows) {
+        actionPerms[row.module_key as ModuleKey] = {
+          can_edit: row.can_access && !!row.can_edit,
+          can_create: row.can_access && !!row.can_create,
+          can_delete: row.can_access && !!row.can_delete,
+          can_export: row.can_access && !!row.can_export,
+          can_view_values: row.can_access && !!row.can_view_values,
+          can_view_hr_costs: row.can_access && !!row.can_view_hr_costs,
+          can_allocate: row.can_access && !!row.can_allocate,
+        };
+      }
+    }
+
+    return { role, perms, actionPerms };
   }
 
   async function buildUser(session: Session) {
     const su = session.user;
-    const { role, perms } = await fetchRoleAndPermissions(su.id);
+    const { role, perms, actionPerms } = await fetchRoleAndPermissions(su.id);
 
     const authUser: User = {
       id: su.id,
@@ -72,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser);
     setUserRole(role);
     setModulePermissions(perms);
+    setModuleActionPermissions(actionPerms);
     setMustChangePassword(!!su.user_metadata?.must_change_password);
   }
 
@@ -91,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setUserRole(null);
         setModulePermissions(null);
+        setModuleActionPermissions(null);
         setMustChangePassword(false);
         setLoading(false);
       }
@@ -129,6 +176,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canDelete = userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos' && (userRole === 'c-level' || userRole === 'demo' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'superadmin');
   const canAllocate = userRole === 'c-level' || userRole === 'demo' || userRole === 'intermediario' || userRole === 'administrativo' || userRole === 'rh' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte' || userRole === 'superadmin';
   const canViewHRCosts = userRole === 'c-level' || userRole === 'demo' || userRole === 'administrativo' || userRole === 'superadmin';
+  const legacyActionFlags: ActionFlags = userRole ? getDefaultActionFlagsForRole(userRole) : {
+    can_edit: false,
+    can_create: false,
+    can_delete: false,
+    can_export: false,
+    can_view_values: false,
+    can_view_hr_costs: false,
+    can_allocate: false,
+  };
+
+  const canModuleAction = (moduleKey: ModuleKey, action: ActionFlagKey): boolean => {
+    const moduleFlags = moduleActionPermissions?.[moduleKey];
+    if (moduleFlags) return moduleFlags[action];
+    return legacyActionFlags[action];
+  };
 
   return (
     <AuthContext.Provider value={{
@@ -146,6 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSuperAdmin,
       userRole,
       modulePermissions,
+      moduleActionPermissions,
+      canModuleAction,
       mustChangePassword,
     }}>
       {children}

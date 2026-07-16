@@ -109,9 +109,9 @@ const recorrenciaOptions = [
 export function ResourceForm({ resource, contractId, settings, existingHrPersonIds = [], onSubmit, onCancel }: ResourceFormProps) {
   const { getActiveJobTitles, teams } = useData();
   const { hrPeople } = useHR();
-  const { canViewHRCosts, userRole } = useAuth();
+  const { canViewHRCosts, userRole, canModuleAction } = useAuth();
   const activeJobTitles = getActiveJobTitles();
-  const canEditResourceForm = userRole === 'c-level' || userRole === 'administrativo' || userRole === 'superadmin';
+  const canEditResourceForm = (userRole === 'c-level' || userRole === 'administrativo' || userRole === 'superadmin') && canModuleAction('RESOURCES', 'can_edit');
   const isReadOnly = Boolean(resource) && !canEditResourceForm;
   
   const [selectedHrPersonId, setSelectedHrPersonId] = useState<string | undefined>(resource?.hrPersonId);

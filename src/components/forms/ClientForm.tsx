@@ -80,7 +80,7 @@ function maskCEP(value: string): string {
 export function ClientForm({ client, mode }: ClientFormProps) {
   const navigate = useNavigate();
   const { addClient, updateClient } = useData();
-  const { userRole } = useAuth();
+  const { userRole, canModuleAction } = useAuth();
   const { toast } = useToast();
   const [newTag, setNewTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,7 +89,7 @@ export function ClientForm({ client, mode }: ClientFormProps) {
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const canEditClientForm = userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin';
+  const canEditClientForm = (userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin') && canModuleAction('CLIENTS', 'can_edit');
   const isReadOnly = mode === 'edit' && !canEditClientForm;
 
   const uploadLogoForClient = useCallback(async (clientId: string, file: File): Promise<string | null> => {
