@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSubprojects } from '@/contexts/SubprojectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { SubprojectAllocation } from '@/types';
 import { toast } from 'sonner';
 
@@ -17,6 +18,7 @@ interface EditAllocationDialogProps {
 
 export function EditAllocationDialog({ open, onOpenChange, allocation, itemName, itemTypeLabel = 'Recurso' }: EditAllocationDialogProps) {
   const { updateAllocation } = useSubprojects();
+  const { canViewValues } = useAuth();
   const [dedication, setDedication] = useState(allocation.dedicationPercent);
   const [costValue, setCostValue] = useState<number | ''>(allocation.costValue ?? '');
   const [saving, setSaving] = useState(false);
@@ -36,7 +38,7 @@ export function EditAllocationDialog({ open, onOpenChange, allocation, itemName,
     setSaving(true);
     try {
       const updates: Partial<SubprojectAllocation> = { dedicationPercent: dedication };
-      if (isResource) {
+      if (isResource && canViewValues) {
         updates.costValue = costValue === '' ? null : Number(costValue);
       }
       await updateAllocation(allocation.id, updates);
@@ -60,7 +62,7 @@ export function EditAllocationDialog({ open, onOpenChange, allocation, itemName,
             <Label className="text-muted-foreground text-xs">{itemTypeLabel}</Label>
             <p className="font-medium">{itemName}</p>
           </div>
-          {isResource && (
+          {isResource && canViewValues && (
             <div className="space-y-1.5">
               <Label htmlFor="costValue">Valor mensal (R$)</Label>
               <Input

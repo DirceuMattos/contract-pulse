@@ -99,7 +99,7 @@ function HRPeoplePageInner() {
     } catch { return true; }
   });
   useEffect(() => {
-    try { sessionStorage.setItem('hr-filters-expanded', String(filtersExpanded)); } catch {}
+    try { sessionStorage.setItem('hr-filters-expanded', String(filtersExpanded)); } catch { /* ignore unavailable storage */ }
   }, [filtersExpanded]);
 
   // Persist filters to sessionStorage on change
@@ -120,8 +120,8 @@ function HRPeoplePageInner() {
   const activeTeams = teams.filter(t => t.isActive);
   const activeJobTitles = jobTitles.filter(jt => jt.isActive);
 
-  const getTeamName = (teamId?: string) => teams.find(t => t.id === teamId)?.name || '';
-  const getCargoLabel = (cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label || '';
+  const getTeamName = useCallback((teamId?: string) => teams.find(t => t.id === teamId)?.name || '', [teams]);
+  const getCargoLabel = useCallback((cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label || '', [jobTitles]);
 
   const comiteOptions = useMemo(() => {
     const values = new Set<string>();
@@ -197,7 +197,7 @@ function HRPeoplePageInner() {
       return 0;
     });
     return arr;
-  }, [filtered, sortField, sortDir]);
+  }, [filtered, sortField, sortDir, getCargoLabel, getTeamName]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -257,7 +257,6 @@ function HRPeoplePageInner() {
     exportHRPeople(filtered, teams, jobTitles, canViewHRCosts, 'xlsx', hrTimeline);
   };
 
-  const isCLevel = userRole === 'c-level';
   const totals = useMemo(() => {
     const totalSalarios = filtered.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
     const totalBeneficios = filtered.reduce((sum, p) => sum + (p.beneficios || 0), 0);
@@ -308,8 +307,8 @@ function HRPeoplePageInner() {
         }
       />
 
-      {/* Totais (apenas C-Level) */}
-      {isCLevel && (
+      {/* Totais financeiros */}
+      {canViewHRCosts && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Card className="border-l-4 border-l-emerald-500">
             <CardContent className="p-4 flex items-center gap-4">
@@ -371,7 +370,7 @@ function HRPeoplePageInner() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Situação</span>
-              <Select value={filterSituacao} onValueChange={(v: any) => setFilterSituacao(v)}>
+              <Select value={filterSituacao} onValueChange={(v) => setFilterSituacao(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>

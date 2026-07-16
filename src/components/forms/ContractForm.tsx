@@ -8,6 +8,7 @@ import { useData } from '@/contexts/DataContext';
 import { Contract } from '@/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ContractDocumentImport } from '@/components/forms/ContractDocumentImport';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,7 @@ const periodicidades = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bienal'];
 
 export function ContractForm({ contract, onSubmit, onCancel, isLoading }: ContractFormProps) {
   const { clients, settings } = useData();
+  const { canViewValues } = useAuth();
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState('');
   const [openSections, setOpenSections] = useState<string[]>(['identificacao', 'vigencia', 'receita', 'escopo', 'responsaveis']);
@@ -790,6 +792,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
           </AccordionItem>
 
           {/* Receita */}
+          {canViewValues && (
           <AccordionItem value="receita" className="border rounded-lg px-4">
             <AccordionTrigger className="hover:no-underline">
               <div className="flex items-center gap-2">
@@ -941,6 +944,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
               </div>
             </AccordionContent>
           </AccordionItem>
+          )}
 
           {/* Escopo */}
           <AccordionItem value="escopo" className="border rounded-lg px-4">

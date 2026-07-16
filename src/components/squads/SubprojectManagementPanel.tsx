@@ -35,7 +35,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const { getSubprojectsByContract, deleteSubproject, getAllocationsBySubproject, deleteAllocation } = useSubprojects();
   const { hrPeople } = useHR();
   const { resources } = useData();
-  const { canEdit } = useAuth();
+  const { canEdit, canViewValues } = useAuth();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingSp, setEditingSp] = useState<ContractSubproject | null>(null);
@@ -81,7 +81,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const renderAllocRow = (alloc: SubprojectAllocation, name: string, typeLabel: string) => (
     <div key={alloc.id} className="flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0">
       <span className="font-medium truncate">{name}</span>
-      {alloc.costValue != null && (
+      {canViewValues && alloc.costValue != null && (
         <span className="text-xs text-muted-foreground tabular-nums">
           R$ {alloc.costValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
         </span>
@@ -210,7 +210,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                                       <AlertTriangle className="w-3 h-3" /> Inativo
                                     </Badge>
                                   )}
-                                  {alloc.costValue != null && (
+                                  {canViewValues && alloc.costValue != null && (
                                     <span className="text-xs text-muted-foreground tabular-nums">
                                       R$ {alloc.costValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                                     </span>

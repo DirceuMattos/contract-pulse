@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SubprojectAllocation } from '@/types';
 import { toast } from 'sonner';
 
 export type AllocationType = 'hr' | 'resource';
@@ -32,6 +34,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
   const { addAllocation, getAllocationsBySubproject } = useSubprojects();
   const { hrPeople } = useHR();
   const { resources } = useData();
+  const { canViewValues } = useAuth();
   const [selectedId, setSelectedId] = useState('');
   const [dedication, setDedication] = useState(100);
   const [costValue, setCostValue] = useState<number | ''>('');
@@ -97,18 +100,19 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
       toast.error('Dedicação deve ser entre 1% e 100%');
       return;
     }
-    if (isResource && (costValue === '' || Number(costValue) < 0)) {
+    if (isResource && canViewValues && (costValue === '' || Number(costValue) < 0)) {
       toast.error('Informe o valor do recurso');
       return;
     }
     setSaving(true);
     try {
-      const payload: any = { subprojectId, dedicationPercent: dedication };
+      const payload: Omit<SubprojectAllocation, 'id' | 'createdAt' | 'updatedAt'> = { subprojectId, dedicationPercent: dedication };
       if (allocationType === 'hr') {
         payload.hrPersonId = selectedId;
       } else {
         payload.resourceId = selectedId;
-        payload.costValue = Number(costValue);
+        const selectedResource = resources.find(r => r.id === selectedId);
+        payload.costValue = canViewValues ? Number(costValue) : (selectedResource?.custoBase ?? null);
       }
 
       await addAllocation(payload);
@@ -151,7 +155,7 @@ export function SubprojectAllocationDialog({ open, onOpenChange, subprojectId, c
               </SelectContent>
             </Select>
           </div>
-          {isResource && (
+          {isResource && canViewValues && (
             <div>
               <Label>Valor mensal (R$) *</Label>
               <Input
