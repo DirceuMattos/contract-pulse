@@ -86,10 +86,7 @@ Deno.serve(async (req) => {
 
 // --- Handlers ---
 
-async function handleSeedAdmin(
-  admin: ReturnType<typeof createClient>,
-  body: Record<string, unknown>
-) {
+async function handleSeedAdmin(admin: ReturnType<typeof createClient>, body: Record<string, unknown>) {
   const email = (body.email as string) || "admin@bnp.com.br";
   const password = typeof body.password === "string" ? body.password : "";
   const name = (body.name as string) || "Administrador";
@@ -99,24 +96,19 @@ async function handleSeedAdmin(
   }
 
   // Check if any c-level user exists
-  const { data: existing } = await admin
-    .from("user_roles")
-    .select("id")
-    .eq("role", "c-level")
-    .limit(1);
+  const { data: existing } = await admin.from("user_roles").select("id").eq("role", "c-level").limit(1);
 
   if (existing && existing.length > 0) {
     return json({ message: "Admin user already exists", seeded: false });
   }
 
   // Create user in Auth
-  const { data: authData, error: authError } =
-    await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name },
-    });
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name },
+  });
 
   if (authError) {
     return err(`Failed to create admin: ${authError.message}`, 500);
@@ -126,10 +118,7 @@ async function handleSeedAdmin(
 
   // Set role to c-level (trigger already created profile + leitor role)
   // Update the role from leitor to c-level
-  await admin
-    .from("user_roles")
-    .update({ role: "c-level" })
-    .eq("user_id", userId);
+  await admin.from("user_roles").update({ role: "c-level" }).eq("user_id", userId);
 
   return json({ message: "Admin user created", seeded: true, userId });
 }
@@ -147,9 +136,7 @@ async function handleList(admin: ReturnType<typeof createClient>) {
   const { data: roles } = await admin.from("user_roles").select("*");
 
   // Get all module permissions
-  const { data: permissions } = await admin
-    .from("user_module_permissions")
-    .select("*");
+  const { data: permissions } = await admin.from("user_module_permissions").select("*");
 
   // Get banned status from auth
   const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -184,10 +171,7 @@ async function handleList(admin: ReturnType<typeof createClient>) {
   return json({ users });
 }
 
-async function handleCreate(
-  admin: ReturnType<typeof createClient>,
-  body: Record<string, unknown>
-) {
+async function handleCreate(admin: ReturnType<typeof createClient>, body: Record<string, unknown>) {
   const { email, password, name, role, active, moduleAccess } = body as {
     email: string;
     password: string;
@@ -202,13 +186,12 @@ async function handleCreate(
   }
 
   // Create in Auth
-  const { data: authData, error: authError } =
-    await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, must_change_password: true },
-    });
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name, must_change_password: true },
+  });
 
   if (authError) return err(authError.message, 400);
 
@@ -219,10 +202,7 @@ async function handleCreate(
 
   // Update role (trigger sets leitor by default)
   if (role !== "leitor") {
-    await admin
-      .from("user_roles")
-      .update({ role })
-      .eq("user_id", userId);
+    await admin.from("user_roles").update({ role }).eq("user_id", userId);
   }
 
   // Set module permissions
@@ -247,10 +227,7 @@ async function handleCreate(
   return json({ userId, message: "User created" }, 201);
 }
 
-async function handleUpdate(
-  admin: ReturnType<typeof createClient>,
-  body: Record<string, unknown>
-) {
+async function handleUpdate(admin: ReturnType<typeof createClient>, body: Record<string, unknown>) {
   const { userId, name, email, role, password, moduleAccess } = body as {
     userId: string;
     name?: string;
@@ -281,19 +258,13 @@ async function handleUpdate(
 
   // Update role
   if (role) {
-    await admin
-      .from("user_roles")
-      .update({ role })
-      .eq("user_id", userId);
+    await admin.from("user_roles").update({ role }).eq("user_id", userId);
   }
 
   // Update module permissions (upsert)
   if (moduleAccess) {
     // Delete existing and re-insert
-    const { error: delErr } = await admin
-      .from("user_module_permissions")
-      .delete()
-      .eq("user_id", userId);
+    const { error: delErr } = await admin.from("user_module_permissions").delete().eq("user_id", userId);
 
     if (delErr) {
       console.error("Failed to delete module permissions:", delErr.message);
@@ -317,11 +288,7 @@ async function handleUpdate(
   return json({ message: "User updated" });
 }
 
-async function handleDelete(
-  admin: ReturnType<typeof createClient>,
-  body: Record<string, unknown>,
-  callerId: string
-) {
+async function handleDelete(admin: ReturnType<typeof createClient>, body: Record<string, unknown>, callerId: string) {
   const userId = body.userId as string;
   if (!userId) return err("Missing userId");
   if (userId === callerId) return err("Cannot delete yourself");
@@ -335,7 +302,7 @@ async function handleDelete(
 async function handleToggleStatus(
   admin: ReturnType<typeof createClient>,
   body: Record<string, unknown>,
-  callerId: string
+  callerId: string,
 ) {
   const userId = body.userId as string;
   const ban = body.ban as boolean;
@@ -355,31 +322,17 @@ async function handleToggleStatus(
   return json({ message: ban ? "User banned" : "User unbanned" });
 }
 
-async function handleGetById(
-  admin: ReturnType<typeof createClient>,
-  body: Record<string, unknown>
-) {
+async function handleGetById(admin: ReturnType<typeof createClient>, body: Record<string, unknown>) {
   const userId = body.userId as string;
   if (!userId) return err("Missing userId");
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
+  const { data: profile } = await admin.from("profiles").select("*").eq("id", userId).single();
 
   if (!profile) return err("User not found", 404);
 
-  const { data: roleData } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .single();
+  const { data: roleData } = await admin.from("user_roles").select("role").eq("user_id", userId).single();
 
-  const { data: permissions } = await admin
-    .from("user_module_permissions")
-    .select("*")
-    .eq("user_id", userId);
+  const { data: permissions } = await admin.from("user_module_permissions").select("*").eq("user_id", userId);
 
   const moduleAccess: Record<string, boolean> = {};
   for (const pm of permissions || []) {
@@ -388,9 +341,7 @@ async function handleGetById(
 
   // Get ban status
   const { data: authUser } = await admin.auth.admin.getUserById(userId);
-  const isBanned = authUser?.user?.banned_until
-    ? new Date(authUser.user.banned_until) > new Date()
-    : false;
+  const isBanned = authUser?.user?.banned_until ? new Date(authUser.user.banned_until) > new Date() : false;
 
   return json({
     user: {
@@ -401,16 +352,21 @@ async function handleGetById(
       active: !isBanned,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at,
-      moduleAccess:
-        Object.keys(moduleAccess).length > 0 ? moduleAccess : undefined,
+      moduleAccess: Object.keys(moduleAccess).length > 0 ? moduleAccess : undefined,
     },
   });
 }
 
 async function handleSeedTeamsJobTitles(admin: ReturnType<typeof createClient>) {
   const teamNames = [
-    "Liderança Equipes", "Projetos", "Desenvolvimento", "Testes",
-    "IA", "Dados", "Estrutura", "Suporte",
+    "Liderança Equipes",
+    "Projetos",
+    "Desenvolvimento",
+    "Testes",
+    "IA",
+    "Dados",
+    "Estrutura",
+    "Suporte",
   ];
 
   // Insert teams
