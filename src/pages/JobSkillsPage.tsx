@@ -1,4 +1,4 @@
-// v2 - Skills de Vagas: cargos sem perfil aparecem como "a preencher" (opção B)
+// v3 - Skills de Vagas: redesign com cor por cargo (tokens chart, claro/escuro)
 import { useState } from 'react';
 import { Sparkles, Plus, Pencil, Users, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useJobSkills, type ProfileWithMeta } from '@/hooks/useJobSkills';
 import { JobSkillProfileDialog } from '@/components/jobskills/JobSkillProfileDialog';
+
+// Cor estável por cargo: hash do nome → 1 dos 6 tokens de chart do design system.
+// Usa CSS variables, então funciona igual em tema claro e escuro.
+function cargoColorVar(label: string): string {
+  let h = 0;
+  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
+  return `hsl(var(--chart-${(h % 6) + 1}))`;
+}
+
+function initials(label: string): string {
+  const parts = label.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 export default function JobSkillsPage() {
   const { canEdit } = useAuth();
@@ -63,17 +78,28 @@ export default function JobSkillsPage() {
           {/* Perfis já definidos */}
           {profiles.length > 0 && (
             <div className="space-y-3">
-              {profiles.map((p) => (
-                <Card key={p.id} className="hover:border-primary/40 transition-colors">
-                  <CardHeader className="pb-3">
+              {profiles.map((p) => {
+                const color = cargoColorVar(p.jobTitleLabel);
+                return (
+                <Card key={p.id} className="relative overflow-hidden hover:shadow-md transition-shadow">
+                  <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: color }} />
+                  <CardHeader className="pb-3 pl-6">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <CardTitle className="text-base">{p.jobTitleLabel}</CardTitle>
-                          {p.nivel && <Badge variant="secondary">{p.nivel}</Badge>}
-                          {!p.is_active && <Badge variant="outline">Inativo</Badge>}
+                      <div className="flex items-start gap-3">
+                        <span
+                          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white"
+                          style={{ backgroundColor: color }}
+                        >
+                          {initials(p.jobTitleLabel)}
+                        </span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <CardTitle className="text-base">{p.jobTitleLabel}</CardTitle>
+                            {p.nivel && <Badge variant="secondary">{p.nivel}</Badge>}
+                            {!p.is_active && <Badge variant="outline">Inativo</Badge>}
+                          </div>
+                          {p.descricao && <CardDescription className="line-clamp-2">{p.descricao}</CardDescription>}
                         </div>
-                        {p.descricao && <CardDescription className="line-clamp-2">{p.descricao}</CardDescription>}
                       </div>
                       {canEdit && (
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
@@ -82,14 +108,14 @@ export default function JobSkillsPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0 space-y-3">
+                  <CardContent className="pt-0 pl-6 space-y-3">
                     <div className="flex flex-wrap gap-1.5">
                       {(p.skills ?? []).length === 0 ? (
                         <span className="text-xs text-muted-foreground">Sem skills marcadas</span>
                       ) : (
                         (p.skills ?? []).map((s) => (
                           <Badge key={s.id} variant="outline"
-                            className={s.tipo === 'hard' ? 'border-blue-400 text-blue-600' : 'border-emerald-400 text-emerald-600'}>
+                            className={s.tipo === 'hard' ? 'border-blue-400 text-blue-600 dark:text-blue-400' : 'border-emerald-400 text-emerald-600 dark:text-emerald-400'}>
                             {s.nome}
                           </Badge>
                         ))
@@ -101,7 +127,8 @@ export default function JobSkillsPage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -112,18 +139,27 @@ export default function JobSkillsPage() {
                 Cargos a preencher ({cargosAPreencher.length})
               </p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {cargosAPreencher.map((jt) => (
+                {cargosAPreencher.map((jt) => {
+                  const color = cargoColorVar(jt.label);
+                  return (
                   <button
                     key={jt.id}
                     type="button"
                     disabled={!canEdit}
                     onClick={() => openForCargo(jt.label)}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border p-3 text-left text-sm hover:border-primary/50 hover:bg-muted/40 transition-colors disabled:opacity-60 disabled:cursor-default"
+                    className="group flex items-center gap-3 rounded-lg border border-dashed border-border p-3 text-left text-sm hover:border-primary/50 hover:bg-muted/40 transition-colors disabled:opacity-60 disabled:cursor-default"
                   >
-                    <span className="font-medium">{jt.label}</span>
-                    {canEdit && <Badge variant="outline" className="shrink-0">Definir skills</Badge>}
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold text-white opacity-70 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: color }}
+                    >
+                      {initials(jt.label)}
+                    </span>
+                    <span className="flex-1 font-medium truncate">{jt.label}</span>
+                    {canEdit && <Badge variant="outline" className="shrink-0">Definir</Badge>}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
