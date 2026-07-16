@@ -1,8 +1,9 @@
-// v5 - Skills de Vagas: busca + filtros na tela principal
+// v6 - Skills: defaults exp/idade, labels, botao exportar vaga
 import { useState } from 'react';
-import { Sparkles, Plus, Pencil, Users, Layers, Search } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Users, Layers, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ExportProfileDialog } from '@/components/jobskills/ExportProfileDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -47,6 +48,7 @@ export default function JobSkillsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ProfileWithMeta | null>(null);
   const [prefillCargo, setPrefillCargo] = useState<string | null>(null);
+  const [exportProfile, setExportProfile] = useState<ProfileWithMeta | null>(null);
 
   const openNew = () => { setEditing(null); setPrefillCargo(null); setDialogOpen(true); };
   const openEdit = (p: ProfileWithMeta) => { setEditing(p); setPrefillCargo(null); setDialogOpen(true); };
@@ -144,9 +146,14 @@ export default function JobSkillsPage() {
                         </div>
                       </div>
                       {canEdit && (
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" title="Exportar vaga" onClick={() => setExportProfile(p)}>
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Editar" onClick={() => openEdit(p)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardHeader>
@@ -207,6 +214,12 @@ export default function JobSkillsPage() {
           )}
         </div>
       )}
+
+      <ExportProfileDialog
+        open={exportProfile !== null}
+        onOpenChange={(v) => { if (!v) setExportProfile(null); }}
+        profile={exportProfile}
+      />
 
       <JobSkillProfileDialog
         open={dialogOpen}

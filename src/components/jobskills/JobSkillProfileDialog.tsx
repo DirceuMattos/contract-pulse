@@ -1,4 +1,4 @@
-// v2 - Skills de Vagas: dialog aceita prefillCargo
+// v3 - Skills dialog: prefillCargo + defaults exp/idade + labels
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ export function JobSkillProfileDialog({ open, onOpenChange, editing, prefillCarg
       setSelectedSkillIds(new Set((editing.skills ?? []).map((s) => s.id)));
     } else {
       setCargoLabel(prefillCargo ?? ''); setNivel(''); setDescricao(''); setAtribuicoes('');
-      setHardDesc(''); setSoftDesc(''); setAnosExp(''); setIdadeMin(''); setIdadeMax('');
+      setHardDesc(''); setSoftDesc(''); setAnosExp('2'); setIdadeMin('19'); setIdadeMax('35');
       setIsActive(true); setSelectedSkillIds(new Set());
     }
     setLocalSkills([]); setNewSkillNome(''); setNewSkillTipo('hard');
@@ -227,15 +227,15 @@ export function JobSkillProfileDialog({ open, onOpenChange, editing, prefillCarg
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label>Anos de experiência</Label>
+              <Label>Experiência Mínima (Default)</Label>
               <Input type="number" value={anosExp} onChange={(e) => setAnosExp(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Idade mín.</Label>
+              <Label>Idade mín. (Default)</Label>
               <Input type="number" value={idadeMin} onChange={(e) => setIdadeMin(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Idade máx.</Label>
+              <Label>Idade máx. (Default)</Label>
               <Input type="number" value={idadeMax} onChange={(e) => setIdadeMax(e.target.value)} />
             </div>
           </div>
