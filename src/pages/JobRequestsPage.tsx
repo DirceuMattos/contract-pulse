@@ -1,4 +1,4 @@
-// v3 - Vagas: reposicao "nao repor" reversivel
+// v4 - Vagas: nao repor pergunta se ja foi preenchida e por quem
 import { useState } from 'react';
 import { Briefcase, Plus, Pencil, Users, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useJobRequests';
 import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsForVaga';
 import { JobRequestDialog } from '@/components/jobrequests/JobRequestDialog';
+import { NaoReporDialog } from '@/components/jobrequests/NaoReporDialog';
 
 const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
   'todos', 'solicitado', 'em_avaliacao', 'aprovado_em_contratacao', 'preenchida', 'suspenso',
@@ -66,12 +67,34 @@ export default function JobRequestsPage() {
     reload(); reloadReposicoes();
   };
 
-  const marcarNaoRepor = async (repId: string) => {
+  const [naoReporRep, setNaoReporRep] = useState<import('@/hooks/usePendingReplacementsForVaga').ReplacementForVaga | null>(null);
+
+  // Confirma "não repor". Se foi preenchida por alguém, cria uma job_request
+  // já como 'preenchida' (registro histórico: ex-colab -> vaga -> quem assumiu).
+  const confirmarNaoRepor = async (
+    rep: import('@/hooks/usePendingReplacementsForVaga').ReplacementForVaga,
+    preenchidaPor: string | null,
+  ) => {
+    if (preenchidaPor) {
+      const titulo = rep.cargoLabel ? `${rep.cargoLabel}${rep.nivel ? ` (${rep.nivel})` : ''}` : `Reposição — ${rep.pessoaNome}`;
+      await supabase.from('job_requests').insert({
+        titulo,
+        descricao: `Reposição de ${rep.pessoaNome} (registrada retroativamente).`,
+        job_title_id: rep.cargoId,
+        nivel: rep.nivel,
+        quantidade: 1,
+        status: 'preenchida',
+        pending_replacement_id: rep.id,
+        contract_id: rep.contract_id,
+        preenchida_por_hr_person_id: preenchidaPor,
+        preenchida_em: new Date().toISOString(),
+      } as any);
+    }
     const { error: e } = await supabase.from('pending_replacements')
-      .update({ status: 'removed', resolved_at: new Date().toISOString() }).eq('id', repId);
+      .update({ status: 'removed', resolved_at: new Date().toISOString() }).eq('id', rep.id);
     if (e) { toast.error('Erro ao marcar'); return; }
-    toast.success('Marcada como não reposta');
-    reloadReposicoes();
+    toast.success(preenchidaPor ? 'Vaga registrada como preenchida' : 'Marcada como não reposta');
+    reload(); reloadReposicoes();
   };
 
   const reverterNaoRepor = async (repId: string) => {
@@ -139,7 +162,7 @@ export default function JobRequestsPage() {
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => abrirVagaDeReposicao(rep)}>
                   Abrir vaga
                 </Button>
-                <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" onClick={() => marcarNaoRepor(rep.id)}>
+                <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" onClick={() => setNaoReporRep(rep)}>
                   Não repor
                 </Button>
               </div>
@@ -244,6 +267,13 @@ export default function JobRequestsPage() {
         onOpenChange={setDialogOpen}
         editing={editing}
         onSaved={() => { setDialogOpen(false); reload(); }}
+      />
+
+      <NaoReporDialog
+        open={naoReporRep !== null}
+        onOpenChange={(v) => { if (!v) setNaoReporRep(null); }}
+        rep={naoReporRep}
+        onConfirm={confirmarNaoRepor}
       />
     </div>
   );
