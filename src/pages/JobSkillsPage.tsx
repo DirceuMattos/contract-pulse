@@ -1,4 +1,4 @@
-// v6 - Skills: defaults exp/idade, labels, botao exportar vaga
+// v7 - Skills: cards em ordem alfabetica por cargo+nivel
 import { useState } from 'react';
 import { Sparkles, Plus, Pencil, Users, Layers, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -67,7 +67,12 @@ export default function JobSkillsPage() {
     (p.skills ?? []).some((s) => s.nome.toLowerCase().includes(q));
 
   const cargoIdsComPerfil = new Set(profiles.map((p) => p.job_title_id));
-  const profilesFiltrados = (filtro === 'a_preencher' ? [] : profiles).filter(matchProfile);
+  const profilesFiltrados = (filtro === 'a_preencher' ? [] : profiles)
+    .filter(matchProfile)
+    .sort((a, b) =>
+      a.jobTitleLabel.localeCompare(b.jobTitleLabel, 'pt-BR') ||
+      (a.nivel ?? '').localeCompare(b.nivel ?? '', 'pt-BR'),
+    );
   const cargosAPreencher = (filtro === 'com_perfil' ? [] : jobTitles)
     .filter((jt) => jt.isActive && !cargoIdsComPerfil.has(jt.id) && (!q || jt.label.toLowerCase().includes(q)))
     .sort((a, b) => a.label.localeCompare(b.label));
