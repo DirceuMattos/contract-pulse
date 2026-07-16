@@ -577,7 +577,7 @@ function SquadsPageInner() {
             <AccordionContent className="pb-2">
               <div className="ml-2 space-y-0.5">
                 {td.resources.map(({ resource: r, resolvedNome, resolvedCargo, isBrokenLink, isVacant }) => (
-                  <div key={r.id} className={cn("flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0", isVacant && "bg-destructive/5")}>
+                  <div key={r.id} className={cn("flex items-center gap-2 text-sm py-1.5 border-b border-border/40 last:border-0", isVacant && "bg-amber-100/70 dark:bg-amber-950/40")}>
                     <span className={cn("font-medium", isVacant && "text-destructive")}>{resolvedNome || 'Sem nome'}</span>
                     {isVacant && (
                       <Tooltip>
@@ -637,9 +637,9 @@ function SquadsPageInner() {
     const pendingCountForCard = pendingItems.filter(p => p.contract_id === cd.contractId).length;
 
     return (
-      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-destructive/5 border-destructive/40')}>
+      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-amber-50 border-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.18)] dark:bg-amber-950/30 dark:border-amber-700/70 dark:shadow-[0_0_0_1px_rgba(245,158,11,0.22)]')}>
         {contractHasPending && (
-          <div className="px-4 py-2 bg-destructive/10 text-destructive text-xs font-medium border-b border-destructive/30">
+          <div className="px-4 py-2 bg-amber-200/70 text-amber-950 text-xs font-medium border-b border-amber-300 dark:bg-amber-900/60 dark:text-amber-100 dark:border-amber-700/70">
             ⚠️ {pendingCountForCard} substituição(ões) pendente(s)
           </div>
         )}
@@ -708,7 +708,7 @@ function SquadsPageInner() {
     const cardHasInactivePending = isInactivePendingPerson(hrPersonIdForCard);
 
     return (
-      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-destructive/5 border-destructive/40')}>
+      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-amber-50 border-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.18)] dark:bg-amber-950/30 dark:border-amber-700/70 dark:shadow-[0_0_0_1px_rgba(245,158,11,0.22)]')}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
