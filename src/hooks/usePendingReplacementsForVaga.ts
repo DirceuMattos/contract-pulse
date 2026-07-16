@@ -14,6 +14,7 @@ export interface ReplacementForVaga {
   nivel: string | null;
   status: string;
   jaTemVaga: boolean;
+  preenchidoPor: string | null;   // nome de quem assumiu (se registrado)
 }
 
 export function usePendingReplacementsForVaga() {
@@ -30,9 +31,15 @@ export function usePendingReplacementsForVaga() {
 
     const { data: vagas } = await supabase
       .from('job_requests')
-      .select('pending_replacement_id')
+      .select('pending_replacement_id, status, preenchida_por_hr_person_id, hr_people:preenchida_por_hr_person_id(nome)')
       .not('pending_replacement_id', 'is', null);
     const jaVinculadas = new Set((vagas ?? []).map((v: any) => v.pending_replacement_id));
+    const preenchedorPorRep = new Map<string, string>();
+    (vagas ?? []).forEach((v: any) => {
+      if (v.pending_replacement_id && v.hr_people?.nome) {
+        preenchedorPorRep.set(v.pending_replacement_id, v.hr_people.nome);
+      }
+    });
 
     const raw: ReplacementForVaga[] = (reps ?? []).map((r: any) => ({
       id: r.id,
@@ -46,6 +53,7 @@ export function usePendingReplacementsForVaga() {
       nivel: r.hr_people?.nivel ?? null,
       status: r.status,
       jaTemVaga: jaVinculadas.has(r.id),
+      preenchidoPor: preenchedorPorRep.get(r.id) ?? null,
     }));
 
     // Deduplica por pessoa+status: o Feedz cria 1 reposição por resource/alocação,
@@ -59,7 +67,7 @@ export function usePendingReplacementsForVaga() {
         byKey.set(key, r);
       } else {
         existing.allIds.push(r.id);
-        // prioriza manter como "representante" a que já tem vaga
+        if (r.preenchidoPor && !existing.preenchidoPor) existing.preenchidoPor = r.preenchidoPor;
         if (r.jaTemVaga && !existing.jaTemVaga) {
           existing.id = r.id;
           existing.jaTemVaga = true;

@@ -1,4 +1,4 @@
-// v5 - Vagas: reposicoes deduplicadas por pessoa (Feedz cria 1 por resource)
+// v6 - Vagas: subtela "Nao repostas / Contratacoes avulsas" + reposto por
 import { useState } from 'react';
 import { Briefcase, Plus, Pencil, Users, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -177,20 +177,25 @@ export default function JobRequestsPage() {
         </div>
       )}
 
-      {/* Não repostas (reversível) */}
+      {/* Não repostas / Contratações avulsas (reversível) */}
       {canEdit && reposicoes.filter((r) => r.status === 'removed').length > 0 && (
         <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
           <div className="text-sm font-medium text-muted-foreground">
-            Não repostas ({reposicoes.filter((r) => r.status === 'removed').length})
+            Não repostas / Contratações avulsas ({reposicoes.filter((r) => r.status === 'removed').length})
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {reposicoes.filter((r) => r.status === 'removed').map((rep) => (
-              <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-80">
+              <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-90">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate line-through decoration-muted-foreground/40">{rep.pessoaNome}</p>
                   <p className="text-xs text-muted-foreground truncate">
                     {rep.cargoLabel ?? 'Cargo não informado'}{rep.nivel ? ` · ${rep.nivel}` : ''}
                   </p>
+                  {rep.preenchidoPor && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
+                      Reposto por {rep.preenchidoPor}
+                    </p>
+                  )}
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => reverterNaoRepor(rep.allIds)}>
                   Reverter
