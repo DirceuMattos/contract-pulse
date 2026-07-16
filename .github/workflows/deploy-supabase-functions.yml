@@ -49,11 +49,16 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy da edge function (conservador — só report-sync-asana)
-        run: |
-          set -euo pipefail
-          supabase functions deploy report-sync-asana --project-ref "$PROJECT_REF"
-          echo "Deploy de report-sync-asana concluido."
+      - name: Deploy das edge functions P0
+  run: |
+    set -euo pipefail
+    functions=(manage-users feedz-test-photo)
+    for fn in "${functions[@]}"; do
+      echo "::group::Deploy $fn"
+      supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+      echo "OK: $fn"
+      echo "::endgroup::"
+    done
 
       # ── Quando validado, trocar o passo acima por este (deploya TODAS): ──
       # - name: Deploy de todas as edge functions
