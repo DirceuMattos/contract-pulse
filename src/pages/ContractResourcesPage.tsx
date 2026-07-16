@@ -70,7 +70,7 @@ export default function ContractResourcesPage() {
   } = useData();
   const { hrPeople } = useHR();
   const { hasSubprojects: hasSubprojectsFn, getAllocationsByContract } = useSubprojects();
-  const { canEdit, canViewValues, canViewHRCosts, userRole } = useAuth();
+  const { canEdit, canDelete, canViewValues, canViewHRCosts, userRole } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -735,7 +735,10 @@ export default function ContractResourcesPage() {
 
                           {(() => {
                             const isHR = resource.tipo === 'clt' || resource.tipo === 'pj';
-                            const canEditThis = canEdit && (!isHR || canViewHRCosts);
+                            // Editar/realocar não depende de ver custos: o custo já é
+                            // ocultado na listagem e desabilitado no formulário para quem
+                            // não tem canViewHRCosts. Assim o lider_tribo realoca sem ver valores.
+                            const canEditThis = canEdit;
                             return (
                               <div className="flex gap-1 shrink-0">
                                 {/* Link button for legacy resources */}
@@ -758,9 +761,11 @@ export default function ContractResourcesPage() {
                                     <Button variant="ghost" size="icon" onClick={() => setEditingResource(resource)}>
                                       <Pencil className="w-4 h-4" />
                                     </Button>
+                                    {canDelete && (
                                     <Button variant="ghost" size="icon" onClick={() => setDeleteId(resource.id)} className="text-destructive hover:text-destructive">
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
+                                    )}
                                   </>
                                 )}
                               </div>
