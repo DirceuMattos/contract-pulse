@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -16,6 +16,8 @@ import {
   Eye,
   MoreHorizontal,
   Activity,
+  Power,
+  PowerOff,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -105,7 +107,7 @@ const roleColors: Record<UserRole, string> = {
 
 function UsersPageInner() {
   const { user: currentUser, canEdit } = useAuth();
-  const { users, deleteUser, toggleUserStatus } = useSystemUsers();
+  const { users, deleteUser, toggleUserStatus, getMaintenanceStatus, setMaintenanceMode } = useSystemUsers();
   const navigate = useNavigate();
   
   const [search, setSearch] = useState('');
@@ -115,6 +117,20 @@ function UsersPageInner() {
   const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'role' | 'status' | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [maintenanceLockedCount, setMaintenanceLockedCount] = useState(0);
+  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+  const [maintenanceBusy, setMaintenanceBusy] = useState(false);
+
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    getMaintenanceStatus().then((status) => {
+      setMaintenanceEnabled(status.enabled);
+      setMaintenanceLockedCount(status.lockedCount);
+    });
+  }, [getMaintenanceStatus, isSuperAdmin]);
 
   const handleSort = (col: 'name' | 'role' | 'status') => {
     if (sortBy === col) {
@@ -194,6 +210,31 @@ function UsersPageInner() {
     }
   };
 
+  const handleToggleMaintenance = async () => {
+    if (!isSuperAdmin) return;
+    setMaintenanceBusy(true);
+    try {
+      const result = await setMaintenanceMode(!maintenanceEnabled);
+      if (!result) {
+        toast.error('Não foi possível alterar o modo manutenção.');
+        return;
+      }
+
+      const nextStatus = await getMaintenanceStatus();
+      setMaintenanceEnabled(nextStatus.enabled);
+      setMaintenanceLockedCount(nextStatus.lockedCount);
+
+      if (result.enabled) {
+        toast.success(`Sistema em manutenção. ${result.lockedCount || 0} usuário(s) desativado(s).`);
+      } else {
+        toast.success(`Sistema reativado. ${result.unlockedCount || 0} usuário(s) reativado(s).`);
+      }
+    } finally {
+      setMaintenanceBusy(false);
+      setMaintenanceDialogOpen(false);
+    }
+  };
+
   const handleCloseForm = () => {
     setFormOpen(false);
     setEditingUser(null);
@@ -224,12 +265,32 @@ function UsersPageInner() {
         description="Gerencie os usuários e suas permissões de acesso"
         animated={false}
         actions={
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isSuperAdmin && (
+              <Button
+                type="button"
+                variant={maintenanceEnabled ? 'destructive' : 'outline'}
+                onClick={() => setMaintenanceDialogOpen(true)}
+                disabled={maintenanceBusy}
+                className="gap-2"
+              >
+                {maintenanceEnabled ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                {maintenanceEnabled ? 'Reativar sistema' : 'Modo manutenção'}
+              </Button>
+            )}
+            <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" />
             Novo Usuário
-          </Button>
+            </Button>
+          </div>
         }
       />
+
+      {isSuperAdmin && maintenanceEnabled && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Sistema em manutenção: {maintenanceLockedCount} usuário(s) bloqueado(s) por esta ação.
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -445,6 +506,26 @@ function UsersPageInner() {
         title="Excluir usuário?"
         description={`Tem certeza que deseja excluir ${userToDelete?.name}? Esta ação não pode ser desfeita.`}
       />
+      <AlertDialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {maintenanceEnabled ? 'Reativar acesso ao sistema?' : 'Colocar sistema em manutenção?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {maintenanceEnabled
+                ? 'Os usuários desativados pelo modo manutenção serão reativados. Usuários que já estavam inativos antes permanecerão inativos.'
+                : 'Todos os usuários ativos serão desativados, exceto você. Use esta opção apenas durante janelas de manutenção.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={maintenanceBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleToggleMaintenance} disabled={maintenanceBusy}>
+              {maintenanceEnabled ? 'Reativar sistema' : 'Ativar manutenção'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

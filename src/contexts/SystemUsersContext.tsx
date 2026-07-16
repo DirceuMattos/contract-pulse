@@ -12,6 +12,8 @@ interface SystemUsersContextType {
   getUser: (id: string) => SystemUser | undefined;
   getUserByEmail: (email: string) => SystemUser | undefined;
   toggleUserStatus: (id: string) => Promise<boolean>;
+  getMaintenanceStatus: () => Promise<{ enabled: boolean; lockedCount: number }>;
+  setMaintenanceMode: (enabled: boolean) => Promise<{ enabled: boolean; lockedCount?: number; unlockedCount?: number } | null>;
   refreshUsers: () => Promise<void>;
 }
 
@@ -59,7 +61,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         role: data.role,
         active: data.active,
         moduleAccess: data.moduleAccess,
-      });
+      }) as { userId: string };
       // Refresh list in background
       refreshUsers();
       // Return a synthetic user from the API response
@@ -67,13 +69,13 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         id: result.userId,
         name: data.name,
         email: data.email,
-        role: data.role as any,
+        role: data.role,
         active: data.active,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         moduleAccess: data.moduleAccess,
-      } as SystemUser;
-    } catch (e: any) {
+      };
+    } catch (e: unknown) {
       console.error('Failed to create user:', e);
       return null;
     }
@@ -90,11 +92,11 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         role: data.role,
         password: data.password || undefined,
         moduleAccess: data.moduleAccess,
-      });
+      }) as { error?: string };
       if (result?.error) throw new Error(result.error);
       await refreshUsers();
       return true;
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Failed to update user:', e);
       throw e;
     }
@@ -127,6 +129,36 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getMaintenanceStatus = useCallback(async (): Promise<{ enabled: boolean; lockedCount: number }> => {
+    try {
+      const data = await invokeManageUsers('maintenance-status');
+      return {
+        enabled: !!data.enabled,
+        lockedCount: Number(data.lockedCount || 0),
+      };
+    } catch (e) {
+      console.error('Failed to load maintenance status:', e);
+      return { enabled: false, lockedCount: 0 };
+    }
+  }, []);
+
+  const setMaintenanceMode = useCallback(async (
+    enabled: boolean,
+  ): Promise<{ enabled: boolean; lockedCount?: number; unlockedCount?: number } | null> => {
+    try {
+      const data = await invokeManageUsers(enabled ? 'enable-maintenance' : 'disable-maintenance');
+      await refreshUsers();
+      return {
+        enabled: !!data.enabled,
+        lockedCount: typeof data.lockedCount === 'number' ? data.lockedCount : undefined,
+        unlockedCount: typeof data.unlockedCount === 'number' ? data.unlockedCount : undefined,
+      };
+    } catch (e) {
+      console.error('Failed to update maintenance mode:', e);
+      return null;
+    }
+  }, [refreshUsers]);
+
   const getUser = (id: string) => users.find(u => u.id === id);
   const getUserByEmail = (email: string) =>
     users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -141,6 +173,8 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
       getUser,
       getUserByEmail,
       toggleUserStatus,
+      getMaintenanceStatus,
+      setMaintenanceMode,
       refreshUsers,
     }}>
       {children}

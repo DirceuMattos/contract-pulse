@@ -77,6 +77,12 @@ Deno.serve(async (req) => {
       return await handleDelete(adminClient, body, callerId);
     case "toggle-status":
       return await handleToggleStatus(adminClient, body, callerId);
+    case "maintenance-status":
+      return await handleMaintenanceStatus(adminClient);
+    case "enable-maintenance":
+      return await handleEnableMaintenance(adminClient, callerId);
+    case "disable-maintenance":
+      return await handleDisableMaintenance(adminClient, callerId);
     case "get-by-id":
       return await handleGetById(adminClient, body);
     default:
@@ -320,6 +326,111 @@ async function handleToggleStatus(
   }
 
   return json({ message: ban ? "User banned" : "User unbanned" });
+}
+
+async function ensureCallerIsSuperAdmin(admin: ReturnType<typeof createClient>, callerId: string) {
+  const { data, error } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", callerId)
+    .single();
+
+  if (error) throw error;
+  if (data?.role !== "superadmin") {
+    throw new AuthError("Only superadmin can change maintenance mode", 403);
+  }
+}
+
+async function getMaintenanceLockIds(admin: ReturnType<typeof createClient>): Promise<string[]> {
+  const { data, error } = await admin
+    .from("maintenance_user_locks")
+    .select("user_id");
+
+  if (error) throw error;
+  return (data || []).map((row) => row.user_id as string);
+}
+
+async function handleMaintenanceStatus(admin: ReturnType<typeof createClient>) {
+  const lockedUserIds = await getMaintenanceLockIds(admin);
+  return json({
+    enabled: lockedUserIds.length > 0,
+    lockedCount: lockedUserIds.length,
+  });
+}
+
+async function handleEnableMaintenance(admin: ReturnType<typeof createClient>, callerId: string) {
+  try {
+    await ensureCallerIsSuperAdmin(admin, callerId);
+  } catch (e) {
+    if (e instanceof AuthError) return err(e.message, e.status);
+    console.error("Failed to check superadmin role:", e);
+    return err("Failed to validate superadmin permission", 500);
+  }
+
+  const { data: authUsers, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  if (listErr) return err(listErr.message, 500);
+
+  const now = new Date();
+  const usersToLock = (authUsers.users || []).filter((user) => {
+    if (user.id === callerId) return false;
+    const banned = user.banned_until ? new Date(user.banned_until) > now : false;
+    return !banned;
+  });
+
+  for (const user of usersToLock) {
+    const { error } = await admin.auth.admin.updateUserById(user.id, {
+      ban_duration: "876000h",
+    });
+    if (error) return err(`Failed to lock ${user.email || user.id}: ${error.message}`, 500);
+  }
+
+  if (usersToLock.length > 0) {
+    const rows = usersToLock.map((user) => ({
+      user_id: user.id,
+      locked_by: callerId,
+    }));
+    const { error } = await admin
+      .from("maintenance_user_locks")
+      .upsert(rows, { onConflict: "user_id" });
+    if (error) return err(`Failed to save maintenance lock state: ${error.message}`, 500);
+  }
+
+  return json({
+    enabled: true,
+    lockedCount: usersToLock.length,
+    message: "Maintenance mode enabled",
+  });
+}
+
+async function handleDisableMaintenance(admin: ReturnType<typeof createClient>, callerId: string) {
+  try {
+    await ensureCallerIsSuperAdmin(admin, callerId);
+  } catch (e) {
+    if (e instanceof AuthError) return err(e.message, e.status);
+    console.error("Failed to check superadmin role:", e);
+    return err("Failed to validate superadmin permission", 500);
+  }
+
+  const lockedUserIds = (await getMaintenanceLockIds(admin)).filter((id) => id !== callerId);
+
+  for (const userId of lockedUserIds) {
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: "none",
+    });
+    if (error) return err(`Failed to unlock ${userId}: ${error.message}`, 500);
+  }
+
+  const { error } = await admin
+    .from("maintenance_user_locks")
+    .delete()
+    .neq("user_id", "00000000-0000-0000-0000-000000000000");
+  if (error) return err(`Failed to clear maintenance lock state: ${error.message}`, 500);
+
+  return json({
+    enabled: false,
+    unlockedCount: lockedUserIds.length,
+    message: "Maintenance mode disabled",
+  });
 }
 
 async function handleGetById(admin: ReturnType<typeof createClient>, body: Record<string, unknown>) {
