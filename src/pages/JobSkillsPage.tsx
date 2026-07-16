@@ -1,4 +1,4 @@
-// v3 - Skills de Vagas: redesign com cor por cargo (tokens chart, claro/escuro)
+// v4 - Skills de Vagas: paleta própria vívida (os tokens --chart-* do projeto são pastéis)
 import { useState } from 'react';
 import { Sparkles, Plus, Pencil, Users, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,25 @@ import { useData } from '@/contexts/DataContext';
 import { useJobSkills, type ProfileWithMeta } from '@/hooks/useJobSkills';
 import { JobSkillProfileDialog } from '@/components/jobskills/JobSkillProfileDialog';
 
-// Cor estável por cargo: hash do nome → 1 dos 6 tokens de chart do design system.
-// Usa CSS variables, então funciona igual em tema claro e escuro.
-function cargoColorVar(label: string): string {
+// Paleta própria de cores sólidas e vívidas. Os tokens --chart-* do projeto
+// são pastéis dessaturados (saturação 7–22%), então saíam "lavados" sobre
+// texto branco. Estas cores têm contraste suficiente em tema claro e escuro.
+const CARGO_PALETTE = [
+  '#4F46E5', // indigo
+  '#0EA5A4', // teal
+  '#DB2777', // pink
+  '#D97706', // amber
+  '#2563EB', // blue
+  '#16A34A', // green
+  '#DC2626', // red
+  '#7C3AED', // violet
+];
+
+// Cor estável por cargo: hash do nome → índice fixo na paleta.
+function cargoColor(label: string): string {
   let h = 0;
   for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
-  return `hsl(var(--chart-${(h % 6) + 1}))`;
+  return CARGO_PALETTE[h % CARGO_PALETTE.length];
 }
 
 function initials(label: string): string {
@@ -79,7 +92,7 @@ export default function JobSkillsPage() {
           {profiles.length > 0 && (
             <div className="space-y-3">
               {profiles.map((p) => {
-                const color = cargoColorVar(p.jobTitleLabel);
+                const color = cargoColor(p.jobTitleLabel);
                 return (
                 <Card key={p.id} className="relative overflow-hidden hover:shadow-md transition-shadow">
                   <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: color }} />
@@ -138,9 +151,9 @@ export default function JobSkillsPage() {
               <p className="text-sm font-medium text-muted-foreground">
                 Cargos a preencher ({cargosAPreencher.length})
               </p>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {cargosAPreencher.map((jt) => {
-                  const color = cargoColorVar(jt.label);
+                  const color = cargoColor(jt.label);
                   return (
                   <button
                     key={jt.id}
@@ -150,7 +163,7 @@ export default function JobSkillsPage() {
                     className="group flex items-center gap-3 rounded-lg border border-dashed border-border p-3 text-left text-sm hover:border-primary/50 hover:bg-muted/40 transition-colors disabled:opacity-60 disabled:cursor-default"
                   >
                     <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold text-white opacity-70 group-hover:opacity-100 transition-opacity"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold text-white"
                       style={{ backgroundColor: color }}
                     >
                       {initials(jt.label)}
