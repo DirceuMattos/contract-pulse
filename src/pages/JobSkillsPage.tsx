@@ -1,7 +1,8 @@
-// v4 - Skills de Vagas: paleta própria vívida (os tokens --chart-* do projeto são pastéis)
+// v5 - Skills de Vagas: busca + filtros na tela principal
 import { useState } from 'react';
-import { Sparkles, Plus, Pencil, Users, Layers } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Users, Layers, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -52,12 +53,24 @@ export default function JobSkillsPage() {
   const openForCargo = (cargoLabel: string) => { setEditing(null); setPrefillCargo(cargoLabel); setDialogOpen(true); };
 
   // Cargos ativos que ainda NÃO têm nenhum perfil de skill → aparecem como "a preencher".
+  const [query, setQuery] = useState('');
+  const [filtro, setFiltro] = useState<'todos' | 'com_perfil' | 'a_preencher'>('todos');
+
+  const q = query.trim().toLowerCase();
+  const matchProfile = (p: ProfileWithMeta) =>
+    !q ||
+    p.jobTitleLabel.toLowerCase().includes(q) ||
+    (p.nivel ?? '').toLowerCase().includes(q) ||
+    (p.descricao ?? '').toLowerCase().includes(q) ||
+    (p.skills ?? []).some((s) => s.nome.toLowerCase().includes(q));
+
   const cargoIdsComPerfil = new Set(profiles.map((p) => p.job_title_id));
-  const cargosAPreencher = jobTitles
-    .filter((jt) => jt.isActive && !cargoIdsComPerfil.has(jt.id))
+  const profilesFiltrados = (filtro === 'a_preencher' ? [] : profiles).filter(matchProfile);
+  const cargosAPreencher = (filtro === 'com_perfil' ? [] : jobTitles)
+    .filter((jt) => jt.isActive && !cargoIdsComPerfil.has(jt.id) && (!q || jt.label.toLowerCase().includes(q)))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  const nada = !loading && profiles.length === 0 && cargosAPreencher.length === 0;
+  const nada = !loading && profilesFiltrados.length === 0 && cargosAPreencher.length === 0;
 
   return (
     <div className="space-y-6">
@@ -78,6 +91,22 @@ export default function JobSkillsPage() {
         <Card><CardContent className="p-4 text-sm text-destructive">Erro ao carregar: {error}</CardContent></Card>
       )}
 
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por cargo, skill ou nível…" className="pl-9" />
+        </div>
+        <div className="flex gap-2">
+          {([['todos', 'Todos'], ['com_perfil', 'Com perfil'], ['a_preencher', 'A preencher']] as const).map(([v, label]) => (
+            <button key={v} type="button" onClick={() => setFiltro(v)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filtro === v ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {loading ? (
         <Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando…</CardContent></Card>
       ) : nada ? (
@@ -89,9 +118,9 @@ export default function JobSkillsPage() {
       ) : (
         <div className="space-y-6">
           {/* Perfis já definidos */}
-          {profiles.length > 0 && (
+          {profilesFiltrados.length > 0 && (
             <div className="space-y-3">
-              {profiles.map((p) => {
+              {profilesFiltrados.map((p) => {
                 const color = cargoColor(p.jobTitleLabel);
                 return (
                 <Card key={p.id} className="relative overflow-hidden hover:shadow-md transition-shadow">
