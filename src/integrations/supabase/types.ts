@@ -1779,6 +1779,24 @@ export type Database = {
           },
         ]
       }
+      maintenance_user_locks: {
+        Row: {
+          locked_at: string
+          locked_by: string | null
+          user_id: string
+        }
+        Insert: {
+          locked_at?: string
+          locked_by?: string | null
+          user_id: string
+        }
+        Update: {
+          locked_at?: string
+          locked_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       monthly_reports: {
         Row: {
           asana_project_id: string | null
