@@ -1,4 +1,4 @@
-// v4 - Vagas: nao repor pergunta se ja foi preenchida e por quem
+// v5 - Vagas: reposicoes deduplicadas por pessoa (Feedz cria 1 por resource)
 import { useState } from 'react';
 import { Briefcase, Plus, Pencil, Users, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,12 @@ export default function JobRequestsPage() {
       solicitante_id: null,
     });
     if (e) { toast.error('Erro ao abrir vaga'); return; }
+    // marca as demais reposições da mesma pessoa como resolvidas (replaced)
+    const outras = rep.allIds.filter((id) => id !== rep.id);
+    if (outras.length > 0) {
+      await supabase.from('pending_replacements')
+        .update({ status: 'replaced', resolved_at: new Date().toISOString() }).in('id', outras);
+    }
     toast.success('Vaga aberta a partir da reposição');
     reload(); reloadReposicoes();
   };
@@ -91,15 +97,15 @@ export default function JobRequestsPage() {
       } as any);
     }
     const { error: e } = await supabase.from('pending_replacements')
-      .update({ status: 'removed', resolved_at: new Date().toISOString() }).eq('id', rep.id);
+      .update({ status: 'removed', resolved_at: new Date().toISOString() }).in('id', rep.allIds);
     if (e) { toast.error('Erro ao marcar'); return; }
     toast.success(preenchidaPor ? 'Vaga registrada como preenchida' : 'Marcada como não reposta');
     reload(); reloadReposicoes();
   };
 
-  const reverterNaoRepor = async (repId: string) => {
+  const reverterNaoRepor = async (ids: string[]) => {
     const { error: e } = await supabase.from('pending_replacements')
-      .update({ status: 'pending', resolved_at: null }).eq('id', repId);
+      .update({ status: 'pending', resolved_at: null }).in('id', ids);
     if (e) { toast.error('Erro ao reverter'); return; }
     toast.success('Reposição reativada');
     reloadReposicoes();
@@ -186,7 +192,7 @@ export default function JobRequestsPage() {
                     {rep.cargoLabel ?? 'Cargo não informado'}{rep.nivel ? ` · ${rep.nivel}` : ''}
                   </p>
                 </div>
-                <Button size="sm" variant="outline" className="shrink-0" onClick={() => reverterNaoRepor(rep.id)}>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => reverterNaoRepor(rep.allIds)}>
                   Reverter
                 </Button>
               </div>
