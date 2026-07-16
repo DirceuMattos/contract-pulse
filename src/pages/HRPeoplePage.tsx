@@ -370,7 +370,7 @@ function HRPeoplePageInner() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Situação</span>
-              <Select value={filterSituacao} onValueChange={(v) => setFilterSituacao(v)}>
+              <Select value={filterSituacao} onValueChange={(v) => setFilterSituacao(v as "ativo" | "inativo" | "todos")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
