@@ -183,8 +183,8 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
     dataInicio: '',
     encargosOverride,
     impostosOverride,
-    categoria: categoriaAtual as any,
-    tipoValor: tipoValorAtual as any,
+    categoria: categoriaAtual,
+    tipoValor: tipoValorAtual,
     duracaoMeses: duracaoMesesAtual,
     createdAt: '',
     updatedAt: '',
@@ -570,6 +570,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
 
             {/* Custos */}
             <div className="space-y-4">
+              {canViewHRCosts && (
               <FormField
                 control={form.control}
                 name="custoBase"
@@ -589,17 +590,17 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                           className="pl-10"
                           {...field}
                           onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                          disabled={!!selectedHrPersonId && !canViewHRCosts}
                         />
                       </div>
                     </FormControl>
-                    {selectedHrPersonId && canViewHRCosts && (
+                    {selectedHrPersonId && (
                       <FormDescription>Valor preenchido do RH Mestre</FormDescription>
                     )}
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              )}
 
               <FormField
                 control={form.control}
@@ -631,7 +632,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
               />
 
               {/* Override de encargos/impostos */}
-              {tipoAtual === 'clt' && (
+              {canViewHRCosts && tipoAtual === 'clt' && (
                 <FormField
                   control={form.control}
                   name="encargosOverride"
@@ -665,7 +666,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                 />
               )}
 
-              {tipoAtual === 'pj' && (
+              {canViewHRCosts && tipoAtual === 'pj' && (
                 <FormField
                   control={form.control}
                   name="impostosOverride"
@@ -753,6 +754,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
         />
 
         {/* Preview de Custo */}
+        {canViewHRCosts && (
         <Card className="bg-muted/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -793,6 +795,7 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
