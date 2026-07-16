@@ -1,4 +1,4 @@
-// v1 - módulo Requisição de Vagas: dialog de CRUD
+// v2 - vaga: skills selecionaveis + historico de status
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,9 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useJobSkills } from '@/hooks/useJobSkills';
+import { useJobSkills, type Skill } from '@/hooks/useJobSkills';
+import { SkillSelector, resolveSkillIds } from '@/components/jobskills/SkillSelector';
+import { JobRequestHistory } from '@/components/jobrequests/JobRequestHistory';
 import { toast } from 'sonner';
 import type { JobRequest } from '@/hooks/useJobRequests';
 
@@ -25,7 +27,7 @@ const SEM_PERFIL = '__sem_perfil__';
 
 export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props) {
   const { user } = useAuth();
-  const { profiles } = useJobSkills();
+  const { profiles, skills: allSkills } = useJobSkills();
 
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -34,7 +36,14 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
   const [anosExp, setAnosExp] = useState('');
   const [quantidade, setQuantidade] = useState('1');
   const [observacoes, setObservacoes] = useState('');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(new Set());
+  const [localSkills, setLocalSkills] = useState<Skill[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const toggleSkill = (id: string) => setSelectedSkillIds((prev) => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const addLocal = (s: Skill) => { setLocalSkills((p) => [...p, s]); setSelectedSkillIds((p) => new Set(p).add(s.id)); };
 
   useEffect(() => {
     if (!open) return;
@@ -46,10 +55,14 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
       setAnosExp(editing.anos_experiencia?.toString() ?? '');
       setQuantidade(editing.quantidade?.toString() ?? '1');
       setObservacoes(editing.observacoes ?? '');
+      const av = Array.isArray(editing.skills_avulsas) ? (editing.skills_avulsas as any[]) : [];
+      setSelectedSkillIds(new Set(av.map((s) => s.id).filter(Boolean)));
     } else {
       setTitulo(''); setDescricao(''); setPerfilId(SEM_PERFIL);
       setNivel(''); setAnosExp(''); setQuantidade('1'); setObservacoes('');
+      setSelectedSkillIds(new Set());
     }
+    setLocalSkills([]);
   }, [open, editing]);
 
   // Ao escolher um perfil de skill, pré-preenche campos a partir dele.
@@ -61,6 +74,8 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
     if (!titulo.trim()) setTitulo(p.jobTitleLabel + (p.nivel ? ` (${p.nivel})` : ''));
     if (p.nivel) setNivel(p.nivel);
     if (p.anos_experiencia != null) setAnosExp(String(p.anos_experiencia));
+    // herda as skills do perfil para a vaga
+    setSelectedSkillIds(new Set((p.skills ?? []).map((s) => s.id)));
   };
 
   const handleSave = async () => {
@@ -72,11 +87,21 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
     setSaving(true);
     try {
       const perfil = perfilId !== SEM_PERFIL ? profiles.find((x) => x.id === perfilId) : null;
+      // Resolve ids (persiste skills novas) e monta o snapshot para skills_avulsas.
+      const finalIds = await resolveSkillIds(supabase, selectedSkillIds, localSkills);
+      const pool = [...allSkills, ...localSkills];
+      const skillsSnapshot = finalIds.length > 0
+        ? finalIds.map((id) => {
+            const found = pool.find((s) => s.id === id) ?? localSkills.find((s) => s.nome && s.id === id);
+            return found ? { id, nome: found.nome, tipo: found.tipo } : { id };
+          })
+        : null;
       const payload = {
         titulo: titulo.trim(),
         descricao: descricao.trim() || null,
         job_skill_profile_id: perfil?.id ?? null,
         job_title_id: perfil?.job_title_id ?? null,
+        skills_avulsas: skillsSnapshot,
         nivel: nivel.trim() || null,
         anos_experiencia: anosExp ? Number(anosExp) : null,
         quantidade: quantidade ? Number(quantidade) : 1,
@@ -153,9 +178,27 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
           </div>
 
           <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Skills da vaga</Label>
+            <SkillSelector
+              allSkills={allSkills}
+              localSkills={localSkills}
+              selectedIds={selectedSkillIds}
+              onToggle={toggleSkill}
+              onAddLocal={addLocal}
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label>Observações</Label>
             <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={2} />
           </div>
+
+          {editing && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <Label className="text-xs text-muted-foreground">Histórico de status</Label>
+              <JobRequestHistory jobRequestId={editing.id} />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
