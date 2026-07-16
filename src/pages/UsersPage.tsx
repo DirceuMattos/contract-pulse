@@ -47,7 +47,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -210,11 +209,11 @@ function UsersPageInner() {
     }
   };
 
-  const handleToggleMaintenance = async () => {
+  const handleToggleMaintenance = async (enabled: boolean) => {
     if (!isSuperAdmin) return;
     setMaintenanceBusy(true);
     try {
-      const result = await setMaintenanceMode(!maintenanceEnabled);
+      const result = await setMaintenanceMode(enabled);
       if (!result) {
         toast.error('Não foi possível alterar o modo manutenção.');
         return;
@@ -274,8 +273,8 @@ function UsersPageInner() {
                 disabled={maintenanceBusy}
                 className="gap-2"
               >
-                {maintenanceEnabled ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
-                {maintenanceEnabled ? 'Reativar sistema' : 'Modo manutenção'}
+                <Power className="w-4 h-4" />
+                Modo manutenção
               </Button>
             )}
             <Button onClick={() => setFormOpen(true)} className="gap-2">
@@ -509,20 +508,35 @@ function UsersPageInner() {
       <AlertDialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {maintenanceEnabled ? 'Reativar acesso ao sistema?' : 'Colocar sistema em manutenção?'}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Modo de manutenção</AlertDialogTitle>
             <AlertDialogDescription>
-              {maintenanceEnabled
-                ? 'Os usuários desativados pelo modo manutenção serão reativados. Usuários que já estavam inativos antes permanecerão inativos.'
-                : 'Todos os usuários ativos serão desativados, exceto você. Use esta opção apenas durante janelas de manutenção.'}
+              Escolha uma ação. A ativação desativa todos os usuários ativos, exceto você. A reativação liga apenas os usuários bloqueados por este modo.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Status atual: {maintenanceEnabled ? `ativo, com ${maintenanceLockedCount} usuário(s) bloqueado(s).` : 'inativo.'}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={maintenanceBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleToggleMaintenance} disabled={maintenanceBusy}>
-              {maintenanceEnabled ? 'Reativar sistema' : 'Ativar manutenção'}
-            </AlertDialogAction>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => handleToggleMaintenance(true)}
+              disabled={maintenanceBusy || maintenanceEnabled}
+              className="gap-2"
+            >
+              <PowerOff className="w-4 h-4" />
+              Desativar usuários
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleToggleMaintenance(false)}
+              disabled={maintenanceBusy || !maintenanceEnabled}
+              className="gap-2"
+            >
+              <Power className="w-4 h-4" />
+              Reativar usuários
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
