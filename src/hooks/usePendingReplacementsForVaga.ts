@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ReplacementForVaga {
-  id: string;                 // pending_replacements.id
+  id: string;
   hr_person_id: string;
   contract_id: string;
   resource_id: string;
@@ -11,7 +11,8 @@ export interface ReplacementForVaga {
   cargoId: string | null;
   cargoLabel: string | null;
   nivel: string | null;
-  jaTemVaga: boolean;         // já existe job_request com este pending_replacement_id
+  status: string;            // 'pending' | 'removed' (não repor)
+  jaTemVaga: boolean;
 }
 
 export function usePendingReplacementsForVaga() {
@@ -20,13 +21,12 @@ export function usePendingReplacementsForVaga() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    // reposições pendentes + pessoa + cargo
+    // pending (a decidir) + removed (marcadas como "não repor", reversíveis)
     const { data: reps } = await supabase
       .from('pending_replacements')
-      .select('id, hr_person_id, contract_id, resource_id, hr_people(nome, cargo_id, nivel, job_titles(label))')
-      .eq('status', 'pending');
+      .select('id, hr_person_id, contract_id, resource_id, status, hr_people(nome, cargo_id, nivel, job_titles(label))')
+      .in('status', ['pending', 'removed']);
 
-    // vagas que já apontam para uma reposição
     const { data: vagas } = await supabase
       .from('job_requests')
       .select('pending_replacement_id')
@@ -42,6 +42,7 @@ export function usePendingReplacementsForVaga() {
       cargoId: r.hr_people?.cargo_id ?? null,
       cargoLabel: r.hr_people?.job_titles?.label ?? null,
       nivel: r.hr_people?.nivel ?? null,
+      status: r.status,
       jaTemVaga: jaVinculadas.has(r.id),
     }));
     setItems(mapped);

@@ -1,4 +1,4 @@
-// v2 - Vagas: ponte com reposicoes pendentes (abrir vaga em 1 clique)
+// v3 - Vagas: reposicao "nao repor" reversivel
 import { useState } from 'react';
 import { Briefcase, Plus, Pencil, Users, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,22 @@ export default function JobRequestsPage() {
     reload(); reloadReposicoes();
   };
 
+  const marcarNaoRepor = async (repId: string) => {
+    const { error: e } = await supabase.from('pending_replacements')
+      .update({ status: 'removed', resolved_at: new Date().toISOString() }).eq('id', repId);
+    if (e) { toast.error('Erro ao marcar'); return; }
+    toast.success('Marcada como não reposta');
+    reloadReposicoes();
+  };
+
+  const reverterNaoRepor = async (repId: string) => {
+    const { error: e } = await supabase.from('pending_replacements')
+      .update({ status: 'pending', resolved_at: null }).eq('id', repId);
+    if (e) { toast.error('Erro ao reverter'); return; }
+    toast.success('Reposição reativada');
+    reloadReposicoes();
+  };
+
   const changeStatus = async (r: JobRequest, novo: JobRequestStatus) => {
     const { error: e } = await supabase.from('job_requests').update({ status: novo }).eq('id', r.id);
     if (e) { toast.error('Erro ao mudar status'); return; }
@@ -105,15 +121,15 @@ export default function JobRequestsPage() {
       {error && <Card><CardContent className="p-4 text-sm text-destructive">Erro ao carregar: {error}</CardContent></Card>}
 
       {/* Reposições pendentes (desligamentos sem vaga aberta) */}
-      {canEdit && reposicoes.filter((r) => !r.jaTemVaga).length > 0 && (
+      {canEdit && reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
             <UserMinus className="h-4 w-4" />
-            Reposições pendentes ({reposicoes.filter((r) => !r.jaTemVaga).length})
+            Reposições pendentes ({reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).length})
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {reposicoes.filter((r) => !r.jaTemVaga).map((rep) => (
-              <div key={rep.id} className="flex items-center gap-3 rounded-md border bg-background p-2.5 text-sm">
+            {reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).map((rep) => (
+              <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{rep.pessoaNome}</p>
                   <p className="text-xs text-muted-foreground truncate">
@@ -122,6 +138,33 @@ export default function JobRequestsPage() {
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => abrirVagaDeReposicao(rep)}>
                   Abrir vaga
+                </Button>
+                <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" onClick={() => marcarNaoRepor(rep.id)}>
+                  Não repor
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Não repostas (reversível) */}
+      {canEdit && reposicoes.filter((r) => r.status === 'removed').length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+          <div className="text-sm font-medium text-muted-foreground">
+            Não repostas ({reposicoes.filter((r) => r.status === 'removed').length})
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {reposicoes.filter((r) => r.status === 'removed').map((rep) => (
+              <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-80">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate line-through decoration-muted-foreground/40">{rep.pessoaNome}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {rep.cargoLabel ?? 'Cargo não informado'}{rep.nivel ? ` · ${rep.nivel}` : ''}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => reverterNaoRepor(rep.id)}>
+                  Reverter
                 </Button>
               </div>
             ))}
