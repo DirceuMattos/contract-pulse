@@ -2366,6 +2366,54 @@ export type Database = {
           },
         ]
       }
+      role_module_permissions: {
+        Row: {
+          can_access: boolean
+          can_allocate: boolean
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_export: boolean
+          can_view_hr_costs: boolean
+          can_view_values: boolean
+          id: string
+          module_key: string
+          role: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          can_access?: boolean
+          can_allocate?: boolean
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_view_hr_costs?: boolean
+          can_view_values?: boolean
+          id?: string
+          module_key: string
+          role: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          can_access?: boolean
+          can_allocate?: boolean
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_view_hr_costs?: boolean
+          can_view_values?: boolean
+          id?: string
+          module_key?: string
+          role?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       role_profiles: {
         Row: {
           can_allocate: boolean | null
