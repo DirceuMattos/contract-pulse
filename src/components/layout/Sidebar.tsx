@@ -31,6 +31,7 @@ import {
   Lock,
   BookOpen,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
 import logoSystem from '@/assets/logo-system-v5.png';
 import { cn } from '@/lib/utils';
@@ -53,7 +54,7 @@ interface SidebarProps {
 type NavItem = {
   path: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   moduleKey?: ModuleKey;
   comingSoon?: boolean;
   external?: boolean;
@@ -62,14 +63,14 @@ type NavItem = {
 
 type NavGroup = {
   label?: string;
-  icon?: any;
+  icon?: LucideIcon;
   items: NavItem[];
 };
 
 const navGroups: NavGroup[] = [
   {
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
+      { path: '/dashboard', label: 'Dashboard Contratos', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
       { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
     ],
   },

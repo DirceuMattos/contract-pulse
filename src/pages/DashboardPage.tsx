@@ -97,6 +97,8 @@ const healthLabels: Record<HealthStatus, string> = {
   critico: 'Crítico',
 };
 
+const healthOrder: HealthStatus[] = ['saudavel', 'atencao', 'critico'];
+
 const alertCategoryLabels: Record<string, string> = {
   financeiro: 'Financeiro',
   prazo: 'Prazo',
@@ -112,13 +114,16 @@ const alertCategoryColors: Record<string, string> = {
 };
 
 const FILTERS_STORAGE_KEY = 'bnp_dashboard_filters';
+const DEFAULT_DASHBOARD_FILTERS = { selectedClientId: 'all', selectedContractId: 'all', selectedHealth: 'all' };
 
 function loadFilters(): { selectedClientId: string; selectedContractId: string; selectedHealth: string } {
   try {
     const stored = localStorage.getItem(FILTERS_STORAGE_KEY);
     if (stored) return { selectedHealth: 'all', ...JSON.parse(stored) };
-  } catch {}
-  return { selectedClientId: 'all', selectedContractId: 'all', selectedHealth: 'all' };
+  } catch {
+    return DEFAULT_DASHBOARD_FILTERS;
+  }
+  return DEFAULT_DASHBOARD_FILTERS;
 }
 
 export default function DashboardPage() {
@@ -204,6 +209,41 @@ export default function DashboardPage() {
       return health.status === selectedHealth;
     });
   }, [preHealthFilteredContracts, selectedHealth, resources, settings, centralOverheadMap]);
+
+  const contractHealthRows = useMemo(() => {
+    const order: Record<HealthStatus, number> = { critico: 0, atencao: 1, saudavel: 2 };
+
+    return preHealthFilteredContracts
+      .map(contract => {
+        const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+        const client = clients.find(c => c.id === contract.clientId);
+        return { contract, health, client };
+      })
+      .sort((a, b) => {
+        const statusDiff = order[a.health.status] - order[b.health.status];
+        if (statusDiff !== 0) return statusDiff;
+        const clientDiff = (a.client?.razaoSocial ?? '').localeCompare(b.client?.razaoSocial ?? '');
+        if (clientDiff !== 0) return clientDiff;
+        return a.contract.codigo.localeCompare(b.contract.codigo);
+      });
+  }, [preHealthFilteredContracts, resources, settings, centralOverheadMap, clients]);
+
+  const visibleHealthRows = useMemo(() =>
+    selectedHealth === 'all'
+      ? contractHealthRows
+      : contractHealthRows.filter(row => row.health.status === selectedHealth),
+    [contractHealthRows, selectedHealth]
+  );
+
+  const healthListGroups = useMemo(() =>
+    healthOrder
+      .map(status => ({
+        status,
+        rows: visibleHealthRows.filter(row => row.health.status === status),
+      }))
+      .filter(group => group.rows.length > 0 || selectedHealth === group.status),
+    [visibleHealthRows, selectedHealth]
+  );
 
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
@@ -349,7 +389,7 @@ export default function DashboardPage() {
     >
       {/* Page Header */}
       <PageHeader
-        title="Dashboard"
+        title="Dashboard Contratos"
         description="Visão consolidada do portfólio de contratos"
       />
 
@@ -663,6 +703,94 @@ export default function DashboardPage() {
         )}
       </motion.div>
 
+      {/* Contracts by Health */}
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <div>
+                <CardTitle className="text-base font-semibold">Contratos por saúde</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Contratos considerados nos filtros de Saudável, Atenção e Crítico.
+                </p>
+              </div>
+              <Badge variant="outline" className="w-fit">
+                {visibleHealthRows.length} contrato{visibleHealthRows.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {visibleHealthRows.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {healthListGroups.map(({ status, rows }) => (
+                  <div key={status} className="rounded-lg border border-border bg-muted/20">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: healthColors[status] }}
+                        />
+                        <span className={cn('text-sm font-medium truncate', {
+                          'text-health-healthy': status === 'saudavel',
+                          'text-health-attention': status === 'atencao',
+                          'text-health-critical': status === 'critico',
+                        })}>
+                          {healthLabels[status]}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">{rows.length}</span>
+                    </div>
+                    <div className="divide-y divide-border/70">
+                      {rows.length > 0 ? rows.map(({ contract, client, health }) => (
+                        <button
+                          key={contract.id}
+                          type="button"
+                          onClick={() => navigate(`/contratos/${contract.id}`)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {contract.codigo} - {contract.nome}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {client?.razaoSocial ?? 'Cliente não localizado'}
+                              </p>
+                            </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                            <span>{contract.segmento === 'govtech' ? 'Govtech' : 'Privado'}</span>
+                            <span className="text-border">|</span>
+                            <span>{contract.tipo === 'sistema' ? 'Sistema' : contract.tipo === 'infraestrutura' ? 'Infraestrutura' : 'Híbrido'}</span>
+                            {canViewValues && (
+                              <>
+                                <span className="text-border">|</span>
+                                <span className={cn(health.margemMensal >= 0 ? 'text-health-healthy' : 'text-health-critical')}>
+                                  Resultado {formatCurrency(health.margemMensal)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                      )) : (
+                        <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+                          Nenhum contrato neste filtro.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Nenhum contrato encontrado com os filtros atuais.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Charts Row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Health Distribution */}
@@ -942,7 +1070,7 @@ export default function DashboardPage() {
                             className="gap-1"
                             onClick={(e) => {
                               e.stopPropagation();
-                              contract && navigate(`/contratos/${contract.id}`);
+                              if (contract) navigate(`/contratos/${contract.id}`);
                             }}
                           >
                             <ExternalLink className="w-3.5 h-3.5" />

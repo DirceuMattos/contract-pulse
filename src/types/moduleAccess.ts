@@ -25,7 +25,7 @@ export interface ModuleDefinition {
 }
 
 export const MODULE_CATALOG: ModuleDefinition[] = [
-  { key: 'DASHBOARD', label: 'Dashboard', description: 'Painel principal com KPIs e visão geral', routes: ['/dashboard'], roleRestrictions: [] },
+  { key: 'DASHBOARD', label: 'Dashboard Contratos', description: 'Painel principal com KPIs e visão geral de contratos', routes: ['/dashboard'], roleRestrictions: [] },
   { key: 'CLIENTS', label: 'Clientes', description: 'Cadastro e gestão de clientes', routes: ['/clientes'], roleRestrictions: [] },
   { key: 'CONTRACTS', label: 'Contratos', description: 'Lista e gestão de contratos', routes: ['/contratos'], roleRestrictions: [] },
   { key: 'CONTRACT_DETAIL', label: 'Detalhe do Contrato', description: 'Visualização detalhada do contrato', routes: ['/contratos/:id'], isSubmodule: true, parentModule: 'CONTRACTS', roleRestrictions: [] },
