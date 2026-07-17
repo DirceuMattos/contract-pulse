@@ -17,10 +17,19 @@ interface Props {
 export function SkillSelector({ allSkills, localSkills, selectedIds, onToggle, onAddLocal }: Props) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<SkillType>('hard');
+  const [query, setQuery] = useState('');
 
   const pool = [...allSkills, ...localSkills];
-  const hard = pool.filter((s) => s.tipo === 'hard');
-  const soft = pool.filter((s) => s.tipo === 'soft');
+  const normalizedQuery = query.trim().toLowerCase();
+  const visiblePool = normalizedQuery
+    ? pool.filter((s) => s.nome.toLowerCase().includes(normalizedQuery))
+    : pool;
+  const hard = visiblePool
+    .filter((s) => s.tipo === 'hard')
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+  const soft = visiblePool
+    .filter((s) => s.tipo === 'soft')
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
 
   const add = () => {
     const n = nome.trim();
@@ -51,6 +60,12 @@ export function SkillSelector({ allSkills, localSkills, selectedIds, onToggle, o
 
   return (
     <div className="space-y-3 rounded-lg border p-3">
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Buscar skill..."
+        className="h-9"
+      />
       <Group label="Hard skills (tags)" list={hard} color="border-blue-400 text-blue-600 bg-blue-50 dark:bg-transparent dark:text-blue-400" />
       <Group label="Soft skills (tags)" list={soft} color="border-emerald-400 text-emerald-600 bg-emerald-50 dark:bg-transparent dark:text-emerald-400" />
       <div className="flex items-end gap-2 pt-1">
@@ -69,29 +84,4 @@ export function SkillSelector({ allSkills, localSkills, selectedIds, onToggle, o
       </div>
     </div>
   );
-}
-
-// Persiste skills locais (new:) e retorna os ids finais resolvidos.
-export async function resolveSkillIds(
-  supabase: any,
-  selectedIds: Set<string>,
-  localSkills: Skill[],
-): Promise<string[]> {
-  const final: string[] = [];
-  for (const id of selectedIds) {
-    if (id.startsWith('new:')) {
-      const local = localSkills.find((s) => s.id === id);
-      if (!local) continue;
-      const { data, error } = await supabase
-        .from('skills').insert({ nome: local.nome, tipo: local.tipo, origem: 'manual' }).select('id').single();
-      if (error) {
-        const { data: found } = await supabase
-          .from('skills').select('id').eq('nome', local.nome).eq('tipo', local.tipo).single();
-        if (found) final.push(found.id);
-      } else if (data) final.push(data.id);
-    } else {
-      final.push(id);
-    }
-  }
-  return final;
 }

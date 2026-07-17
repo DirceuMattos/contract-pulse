@@ -33,6 +33,7 @@ import { handleFormValidationError } from '@/lib/formValidation';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Tooltip,
   TooltipContent,
@@ -122,8 +123,32 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
     return hrPeople
       .filter(p => p.situacao === 'ativo')
       .filter(p => !existingHrPersonIds.includes(p.id) || p.id === editingPersonId)
-      .sort((a, b) => a.nome.localeCompare(b.nome));
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
   }, [hrPeople, existingHrPersonIds, resource?.hrPersonId]);
+
+  const hrPersonOptions = useMemo(
+    () => activeHrPeople.map((p) => {
+      const job = p.cargoId ? activeJobTitles.find(jt => jt.id === p.cargoId) : null;
+      const team = p.teamId ? teams.find(t => t.id === p.teamId) : null;
+      return {
+        value: p.id,
+        label: `${p.nome}${job ? ` — ${job.label}` : ''}`,
+        searchText: `${p.nome} ${job?.label ?? ''} ${team?.name ?? ''} ${p.email ?? ''}`,
+      };
+    }),
+    [activeHrPeople, activeJobTitles, teams],
+  );
+
+  const jobTitleOptions = useMemo(
+    () => [
+      ...activeJobTitles.map((jt) => ({
+        value: jt.label,
+        label: jt.label,
+      })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })),
+      { value: '__other__', label: 'Outro...' },
+    ],
+    [activeJobTitles],
+  );
 
   // Resolve linked person info
   const linkedPerson = useMemo(() => {
@@ -461,27 +486,16 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                       )}
                     </FormLabel>
                     {activeHrPeople.length > 0 ? (
-                      <Select
+                      <FormControl>
+                        <SearchableSelect
                         onValueChange={handleSelectHrPerson}
                         value={selectedHrPersonId || ''}
                         disabled={isReadOnly}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a pessoa do RH *" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {activeHrPeople.map(p => {
-                            const job = p.cargoId ? activeJobTitles.find(jt => jt.id === p.cargoId) : null;
-                            return (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.nome}{job ? ` — ${job.label}` : ''}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                        options={hrPersonOptions}
+                        placeholder="Selecione a pessoa do RH *"
+                        searchPlaceholder="Buscar pessoa, cargo ou equipe..."
+                      />
+                      </FormControl>
                     ) : (
                       <div className="p-3 rounded-md border border-dashed border-muted-foreground/30 text-sm text-muted-foreground">
                         Nenhuma pessoa cadastrada no RH Mestre. Importe a planilha de RH primeiro.
@@ -525,31 +539,22 @@ export function ResourceForm({ resource, contractId, settings, existingHrPersonI
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cargo / Papel</FormLabel>
-                      <Select
-                        disabled={isReadOnly}
-                        onValueChange={(val) => {
-                          if (val === '__other__') {
-                            field.onChange('');
-                          } else {
-                            field.onChange(val);
-                          }
-                        }}
-                        value={field.value || ''}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o cargo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {activeJobTitles.map(jt => (
-                            <SelectItem key={jt.id} value={jt.label}>
-                              {jt.label}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__other__">Outro...</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          disabled={isReadOnly}
+                          onValueChange={(val) => {
+                            if (val === '__other__') {
+                              field.onChange('');
+                            } else {
+                              field.onChange(val);
+                            }
+                          }}
+                          value={field.value || ''}
+                          options={jobTitleOptions}
+                          placeholder="Selecione o cargo"
+                          searchPlaceholder="Buscar cargo..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

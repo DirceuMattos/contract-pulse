@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -33,6 +32,7 @@ import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 // --- Types ---
 
 interface SquadTeamData {
@@ -450,13 +450,13 @@ function SquadsPageInner() {
 
   const clientOptions = useMemo(() => {
     const ids = new Set(contracts.filter(c => c.status === 'operacao' || c.status === 'implantacao').map(c => c.clientId));
-    return clients.filter(cl => ids.has(cl.id)).sort((a, b) => a.razaoSocial.localeCompare(b.razaoSocial));
+    return clients.filter(cl => ids.has(cl.id)).sort((a, b) => a.razaoSocial.localeCompare(b.razaoSocial, 'pt-BR', { sensitivity: 'base' }));
   }, [clients, contracts]);
 
   const contractOptions = useMemo(() => {
     const active = contracts.filter(c => c.status === 'operacao' || c.status === 'implantacao');
     const filtered = clientFilter !== 'all' ? active.filter(c => c.clientId === clientFilter) : active;
-    return filtered.sort((a, b) => (a.nome || a.codigo).localeCompare(b.nome || b.codigo));
+    return filtered.sort((a, b) => (a.nome || a.codigo).localeCompare(b.nome || b.codigo, 'pt-BR', { sensitivity: 'base' }));
   }, [contracts, clientFilter]);
 
   const toggleTeamFilter = (teamId: string) => {
@@ -917,25 +917,31 @@ function SquadsPageInner() {
             {/* Client filter */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Cliente</span>
-              <Select value={clientFilter} onValueChange={(v) => { setClientFilter(v); setContractFilter('all'); }}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {clientOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={clientFilter}
+                onValueChange={(v) => { setClientFilter(v); setContractFilter('all'); }}
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  ...clientOptions.map(c => ({ value: c.id, label: c.razaoSocial, searchText: `${c.razaoSocial} ${c.nomeFantasia ?? ''} ${c.cnpj}` })),
+                ]}
+                searchPlaceholder="Buscar cliente..."
+                triggerClassName="h-9 text-xs"
+              />
             </div>
 
             {/* Contract filter */}
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Contrato</span>
-              <Select value={contractFilter} onValueChange={setContractFilter}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {contractOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.nome || c.codigo}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={contractFilter}
+                onValueChange={setContractFilter}
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  ...contractOptions.map(c => ({ value: c.id, label: c.nome || c.codigo, searchText: `${c.nome} ${c.codigo}` })),
+                ]}
+                searchPlaceholder="Buscar contrato..."
+                triggerClassName="h-9 text-xs"
+              />
             </div>
 
             {/* Search */}

@@ -1,6 +1,6 @@
 // v6 - Vagas: subtela "Nao repostas / Contratacoes avulsas" + reposto por
 import { useState } from 'react';
-import { Briefcase, Plus, Pencil, Users, UserMinus } from 'lucide-react';
+import { Briefcase, Gift, MapPin, Pencil, Plane, Plus, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,12 @@ import { NaoReporDialog } from '@/components/jobrequests/NaoReporDialog';
 const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
   'todos', 'solicitado', 'em_avaliacao', 'aprovado_em_contratacao', 'preenchida', 'suspenso',
 ];
+
+const MODALIDADE_LABELS: Record<NonNullable<JobRequest['modalidade_trabalho']>, string> = {
+  remoto: 'Home office',
+  presencial: 'Presencial',
+  hibrido: 'Híbrida',
+};
 
 function StatusBadge({ status }: { status: JobRequestStatus }) {
   const meta = STATUS_META[status];
@@ -94,7 +100,7 @@ export default function JobRequestsPage() {
         contract_id: rep.contract_id,
         preenchida_por_hr_person_id: preenchidaPor,
         preenchida_em: new Date().toISOString(),
-      } as any);
+      });
     }
     const { error: e } = await supabase.from('pending_replacements')
       .update({ status: 'removed', resolved_at: new Date().toISOString() }).in('id', rep.allIds);
@@ -247,25 +253,51 @@ export default function JobRequestsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <CardContent className="pt-0 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {r.anos_experiencia != null && <span>{r.anos_experiencia} ano(s) de exp.</span>}
                     <span>Aberta em {new Date(r.created_at).toLocaleDateString('pt-BR')}</span>
+                    {r.modalidade_trabalho && (
+                      <Badge variant="outline" className="gap-1">
+                        <Briefcase className="h-3 w-3" />
+                        {MODALIDADE_LABELS[r.modalidade_trabalho]}
+                      </Badge>
+                    )}
+                    {r.presenca_cliente_requerida && (
+                      <Badge variant="outline" className="gap-1">
+                        <MapPin className="h-3 w-3" />
+                        Cliente: {r.dias_presenca_cliente || 'dias a combinar'}
+                      </Badge>
+                    )}
+                    {r.viagens_requeridas && (
+                      <Badge variant="outline" className="gap-1">
+                        <Plane className="h-3 w-3" />
+                        Viagens
+                      </Badge>
+                    )}
+                    {r.beneficios && (
+                      <Badge variant="secondary" className="gap-1 max-w-full">
+                        <Gift className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{r.beneficios}</span>
+                      </Badge>
+                    )}
                   </div>
-                  {canEdit && proximos.length > 0 && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">Mover status</Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {proximos.map((s) => (
-                          <DropdownMenuItem key={s} onClick={() => changeStatus(r, s)}>
-                            {STATUS_META[s].label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                  <div className="flex justify-end">
+                    {canEdit && proximos.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Mover status</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {proximos.map((s) => (
+                            <DropdownMenuItem key={s} onClick={() => changeStatus(r, s)}>
+                              {STATUS_META[s].label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );

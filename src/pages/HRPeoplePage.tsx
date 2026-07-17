@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { differenceInMonths } from 'date-fns';
 import { formatCurrency } from '@/lib/calculations';
 import { exportHRPeople } from '@/lib/importExport';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 function calcularTempoDeCasa(dataAdmissao: string, dataDesligamento?: string): { texto: string; meses: number } {
   const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
@@ -117,8 +118,14 @@ function HRPeoplePageInner() {
   const [sortField, setSortField] = useState<SortField>('nome');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const activeTeams = teams.filter(t => t.isActive);
-  const activeJobTitles = jobTitles.filter(jt => jt.isActive);
+  const activeTeams = useMemo(
+    () => teams.filter(t => t.isActive).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })),
+    [teams],
+  );
+  const activeJobTitles = useMemo(
+    () => jobTitles.filter(jt => jt.isActive).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })),
+    [jobTitles],
+  );
 
   const getTeamName = useCallback((teamId?: string) => teams.find(t => t.id === teamId)?.name || '', [teams]);
   const getCargoLabel = useCallback((cargoId?: string) => jobTitles.find(jt => jt.id === cargoId)?.label || '', [jobTitles]);
@@ -138,7 +145,8 @@ function HRPeoplePageInner() {
   }, [hrPeople]);
 
   const localAtuacaoOptions = useMemo(() =>
-    [...new Set(hrPeople.map(p => p.localAtuacao).filter(Boolean))].sort() as string[]
+    [...new Set(hrPeople.map(p => p.localAtuacao).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })) as string[]
   , [hrPeople]);
 
   const projetoOptions = useMemo(() => {
@@ -146,7 +154,7 @@ function HRPeoplePageInner() {
     return contracts
       .filter(c => contractIds.has(c.id))
       .map(c => ({ id: c.id, nome: c.nome }))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
   }, [resources, contracts]);
 
   const filtered = useMemo(() => {
@@ -381,13 +389,16 @@ function HRPeoplePageInner() {
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Departamento</span>
-              <Select value={filterTeam || 'all'} onValueChange={v => setFilterTeam(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Departamento" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos dept.</SelectItem>
-                  {activeTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterTeam || 'all'}
+                onValueChange={v => setFilterTeam(v === 'all' ? '' : v)}
+                options={[
+                  { value: 'all', label: 'Todos dept.' },
+                  ...activeTeams.map(t => ({ value: t.id, label: t.name })),
+                ]}
+                placeholder="Departamento"
+                searchPlaceholder="Buscar departamento..."
+              />
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Vínculo</span>
@@ -417,13 +428,16 @@ function HRPeoplePageInner() {
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Cargo</span>
-              <Select value={filterCargo || 'all'} onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos cargos</SelectItem>
-                  {activeJobTitles.map(jt => <SelectItem key={jt.id} value={jt.id}>{jt.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterCargo || 'all'}
+                onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}
+                options={[
+                  { value: 'all', label: 'Todos cargos' },
+                  ...activeJobTitles.map(jt => ({ value: jt.id, label: jt.label })),
+                ]}
+                placeholder="Cargo"
+                searchPlaceholder="Buscar cargo..."
+              />
             </div>
             {canViewComite && (
               <div className="flex flex-col gap-1">
@@ -462,33 +476,42 @@ function HRPeoplePageInner() {
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Benefício</span>
-              <Select value={filterBeneficio || 'all'} onValueChange={v => setFilterBeneficio(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {beneficioOptions.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterBeneficio || 'all'}
+                onValueChange={v => setFilterBeneficio(v === 'all' ? '' : v)}
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  ...beneficioOptions.map(b => ({ value: b, label: b })),
+                ]}
+                placeholder="Todos"
+                searchPlaceholder="Buscar benefício..."
+              />
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Local de Atuação</span>
-              <Select value={filterLocalAtuacao || 'all'} onValueChange={v => setFilterLocalAtuacao(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {localAtuacaoOptions.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterLocalAtuacao || 'all'}
+                onValueChange={v => setFilterLocalAtuacao(v === 'all' ? '' : v)}
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  ...localAtuacaoOptions.map(l => ({ value: l, label: l })),
+                ]}
+                placeholder="Todos"
+                searchPlaceholder="Buscar local..."
+              />
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-muted-foreground">Projeto</span>
-              <Select value={filterProjeto || 'all'} onValueChange={v => setFilterProjeto(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {projetoOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterProjeto || 'all'}
+                onValueChange={v => setFilterProjeto(v === 'all' ? '' : v)}
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  ...projetoOptions.map(p => ({ value: p.id, label: p.nome })),
+                ]}
+                placeholder="Todos"
+                searchPlaceholder="Buscar projeto..."
+              />
             </div>
           </div>
 

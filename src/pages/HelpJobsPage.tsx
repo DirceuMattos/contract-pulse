@@ -9,8 +9,22 @@ const sections: HelpSection[] = [
     content: (
       <Steps items={[
         { title: 'Abra Requisição de Vagas', body: 'Registre a necessidade, área, função, senioridade e justificativa.' },
+        { title: 'Informe as condições de trabalho', body: 'Preencha modalidade, presença no cliente, dias presenciais, exigência de viagens e benefícios.' },
         { title: 'Acompanhe o andamento', body: 'Use status e responsáveis para controlar a evolução da solicitação.' },
         { title: 'Comunique equipes operacionais', body: 'Há demanda para criar um canal de comunicação do andamento das vagas com as equipes envolvidas.' },
+      ]} />
+    ),
+  },
+  {
+    id: 'condicoes',
+    label: 'Condições',
+    title: 'Condições da Vaga',
+    content: (
+      <DataTable headers={['Campo', 'Quando usar']} rows={[
+        ['Modalidade', 'Indique se a vaga é home office, presencial ou híbrida.'],
+        ['Presença no cliente', 'Marque quando houver dias presenciais no cliente e informe quais dias da semana ou regra combinada.'],
+        ['Viagens', 'Marque quando o candidato precisará viajar.'],
+        ['Benefícios', 'Descreva benefícios relevantes em texto livre.'],
       ]} />
     ),
   },

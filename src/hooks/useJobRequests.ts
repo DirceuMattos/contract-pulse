@@ -19,6 +19,11 @@ export interface JobRequest {
   nivel: string | null;
   anos_experiencia: number | null;
   quantidade: number;
+  modalidade_trabalho: 'remoto' | 'presencial' | 'hibrido' | null;
+  presenca_cliente_requerida: boolean;
+  dias_presenca_cliente: string | null;
+  viagens_requeridas: boolean;
+  beneficios: string | null;
   status: JobRequestStatus;
   pending_replacement_id: string | null;
   contract_id: string | null;
@@ -29,6 +34,10 @@ export interface JobRequest {
   // derivados
   jobTitleLabel?: string;
 }
+
+type JobRequestRow = JobRequest & {
+  job_titles?: { label: string | null } | null;
+};
 
 export const STATUS_META: Record<JobRequestStatus, { label: string; color: string }> = {
   solicitado:              { label: 'Solicitado',            color: '#2563EB' },
@@ -62,7 +71,8 @@ export function useJobRequests() {
         .select('*, job_titles(label)')
         .order('created_at', { ascending: false });
       if (e) throw e;
-      const mapped: JobRequest[] = (data ?? []).map((r: any) => ({
+      const rows = (data ?? []) as JobRequestRow[];
+      const mapped: JobRequest[] = rows.map((r) => ({
         ...r,
         jobTitleLabel: r.job_titles?.label ?? null,
       }));

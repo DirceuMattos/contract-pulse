@@ -1553,16 +1553,21 @@ export type Database = {
           id: string
           job_skill_profile_id: string | null
           job_title_id: string | null
+          beneficios: string | null
+          dias_presenca_cliente: string | null
+          modalidade_trabalho: string | null
           nivel: string | null
           observacoes: string | null
           pending_replacement_id: string | null
           preenchida_em: string | null
           preenchida_por_hr_person_id: string | null
+          presenca_cliente_requerida: boolean
           quantidade: number
           skills_avulsas: Json | null
           solicitante_id: string | null
           status: Database["public"]["Enums"]["job_request_status"]
           titulo: string
+          viagens_requeridas: boolean
           updated_at: string
         }
         Insert: {
@@ -1573,16 +1578,21 @@ export type Database = {
           id?: string
           job_skill_profile_id?: string | null
           job_title_id?: string | null
+          beneficios?: string | null
+          dias_presenca_cliente?: string | null
+          modalidade_trabalho?: string | null
           nivel?: string | null
           observacoes?: string | null
           pending_replacement_id?: string | null
           preenchida_em?: string | null
           preenchida_por_hr_person_id?: string | null
+          presenca_cliente_requerida?: boolean
           quantidade?: number
           skills_avulsas?: Json | null
           solicitante_id?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo: string
+          viagens_requeridas?: boolean
           updated_at?: string
         }
         Update: {
@@ -1593,16 +1603,21 @@ export type Database = {
           id?: string
           job_skill_profile_id?: string | null
           job_title_id?: string | null
+          beneficios?: string | null
+          dias_presenca_cliente?: string | null
+          modalidade_trabalho?: string | null
           nivel?: string | null
           observacoes?: string | null
           pending_replacement_id?: string | null
           preenchida_em?: string | null
           preenchida_por_hr_person_id?: string | null
+          presenca_cliente_requerida?: boolean
           quantidade?: number
           skills_avulsas?: Json | null
           solicitante_id?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo?: string
+          viagens_requeridas?: boolean
           updated_at?: string
         }
         Relationships: [

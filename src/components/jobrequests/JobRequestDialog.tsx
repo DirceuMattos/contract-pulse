@@ -1,20 +1,23 @@
 // v2 - vaga: skills selecionaveis + historico de status
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobSkills, type Skill } from '@/hooks/useJobSkills';
-import { SkillSelector, resolveSkillIds } from '@/components/jobskills/SkillSelector';
+import { SkillSelector } from '@/components/jobskills/SkillSelector';
 import { JobRequestHistory } from '@/components/jobrequests/JobRequestHistory';
 import { toast } from 'sonner';
 import type { JobRequest } from '@/hooks/useJobRequests';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { resolveSkillIds } from '@/lib/jobSkillResolver';
 
 interface Props {
   open: boolean;
@@ -24,6 +27,7 @@ interface Props {
 }
 
 const SEM_PERFIL = '__sem_perfil__';
+const SEM_MODALIDADE = '__sem_modalidade__';
 
 export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props) {
   const { user } = useAuth();
@@ -35,13 +39,32 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
   const [nivel, setNivel] = useState('');
   const [anosExp, setAnosExp] = useState('');
   const [quantidade, setQuantidade] = useState('1');
+  const [modalidadeTrabalho, setModalidadeTrabalho] = useState<string>(SEM_MODALIDADE);
+  const [presencaClienteRequerida, setPresencaClienteRequerida] = useState(false);
+  const [diasPresencaCliente, setDiasPresencaCliente] = useState('');
+  const [viagensRequeridas, setViagensRequeridas] = useState(false);
+  const [beneficios, setBeneficios] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(new Set());
   const [localSkills, setLocalSkills] = useState<Skill[]>([]);
   const [saving, setSaving] = useState(false);
+  const profileOptions = useMemo(
+    () => [
+      { value: SEM_PERFIL, label: 'Sem perfil (vaga avulsa)' },
+      ...profiles.map((p) => ({
+        value: p.id,
+        label: `${p.jobTitleLabel}${p.nivel ? ` — ${p.nivel}` : ''}`,
+        searchText: `${p.jobTitleLabel} ${p.nivel ?? ''}`,
+      })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })),
+    ],
+    [profiles],
+  );
 
   const toggleSkill = (id: string) => setSelectedSkillIds((prev) => {
-    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
   });
   const addLocal = (s: Skill) => { setLocalSkills((p) => [...p, s]); setSelectedSkillIds((p) => new Set(p).add(s.id)); };
 
@@ -54,12 +77,25 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
       setNivel(editing.nivel ?? '');
       setAnosExp(editing.anos_experiencia?.toString() ?? '');
       setQuantidade(editing.quantidade?.toString() ?? '1');
+      setModalidadeTrabalho(editing.modalidade_trabalho ?? SEM_MODALIDADE);
+      setPresencaClienteRequerida(Boolean(editing.presenca_cliente_requerida));
+      setDiasPresencaCliente(editing.dias_presenca_cliente ?? '');
+      setViagensRequeridas(Boolean(editing.viagens_requeridas));
+      setBeneficios(editing.beneficios ?? '');
       setObservacoes(editing.observacoes ?? '');
-      const av = Array.isArray(editing.skills_avulsas) ? (editing.skills_avulsas as any[]) : [];
-      setSelectedSkillIds(new Set(av.map((s) => s.id).filter(Boolean)));
+      const av = Array.isArray(editing.skills_avulsas)
+        ? editing.skills_avulsas as Array<{ id?: unknown }>
+        : [];
+      setSelectedSkillIds(new Set(av.map((s) => s.id).filter((id): id is string => typeof id === 'string')));
     } else {
       setTitulo(''); setDescricao(''); setPerfilId(SEM_PERFIL);
-      setNivel(''); setAnosExp(''); setQuantidade('1'); setObservacoes('');
+      setNivel(''); setAnosExp(''); setQuantidade('1');
+      setModalidadeTrabalho(SEM_MODALIDADE);
+      setPresencaClienteRequerida(false);
+      setDiasPresencaCliente('');
+      setViagensRequeridas(false);
+      setBeneficios('');
+      setObservacoes('');
       setSelectedSkillIds(new Set());
     }
     setLocalSkills([]);
@@ -105,6 +141,11 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
         nivel: nivel.trim() || null,
         anos_experiencia: anosExp ? Number(anosExp) : null,
         quantidade: quantidade ? Number(quantidade) : 1,
+        modalidade_trabalho: modalidadeTrabalho === SEM_MODALIDADE ? null : modalidadeTrabalho,
+        presenca_cliente_requerida: presencaClienteRequerida,
+        dias_presenca_cliente: presencaClienteRequerida ? (diasPresencaCliente.trim() || null) : null,
+        viagens_requeridas: viagensRequeridas,
+        beneficios: beneficios.trim() || null,
         observacoes: observacoes.trim() || null,
       };
 
@@ -138,17 +179,13 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>Perfil de skill</Label>
-            <Select value={perfilId} onValueChange={onPerfilChange}>
-              <SelectTrigger><SelectValue placeholder="Selecione um perfil…" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SEM_PERFIL}>Sem perfil (vaga avulsa)</SelectItem>
-                {profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.jobTitleLabel}{p.nivel ? ` — ${p.nivel}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={perfilId}
+              onValueChange={onPerfilChange}
+              options={profileOptions}
+              placeholder="Selecione um perfil..."
+              searchPlaceholder="Buscar perfil ou nível..."
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -177,6 +214,50 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
             </div>
           </div>
 
+          <div className="space-y-3 rounded-lg border p-3">
+            <Label className="text-xs text-muted-foreground">Condições de trabalho</Label>
+
+            <div className="space-y-1.5">
+              <Label>Modalidade</Label>
+              <Select value={modalidadeTrabalho} onValueChange={setModalidadeTrabalho}>
+                <SelectTrigger><SelectValue placeholder="Selecione a modalidade…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEM_MODALIDADE}>Não informado</SelectItem>
+                  <SelectItem value="remoto">Home office</SelectItem>
+                  <SelectItem value="presencial">Presencial</SelectItem>
+                  <SelectItem value="hibrido">Híbrida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+              <div className="space-y-0.5">
+                <Label>Dias presenciais no cliente</Label>
+                <p className="text-xs text-muted-foreground">Informe se a vaga exige presença recorrente no cliente.</p>
+              </div>
+              <Switch checked={presencaClienteRequerida} onCheckedChange={setPresencaClienteRequerida} />
+            </div>
+
+            {presencaClienteRequerida && (
+              <div className="space-y-1.5">
+                <Label>Dias da semana no cliente</Label>
+                <Input
+                  value={diasPresencaCliente}
+                  onChange={(e) => setDiasPresencaCliente(e.target.value)}
+                  placeholder="Ex.: segunda e quarta, ou 3 dias a combinar"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+              <div className="space-y-0.5">
+                <Label>Exige viagens</Label>
+                <p className="text-xs text-muted-foreground">Marque quando a posição exigir deslocamentos do candidato.</p>
+              </div>
+              <Switch checked={viagensRequeridas} onCheckedChange={setViagensRequeridas} />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Skills da vaga</Label>
             <SkillSelector
@@ -185,6 +266,16 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
               selectedIds={selectedSkillIds}
               onToggle={toggleSkill}
               onAddLocal={addLocal}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Benefícios</Label>
+            <Textarea
+              value={beneficios}
+              onChange={(e) => setBeneficios(e.target.value)}
+              rows={2}
+              placeholder="Ex.: vale refeição, plano de saúde, auxílio home office, bônus..."
             />
           </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CalendarIcon, Plus, X, Building2, Upload, Trash2, Loader2 } from 'lucide-react';
@@ -43,6 +43,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { handleFormValidationError } from '@/lib/formValidation';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 // Map form fields to accordion sections for auto-expand on error
 const fieldToSection: Record<string, string> = {
@@ -201,6 +202,14 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const watchClientId = form.watch('clientId');
   const watchTags = form.watch('tags');
   const watchSegmento = form.watch('segmento');
+  const clientOptions = useMemo(
+    () => clients.map((client) => ({
+      value: client.id,
+      label: client.nomeFantasia || client.razaoSocial,
+      searchText: `${client.razaoSocial} ${client.nomeFantasia ?? ''} ${client.cnpj}`,
+    })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })),
+    [clients],
+  );
 
   // Auto-fill segmento based on selected client
   useEffect(() => {
@@ -306,20 +315,15 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cliente *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o cliente" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {clients.map(client => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.nomeFantasia || client.razaoSocial}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={clientOptions}
+                          placeholder="Selecione o cliente"
+                          searchPlaceholder="Buscar cliente..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
