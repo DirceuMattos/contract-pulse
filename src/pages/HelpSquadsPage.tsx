@@ -183,11 +183,11 @@ export default function HelpSquadsPage() {
             <p className="text-sm text-muted-foreground mb-4">A realocação de pessoas fica na visão <strong>Por Recurso</strong>. Essa visão mostra cada colaborador e todos os projetos onde ele está alocado.</p>
             <Steps items={[
               { title: 'Mude para Por Recurso', body: 'No filtro Visão, selecione "Por Recurso". Os cards passam a ser agrupados por pessoa, e não por projeto.' },
-              { title: 'Use o botão + no card da pessoa', body: 'O botão abre o fluxo "Adicionar a Projeto" para alocar o RH em outro contrato ou subprojeto.' },
+              { title: 'Use o botão + no card da pessoa', body: 'O botão abre o fluxo "Adicionar a Projeto" para alocar o RH em outro contrato ou subprojeto, inclusive quando ele já está alocado em outro projeto.' },
               { title: 'Edite uma alocação existente', body: 'Use o ícone de lápis em uma linha de projeto para alterar dedicação, mover para outro projeto ou retirar a pessoa daquele projeto.' },
               { title: 'Substitua quando houver pendência', body: 'Quando o RH está inativo e existe substituição pendente, o botão "Substituir" aparece na linha da alocação.' },
             ]} />
-            <Callout type="warn">Líder de Tribo e SuperAdmin usam esse fluxo para realocar RHs sem editar o cadastro mestre do RH e sem acessar valores financeiros.</Callout>
+            <Callout type="warn">Líder de Tribo e SuperAdmin usam esse fluxo para realocar RHs sem editar o cadastro mestre do RH e sem acessar valores financeiros. Para o Líder de Tribo, o perfil precisa ter a ação <strong>Alocar</strong> liberada no módulo <strong>Squads</strong>.</Callout>
           </SectionBlock>
 
           {/* ── SUBPROJETOS — SEÇÃO DESTACADA ── */}
@@ -254,6 +254,7 @@ export default function HelpSquadsPage() {
             <h3 className="font-semibold text-sm mb-2 mt-4">Alocar um recurso (não-RH)</h3>
             <p className="text-sm text-muted-foreground mb-3">Use o botão <strong>"+ Recurso"</strong> no subprojeto para alocar posições genéricas, licenças ou recursos do tipo "outro" vinculados ao contrato.</p>
             <Callout type="info">Recursos do tipo CLT/PJ já vinculados a um colaborador (RH) não aparecem na lista de recursos — eles devem ser alocados pelo fluxo de RH acima.</Callout>
+            <Callout type="warn">Se o botão de alocação não aparecer para um perfil autorizado, revise em Gestão de Perfis se o módulo <strong>Squads</strong> está habilitado e se a ação <strong>Alocar</strong> está ativa para esse perfil.</Callout>
           </SectionBlock>
 
           <SectionBlock id="editar-sp" title="Editar, Reordenar e Remover em Subprojetos" highlight>
@@ -288,6 +289,7 @@ export default function HelpSquadsPage() {
               { q: 'Criei um subprojeto mas não aparece card na tela de Squads', a: 'Subprojetos só geram cards quando têm pelo menos um membro alocado. Adicione a primeira alocação e o card aparecerá.' },
               { q: 'Um colaborador está com alerta de baixa dedicação mesmo alocado em subprojeto', a: 'Verifique se a alocação no subprojeto foi feita corretamente pelo painel de subprojetos. Alocações adicionadas via "Recursos" do contrato (não via subprojeto) podem não contabilizar corretamente no cálculo de dedicação.' },
               { q: 'Posso alocar o mesmo colaborador em múltiplos subprojetos?', a: 'Sim. Um colaborador pode estar em vários subprojetos com percentuais diferentes. A soma de todas as alocações (incluindo contratos diretos) não deve ultrapassar 100%.' },
+              { q: 'O botão + para adicionar o RH em outro projeto não aparece', a: 'Confirme se você está na visão "Por Recurso" e se seu perfil tem a ação "Alocar" habilitada no módulo Squads. O fluxo de alocação não exige permissão para editar o cadastro mestre do RH.' },
               { q: 'O card de um subprojeto está vermelho', a: 'Há um recurso humano inativo naquele subprojeto. Acesse o painel de subprojetos, localize o membro inativo e remova a alocação ou regularize a situação no módulo de RH.' },
               { q: 'Não vejo o painel de subprojetos na tela', a: 'O painel só aparece quando um contrato específico está selecionado no filtro "Contrato" e esse contrato tem subprojetos configurados. Selecione o contrato no filtro do topo.' },
               { q: 'Quero mover um membro de um subprojeto para outro', a: 'Não é possível mover diretamente. Remova a alocação do subprojeto de origem e adicione-a no subprojeto de destino com o novo percentual.' },

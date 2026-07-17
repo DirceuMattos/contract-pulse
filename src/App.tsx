@@ -21,6 +21,19 @@ import HelpReportsPage from "@/pages/HelpReportsPage";
 import HelpSquadsPage from "@/pages/HelpSquadsPage";
 import HelpClientsPage from "@/pages/HelpClientsPage";
 import HelpContractsPage from "@/pages/HelpContractsPage";
+import HelpAccessLogsPage from "@/pages/HelpAccessLogsPage";
+import HelpAIPage from "@/pages/HelpAIPage";
+import HelpAlertsPage from "@/pages/HelpAlertsPage";
+import HelpCalculatorPage from "@/pages/HelpCalculatorPage";
+import HelpDashboardPage from "@/pages/HelpDashboardPage";
+import HelpHRPage from "@/pages/HelpHRPage";
+import HelpImportExportPage from "@/pages/HelpImportExportPage";
+import HelpJobsPage from "@/pages/HelpJobsPage";
+import HelpProfilesPage from "@/pages/HelpProfilesPage";
+import HelpReceivablesPage from "@/pages/HelpReceivablesPage";
+import HelpSettingsPage from "@/pages/HelpSettingsPage";
+import HelpTransportPage from "@/pages/HelpTransportPage";
+import HelpUsersPage from "@/pages/HelpUsersPage";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import ClientFormPage from "@/pages/ClientFormPage";
@@ -132,10 +145,23 @@ const App = () => (
                           
                           
                           <Route path="/ajuda" element={<HelpPage />} />
+                          <Route path="/ajuda/dashboard" element={<HelpDashboardPage />} />
+                          <Route path="/ajuda/alertas" element={<HelpAlertsPage />} />
                           <Route path="/ajuda/relatorios" element={<HelpReportsPage />} />
                           <Route path="/ajuda/squads" element={<HelpSquadsPage />} />
                           <Route path="/ajuda/clientes" element={<HelpClientsPage />} />
                           <Route path="/ajuda/contratos" element={<HelpContractsPage />} />
+                          <Route path="/ajuda/rh" element={<HelpHRPage />} />
+                          <Route path="/ajuda/vagas" element={<HelpJobsPage />} />
+                          <Route path="/ajuda/usuarios" element={<HelpUsersPage />} />
+                          <Route path="/ajuda/perfis" element={<HelpProfilesPage />} />
+                          <Route path="/ajuda/logs-acesso" element={<HelpAccessLogsPage />} />
+                          <Route path="/ajuda/configuracoes" element={<HelpSettingsPage />} />
+                          <Route path="/ajuda/importar-exportar" element={<HelpImportExportPage />} />
+                          <Route path="/ajuda/recebiveis" element={<HelpReceivablesPage />} />
+                          <Route path="/ajuda/simulador" element={<HelpCalculatorPage />} />
+                          <Route path="/ajuda/ia" element={<HelpAIPage />} />
+                          <Route path="/ajuda/transportes" element={<HelpTransportPage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>

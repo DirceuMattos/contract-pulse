@@ -141,6 +141,7 @@ export default function HelpReportsPage() {
                 ['Aprovar / Publicar','✖ Não','✖ Não','✔ Sim'],
               ]}
             />
+            <Callout type="info">Alguns contratos, como SCEIC - Fomentos e SMAC, podem ter estruturas de relatório diferentes do padrão. Nesses casos, valide o modelo do relatório antes da publicação e registre ajustes necessários para o template específico.</Callout>
           </SectionBlock>
 
           <SectionBlock id="criar" title="1. Criar um Novo Relatório">

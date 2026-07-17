@@ -154,7 +154,7 @@ export default function HelpContractsPage() {
           <SectionBlock id="editar" title="Editar um Contrato">
             <p className="text-sm text-muted-foreground mb-3">Para editar um contrato, acesse a página de detalhe do contrato (clique no card) e clique em <strong>Editar</strong>. Também é possível clicar no menu <strong>⋯</strong> no card da listagem.</p>
             <p className="text-sm text-muted-foreground mb-4">Os dados editáveis incluem: nome, código, status, valores financeiros, datas, segmento, logotipo e configurações de alerta.</p>
-            <Callout type="warn">Perfis Líder de Tribo, Coordenação de Suporte e Projetos e Produtos não possuem permissão de edição de contratos.</Callout>
+            <Callout type="warn">Acesso ao módulo não significa permissão de edição. Perfis sem a ação <strong>Editar</strong> em Contratos podem consultar o contrato, mas não alteram cadastro, datas, status, valores ou configurações.</Callout>
           </SectionBlock>
 
           <SectionBlock id="recursos" title="Gerenciar Recursos do Contrato">
@@ -203,6 +203,7 @@ export default function HelpContractsPage() {
             {[
               { q: 'O contrato está com indicador vermelho mas parece estar em ordem', a: 'Verifique os alertas específicos no card — pode ser vencimento próximo, reajuste pendente ou recurso humano inativo na equipe. Clique no contrato para ver os detalhes do cálculo de saúde.' },
               { q: 'Não consigo ver os valores financeiros do contrato', a: 'Valores financeiros são visíveis apenas para C-Level, Administrativo e Superadmin. Entre em contato com o administrador se precisar de acesso.' },
+              { q: 'Consigo ver o contrato, mas não consigo editar', a: 'Isso é esperado quando seu perfil tem acesso ao módulo, mas não tem a ação "Editar" habilitada para Contratos. Apenas C-Level, RH, Administrativo e Superadmin devem alterar esse cadastro.' },
               { q: 'Quero buscar contratos de um cliente específico', a: 'No campo de busca, digite o nome do cliente. O sistema pesquisa por nome do contrato, código e nome do cliente simultaneamente.' },
               { q: 'Como arquivar um contrato sem excluí-lo?', a: 'Altere o status para "Encerrado". O contrato sairá das listagens padrão mas ficará disponível no histórico através do filtro de status.' },
               { q: 'Adicionei um recurso no contrato mas não aparece no módulo de Squads', a: 'O módulo de Squads exibe apenas contratos com status "Em Operação" ou "Em Implantação". Verifique se o status do contrato está correto.' },

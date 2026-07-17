@@ -129,7 +129,7 @@ export default function HelpClientsPage() {
           <SectionBlock id="editar" title="Editar um Cliente">
             <p className="text-sm text-muted-foreground mb-4">Para editar os dados de um cliente, clique no menu <strong>⋯</strong> no canto do card e selecione <strong>Editar</strong>, ou acesse a página de detalhe do cliente e clique em <strong>Editar</strong>.</p>
             <p className="text-sm text-muted-foreground mb-4">Todos os campos do cadastro podem ser alterados, incluindo o logotipo. As alterações são refletidas imediatamente em todo o sistema — cards, contratos, relatórios e PPTX.</p>
-            <Callout type="warn">Perfis Líder de Tribo, Coordenação de Suporte e Projetos e Produtos não possuem permissão de edição de clientes — o botão Editar não aparecerá para esses perfis.</Callout>
+            <Callout type="warn">Acesso ao módulo não significa permissão de edição. Perfis sem a ação <strong>Editar</strong> em Clientes podem consultar os dados, mas não alteram o cadastro.</Callout>
           </SectionBlock>
 
           <SectionBlock id="excluir" title="Excluir um Cliente">
@@ -154,6 +154,7 @@ export default function HelpClientsPage() {
               { q: 'Não consigo cadastrar um cliente — aparece erro de CNPJ duplicado', a: 'Já existe um cliente cadastrado com esse CNPJ. Use a busca para localizá-lo. Se for um cadastro duplicado, exclua o incorreto antes de criar um novo.' },
               { q: 'O logotipo do cliente não aparece nos relatórios', a: 'Certifique-se de que o logo foi enviado no formato correto (PNG ou JPG) e que o contrato está vinculado ao cliente correto. O logo do contrato tem prioridade sobre o logo do cliente.' },
               { q: 'Não vejo o botão "+ Novo Cliente"', a: 'Seu perfil não possui permissão de criação. Entre em contato com o administrador para verificar suas permissões.' },
+              { q: 'Consigo ver o cliente, mas não consigo editar', a: 'Isso é esperado quando seu perfil tem acesso ao módulo, mas não tem a ação "Editar" habilitada para Clientes. Apenas C-Level, RH, Administrativo e Superadmin devem alterar esse cadastro.' },
               { q: 'Tentei excluir um cliente mas apareceu mensagem de erro', a: 'O cliente possui contratos vinculados. Acesse o módulo de Contratos, encerre ou remova os contratos desse cliente e tente excluí-lo novamente.' },
               { q: 'Como altero o segmento de um cliente de Govtech para Privado?', a: 'Acesse a edição do cliente, localize o campo Segmento e altere para o valor desejado. Salve as alterações.' },
             ].map((item, i) => (
