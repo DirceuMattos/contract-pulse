@@ -25,7 +25,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Sheet,
   SheetContent,
@@ -246,6 +253,73 @@ export default function ProfilesAdminPage() {
     });
     toast.info('Valores padrão carregados (não salvos)');
   }
+  function renderModulePermissionsTable(group: typeof MODULE_GROUPS[number]) {
+    if (!editing) return null;
+
+    return (
+      <div key={group.title} className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {group.title}
+        </h4>
+        <div className="overflow-x-auto rounded-md border">
+          <Table className="min-w-[880px]">
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="w-[260px] text-xs">Módulo</TableHead>
+                {ACTION_FLAG_LABELS.map(({ key, label }) => (
+                  <TableHead key={key} className="w-[88px] text-center text-xs">
+                    {label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {group.keys.map((key) => {
+                const mod = MODULE_CATALOG.find((m) => m.key === key);
+                if (!mod) return null;
+                const allowed = isRoleAllowedForModule(editing.role, key);
+                const checked = allowed && editing.modules.includes(key);
+                const flags = editing.moduleActions[key] || EMPTY_ACTION_FLAGS;
+                const row = (
+                  <TableRow key={key} className={!allowed ? 'bg-muted/20 opacity-60' : undefined}>
+                    <TableCell className="py-2">
+                      <label className={`flex items-center gap-2 text-sm font-medium ${allowed ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                        <Checkbox
+                          checked={checked}
+                          disabled={!allowed}
+                          onCheckedChange={(v) => toggleModule(key, !!v)}
+                        />
+                        <span className="leading-tight">{mod.label}</span>
+                      </label>
+                    </TableCell>
+                    {ACTION_FLAG_LABELS.map(({ key: actionKey, label }) => (
+                      <TableCell key={actionKey} className="py-2 text-center">
+                        <div className="flex justify-center">
+                          <Switch
+                            aria-label={`${label} em ${mod.label}`}
+                            checked={checked && flags[actionKey]}
+                            disabled={!allowed || !checked}
+                            onCheckedChange={(v) => setModuleFlag(key, actionKey, v)}
+                          />
+                        </div>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+
+                return allowed ? row : (
+                  <Tooltip key={key}>
+                    <TooltipTrigger asChild>{row}</TooltipTrigger>
+                    <TooltipContent>Restrito pelo sistema</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  }
 
   async function propagateProfileChanges(role: UserRole, modules: ModuleKey[]): Promise<number> {
     const { data: usersWithRole, error: usersErr } = await supabase
@@ -387,7 +461,7 @@ export default function ProfilesAdminPage() {
         )}
 
         <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-          <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
             {editing && (
               <>
                 <SheetHeader>
@@ -396,62 +470,7 @@ export default function ProfilesAdminPage() {
 
                 <div className="space-y-6 mt-6">
                   <section className="space-y-4">
-                    <h3 className="font-semibold text-sm">Módulos e permissões de ação</h3>
-                    {MODULE_GROUPS.map((group) => (
-                      <div key={group.title} className="space-y-3">
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          {group.title}
-                        </h4>
-                        <div className="space-y-2">
-                          {group.keys.map((key) => {
-                            const mod = MODULE_CATALOG.find((m) => m.key === key);
-                            if (!mod) return null;
-                            const allowed = isRoleAllowedForModule(editing.role, key);
-                            const checked = allowed && editing.modules.includes(key);
-                            const flags = editing.moduleActions[key] || EMPTY_ACTION_FLAGS;
-                            const node = (
-                              <div className={`rounded-md border p-3 ${allowed ? 'bg-background' : 'opacity-50 bg-muted/30'}`}>
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                  <label className={`flex items-center gap-2 text-sm font-medium ${allowed ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                                    <Checkbox
-                                      checked={checked}
-                                      disabled={!allowed}
-                                      onCheckedChange={(v) => toggleModule(key, !!v)}
-                                    />
-                                    <span>{mod.label}</span>
-                                  </label>
-                                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                    {ACTION_FLAG_LABELS.map(({ key: actionKey, label }) => (
-                                      <div key={actionKey} className="flex items-center justify-between gap-2 rounded border bg-muted/20 px-2 py-1.5">
-                                        <Label htmlFor={`flag-${key}-${actionKey}`} className="text-[11px] font-normal leading-tight">
-                                          {label}
-                                        </Label>
-                                        <Switch
-                                          id={`flag-${key}-${actionKey}`}
-                                          checked={checked && flags[actionKey]}
-                                          disabled={!allowed || !checked}
-                                          onCheckedChange={(v) => setModuleFlag(key, actionKey, v)}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                            return allowed ? (
-                              <div key={key}>{node}</div>
-                            ) : (
-                              <Tooltip key={key}>
-                                <TooltipTrigger asChild>
-                                  <div>{node}</div>
-                                </TooltipTrigger>
-                                <TooltipContent>Restrito por definição do sistema</TooltipContent>
-                              </Tooltip>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                    {MODULE_GROUPS.map((group) => renderModulePermissionsTable(group))}
                   </section>
 
                 </div>
