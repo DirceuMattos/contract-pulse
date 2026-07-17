@@ -224,9 +224,10 @@ function UsersPageInner() {
       const nextStatus = await getMaintenanceStatus();
       setMaintenanceEnabled(nextStatus.enabled);
       setMaintenanceLockedCount(nextStatus.lockedCount);
-
       if (result.enabled) {
         toast.success(`Sistema em manutenção. ${result.lockedCount || 0} usuário(s) desativado(s).`);
+      } else if (result.failedCount && result.failedCount > 0) {
+        toast.warning(`Sistema reativado parcialmente. ${result.unlockedCount || 0} usuário(s) reativado(s), ${result.failedCount} falhou(ram).`);
       } else {
         toast.success(`Sistema reativado. ${result.unlockedCount || 0} usuário(s) reativado(s).`);
       }

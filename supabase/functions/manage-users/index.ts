@@ -423,11 +423,18 @@ async function handleDisableMaintenance(admin: ReturnType<typeof createClient>, 
   const lockedUserIds = Array.from(new Set([...maintenanceLockIds, ...currentlyBannedIds]))
     .filter((id) => id !== callerId);
 
+  const failedUnlocks: { userId: string; message: string }[] = [];
+  let unlockedCount = 0;
+
   for (const userId of lockedUserIds) {
     const { error } = await admin.auth.admin.updateUserById(userId, {
       ban_duration: "none",
     });
-    if (error) return err(`Failed to unlock ${userId}: ${error.message}`, 500);
+    if (error) {
+      failedUnlocks.push({ userId, message: error.message });
+      continue;
+    }
+    unlockedCount += 1;
   }
 
   const { error } = await admin
@@ -438,7 +445,9 @@ async function handleDisableMaintenance(admin: ReturnType<typeof createClient>, 
 
   return json({
     enabled: false,
-    unlockedCount: lockedUserIds.length,
+    unlockedCount,
+    failedCount: failedUnlocks.length,
+    failedUnlocks,
     message: "Maintenance mode disabled",
   });
 }

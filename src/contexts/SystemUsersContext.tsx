@@ -13,7 +13,7 @@ interface SystemUsersContextType {
   getUserByEmail: (email: string) => SystemUser | undefined;
   toggleUserStatus: (id: string) => Promise<boolean>;
   getMaintenanceStatus: () => Promise<{ enabled: boolean; lockedCount: number }>;
-  setMaintenanceMode: (enabled: boolean) => Promise<{ enabled: boolean; lockedCount?: number; unlockedCount?: number } | null>;
+  setMaintenanceMode: (enabled: boolean) => Promise<{ enabled: boolean; lockedCount?: number; unlockedCount?: number; failedCount?: number } | null>;
   refreshUsers: () => Promise<void>;
 }
 
@@ -144,7 +144,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
 
   const setMaintenanceMode = useCallback(async (
     enabled: boolean,
-  ): Promise<{ enabled: boolean; lockedCount?: number; unlockedCount?: number } | null> => {
+  ): Promise<{ enabled: boolean; lockedCount?: number; unlockedCount?: number; failedCount?: number } | null> => {
     try {
       const data = await invokeManageUsers(enabled ? 'enable-maintenance' : 'disable-maintenance');
       await refreshUsers();
@@ -152,6 +152,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         enabled: !!data.enabled,
         lockedCount: typeof data.lockedCount === 'number' ? data.lockedCount : undefined,
         unlockedCount: typeof data.unlockedCount === 'number' ? data.unlockedCount : undefined,
+        failedCount: typeof data.failedCount === 'number' ? data.failedCount : undefined,
       };
     } catch (e) {
       console.error('Failed to update maintenance mode:', e);
