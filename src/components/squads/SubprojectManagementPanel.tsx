@@ -35,7 +35,11 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const { getSubprojectsByContract, deleteSubproject, getAllocationsBySubproject, deleteAllocation } = useSubprojects();
   const { hrPeople } = useHR();
   const { resources } = useData();
-  const { canEdit, canViewValues } = useAuth();
+  const { canModuleAction, canViewValues } = useAuth();
+  const canCreateSquads = canModuleAction('SQUADS', 'can_create');
+  const canEditSquads = canModuleAction('SQUADS', 'can_edit');
+  const canDeleteSquads = canModuleAction('SQUADS', 'can_delete');
+  const canAllocateSquads = canModuleAction('SQUADS', 'can_allocate');
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingSp, setEditingSp] = useState<ContractSubproject | null>(null);
@@ -87,14 +91,18 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         </span>
       )}
       <span className="ml-auto tabular-nums font-medium">{alloc.dedicationPercent}%</span>
-      {canEdit && (
+      {(canEditSquads || canDeleteSquads) && (
         <>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingAlloc({ alloc, name, typeLabel })}>
-            <Pencil className="w-3 h-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          {canEditSquads && (
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingAlloc({ alloc, name, typeLabel })}>
+              <Pencil className="w-3 h-3" />
+            </Button>
+          )}
+          {canDeleteSquads && (
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          )}
         </>
       )}
     </div>
@@ -120,7 +128,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         <span className="text-xs text-muted-foreground flex items-center gap-1">
           {icon} {count} item{count !== 1 ? 's' : ''}
         </span>
-        {canEdit && (
+        {canAllocateSquads && (
           <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAllocDialog({ spId, type })}>
             <Plus className="w-3 h-3" />
             Adicionar
@@ -134,7 +142,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Subprojetos</h3>
-        {canEdit && (
+        {canCreateSquads && (
           <Button size="sm" onClick={() => { setEditingSp(null); setFormOpen(true); }} className="gap-1.5">
             <Plus className="w-4 h-4" />
             Adicionar Subprojeto
@@ -173,14 +181,18 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                           </Badge>
                         </button>
                       </CollapsibleTrigger>
-                      {canEdit && (
+                      {(canEditSquads || canDeleteSquads) && (
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingSp(sp); setFormOpen(true); }}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeletingId(sp.id)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {canEditSquads && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingSp(sp); setFormOpen(true); }}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {canDeleteSquads && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeletingId(sp.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -216,14 +228,18 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                                     </span>
                                   )}
                                   <span className="ml-auto tabular-nums font-medium">{alloc.dedicationPercent}%</span>
-                                  {canEdit && (
+                                  {(canEditSquads || canDeleteSquads) && (
                                     <>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingAlloc({ alloc, name, typeLabel: 'Pessoa' })}>
-                                        <Pencil className="w-3 h-3" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
-                                        <Trash2 className="w-3 h-3" />
-                                      </Button>
+                                      {canEditSquads && (
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingAlloc({ alloc, name, typeLabel: 'Pessoa' })}>
+                                          <Pencil className="w-3 h-3" />
+                                        </Button>
+                                      )}
+                                      {canDeleteSquads && (
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDeletingAllocId(alloc.id)}>
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -236,7 +252,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Users className="w-3 h-3" /> {hrAllocs.length} item{hrAllocs.length !== 1 ? 's' : ''}
                             </span>
-                            {canEdit && (
+                            {canAllocateSquads && (
                               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAllocDialog({ spId: sp.id, type: 'hr' })}>
                                 <Plus className="w-3 h-3" />
                                 Adicionar

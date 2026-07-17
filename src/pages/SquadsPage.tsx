@@ -119,7 +119,9 @@ function SquadsPageInner() {
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
   const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
-  const { canEdit, canCreate, canAllocate, userRole } = useAuth();
+  const { canModuleAction, userRole } = useAuth();
+  const canEditSquads = canModuleAction('SQUADS', 'can_edit');
+  const canAllocateSquads = canModuleAction('SQUADS', 'can_allocate');
   const canSubstitute = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'superadmin';
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const navigate = useNavigate();
@@ -751,7 +753,7 @@ function SquadsPageInner() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {canAllocate && rd.resourceKey.startsWith('hr:') && (
+              {canAllocateSquads && rd.resourceKey.startsWith('hr:') && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -787,7 +789,7 @@ function SquadsPageInner() {
                   </div>
                   {hb && <Badge variant="outline" className={`text-[9px] shrink-0 ${hb.badgeClass}`}>{hb.label}</Badge>}
                   <span className="tabular-nums font-medium shrink-0">{alloc.percentualDedicacao}%</span>
-                  {canEdit && (
+                  {canEditSquads && (
                     <Button
                       variant="ghost"
                       size="icon"
