@@ -1,6 +1,6 @@
 // v6 - Vagas: subtela "Nao repostas / Contratacoes avulsas" + reposto por
 import { useState } from 'react';
-import { Briefcase, Gift, MapPin, Pencil, Plane, Plus, UserMinus } from 'lucide-react';
+import { Briefcase, Copy, Gift, MapPin, Pencil, Plane, Plus, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import {
 import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsForVaga';
 import { JobRequestDialog } from '@/components/jobrequests/JobRequestDialog';
 import { NaoReporDialog } from '@/components/jobrequests/NaoReporDialog';
+import { ExportJobRequestDialog } from '@/components/jobrequests/ExportJobRequestDialog';
 
 const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
   'todos', 'solicitado', 'em_avaliacao', 'aprovado_em_contratacao', 'preenchida', 'suspenso',
@@ -48,6 +49,7 @@ export default function JobRequestsPage() {
   const [filter, setFilter] = useState<JobRequestStatus | 'todos'>('todos');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<JobRequest | null>(null);
+  const [exporting, setExporting] = useState<JobRequest | null>(null);
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: JobRequest) => { setEditing(r); setDialogOpen(true); };
@@ -248,7 +250,14 @@ export default function JobRequestsPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <StatusBadge status={r.status} />
                       {canEdit && (
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                        <>
+                          <Button variant="ghost" size="icon" title="Exportar texto para redes" onClick={() => setExporting(r)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Editar vaga" onClick={() => openEdit(r)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -317,6 +326,12 @@ export default function JobRequestsPage() {
         onOpenChange={(v) => { if (!v) setNaoReporRep(null); }}
         rep={naoReporRep}
         onConfirm={confirmarNaoRepor}
+      />
+
+      <ExportJobRequestDialog
+        open={exporting !== null}
+        onOpenChange={(v) => { if (!v) setExporting(null); }}
+        request={exporting}
       />
     </div>
   );
