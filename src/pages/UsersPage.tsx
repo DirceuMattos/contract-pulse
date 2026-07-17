@@ -122,6 +122,8 @@ function UsersPageInner() {
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
 
   const isSuperAdmin = currentUser?.role === 'superadmin';
+  const inactiveUsersExceptCurrent = users.filter((user) => !user.active && user.id !== currentUser?.id).length;
+  const canReactivateMaintenanceUsers = maintenanceEnabled || inactiveUsersExceptCurrent > 0;
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -531,7 +533,7 @@ function UsersPageInner() {
             <Button
               type="button"
               onClick={() => handleToggleMaintenance(false)}
-              disabled={maintenanceBusy || !maintenanceEnabled}
+              disabled={maintenanceBusy || !canReactivateMaintenanceUsers}
               className="gap-2"
             >
               <Power className="w-4 h-4" />

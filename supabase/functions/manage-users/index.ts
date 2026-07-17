@@ -411,7 +411,18 @@ async function handleDisableMaintenance(admin: ReturnType<typeof createClient>, 
     return err("Failed to validate superadmin permission", 500);
   }
 
-  const lockedUserIds = (await getMaintenanceLockIds(admin)).filter((id) => id !== callerId);
+  let lockedUserIds = (await getMaintenanceLockIds(admin)).filter((id) => id !== callerId);
+
+  if (lockedUserIds.length === 0) {
+    const { data: authUsers, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    if (listErr) return err(listErr.message, 500);
+
+    const now = new Date();
+    lockedUserIds = (authUsers.users || [])
+      .filter((user) => user.id !== callerId)
+      .filter((user) => user.banned_until ? new Date(user.banned_until) > now : false)
+      .map((user) => user.id);
+  }
 
   for (const userId of lockedUserIds) {
     const { error } = await admin.auth.admin.updateUserById(userId, {
