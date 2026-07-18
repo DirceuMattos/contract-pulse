@@ -84,7 +84,8 @@ export default function AlertsPage() {
   const navigate = useNavigate();
   const { alerts, criticalCount, warningCount, totalCount } = useAlerts();
   const { getContract, getClient, settings } = useData();
-  const { canViewValues } = useAuth();
+  const { canViewValues, userRole } = useAuth();
+  const canConfigureAlerts = userRole === 'c-level' || userRole === 'superadmin';
   const { processAlerts } = useNotificationContext();
   const { status: deployStatus, checkNow } = useDeployMonitoring((alert) => {
     processAlerts([alert]);
@@ -197,12 +198,12 @@ export default function AlertsPage() {
         title="Alertas"
         description="Notificações automáticas baseadas nos contratos e configurações"
         animated={false}
-        actions={
+        actions={canConfigureAlerts ? (
           <Button variant="outline" size="sm" onClick={() => navigate('/configuracoes')} className="gap-2">
             <Settings className="w-4 h-4" />
             Configurar Alertas
           </Button>
-        }
+        ) : undefined}
       />
       
       {/* Deploy & Infra Health */}
