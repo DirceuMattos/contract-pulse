@@ -1547,14 +1547,14 @@ export type Database = {
       job_requests: {
         Row: {
           anos_experiencia: number | null
+          beneficios: string | null
           contract_id: string | null
           created_at: string
           descricao: string | null
+          dias_presenca_cliente: string | null
           id: string
           job_skill_profile_id: string | null
           job_title_id: string | null
-          beneficios: string | null
-          dias_presenca_cliente: string | null
           modalidade_trabalho: string | null
           nivel: string | null
           observacoes: string | null
@@ -1567,19 +1567,19 @@ export type Database = {
           solicitante_id: string | null
           status: Database["public"]["Enums"]["job_request_status"]
           titulo: string
-          viagens_requeridas: boolean
           updated_at: string
+          viagens_requeridas: boolean
         }
         Insert: {
           anos_experiencia?: number | null
+          beneficios?: string | null
           contract_id?: string | null
           created_at?: string
           descricao?: string | null
+          dias_presenca_cliente?: string | null
           id?: string
           job_skill_profile_id?: string | null
           job_title_id?: string | null
-          beneficios?: string | null
-          dias_presenca_cliente?: string | null
           modalidade_trabalho?: string | null
           nivel?: string | null
           observacoes?: string | null
@@ -1592,19 +1592,19 @@ export type Database = {
           solicitante_id?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo: string
-          viagens_requeridas?: boolean
           updated_at?: string
+          viagens_requeridas?: boolean
         }
         Update: {
           anos_experiencia?: number | null
+          beneficios?: string | null
           contract_id?: string | null
           created_at?: string
           descricao?: string | null
+          dias_presenca_cliente?: string | null
           id?: string
           job_skill_profile_id?: string | null
           job_title_id?: string | null
-          beneficios?: string | null
-          dias_presenca_cliente?: string | null
           modalidade_trabalho?: string | null
           nivel?: string | null
           observacoes?: string | null
@@ -1617,8 +1617,8 @@ export type Database = {
           solicitante_id?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo?: string
-          viagens_requeridas?: boolean
           updated_at?: string
+          viagens_requeridas?: boolean
         }
         Relationships: [
           {
