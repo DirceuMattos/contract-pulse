@@ -23,7 +23,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
-import { useAlerts } from '@/hooks/useAlerts';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,23 +41,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   calculateDashboardKPIs,
   calculateContractHealth,
   formatCurrency,
   formatPercentage,
   formatDate,
-  getDaysUntil,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
-import { HealthStatus, AlertCategory } from '@/types';
+import { HealthStatus } from '@/types';
 import { PageHeader } from '@/components/layout/PageHeader';
 import {
   PieChart,
@@ -99,20 +89,6 @@ const healthLabels: Record<HealthStatus, string> = {
 
 const healthOrder: HealthStatus[] = ['saudavel', 'atencao', 'critico'];
 
-const alertCategoryLabels: Record<string, string> = {
-  financeiro: 'Financeiro',
-  prazo: 'Prazo',
-  reajuste: 'Reajuste',
-  governanca: 'Governança',
-};
-
-const alertCategoryColors: Record<string, string> = {
-  financeiro: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  prazo: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  reajuste: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  governanca: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-};
-
 const FILTERS_STORAGE_KEY = 'bnp_dashboard_filters';
 const DEFAULT_DASHBOARD_FILTERS = { selectedClientId: 'all', selectedContractId: 'all', selectedHealth: 'all' };
 
@@ -132,7 +108,6 @@ export default function DashboardPage() {
   const canViewValues = _canViewValues && userRole !== 'administrativo';
   const { contracts, clients, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
-  const { alerts, criticalCount, warningCount, infoCount } = useAlerts();
   const { result: overheadPoolResult } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
   const canSeeReceivables = canAccessModule('RECEIVABLES');
@@ -309,51 +284,6 @@ export default function DashboardPage() {
 
     return { byHealth, bySegment, byType };
   }, [filteredContracts, resources, settings, centralOverheadMap]);
-
-  // Filtered contract IDs
-  const filteredContractIds = useMemo(() => new Set(filteredContracts.map(c => c.id)), [filteredContracts]);
-
-  // Alerts filtered by selected contracts
-  const filteredAlerts = useMemo(() =>
-    alerts.filter(a => filteredContractIds.has(a.contractId)),
-    [alerts, filteredContractIds]
-  );
-
-  const filteredCriticalCount = filteredAlerts.filter(a => a.severity === 'critico').length;
-  const filteredWarningCount = filteredAlerts.filter(a => a.severity === 'atencao').length;
-  const filteredInfoCount = filteredAlerts.filter(a => a.severity === 'info').length;
-
-  // Alerts table: group by contract, pick highest severity alert per contract, then flatten for display
-  const alertsTableData = useMemo(() => {
-    // Get unique contracts that have alerts
-    const contractAlertMap = new Map<string, typeof filteredAlerts>();
-    for (const alert of filteredAlerts) {
-      const existing = contractAlertMap.get(alert.contractId) || [];
-      existing.push(alert);
-      contractAlertMap.set(alert.contractId, existing);
-    }
-
-    // Build rows: one row per alert
-    const rows = filteredAlerts.map(alert => {
-      const contract = contracts.find(c => c.id === alert.contractId);
-      const client = contract ? clients.find(cl => cl.id === contract.clientId) : undefined;
-      const health = contract ? calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0) : null;
-      return { alert, contract, client, health };
-    });
-
-    // Sort by severity, then resultado mensal, then days until end
-    const severityOrder: Record<string, number> = { critico: 0, atencao: 1, info: 2 };
-    return rows.sort((a, b) => {
-      const sevDiff = (severityOrder[a.alert.severity] ?? 2) - (severityOrder[b.alert.severity] ?? 2);
-      if (sevDiff !== 0) return sevDiff;
-      const margemA = a.health?.margemMensal ?? 0;
-      const margemB = b.health?.margemMensal ?? 0;
-      if (margemA !== margemB) return margemA - margemB;
-      const daysA = a.contract?.dataFim ? getDaysUntil(a.contract.dataFim) : 9999;
-      const daysB = b.contract?.dataFim ? getDaysUntil(b.contract.dataFim) : 9999;
-      return daysA - daysB;
-    });
-  }, [filteredAlerts, contracts, clients, resources, settings, centralOverheadMap]);
 
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -946,157 +876,6 @@ export default function DashboardPage() {
         </Card>
       </motion.div>
 
-      {/* Contracts with Alerts Table */}
-      <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <CardTitle className="text-base font-semibold">Contratos com alertas</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Lista automática de contratos que exigem atenção: déficit, margem baixa, vencimento ou reajuste próximos.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {filteredCriticalCount > 0 && (
-                  <Badge className="bg-health-critical/10 text-health-critical border-health-critical/20 hover:bg-health-critical/20">
-                    {filteredCriticalCount} crítico{filteredCriticalCount > 1 ? 's' : ''}
-                  </Badge>
-                )}
-                {filteredWarningCount > 0 && (
-                  <Badge className="bg-health-attention/10 text-health-attention border-health-attention/20 hover:bg-health-attention/20">
-                    {filteredWarningCount} atenção
-                  </Badge>
-                )}
-                {filteredInfoCount > 0 && (
-                  <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20">
-                    {filteredInfoCount} informativo{filteredInfoCount > 1 ? 's' : ''}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {alertsTableData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Severidade</TableHead>
-                      <TableHead className="w-[120px]">Tipo</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Contrato</TableHead>
-                      <TableHead className="w-[100px]">Saúde</TableHead>
-                      {canViewValues && <TableHead className="text-right w-[130px]">Resultado</TableHead>}
-                      <TableHead className="w-[100px]">Data Fim</TableHead>
-                      <TableHead className="w-[120px]">Próx. Reajuste</TableHead>
-                      <TableHead className="w-[80px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {alertsTableData.map(({ alert, contract, client, health }) => (
-                      <TableRow
-                        key={alert.id}
-                        className="cursor-pointer hover:bg-accent/50"
-                        onClick={() => contract && navigate(`/contratos/${contract.id}`)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className={cn(
-                              'w-2 h-2 rounded-full',
-                              alert.severity === 'critico' && 'bg-health-critical',
-                              alert.severity === 'atencao' && 'bg-health-attention',
-                              alert.severity === 'info' && 'bg-blue-500',
-                            )} />
-                            <span className={cn(
-                              'text-xs font-medium',
-                              alert.severity === 'critico' && 'text-health-critical',
-                              alert.severity === 'atencao' && 'text-health-attention',
-                              alert.severity === 'info' && 'text-blue-500',
-                            )}>
-                              {alert.severity === 'critico' ? 'Crítico' : alert.severity === 'atencao' ? 'Atenção' : 'Info'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {alert.alertCategory && (
-                            <span className={cn(
-                              'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                              alertCategoryColors[alert.alertCategory] || 'bg-muted text-muted-foreground'
-                            )}>
-                              {alertCategoryLabels[alert.alertCategory] || alert.alertCategory}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {client?.nomeFantasia || client?.razaoSocial || '—'}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm font-medium">{contract?.codigo}</p>
-                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{alert.title}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {health && (
-                            <Badge className={cn(
-                              'text-xs',
-                              health.status === 'saudavel' && 'health-badge-healthy',
-                              health.status === 'atencao' && 'health-badge-attention',
-                              health.status === 'critico' && 'health-badge-critical',
-                            )}>
-                              {healthLabels[health.status]}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        {canViewValues && (
-                          <TableCell className={cn(
-                            'text-right text-sm font-medium',
-                            (health?.margemMensal ?? 0) >= 0 ? 'text-health-healthy' : 'text-health-critical'
-                          )}>
-                            {health ? formatCurrency(health.margemMensal) : '—'}
-                          </TableCell>
-                        )}
-                        <TableCell className="text-sm text-muted-foreground">
-                          {contract?.dataFim ? formatDate(contract.dataFim) : 'Indeterminado'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {contract?.dataBaseReajuste ? formatDate(contract.dataBaseReajuste) : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (contract) navigate(`/contratos/${contract.id}`);
-                            }}
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <CheckCircle2 className="w-12 h-12 text-health-healthy/30 mx-auto mb-3" />
-                <h3 className="text-base font-semibold text-foreground mb-1">Nenhum alerta neste período</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-                  Não há contratos com déficit, margem baixa ou eventos próximos de vencimento/reajuste com os filtros atuais.
-                </p>
-                <Button variant="outline" onClick={() => navigate('/contratos')} className="gap-2">
-                  Ver todos os contratos
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
     </motion.div>
   );
 }
