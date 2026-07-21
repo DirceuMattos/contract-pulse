@@ -42,6 +42,14 @@ function StatusBadge({ status }: { status: JobRequestStatus }) {
   );
 }
 
+function getStatusCardStyle(status: JobRequestStatus) {
+  const color = STATUS_META[status].color;
+  return {
+    borderLeftColor: color,
+    background: `linear-gradient(90deg, ${color}14 0%, ${color}08 42%, transparent 100%)`,
+  };
+}
+
 export default function JobRequestsPage() {
   const { canEdit } = useAuth();
   const { requests, loading, error, reload } = useJobRequests();
@@ -230,7 +238,20 @@ export default function JobRequestsPage() {
           {filtered.map((r) => {
             const proximos = STATUS_FLOW[r.status];
             return (
-              <Card key={r.id} className="hover:shadow-md transition-shadow">
+              <Card
+                key={r.id}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer border-l-4 hover:shadow-md hover:border-primary/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                style={getStatusCardStyle(r.status)}
+                onClick={() => openEdit(r)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openEdit(r);
+                  }
+                }}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
@@ -251,10 +272,26 @@ export default function JobRequestsPage() {
                       <StatusBadge status={r.status} />
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="icon" title="Exportar texto para redes" onClick={() => setExporting(r)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Exportar texto para redes"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExporting(r);
+                            }}
+                          >
                             <Copy className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" title="Editar vaga" onClick={() => openEdit(r)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Editar vaga"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEdit(r);
+                            }}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
                         </>
@@ -295,11 +332,17 @@ export default function JobRequestsPage() {
                     {canEdit && proximos.length > 0 && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">Mover status</Button>
+                          <Button variant="outline" size="sm" onClick={(event) => event.stopPropagation()}>Mover status</Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {proximos.map((s) => (
-                            <DropdownMenuItem key={s} onClick={() => changeStatus(r, s)}>
+                            <DropdownMenuItem
+                              key={s}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                changeStatus(r, s);
+                              }}
+                            >
                               {STATUS_META[s].label}
                             </DropdownMenuItem>
                           ))}
