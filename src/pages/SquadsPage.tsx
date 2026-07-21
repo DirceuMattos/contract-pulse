@@ -1054,7 +1054,10 @@ function SquadsPageInner() {
       {/* Cards Grid */}
       {perspective === 'project' ? (
         squadsData.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            className="grid gap-6"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 34rem), 1fr))' }}
+          >
             {[...squadsData].sort((a, b) => {
               const aP = contractHasInactivePending(a) ? 0 : 1;
               const bP = contractHasInactivePending(b) ? 0 : 1;
@@ -1066,7 +1069,10 @@ function SquadsPageInner() {
         )
       ) : (
         resourceViewData.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            className="grid gap-6"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 34rem), 1fr))' }}
+          >
             {[...resourceViewData].sort((a, b) => {
               const aHr = a.resourceKey.startsWith('hr:') ? a.resourceKey.slice(3) : '';
               const bHr = b.resourceKey.startsWith('hr:') ? b.resourceKey.slice(3) : '';

@@ -247,8 +247,9 @@ export default function JobRequestsPage() {
 
       {/* Não repostas / Contratações avulsas (reversível) */}
       {canEdit && reposicoes.filter((r) => r.status === 'removed').length > 0 && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-          <div className="text-sm font-medium text-muted-foreground">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+            <UserMinus className="h-4 w-4" />
             Não repostas / Contratações avulsas ({reposicoes.filter((r) => r.status === 'removed').length})
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -301,7 +302,10 @@ export default function JobRequestsPage() {
           actionIcon={Plus}
         />
       ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 34rem), 1fr))' }}
+        >
           {filtered.map((r) => {
             const proximos = STATUS_FLOW[r.status];
             const hardSkills = getRequestSkills(r, 'hard');
