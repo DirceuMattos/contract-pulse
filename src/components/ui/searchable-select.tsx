@@ -44,7 +44,19 @@ export function SearchableSelect({
   triggerClassName,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
   const selected = options.find((option) => option.value === value);
+  const normalizedSearch = normalizeSearch(search);
+  const filteredOptions = normalizedSearch
+    ? options.filter((option) => {
+        const target = normalizeSearch(`${option.label} ${option.searchText ?? ''}`);
+        return normalizedSearch.split(' ').every((term) => target.includes(term));
+      })
+    : options;
+
+  React.useEffect(() => {
+    if (!open) setSearch('');
+  }, [open]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -62,15 +74,15 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn('w-[--radix-popover-trigger-width] p-0', className)} align="start">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={`${option.label} ${option.searchText ?? ''}`}
+                  value={option.value}
                   disabled={option.disabled}
                   onSelect={() => {
                     if (option.disabled) return;
@@ -88,4 +100,13 @@ export function SearchableSelect({
       </PopoverContent>
     </Popover>
   );
+}
+
+function normalizeSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
