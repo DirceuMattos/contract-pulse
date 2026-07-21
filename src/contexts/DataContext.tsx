@@ -25,6 +25,18 @@ import {
   defaultAttachmentConfigs, mockAttachments, defaultJobTitles, defaultTeams,
 } from '@/data/mockData';
 
+function getErrorDescription(err: unknown): string | null {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'string' && err.trim()) return err;
+  if (err && typeof err === 'object') {
+    const supabaseError = err as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts = [supabaseError.message, supabaseError.details, supabaseError.hint, supabaseError.code]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+    if (parts.length > 0) return parts.join(' | ');
+  }
+  return null;
+}
+
 interface DataContextType {
   clients: Client[];
   contracts: Contract[];
@@ -116,7 +128,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const handleError = useCallback((err: unknown, message: string) => {
     console.error(message, err);
-    toast({ title: 'Erro', description: message, variant: 'destructive' });
+    const detail = getErrorDescription(err);
+    toast({ title: 'Erro', description: detail ? `${message} ${detail}` : message, variant: 'destructive' });
   }, [toast]);
 
   // ─── Load all data via direct auth listener ──────────────────────────────────

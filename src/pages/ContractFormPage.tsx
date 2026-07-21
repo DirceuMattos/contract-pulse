@@ -12,6 +12,18 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MigrateToSubprojectsDialog } from '@/components/squads/MigrateToSubprojectsDialog';
 
+function getErrorDescription(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object') {
+    const err = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts = [err.message, err.details, err.hint, err.code]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+    if (parts.length > 0) return parts.join(' | ');
+  }
+  return fallback;
+}
+
 export default function ContractFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -143,13 +155,9 @@ export default function ContractFormPage() {
         navigate(`/contratos/${newContract.id}`);
       }
     } catch (error) {
-      const description = error instanceof Error
-        ? error.message
-        : 'Ocorreu um erro ao salvar o contrato. Tente novamente.';
-
       toast({
         title: 'Erro ao salvar',
-        description,
+        description: getErrorDescription(error, 'Ocorreu um erro ao salvar o contrato. Tente novamente.'),
         variant: 'destructive',
       });
     } finally {
