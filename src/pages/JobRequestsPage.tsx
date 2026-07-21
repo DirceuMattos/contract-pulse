@@ -25,10 +25,24 @@ const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
   'todos', 'solicitado', 'em_avaliacao', 'aprovado_em_contratacao', 'preenchida', 'suspenso',
 ];
 
+const CARD_STATUS_ORDER: Record<JobRequestStatus, number> = {
+  solicitado: 1,
+  em_avaliacao: 2,
+  aprovado_em_contratacao: 3,
+  suspenso: 4,
+  preenchida: 5,
+};
+
 const MODALIDADE_LABELS: Record<NonNullable<JobRequest['modalidade_trabalho']>, string> = {
   remoto: 'Home office',
   presencial: 'Presencial',
   hibrido: 'Híbrida',
+};
+
+type SkillSnapshot = {
+  id?: unknown;
+  nome?: unknown;
+  tipo?: unknown;
 };
 
 function StatusBadge({ status }: { status: JobRequestStatus }) {
@@ -45,9 +59,19 @@ function StatusBadge({ status }: { status: JobRequestStatus }) {
 function getStatusCardStyle(status: JobRequestStatus) {
   const color = STATUS_META[status].color;
   return {
-    borderLeftColor: color,
-    background: `linear-gradient(90deg, ${color}14 0%, ${color}08 42%, transparent 100%)`,
+    borderColor: `${color}80`,
   };
+}
+
+function getRequestSkills(request: JobRequest, tipo: 'hard' | 'soft') {
+  const skills = Array.isArray(request.skills_avulsas)
+    ? request.skills_avulsas as SkillSnapshot[]
+    : [];
+
+  return skills
+    .filter((skill) => skill.tipo === tipo && typeof skill.nome === 'string')
+    .map((skill) => String(skill.nome))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
 }
 
 export default function JobRequestsPage() {
@@ -124,6 +148,7 @@ export default function JobRequestsPage() {
       .update({ status: 'pending', resolved_at: null }).in('id', ids);
     if (e) { toast.error('Erro ao reverter'); return; }
     toast.success('Reposição reativada');
+    reload();
     reloadReposicoes();
   };
 
@@ -134,8 +159,35 @@ export default function JobRequestsPage() {
     reload();
   };
 
-  const filtered = filter === 'todos' ? requests : requests.filter((r) => r.status === filter);
-  const countBy = (s: JobRequestStatus | 'todos') => s === 'todos' ? requests.length : requests.filter((r) => r.status === s).length;
+  const devolverParaNaoRepostas = async (r: JobRequest) => {
+    if (!r.pending_replacement_id) return;
+    const confirmado = window.confirm('Mover esta vaga para Não repostas? Os dados da vaga serão preservados e ela sairá da lista ativa.');
+    if (!confirmado) return;
+
+    const { error: repError } = await supabase
+      .from('pending_replacements')
+      .update({ status: 'removed', resolved_at: new Date().toISOString() })
+      .eq('id', r.pending_replacement_id);
+    if (repError) { toast.error('Erro ao marcar como não reposta'); return; }
+
+    toast.success('Vaga movida para Não repostas');
+    reload();
+    reloadReposicoes();
+  };
+
+  const removedReplacementIds = new Set(
+    reposicoes
+      .filter((r) => r.status === 'removed')
+      .flatMap((r) => r.allIds),
+  );
+  const activeRequests = requests.filter((r) => !r.pending_replacement_id || !removedReplacementIds.has(r.pending_replacement_id));
+  const filtered = (filter === 'todos' ? activeRequests : activeRequests.filter((r) => r.status === filter))
+    .sort((a, b) => {
+      const byStatus = CARD_STATUS_ORDER[a.status] - CARD_STATUS_ORDER[b.status];
+      if (byStatus !== 0) return byStatus;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  const countBy = (s: JobRequestStatus | 'todos') => s === 'todos' ? activeRequests.length : activeRequests.filter((r) => r.status === s).length;
 
   return (
     <div className="space-y-6">
@@ -200,24 +252,39 @@ export default function JobRequestsPage() {
             Não repostas / Contratações avulsas ({reposicoes.filter((r) => r.status === 'removed').length})
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {reposicoes.filter((r) => r.status === 'removed').map((rep) => (
-              <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-90">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate line-through decoration-muted-foreground/40">{rep.pessoaNome}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {rep.cargoLabel ?? 'Cargo não informado'}{rep.nivel ? ` · ${rep.nivel}` : ''}
-                  </p>
-                  {rep.preenchidoPor && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
-                      Reposto por {rep.preenchidoPor}
+            {reposicoes.filter((r) => r.status === 'removed').map((rep) => {
+              const linkedRequest = requests.find((request) => request.pending_replacement_id && rep.allIds.includes(request.pending_replacement_id));
+              return (
+                <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-90">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate line-through decoration-muted-foreground/40">
+                      {linkedRequest?.titulo ?? rep.pessoaNome}
                     </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {linkedRequest?.jobTitleLabel ?? rep.cargoLabel ?? 'Cargo não informado'}{(linkedRequest?.nivel ?? rep.nivel) ? ` · ${linkedRequest?.nivel ?? rep.nivel}` : ''}
+                    </p>
+                    {linkedRequest?.descricao && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {linkedRequest.descricao}
+                      </p>
+                    )}
+                    {rep.preenchidoPor && (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 truncate">
+                        Reposto por {rep.preenchidoPor}
+                      </p>
+                    )}
+                  </div>
+                  {linkedRequest && (
+                    <Button size="sm" variant="ghost" className="shrink-0" onClick={() => openEdit(linkedRequest)}>
+                      Ver vaga
+                    </Button>
                   )}
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => reverterNaoRepor(rep.allIds)}>
+                    Reverter
+                  </Button>
                 </div>
-                <Button size="sm" variant="outline" className="shrink-0" onClick={() => reverterNaoRepor(rep.allIds)}>
-                  Reverter
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -234,15 +301,17 @@ export default function JobRequestsPage() {
           actionIcon={Plus}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 xl:grid-cols-2">
           {filtered.map((r) => {
             const proximos = STATUS_FLOW[r.status];
+            const hardSkills = getRequestSkills(r, 'hard');
+            const softSkills = getRequestSkills(r, 'soft');
             return (
               <Card
                 key={r.id}
                 role="button"
                 tabIndex={0}
-                className="cursor-pointer border-l-4 hover:shadow-md hover:border-primary/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 style={getStatusCardStyle(r.status)}
                 onClick={() => openEdit(r)}
                 onKeyDown={(event) => {
@@ -328,7 +397,50 @@ export default function JobRequestsPage() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex justify-end">
+                  {(hardSkills.length > 0 || softSkills.length > 0) && (
+                    <div className="grid gap-2 text-xs sm:grid-cols-2">
+                      {hardSkills.length > 0 && (
+                        <div className="min-w-0 rounded-md border bg-blue-50/60 p-2 dark:bg-blue-950/20">
+                          <p className="mb-1 font-medium text-blue-700 dark:text-blue-300">Hard skills</p>
+                          <div className="flex flex-wrap gap-1">
+                            {hardSkills.slice(0, 4).map((skill) => (
+                              <span key={skill} className="rounded-full border border-blue-300 bg-background/70 px-2 py-0.5 text-blue-700 dark:border-blue-700 dark:text-blue-300">
+                                {skill}
+                              </span>
+                            ))}
+                            {hardSkills.length > 4 && <span className="text-muted-foreground">+{hardSkills.length - 4}</span>}
+                          </div>
+                        </div>
+                      )}
+                      {softSkills.length > 0 && (
+                        <div className="min-w-0 rounded-md border bg-emerald-50/60 p-2 dark:bg-emerald-950/20">
+                          <p className="mb-1 font-medium text-emerald-700 dark:text-emerald-300">Soft skills</p>
+                          <div className="flex flex-wrap gap-1">
+                            {softSkills.slice(0, 4).map((skill) => (
+                              <span key={skill} className="rounded-full border border-emerald-300 bg-background/70 px-2 py-0.5 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300">
+                                {skill}
+                              </span>
+                            ))}
+                            {softSkills.length > 4 && <span className="text-muted-foreground">+{softSkills.length - 4}</span>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {canEdit && r.pending_replacement_id && r.status !== 'preenchida' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          devolverParaNaoRepostas(r);
+                        }}
+                      >
+                        Não reposta
+                      </Button>
+                    )}
                     {canEdit && proximos.length > 0 && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -30,6 +30,12 @@ export function SkillSelector({ allSkills, localSkills, selectedIds, onToggle, o
   const soft = visiblePool
     .filter((s) => s.tipo === 'soft')
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+  const selected = pool
+    .filter((s) => selectedIds.has(s.id))
+    .sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === 'hard' ? -1 : 1;
+      return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+    });
 
   const add = () => {
     const n = nome.trim();
@@ -81,6 +87,38 @@ export function SkillSelector({ allSkills, localSkills, selectedIds, onToggle, o
 
   return (
     <div className="space-y-3 rounded-lg border p-3">
+      <div className="rounded-md border bg-background p-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-xs font-medium">Skills selecionadas</Label>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+            {selected.length} selecionada{selected.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        {selected.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Clique nas skills abaixo para montar a vaga.</p>
+        ) : (
+          <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto pr-1">
+            {selected.map((skill) => {
+              const isHard = skill.tipo === 'hard';
+              return (
+                <button
+                  key={skill.id}
+                  type="button"
+                  onClick={() => onToggle(skill.id)}
+                  className={
+                    isHard
+                      ? 'rounded-full border border-blue-400 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300'
+                      : 'rounded-full border border-emerald-400 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300'
+                  }
+                  title="Clique para remover"
+                >
+                  {skill.nome}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
