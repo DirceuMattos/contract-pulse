@@ -688,7 +688,7 @@ function SquadsPageInner() {
     const pendingCountForCard = pendingItems.filter(p => p.contract_id === cd.contractId).length;
 
     return (
-      <Card key={cd.subprojectId || cd.contractId} className={cn(`overflow-hidden border-l-4 ${cardColor}`, contractHasPending && 'bg-amber-50 border-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.18)] dark:bg-amber-950/30 dark:border-amber-700/70 dark:shadow-[0_0_0_1px_rgba(245,158,11,0.22)]')}>
+      <Card key={cd.subprojectId || cd.contractId} className={cn(`w-full min-w-0 overflow-hidden border-l-4 xl:flex-[1_1_calc(50%-1.5rem)] ${cardColor}`, contractHasPending && 'bg-amber-50 border-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.18)] dark:bg-amber-950/30 dark:border-amber-700/70 dark:shadow-[0_0_0_1px_rgba(245,158,11,0.22)]')}>
         {contractHasPending && (
           <div className="px-4 py-2 bg-amber-200/70 text-amber-950 text-xs font-medium border-b border-amber-300 dark:bg-amber-900/60 dark:text-amber-100 dark:border-amber-700/70">
             ⚠️ {pendingCountForCard} substituição(ões) pendente(s)
@@ -759,7 +759,7 @@ function SquadsPageInner() {
     const cardHasInactivePending = isInactivePendingPerson(hrPersonIdForCard);
 
     return (
-      <Card key={rd.resourceKey} className={cn(`overflow-hidden border-l-4 ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-amber-50 border-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.18)] dark:bg-amber-950/30 dark:border-amber-700/70 dark:shadow-[0_0_0_1px_rgba(245,158,11,0.22)]')}>
+      <Card key={rd.resourceKey} className={cn(`w-full min-w-0 overflow-hidden border-l-4 xl:flex-[1_1_calc(50%-1.5rem)] ${isOverloaded ? 'border-l-[hsl(var(--health-critical))]' : 'border-l-[hsl(var(--health-healthy))]'}`, cardHasInactivePending && 'bg-amber-50 border-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.18)] dark:bg-amber-950/30 dark:border-amber-700/70 dark:shadow-[0_0_0_1px_rgba(245,158,11,0.22)]')}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-1 min-w-0">
@@ -1054,10 +1054,7 @@ function SquadsPageInner() {
       {/* Cards Grid */}
       {perspective === 'project' ? (
         squadsData.length > 0 ? (
-          <div
-            className="grid gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 34rem), 1fr))' }}
-          >
+          <div className="flex flex-wrap gap-6">
             {[...squadsData].sort((a, b) => {
               const aP = contractHasInactivePending(a) ? 0 : 1;
               const bP = contractHasInactivePending(b) ? 0 : 1;
@@ -1069,10 +1066,7 @@ function SquadsPageInner() {
         )
       ) : (
         resourceViewData.length > 0 ? (
-          <div
-            className="grid gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 34rem), 1fr))' }}
-          >
+          <div className="flex flex-wrap gap-6">
             {[...resourceViewData].sort((a, b) => {
               const aHr = a.resourceKey.startsWith('hr:') ? a.resourceKey.slice(3) : '';
               const bHr = b.resourceKey.startsWith('hr:') ? b.resourceKey.slice(3) : '';

@@ -302,10 +302,7 @@ export default function JobRequestsPage() {
           actionIcon={Plus}
         />
       ) : (
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 34rem), 1fr))' }}
-        >
+        <div className="flex flex-wrap gap-3">
           {filtered.map((r) => {
             const proximos = STATUS_FLOW[r.status];
             const hardSkills = getRequestSkills(r, 'hard');
@@ -315,7 +312,7 @@ export default function JobRequestsPage() {
                 key={r.id}
                 role="button"
                 tabIndex={0}
-                className="cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full min-w-0 cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:flex-[1_1_calc(50%-0.75rem)]"
                 style={getStatusCardStyle(r.status)}
                 onClick={() => openEdit(r)}
                 onKeyDown={(event) => {
