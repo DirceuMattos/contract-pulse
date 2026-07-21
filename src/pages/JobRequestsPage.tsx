@@ -1,6 +1,6 @@
 // v6 - Vagas: subtela "Nao repostas / Contratacoes avulsas" + reposto por
 import { useState } from 'react';
-import { Briefcase, Copy, Gift, MapPin, Pencil, Plane, Plus, UserMinus } from 'lucide-react';
+import { Briefcase, Copy, Gift, MapPin, Pencil, Plane, Plus, Trash2, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsFor
 import { JobRequestDialog } from '@/components/jobrequests/JobRequestDialog';
 import { NaoReporDialog } from '@/components/jobrequests/NaoReporDialog';
 import { ExportJobRequestDialog } from '@/components/jobrequests/ExportJobRequestDialog';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 
 const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
   'todos', 'solicitado', 'em_avaliacao', 'aprovado_em_contratacao', 'preenchida', 'suspenso',
@@ -75,13 +76,16 @@ function getRequestSkills(request: JobRequest, tipo: 'hard' | 'soft') {
 }
 
 export default function JobRequestsPage() {
-  const { canEdit } = useAuth();
+  const { canEdit, userRole } = useAuth();
   const { requests, loading, error, reload } = useJobRequests();
   const { items: reposicoes, reload: reloadReposicoes } = usePendingReplacementsForVaga();
   const [filter, setFilter] = useState<JobRequestStatus | 'todos'>('todos');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<JobRequest | null>(null);
   const [exporting, setExporting] = useState<JobRequest | null>(null);
+  const [notReplacing, setNotReplacing] = useState<JobRequest | null>(null);
+  const [deleting, setDeleting] = useState<JobRequest | null>(null);
+  const canDeleteJobRequests = userRole === 'superadmin' || userRole === 'rh' || userRole === 'administrativo';
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: JobRequest) => { setEditing(r); setDialogOpen(true); };
@@ -161,8 +165,6 @@ export default function JobRequestsPage() {
 
   const devolverParaNaoRepostas = async (r: JobRequest) => {
     if (!r.pending_replacement_id) return;
-    const confirmado = window.confirm('Mover esta vaga para Não repostas? Os dados da vaga serão preservados e ela sairá da lista ativa.');
-    if (!confirmado) return;
 
     const { error: repError } = await supabase
       .from('pending_replacements')
@@ -171,6 +173,26 @@ export default function JobRequestsPage() {
     if (repError) { toast.error('Erro ao marcar como não reposta'); return; }
 
     toast.success('Vaga movida para Não repostas');
+    setNotReplacing(null);
+    reload();
+    reloadReposicoes();
+  };
+
+  const deleteJobRequest = async () => {
+    if (!deleting || !canDeleteJobRequests) return;
+
+    const { error: deleteError } = await supabase
+      .from('job_requests')
+      .delete()
+      .eq('id', deleting.id);
+
+    if (deleteError) {
+      toast.error('Erro ao excluir vaga');
+      return;
+    }
+
+    toast.success('Vaga excluída');
+    setDeleting(null);
     reload();
     reloadReposicoes();
   };
@@ -367,6 +389,19 @@ export default function JobRequestsPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          {canDeleteJobRequests && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Excluir vaga"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleting(r);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>
@@ -439,7 +474,7 @@ export default function JobRequestsPage() {
                         className="text-muted-foreground"
                         onClick={(event) => {
                           event.stopPropagation();
-                          devolverParaNaoRepostas(r);
+                          setNotReplacing(r);
                         }}
                       >
                         Não reposta
@@ -491,6 +526,24 @@ export default function JobRequestsPage() {
         open={exporting !== null}
         onOpenChange={(v) => { if (!v) setExporting(null); }}
         request={exporting}
+      />
+
+      <ConfirmDeleteDialog
+        open={notReplacing !== null}
+        onOpenChange={(open) => { if (!open) setNotReplacing(null); }}
+        onConfirm={() => { if (notReplacing) void devolverParaNaoRepostas(notReplacing); }}
+        title="Mover para não repostas?"
+        description="Os dados da vaga serão preservados. Ela sairá da lista ativa e ficará disponível na área de Não repostas / Contratações avulsas."
+        confirmLabel="Mover"
+      />
+
+      <ConfirmDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(open) => { if (!open) setDeleting(null); }}
+        onConfirm={() => { void deleteJobRequest(); }}
+        title="Excluir vaga?"
+        description={`A vaga "${deleting?.titulo ?? ''}" será removida permanentemente, incluindo seu histórico de status. Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
       />
     </div>
   );
