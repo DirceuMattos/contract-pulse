@@ -27,7 +27,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubprojects } from '@/contexts/SubprojectContext';
-import { HRPerson, HRTimelineEvent, Contract } from '@/types';
+import { Alert as SystemAlert, Contract, HRPerson, HRTimelineEvent, HRTipoDesligamento } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
 import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { differenceInMonths } from 'date-fns';
@@ -70,7 +70,7 @@ const tipoDesligamentoLabels: Record<string, string> = {
 export default function HRPersonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
+  const { hrPeople, getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
   const { teams, jobTitles, resources, contracts, updateResource, refreshResources } = useData();
   const { canEdit, canViewHRCosts, user, userRole } = useAuth();
   const { allocations: subprojectAllocations, subprojects: contractSubprojects, refreshData: refreshSubprojectData } = useSubprojects();
@@ -101,10 +101,16 @@ export default function HRPersonDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canManageHRPhoto = userRole === 'superadmin' || userRole === 'c-level' || userRole === 'administrativo' || userRole === 'rh';
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !person) return;
+    if (!canManageHRPhoto) {
+      toast.error('Você não tem permissão para alterar a foto deste RH.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${person.id}/avatar.${ext}`;
@@ -116,8 +122,8 @@ export default function HRPersonDetailPage() {
       const publicUrl = `${pub.publicUrl}?t=${Date.now()}`;
       await updatePerson(person.id, { fotoUrl: publicUrl });
       toast.success('Foto atualizada com sucesso');
-    } catch (err: any) {
-      toast.error('Erro ao enviar foto', { description: err?.message });
+    } catch (err: unknown) {
+      toast.error('Erro ao enviar foto', { description: err instanceof Error ? err.message : 'Tente novamente.' });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -146,7 +152,7 @@ export default function HRPersonDetailPage() {
       return { allocation: a, subproject: sp, contractId: sp?.contractId };
     });
   const totalAlocacoes = alocacoes.length + subprojectAlocacoes.length;
-  const activeHrPeople = useHR().hrPeople.filter(p => p.situacao === 'ativo' && p.id !== person.id).sort((a, b) => a.nome.localeCompare(b.nome));
+  const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo' && p.id !== person.id).sort((a, b) => a.nome.localeCompare(b.nome));
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
     // Auto-detect changes and log to timeline
@@ -221,15 +227,17 @@ export default function HRPersonDetailPage() {
             })
           )
         );
-        processAlerts([{
+        const brokenLinkAlert: SystemAlert = {
           id: `hr-links-quebrados-${person.id}`,
           contractId: '',
           type: 'hr-links-quebrados',
           severity: 'critico',
           title: `Substituição necessária: ${person.nome}`,
           description: `${person.nome} foi desligado e possui ${linked.length} alocação(ões) ativa(s) em contratos que precisam ser revisadas.`,
+          recommendation: 'Revise as alocações deste RH e defina substitutos para os contratos afetados.',
           createdAt: new Date().toISOString(),
-        } as any]);
+        };
+        processAlerts([brokenLinkAlert]);
       }
     }
 
@@ -277,7 +285,7 @@ export default function HRPersonDetailPage() {
       await updatePerson(person.id, {
         situacao: 'inativo',
         dataDesligamento: desligamentoData,
-        tipoDesligamento: desligamentoTipo as any,
+        tipoDesligamento: desligamentoTipo as HRTipoDesligamento,
         motivoDesligamento: desligamentoMotivo,
         observacoesDesligamento: desligamentoObs || undefined,
       });
@@ -383,7 +391,7 @@ export default function HRPersonDetailPage() {
 
       <div className="flex items-center gap-3">
         <HRAvatar nome={person.nome} email={person.email} fotoUrl={person.fotoUrl} size="lg" />
-        {canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos') && (
+        {canManageHRPhoto && (
           <>
             <Button
               variant="outline"
