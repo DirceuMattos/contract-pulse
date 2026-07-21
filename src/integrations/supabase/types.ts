@@ -3154,7 +3154,7 @@ export type Database = {
         | "superadmin"
         | "coordenacao_suporte"
         | "projetos_produtos"
-      contract_segment: "govtech" | "privado" | "hibrido"
+      contract_segment: "govtech" | "privado"
       contract_status: "implantacao" | "operacao" | "suspenso" | "encerrado"
       contract_type: "sistema" | "infraestrutura" | "hibrido"
       gov_sphere: "municipal" | "estadual" | "federal"
@@ -3376,7 +3376,7 @@ export const Constants = {
         "coordenacao_suporte",
         "projetos_produtos",
       ],
-      contract_segment: ["govtech", "privado", "hibrido"],
+      contract_segment: ["govtech", "privado"],
       contract_status: ["implantacao", "operacao", "suspenso", "encerrado"],
       contract_type: ["sistema", "infraestrutura", "hibrido"],
       gov_sphere: ["municipal", "estadual", "federal"],
