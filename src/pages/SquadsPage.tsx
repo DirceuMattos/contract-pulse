@@ -399,6 +399,25 @@ function SquadsPageInner() {
 
   // --- Resource-centric view data ---
 
+  const globallyAllocatedHrPersonIds = useMemo(() => {
+    const ids = new Set<string>();
+
+    for (const resource of resources) {
+      if (resource.hrPersonId) ids.add(resource.hrPersonId);
+    }
+
+    for (const contract of contracts) {
+      if (!hasSubprojects(contract.id)) continue;
+      for (const subproject of getSubprojectsByContract(contract.id)) {
+        for (const allocation of getAllocationsBySubproject(subproject.id)) {
+          if (allocation.hrPersonId) ids.add(allocation.hrPersonId);
+        }
+      }
+    }
+
+    return ids;
+  }, [resources, contracts, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject]);
+
   const resourceViewData = useMemo<ResourceViewData[]>(() => {
     if (perspective !== 'resource') return [];
 
@@ -443,8 +462,37 @@ function SquadsPageInner() {
       }
     }
 
+    const searchLower = searchQuery.toLowerCase().trim();
+    for (const person of hrPeople) {
+      if (person.situacao !== 'ativo') continue;
+      if (globallyAllocatedHrPersonIds.has(person.id)) continue;
+      if (teamFilter.length > 0 && (!person.teamId || !teamFilter.includes(person.teamId))) continue;
+
+      const cargo = person.cargoId ? (jobTitles.find(j => j.id === person.cargoId)?.label || 'Sem cargo') : 'Sem cargo';
+      const teamName = person.teamId ? (teams.find(t => t.id === person.teamId)?.name || 'Sem equipe') : 'Sem equipe';
+
+      if (
+        searchLower &&
+        !person.nome.toLowerCase().includes(searchLower) &&
+        !cargo.toLowerCase().includes(searchLower) &&
+        !teamName.toLowerCase().includes(searchLower)
+      ) {
+        continue;
+      }
+
+      resourceMap.set(`hr:${person.id}`, {
+        resourceKey: `hr:${person.id}`,
+        nome: person.nome,
+        cargo,
+        teamName,
+        isVacant: false,
+        totalDedicacao: 0,
+        allocations: [],
+      });
+    }
+
     return Array.from(resourceMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [squadsData, perspective]);
+  }, [squadsData, perspective, hrPeople, globallyAllocatedHrPersonIds, jobTitles, teams, teamFilter, searchQuery]);
 
   // --- Filter options ---
 
@@ -510,7 +558,8 @@ function SquadsPageInner() {
   // --- Empty state ---
 
   const allHR = resources.filter(r => r.tipo === 'clt' || r.tipo === 'pj');
-  if (allHR.length === 0) {
+  const hasActiveHRPeople = hrPeople.some(p => p.situacao === 'ativo');
+  if (allHR.length === 0 && !hasActiveHRPeople) {
     return (
       <div>
         <PageHeader title="Squads" description="Distribuição de equipes por cliente e contrato" breadcrumbs={[{ label: 'Squads' }]} />
@@ -778,7 +827,11 @@ function SquadsPageInner() {
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-1.5">
-            {rd.allocations.map((alloc, i) => {
+            {rd.allocations.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
+                Sem alocação em squads. Use o botão + para adicionar este RH a um projeto.
+              </div>
+            ) : rd.allocations.map((alloc, i) => {
               const hb = healthConfig[alloc.healthStatus as keyof typeof healthConfig];
               const allocPending = isPending(alloc.resourceId, alloc.contractId);
               return (
