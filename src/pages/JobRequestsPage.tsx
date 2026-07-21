@@ -224,9 +224,9 @@ export default function JobRequestsPage() {
             <UserMinus className="h-4 w-4" />
             Reposições pendentes ({reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).length})
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="flex flex-wrap gap-2">
             {reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).map((rep) => (
-              <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm">
+              <div key={rep.id} className="flex min-w-0 items-center gap-2 rounded-md border bg-background p-2.5 text-sm" style={{ flex: '1 1 28rem' }}>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{rep.pessoaNome}</p>
                   <p className="text-xs text-muted-foreground truncate">
@@ -252,11 +252,11 @@ export default function JobRequestsPage() {
             <UserMinus className="h-4 w-4" />
             Não repostas / Contratações avulsas ({reposicoes.filter((r) => r.status === 'removed').length})
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="flex flex-wrap gap-2">
             {reposicoes.filter((r) => r.status === 'removed').map((rep) => {
               const linkedRequest = requests.find((request) => request.pending_replacement_id && rep.allIds.includes(request.pending_replacement_id));
               return (
-                <div key={rep.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-90">
+                <div key={rep.id} className="flex min-w-0 items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-90" style={{ flex: '1 1 28rem' }}>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate line-through decoration-muted-foreground/40">
                       {linkedRequest?.titulo ?? rep.pessoaNome}
@@ -312,8 +312,11 @@ export default function JobRequestsPage() {
                 key={r.id}
                 role="button"
                 tabIndex={0}
-                className="w-full min-w-0 cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:flex-[1_1_calc(50%-0.75rem)]"
-                style={getStatusCardStyle(r.status)}
+                className="min-w-0 cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                style={{
+                  ...getStatusCardStyle(r.status),
+                  flex: '1 1 34rem',
+                }}
                 onClick={() => openEdit(r)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
