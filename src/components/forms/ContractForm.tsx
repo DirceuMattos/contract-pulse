@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CalendarIcon, Plus, X, Building2, Upload, Trash2, Loader2 } from 'lucide-react';
 import { formatPhoneInput } from '@/lib/utils';
@@ -85,11 +85,13 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | undefined>(undefined);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const canEditContractForm = (userRole === 'c-level' || userRole === 'rh' || userRole === 'administrativo' || userRole === 'superadmin') && canModuleAction('CONTRACTS', 'can_edit');
   const isReadOnly = Boolean(contract) && !canEditContractForm;
 
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractFormSchema),
+    shouldFocusError: false,
     defaultValues: {
       codigo: contract?.codigo || '',
       nome: contract?.nome || '',
@@ -246,9 +248,27 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
     }
   };
 
+  const getFirstErrorName = (errors: FieldErrors<ContractFormData>): keyof ContractFormData | null => {
+    const first = Object.keys(errors)[0];
+    return first ? first as keyof ContractFormData : null;
+  };
+
+  const focusFirstInvalidField = (errors: FieldErrors<ContractFormData>) => {
+    const firstError = getFirstErrorName(errors);
+    if (!firstError) return;
+
+    window.setTimeout(() => {
+      form.setFocus(firstError);
+      const fieldElement = formRef.current?.querySelector<HTMLElement>(`[name="${String(firstError)}"]`);
+      const invalidElement = fieldElement ?? formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      invalidElement?.focus?.({ preventScroll: true });
+      invalidElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 120);
+  };
+
   return (
     <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => {
+        <form ref={formRef} onSubmit={form.handleSubmit((data) => {
           if (isReadOnly) return;
           onSubmit(data, { pendingLogoFile });
         }, (errors) => {
@@ -262,6 +282,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
           if (sectionsWithErrors.size > 0) {
             setOpenSections(prev => [...new Set([...prev, ...sectionsWithErrors])]);
           }
+          focusFirstInvalidField(errors);
         })} className="space-y-6">
         {!contract && <ContractDocumentImport form={form} />}
         <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-4">
@@ -367,6 +388,7 @@ export function ContractForm({ contract, onSubmit, onCancel, isLoading }: Contra
                         <SelectContent>
                           <SelectItem value="govtech">Govtech / Governo</SelectItem>
                           <SelectItem value="privado">Iniciativa Privada</SelectItem>
+                          <SelectItem value="hibrido">Híbrido</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

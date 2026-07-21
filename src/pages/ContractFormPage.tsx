@@ -112,7 +112,7 @@ export default function ContractFormPage() {
         const wasSubprojects = hasSubprojectsFn(contract.id);
         const nowSubprojects = data.hasSubprojects;
         
-        updateContract(contract.id, contractData);
+        await updateContract(contract.id, contractData);
         setHasSubprojects(contract.id, !!nowSubprojects);
         
         if (!wasSubprojects && nowSubprojects) {
@@ -133,7 +133,7 @@ export default function ContractFormPage() {
         if (extras.pendingLogoFile) {
           const path = await uploadLogoForContract(newContract.id, extras.pendingLogoFile);
           if (path) {
-            updateContract(newContract.id, { logoUrl: path });
+            await updateContract(newContract.id, { logoUrl: path });
           }
         }
         toast({
@@ -143,9 +143,13 @@ export default function ContractFormPage() {
         navigate(`/contratos/${newContract.id}`);
       }
     } catch (error) {
+      const description = error instanceof Error
+        ? error.message
+        : 'Ocorreu um erro ao salvar o contrato. Tente novamente.';
+
       toast({
         title: 'Erro ao salvar',
-        description: 'Ocorreu um erro ao salvar o contrato. Tente novamente.',
+        description,
         variant: 'destructive',
       });
     } finally {

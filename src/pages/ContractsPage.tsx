@@ -91,6 +91,24 @@ const statusLabels = {
   encerrado: 'Encerrado',
 };
 
+const segmentLabels = {
+  govtech: 'Govtech',
+  privado: 'Privado',
+  hibrido: 'Híbrido',
+};
+
+const segmentShortLabels = {
+  govtech: 'Gov',
+  privado: 'Privado',
+  hibrido: 'Híbrido',
+};
+
+const segmentBadgeClass = {
+  govtech: 'segment-badge-gov',
+  privado: 'segment-badge-private',
+  hibrido: 'segment-badge-hybrid',
+};
+
 type SortOption = 'health' | 'valor-desc' | 'margem-desc' | 'margem-asc';
 
 const sortLabels: Record<SortOption, string> = {
@@ -391,6 +409,7 @@ export default function ContractsPage() {
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="govtech">Govtech</SelectItem>
                       <SelectItem value="privado">Privado</SelectItem>
+                      <SelectItem value="hibrido">Híbrido</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -486,7 +505,7 @@ export default function ContractsPage() {
         <motion.div variants={itemVariants} className="flex flex-wrap gap-2">
           {filters.segmento !== 'all' && (
             <Badge variant="secondary" className="gap-1">
-              {filters.segmento === 'govtech' ? 'Govtech' : 'Privado'}
+              {segmentLabels[filters.segmento as keyof typeof segmentLabels] ?? filters.segmento}
               <button onClick={() => setFilters(prev => ({ ...prev, segmento: 'all' }))}>
                 <X className="w-3 h-3" />
               </button>
@@ -637,10 +656,10 @@ export default function ContractsPage() {
                         variant="secondary"
                         className={cn(
                           'text-xs',
-                          contract.segmento === 'govtech' ? 'segment-badge-gov' : 'segment-badge-private'
+                          segmentBadgeClass[contract.segmento]
                         )}
                       >
-                        {contract.segmento === 'govtech' ? 'Gov' : 'Privado'}
+                        {segmentShortLabels[contract.segmento]}
                       </Badge>
                       <Badge 
                         variant="secondary"

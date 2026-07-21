@@ -110,7 +110,7 @@ export const contractFormSchema = z.object({
   tipo: z.enum(['sistema', 'infraestrutura', 'hibrido'], {
     required_error: 'Tipo é obrigatório',
   }),
-  segmento: z.enum(['govtech', 'privado'], {
+  segmento: z.enum(['govtech', 'privado', 'hibrido'], {
     required_error: 'Segmento é obrigatório',
   }),
   status: z.enum(['implantacao', 'operacao', 'suspenso', 'encerrado'], {

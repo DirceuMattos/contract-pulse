@@ -236,6 +236,7 @@ export default function DashboardPage() {
   const segmentChartData = [
     { name: 'Govtech', value: kpis.contratosGovtech, color: 'hsl(222, 47%, 35%)' },
     { name: 'Privado', value: kpis.contratosPrivado, color: 'hsl(262, 52%, 47%)' },
+    { name: 'Híbrido', value: kpis.contratosSegmentoHibrido, color: 'hsl(174, 62%, 35%)' },
   ];
 
   const typeChartData = [
@@ -254,6 +255,7 @@ export default function DashboardPage() {
     const bySegment: Record<string, { receita: number; custo: number; margem: number }> = {
       govtech: { receita: 0, custo: 0, margem: 0 },
       privado: { receita: 0, custo: 0, margem: 0 },
+      hibrido: { receita: 0, custo: 0, margem: 0 },
     };
     const byType: Record<string, { receita: number; custo: number; margem: number }> = {
       sistema: { receita: 0, custo: 0, margem: 0 },
@@ -504,6 +506,9 @@ export default function DashboardPage() {
               <span className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{kpis.contratosPrivado}</span> Privado
               </span>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{kpis.contratosSegmentoHibrido}</span> Híbrido
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -690,7 +695,7 @@ export default function DashboardPage() {
                             <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
                           </div>
                           <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                            <span>{contract.segmento === 'govtech' ? 'Govtech' : 'Privado'}</span>
+                            <span>{contract.segmento === 'govtech' ? 'Govtech' : contract.segmento === 'privado' ? 'Privado' : 'Híbrido'}</span>
                             <span className="text-border">|</span>
                             <span>{contract.tipo === 'sistema' ? 'Sistema' : contract.tipo === 'infraestrutura' ? 'Infraestrutura' : 'Híbrido'}</span>
                             {canViewValues && (
@@ -812,7 +817,11 @@ export default function DashboardPage() {
             </div>
             {canViewValues && (
               <div className="mt-3 pt-3 border-t border-border space-y-1.5">
-                {([{ key: 'govtech', label: 'Govtech', color: 'hsl(222, 47%, 35%)' }, { key: 'privado', label: 'Privado', color: 'hsl(262, 52%, 47%)' }]).map(({ key, label, color }) => {
+                {([
+                  { key: 'govtech', label: 'Govtech', color: 'hsl(222, 47%, 35%)' },
+                  { key: 'privado', label: 'Privado', color: 'hsl(262, 52%, 47%)' },
+                  { key: 'hibrido', label: 'Híbrido', color: 'hsl(174, 62%, 35%)' },
+                ]).map(({ key, label, color }) => {
                   const d = financialBreakdown.bySegment[key];
                   if (!d || (d.receita === 0 && d.custo === 0)) return null;
                   return (

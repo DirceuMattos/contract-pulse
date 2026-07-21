@@ -54,7 +54,7 @@ export interface Client {
 
 // Contract Types
 export type ContractType = 'sistema' | 'infraestrutura' | 'hibrido';
-export type ContractSegment = 'govtech' | 'privado';
+export type ContractSegment = 'govtech' | 'privado' | 'hibrido';
 export type ContractStatus = 'implantacao' | 'operacao' | 'suspenso' | 'encerrado';
 export type GovSphere = 'municipal' | 'estadual' | 'federal';
 export type RenewalStatus = 'negociacao' | 'renovado' | 'sem-tratativa';
@@ -301,6 +301,7 @@ export interface DashboardKPIs {
   totalContratos: number;
   contratosGovtech: number;
   contratosPrivado: number;
+  contratosSegmentoHibrido: number;
   contratosSistema: number;
   contratosInfraestrutura: number;
   contratosHibrido: number;

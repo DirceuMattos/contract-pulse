@@ -49,7 +49,7 @@ interface ContractSquadData {
   contractNome: string;
   clientId: string;
   clientName: string;
-  segmento: 'govtech' | 'privado';
+  segmento: 'govtech' | 'privado' | 'hibrido';
   healthStatus: string;
   healthLabel: string;
   totalFTE: number;
@@ -98,6 +98,12 @@ const cardColorPalette = [
 // --- Fixed team sort order ---
 
 const TEAM_SORT_ORDER = ['projetos', 'desenvolvimento', 'dados', 'ia', 'qualidade', 'suporte', 'sre'];
+
+const segmentShortLabels = {
+  govtech: 'Gov',
+  privado: 'Privado',
+  hibrido: 'Híbrido',
+};
 
 function sortTeamsByFixedOrder(teamsArray: SquadTeamData[]): SquadTeamData[] {
   return [...teamsArray].sort((a, b) => {
@@ -720,7 +726,7 @@ function SquadsPageInner() {
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Badge variant="outline" className="text-[10px]">{cd.segmento === 'govtech' ? 'Gov' : 'Privado'}</Badge>
+              <Badge variant="outline" className="text-[10px]">{segmentShortLabels[cd.segmento]}</Badge>
               {hb && <Badge variant="outline" className={`text-[10px] ${hb.badgeClass}`}>{hb.label}</Badge>}
             </div>
           </div>

@@ -133,6 +133,7 @@ export function calculateDashboardKPIs(
     totalContratos: activeContracts.length,
     contratosGovtech: activeContracts.filter(c => c.segmento === 'govtech').length,
     contratosPrivado: activeContracts.filter(c => c.segmento === 'privado').length,
+    contratosSegmentoHibrido: activeContracts.filter(c => c.segmento === 'hibrido').length,
     contratosSistema: activeContracts.filter(c => c.tipo === 'sistema').length,
     contratosInfraestrutura: activeContracts.filter(c => c.tipo === 'infraestrutura').length,
     contratosHibrido: activeContracts.filter(c => c.tipo === 'hibrido').length,
