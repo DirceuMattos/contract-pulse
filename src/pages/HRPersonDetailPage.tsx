@@ -1,7 +1,7 @@
 // v2 - desligamento restrito
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw, Camera } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Clock, DollarSign, Briefcase, GitBranch, UserX, UserCheck, AlertTriangle, Star, Shield, RefreshCw, Camera, TrendingDown, UsersRound } from 'lucide-react';
 import { HRAvatar } from '@/components/hr/HRAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -71,7 +71,7 @@ export default function HRPersonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hrPeople, getPerson, updatePerson, getTimelineByPerson, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useHR();
-  const { teams, jobTitles, resources, contracts, updateResource, refreshResources } = useData();
+  const { teams, jobTitles, resources, contracts, updateResource, refreshResources, settings } = useData();
   const { canEdit, canViewHRCosts, user, userRole } = useAuth();
   const { allocations: subprojectAllocations, subprojects: contractSubprojects, refreshData: refreshSubprojectData } = useSubprojects();
   const { processAlerts } = useNotificationContext();
@@ -153,6 +153,18 @@ export default function HRPersonDetailPage() {
     });
   const totalAlocacoes = alocacoes.length + subprojectAlocacoes.length;
   const activeHrPeople = hrPeople.filter(p => p.situacao === 'ativo' && p.id !== person.id).sort((a, b) => a.nome.localeCompare(b.nome));
+  const encargosPercentual = person.tipoVinculo === 'clt'
+    ? settings.percentualEncargosCLT
+    : person.tipoVinculo === 'pj'
+      ? settings.percentualImpostosPJ
+      : 0;
+  const encargosLabel = person.tipoVinculo === 'clt'
+    ? `Encargos CLT (${settings.percentualEncargosCLT}%)`
+    : person.tipoVinculo === 'pj'
+      ? `Encargos PJ (${settings.percentualImpostosPJ}%)`
+      : 'Encargos';
+  const totalEncargos = person.remuneracaoMensal * (encargosPercentual / 100);
+  const custoTotalRH = person.remuneracaoMensal + totalEncargos + person.beneficios;
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
     // Auto-detect changes and log to timeline
@@ -590,18 +602,28 @@ export default function HRPersonDetailPage() {
           <Card>
               <CardHeader><CardTitle className="text-base">Dados Financeiros</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div className="rounded-lg border p-4 text-center">
                     <p className="text-sm text-muted-foreground mb-1">Remuneração Mensal</p>
                     <p className="text-2xl font-bold text-primary">{formatCurrency(person.remuneracaoMensal)}</p>
+                  </div>
+                  <div className="rounded-lg border p-4 text-center">
+                    <div className="mb-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                      <TrendingDown className="h-3.5 w-3.5" />
+                      <span>{encargosLabel}</span>
+                    </div>
+                    <p className="text-2xl font-bold">{formatCurrency(totalEncargos)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
                     <p className="text-sm text-muted-foreground mb-1">Total Benefícios</p>
                     <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Remuneração Total (Remuneração Mensal + Benefícios)</p>
-                    <p className="text-2xl font-bold">{formatCurrency(person.remuneracaoMensal + person.beneficios)}</p>
+                    <div className="mb-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                      <UsersRound className="h-3.5 w-3.5" />
+                      <span>Custo total com RH</span>
+                    </div>
+                    <p className="text-2xl font-bold">{formatCurrency(custoTotalRH)}</p>
                   </div>
                 </div>
 

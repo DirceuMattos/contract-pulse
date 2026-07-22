@@ -80,7 +80,7 @@ interface HRPersonFormProps {
 }
 
 export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: HRPersonFormProps) {
-  const { getActiveJobTitles, getActiveTeams } = useData();
+  const { getActiveJobTitles, getActiveTeams, settings } = useData();
   const activeJobTitles = getActiveJobTitles();
   const activeTeams = getActiveTeams();
 
@@ -135,12 +135,25 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
   });
 
   const situacaoAtual = form.watch('situacao');
+  const tipoVinculo = form.watch('tipoVinculo');
   const remuneracaoMensal = form.watch('remuneracaoMensal');
 
   // Compute totals from benefits list
   const totalBeneficios = beneficiosLista.reduce((sum, b) => sum + (b.valor || 0), 0);
   const totalBeneficiosSoma = beneficiosLista.filter(b => b.somaRemuneracao).reduce((sum, b) => sum + (b.valor || 0), 0);
   const remuneracaoTotal = (remuneracaoMensal || 0) + totalBeneficiosSoma;
+  const encargosPercentual = tipoVinculo === 'clt'
+    ? settings.percentualEncargosCLT
+    : tipoVinculo === 'pj'
+      ? settings.percentualImpostosPJ
+      : 0;
+  const encargosLabel = tipoVinculo === 'clt'
+    ? `Encargos CLT (${settings.percentualEncargosCLT}%)`
+    : tipoVinculo === 'pj'
+      ? `Encargos PJ (${settings.percentualImpostosPJ}%)`
+      : 'Encargos';
+  const totalEncargos = (remuneracaoMensal || 0) * (encargosPercentual / 100);
+  const custoTotalRH = (remuneracaoMensal || 0) + totalEncargos + totalBeneficios;
 
   const addBeneficio = () => {
     setBeneficiosLista(prev => [...prev, { nome: '', valor: 0, somaRemuneracao: false }]);
@@ -150,7 +163,7 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
     setBeneficiosLista(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateBeneficio = (index: number, field: keyof BeneficioItem, value: any) => {
+  const updateBeneficio = (index: number, field: keyof BeneficioItem, value: string | number | boolean) => {
     setBeneficiosLista(prev => prev.map((b, i) => i === index ? { ...b, [field]: value } : b));
   };
 
@@ -447,6 +460,17 @@ export function HRPersonForm({ person, onSubmit, onCancel, canViewFinanceiro }: 
                     <span className="text-muted-foreground">Total Benefícios: <strong className="text-foreground">{totalBeneficios.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></span>
                   </div>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border bg-muted/20 p-3 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{encargosLabel}</p>
+                  <p className="font-semibold">{totalEncargos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Custo total com RH</p>
+                  <p className="font-semibold">{custoTotalRH.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
