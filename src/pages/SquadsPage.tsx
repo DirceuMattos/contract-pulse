@@ -124,7 +124,7 @@ function SquadsPageInner() {
   const { clients, contracts, resources: _rawResources, settings, jobTitles, teams } = useData();
   const { resolvedResources: resources } = useResolvedResources();
   const { hrPeople } = useHR();
-  const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject } = useSubprojects();
+  const { hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getAllocationsByContract } = useSubprojects();
   const { canModuleAction, userRole } = useAuth();
   const canEditSquads = canModuleAction('SQUADS', 'can_edit');
   const canAllocateSquads = canModuleAction('SQUADS', 'can_allocate');
@@ -210,7 +210,7 @@ function SquadsPageInner() {
       // If contract has subprojects, generate per-subproject cards
       if (hasSubprojects(contract.id)) {
         const subprojects = getSubprojectsByContract(contract.id);
-        const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value);
+        const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value, getAllocationsByContract(contract.id), peopleMap);
         const hc = healthConfig[health.status];
 
         for (const sp of subprojects) {
@@ -340,7 +340,7 @@ function SquadsPageInner() {
         : resolvedHR;
       if (filteredHR.length === 0) continue;
 
-      const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value);
+      const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value, getAllocationsByContract(contract.id), peopleMap);
       const hc = healthConfig[health.status];
 
       const teamGroupMap = new Map<string, { team: Team | null; items: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] }>();
@@ -401,7 +401,7 @@ function SquadsPageInner() {
       });
     }
     return result;
-  }, [contracts, clients, resources, settings, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getOverheadAllocation]);
+  }, [contracts, clients, resources, settings, jobTitles, teams, sortedTeams, clientFilter, contractFilter, teamFilter, searchQuery, peopleMap, jobMap, teamMap, hrPeople, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, getAllocationsByContract, getOverheadAllocation]);
 
   // --- Resource-centric view data ---
 

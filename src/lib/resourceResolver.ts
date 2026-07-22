@@ -24,16 +24,17 @@ export function buildLookups(hrPeople: HRPerson[], jobTitles: JobTitle[], teams:
 }
 
 /**
- * Calculate custoBase from HR Master including benefits.
- * Uses beneficiosLista (sum of all item values) when available,
- * otherwise falls back to the legacy beneficios total.
+ * Calculate cost fields from HR Master.
+ * Charges are applied only over remuneracaoMensal; benefits are added after.
  */
 function calcHRCustoBase(person: HRPerson): number {
-  const beneficiosLista = (person as any).beneficiosLista;
-  const beneficiosValor = Array.isArray(beneficiosLista) && beneficiosLista.length
-    ? beneficiosLista.reduce((s: number, b: any) => s + (b.valor || 0), 0)
+  return person.remuneracaoMensal || 0;
+}
+
+function calcHRBeneficios(person: HRPerson): number {
+  return person.beneficiosLista?.length
+    ? person.beneficiosLista.reduce((s, b) => s + (b.valor || 0), 0)
     : (person.beneficios || 0);
-  return (person.remuneracaoMensal || 0) + beneficiosValor;
 }
 
 /** Map HR tipoVinculo to Resource tipo for calculations.
@@ -63,6 +64,7 @@ export function resolveResource(
         teamId: person.teamId,
         tipoVinculo: person.tipoVinculo,
         custoBase: calcHRCustoBase(person),
+        beneficios: calcHRBeneficios(person),
         isLinked: true,
         isBrokenLink: false,
         isVacant,
@@ -108,6 +110,7 @@ export function resolveResourceForCalc(
       return {
         ...resource,
         custoBase: calcHRCustoBase(person),
+        beneficios: calcHRBeneficios(person),
         tipo: mapTipoVinculo(person.tipoVinculo),
       };
     }

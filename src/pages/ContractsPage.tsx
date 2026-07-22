@@ -22,6 +22,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
+import { useHR } from '@/contexts/HRContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlerts } from '@/hooks/useAlerts';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
@@ -124,6 +126,8 @@ export default function ContractsPage() {
   const navigate = useNavigate();
   const { contracts, clients, resources: _rawResources, settings, deleteContract } = useData();
   const { resolvedResources: resources } = useResolvedResources();
+  const { hrPeople } = useHR();
+  const { getAllocationsByContract } = useSubprojects();
   const { canEdit, canCreate, canDelete, canViewValues, userRole } = useAuth();
   const { getAlertsForContract } = useAlerts();
   const { getAllocation } = useOverheadPool();
@@ -142,15 +146,16 @@ export default function ContractsPage() {
   });
   
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const peopleMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   
   // Calculate health for each contract
   const contractsWithHealth = useMemo(() => contracts.map(contract => {
     const centralOH = getAllocation(contract.id).value;
-    const health = calculateContractHealth(contract, resources, settings, [], centralOH);
+    const health = calculateContractHealth(contract, resources, settings, [], centralOH, getAllocationsByContract(contract.id), peopleMap);
     const client = clients.find(c => c.id === contract.clientId);
     const alerts = getAlertsForContract(contract.id);
     return { contract, health, client, alerts };
-  }), [contracts, resources, settings, clients, getAlertsForContract, getAllocation]);
+  }), [contracts, resources, settings, clients, getAlertsForContract, getAllocation, getAllocationsByContract, peopleMap]);
   
   // Apply filters
   const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts, client }) => {

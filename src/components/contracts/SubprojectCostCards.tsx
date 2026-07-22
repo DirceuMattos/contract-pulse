@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSubprojects } from '@/contexts/SubprojectContext';
-import { formatCurrency } from '@/lib/calculations';
+import { calculateHRPersonCost, calculateResourceCost, formatCurrency } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import type { Settings, HRPerson, Resource } from '@/types';
 
@@ -62,18 +62,7 @@ export function SubprojectCostCards({
           const dedicacao = alloc.dedicationPercent / 100;
           fte += dedicacao;
 
-          const base = person.remuneracaoMensal || 0;
-          let custo = base;
-
-          if (person.tipoVinculo === 'clt') {
-            const encargos = settings.percentualEncargosCLT || 0;
-            custo = base * (1 + encargos / 100);
-          } else if (person.tipoVinculo === 'pj') {
-            const impostos = settings.percentualImpostosPJ || 0;
-            custo = base * (1 + impostos / 100);
-          }
-
-          custoDireto += custo * dedicacao;
+          custoDireto += calculateHRPersonCost(person, settings) * dedicacao;
         }
 
         if (alloc.resourceId && resourcesMap) {
@@ -81,8 +70,12 @@ export function SubprojectCostCards({
           const dedicacao = alloc.dedicationPercent / 100;
           // Use custom cost_value from allocation if set, otherwise fall back to resource base cost
           const resource = resourcesMap.get(alloc.resourceId);
-          const baseCost = alloc.costValue != null ? alloc.costValue : (resource?.custoBase || 0);
-          custoDireto += baseCost * dedicacao;
+          const baseCost = alloc.costValue != null
+            ? alloc.costValue * dedicacao
+            : resource
+              ? calculateResourceCost({ ...resource, percentualDedicacao: alloc.dedicationPercent }, settings)
+              : 0;
+          custoDireto += baseCost;
         }
       }
 

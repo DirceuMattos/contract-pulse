@@ -16,6 +16,8 @@ import {
 import { useData } from '@/contexts/DataContext';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
+import { useHR } from '@/contexts/HRContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,11 +39,14 @@ export default function ClientDetailPage() {
   const navigate = useNavigate();
   const { getClient, getContractsByClient, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
+  const { hrPeople } = useHR();
+  const { getAllocationsByContract } = useSubprojects();
   const { getAllocation } = useOverheadPool();
   const { canEdit, canViewValues, userRole } = useAuth();
   
   const client = id ? getClient(id) : undefined;
   const clientContracts = id ? getContractsByClient(id) : [];
+  const peopleMap = React.useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   
   if (!client) {
     return (
@@ -56,7 +61,7 @@ export default function ClientDetailPage() {
   
   // Calculate health for contracts
   const contractsWithHealth = clientContracts.map(contract => {
-    const health = calculateContractHealth(contract, resources, settings, [], getAllocation(contract.id).value);
+    const health = calculateContractHealth(contract, resources, settings, [], getAllocation(contract.id).value, getAllocationsByContract(contract.id), peopleMap);
     return { contract, health };
   });
   

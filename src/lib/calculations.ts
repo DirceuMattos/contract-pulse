@@ -1,10 +1,27 @@
-import { Contract, Resource, Settings, HealthStatus, ContractHealth, DashboardKPIs, Alert, OverheadItem } from '@/types';
+import { Contract, Resource, Settings, HealthStatus, ContractHealth, DashboardKPIs, Alert, OverheadItem, HRPerson, SubprojectAllocation } from '@/types';
+
+export function calculateHRPersonCost(
+  person: HRPerson,
+  settings: Settings
+): number {
+  const base = person.remuneracaoMensal || 0;
+  const beneficios = person.beneficiosLista?.length
+    ? person.beneficiosLista.reduce((sum, item) => sum + (item.valor || 0), 0)
+    : (person.beneficios || 0);
+  const encargosPercentual = person.tipoVinculo === 'clt'
+    ? settings.percentualEncargosCLT
+    : person.tipoVinculo === 'pj'
+      ? settings.percentualImpostosPJ
+      : 0;
+
+  return base + (base * encargosPercentual / 100) + beneficios;
+}
 
 export function calculateResourceCost(
   resource: Resource,
   settings: Settings
 ): number {
-  const { tipo, custoBase, percentualDedicacao, encargosOverride, impostosOverride } = resource;
+  const { tipo, custoBase, beneficios = 0, percentualDedicacao, encargosOverride, impostosOverride } = resource;
   
   let custoTotal = custoBase;
 
@@ -15,10 +32,10 @@ export function calculateResourceCost(
   
   if (tipo === 'clt') {
     const encargos = encargosOverride ?? settings.percentualEncargosCLT;
-    custoTotal = custoBase * (1 + encargos / 100);
+    custoTotal = custoBase + (custoBase * encargos / 100) + beneficios;
   } else if (tipo === 'pj') {
     const impostos = impostosOverride ?? settings.percentualImpostosPJ;
-    custoTotal = custoBase * (1 + impostos / 100);
+    custoTotal = custoBase + (custoBase * impostos / 100) + beneficios;
   }
   // Para 'outro', custoBase já é o custo final (or divided by duration for consultoria)
   
@@ -33,9 +50,35 @@ export function calculateContractCost(
 ): number {
   // Colaboradores inativos mantidos para preservar histórico financeiro do contrato.
   const contractResources = resources.filter(r => r.contractId === contractId);
-  return contractResources.reduce((total, resource) => {
+  const allocatedHrIds = new Set(subprojectAllocations.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
+  const allocatedResourceIds = new Set(subprojectAllocations.filter(a => a.resourceId).map(a => a.resourceId!));
+  const resourceMap = new Map(contractResources.map(r => [r.id, r]));
+
+  const baseCost = contractResources.reduce((total, resource) => {
+    if (resource.hrPersonId && allocatedHrIds.has(resource.hrPersonId)) return total;
+    if (allocatedResourceIds.has(resource.id)) return total;
     return total + calculateResourceCost(resource, settings);
   }, 0);
+
+  const subprojectCost = subprojectAllocations.reduce((total, allocation) => {
+    const dedication = (allocation.dedicationPercent || 0) / 100;
+
+    if (allocation.hrPersonId && peopleMap) {
+      const person = peopleMap.get(allocation.hrPersonId);
+      return total + (person ? calculateHRPersonCost(person, settings) * dedication : 0);
+    }
+
+    if (allocation.resourceId) {
+      const resource = resourceMap.get(allocation.resourceId);
+      if (allocation.costValue != null) return total + allocation.costValue * dedication;
+      if (!resource) return total;
+      return total + calculateResourceCost({ ...resource, percentualDedicacao: allocation.dedicationPercent }, settings);
+    }
+
+    return total;
+  }, 0);
+
+  return baseCost + subprojectCost;
 }
 
 export function getContractRevenue(contract: Contract): number {
@@ -91,12 +134,14 @@ export function calculateContractHealth(
   resources: Resource[],
   settings: Settings,
   _overheadItems: OverheadItem[] = [],
-  centralOverhead: number = 0
+  centralOverhead: number = 0,
+  subprojectAllocations: SubprojectAllocation[] = [],
+  peopleMap?: Map<string, HRPerson>
 ): ContractHealth {
   const receitaBruta = getContractRevenue(contract);
   const percentualImpostos = contract.percentualImpostosFaturamento ?? settings.percentualImpostosFaturamento;
   const receitaLiquida = receitaBruta * (1 - percentualImpostos / 100);
-  const custoRecursos = calculateContractCost(contract.id, resources, settings);
+  const custoRecursos = calculateContractCost(contract.id, resources, settings, subprojectAllocations, peopleMap);
   const custoMensal = custoRecursos + centralOverhead;
   const margemMensal = receitaLiquida - custoMensal;
   const margemPercentual = receitaLiquida > 0 ? (margemMensal / receitaLiquida) * 100 : 0;
@@ -121,12 +166,22 @@ export function calculateDashboardKPIs(
   settings: Settings,
   includeValues: boolean = false,
   overheadItems: OverheadItem[] = [],
-  centralOverheadMap?: Map<string, number>
+  centralOverheadMap?: Map<string, number>,
+  getSubprojectAllocations?: (contractId: string) => SubprojectAllocation[],
+  peopleMap?: Map<string, HRPerson>
 ): DashboardKPIs {
   const activeContracts = contracts.filter(c => c.status === 'operacao' || c.status === 'implantacao');
   
-  const healthData = activeContracts.map(contract => 
-    calculateContractHealth(contract, resources, settings, overheadItems, centralOverheadMap?.get(contract.id) ?? 0)
+  const healthData = activeContracts.map(contract =>
+    calculateContractHealth(
+      contract,
+      resources,
+      settings,
+      overheadItems,
+      centralOverheadMap?.get(contract.id) ?? 0,
+      getSubprojectAllocations?.(contract.id) ?? [],
+      peopleMap
+    )
   );
   
   const kpis: DashboardKPIs = {

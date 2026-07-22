@@ -23,6 +23,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
+import { useHR } from '@/contexts/HRContext';
+import { useSubprojects } from '@/contexts/SubprojectContext';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -108,6 +110,8 @@ export default function DashboardPage() {
   const canViewValues = _canViewValues && userRole !== 'administrativo';
   const { contracts, clients, resources: _rawResources, settings } = useData();
   const { resolvedResources: resources } = useResolvedResources();
+  const { hrPeople } = useHR();
+  const { getAllocationsByContract } = useSubprojects();
   const { result: overheadPoolResult } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
   const canSeeReceivables = canAccessModule('RECEIVABLES');
@@ -176,21 +180,26 @@ export default function DashboardPage() {
     return map;
   }, [overheadPoolResult]);
 
+  const peopleMap = useMemo(
+    () => new Map(hrPeople.map(p => [p.id, p])),
+    [hrPeople]
+  );
+
   // Apply health filter
   const filteredContracts = useMemo(() => {
     if (selectedHealth === 'all') return preHealthFilteredContracts;
     return preHealthFilteredContracts.filter(contract => {
-      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0, getAllocationsByContract(contract.id), peopleMap);
       return health.status === selectedHealth;
     });
-  }, [preHealthFilteredContracts, selectedHealth, resources, settings, centralOverheadMap]);
+  }, [preHealthFilteredContracts, selectedHealth, resources, settings, centralOverheadMap, getAllocationsByContract, peopleMap]);
 
   const contractHealthRows = useMemo(() => {
     const order: Record<HealthStatus, number> = { critico: 0, atencao: 1, saudavel: 2 };
 
     return preHealthFilteredContracts
       .map(contract => {
-        const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+        const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0, getAllocationsByContract(contract.id), peopleMap);
         const client = clients.find(c => c.id === contract.clientId);
         return { contract, health, client };
       })
@@ -201,7 +210,7 @@ export default function DashboardPage() {
         if (clientDiff !== 0) return clientDiff;
         return a.contract.codigo.localeCompare(b.contract.codigo);
       });
-  }, [preHealthFilteredContracts, resources, settings, centralOverheadMap, clients]);
+  }, [preHealthFilteredContracts, resources, settings, centralOverheadMap, clients, getAllocationsByContract, peopleMap]);
 
   const visibleHealthRows = useMemo(() =>
     selectedHealth === 'all'
@@ -222,8 +231,8 @@ export default function DashboardPage() {
 
   // KPIs from filtered contracts
   const kpis = useMemo(() =>
-    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, [], centralOverheadMap),
-    [filteredContracts, resources, settings, canViewValues, centralOverheadMap]
+    calculateDashboardKPIs(filteredContracts, resources, settings, canViewValues, [], centralOverheadMap, getAllocationsByContract, peopleMap),
+    [filteredContracts, resources, settings, canViewValues, centralOverheadMap, getAllocationsByContract, peopleMap]
   );
 
   // Charts data
@@ -264,7 +273,7 @@ export default function DashboardPage() {
     };
 
     for (const contract of filteredContracts) {
-      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0);
+      const health = calculateContractHealth(contract, resources, settings, [], centralOverheadMap.get(contract.id) ?? 0, getAllocationsByContract(contract.id), peopleMap);
       const entry = { receita: health.receitaLiquida, custo: health.custoMensal, margem: health.margemMensal };
 
       if (byHealth[health.status]) {
@@ -285,7 +294,7 @@ export default function DashboardPage() {
     }
 
     return { byHealth, bySegment, byType };
-  }, [filteredContracts, resources, settings, centralOverheadMap]);
+  }, [filteredContracts, resources, settings, centralOverheadMap, getAllocationsByContract, peopleMap]);
 
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);

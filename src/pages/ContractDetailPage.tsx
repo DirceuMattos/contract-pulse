@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useResolvedResources } from '@/hooks/useResolvedResources';
+import { useHR } from '@/contexts/HRContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOverheadPool } from '@/hooks/useOverheadPool';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,10 +47,10 @@ import {
   formatPercentage,
   calculateContractHealth,
   calculateResourceCost,
+  calculateHRPersonCost,
   calculateRenewalExpectedDate,
   getDaysUntil,
   getDaysSince,
-  getHealthStatus,
 } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { HealthStatus, Resource, OverheadItem } from '@/types';
@@ -61,6 +62,7 @@ import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useSubprojects } from '@/contexts/SubprojectContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { mockSubscriptionLinks, mockInvoices } from '@/data/mockReceivables';
+import type { ReceivableInvoice } from '@/types/receivables';
 
 
 const typeLabels = {
@@ -88,6 +90,7 @@ export default function ContractDetailPage() {
   const location = useLocation();
   const { getContract, getClient, getResourcesByContract, getSnapshotsByContract, settings, alerts } = useData();
   const { resolvedResources: allResolvedResources } = useResolvedResources();
+  const { hrPeople } = useHR();
   const { canEdit, canViewValues, canViewHRCosts, userRole } = useAuth();
   const { getAllocation: getOverheadAllocation } = useOverheadPool();
   const { canAccessModule } = useModuleAccess();
@@ -103,6 +106,7 @@ export default function ContractDetailPage() {
   const contractHasSubs = !!(id && (hasSubprojects(id) || contract?.hasSubprojects));
   const subAllocations = useMemo(() => contractHasSubs && id ? getAllocationsByContract(id) : [], [contractHasSubs, id, getAllocationsByContract]);
   const resourceAllocations = useMemo(() => subAllocations.filter(a => a.resourceId), [subAllocations]);
+  const peopleMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
 
   // Build a map: resourceId -> aggregated cost from subproject allocations
   const subprojectOutrosCost = useMemo(() => {
@@ -125,22 +129,8 @@ export default function ContractDetailPage() {
   const health = useMemo(() => {
     if (!contract) return null;
     const overheadAllocVal = id ? getOverheadAllocation(id) : { percent: 0, value: 0, isPending: false };
-    const rawHealth = calculateContractHealth(contract, contractResources, settings, [], overheadAllocVal.value);
-    if (!subprojectOutrosCost || subprojectOutrosCost.size === 0) return rawHealth;
-    const outroResources = contractResources.filter(r => r.tipo === 'outro');
-    const custoOutrosOriginal = outroResources.reduce((sum, r) => sum + calculateResourceCost(r, settings), 0);
-    let custoOutrosSubprojetos = 0;
-    for (const r of outroResources) {
-      const allocData = subprojectOutrosCost.get(r.id);
-      custoOutrosSubprojetos += allocData ? allocData.totalCost : calculateResourceCost(r, settings);
-    }
-    const delta = custoOutrosSubprojetos - custoOutrosOriginal;
-    if (Math.abs(delta) < 0.01) return rawHealth;
-    const custoMensal = rawHealth.custoMensal + delta;
-    const margemMensal = rawHealth.receitaLiquida - custoMensal;
-    const margemPercentual = rawHealth.receitaLiquida > 0 ? (margemMensal / rawHealth.receitaLiquida) * 100 : 0;
-    return { ...rawHealth, custoMensal, margemMensal, margemPercentual, status: getHealthStatus(margemPercentual, settings) };
-  }, [contract, id, contractResources, settings, subprojectOutrosCost, getOverheadAllocation]);
+    return calculateContractHealth(contract, contractResources, settings, [], overheadAllocVal.value, subAllocations, peopleMap);
+  }, [contract, id, contractResources, settings, subAllocations, peopleMap, getOverheadAllocation]);
 
   if (!contract || !health) {
     return (
@@ -168,6 +158,16 @@ export default function ContractDetailPage() {
     return acc;
   }, {} as Record<string, Resource[]>);
   
+  const allocatedHrIds = new Set(subAllocations.filter(a => a.hrPersonId).map(a => a.hrPersonId!));
+  const subprojectHrCostByType = subAllocations.reduce((acc, allocation) => {
+    if (!allocation.hrPersonId) return acc;
+    const person = peopleMap.get(allocation.hrPersonId);
+    if (!person) return acc;
+    const type = person.tipoVinculo === 'clt' ? 'clt' : 'pj';
+    acc[type] += calculateHRPersonCost(person, settings) * ((allocation.dedicationPercent || 0) / 100);
+    return acc;
+  }, { clt: 0, pj: 0 });
+
   // Calculate costs by type
   const costsByType = Object.entries(resourcesByType).map(([type, res]) => {
     // When subprojects exist, use subproject allocation costs for "outro" resources
@@ -182,7 +182,10 @@ export default function ContractDetailPage() {
     return {
       type,
       label: type === 'clt' ? 'CLT' : type === 'pj' ? 'PJ' : 'Outros',
-      cost: (res as Resource[]).reduce((sum, r) => sum + calculateResourceCost(r, settings), 0),
+      cost: (res as Resource[])
+        .filter(r => !r.hrPersonId || !allocatedHrIds.has(r.hrPersonId))
+        .reduce((sum, r) => sum + calculateResourceCost(r, settings), 0)
+        + (type === 'clt' ? subprojectHrCostByType.clt : type === 'pj' ? subprojectHrCostByType.pj : 0),
       count: (res as Resource[]).length,
     };
   });
@@ -595,10 +598,10 @@ export default function ContractDetailPage() {
           {(() => {
             const recLink = mockSubscriptionLinks[id || ''];
             const isLinked = !!recLink;
-            const overdue = isLinked ? mockInvoices.filter((inv: any) => inv.contractId === id && inv.status === 'overdue') : [];
-            const totalOverdue = overdue.reduce((s: number, inv: any) => s + (inv.amount - inv.paidAmount), 0);
-            const maxDays = overdue.reduce((m: number, inv: any) => Math.max(m, inv.daysOverdue), 0);
-            const paidInvoices = isLinked ? mockInvoices.filter((inv: any) => inv.contractId === id && inv.paidAt).sort((a: any, b: any) => (b.paidAt > a.paidAt ? 1 : -1)) : [];
+            const overdue: ReceivableInvoice[] = isLinked ? mockInvoices.filter(inv => inv.contractId === id && inv.status === 'overdue') : [];
+            const totalOverdue = overdue.reduce((s, inv) => s + (inv.amount - inv.paidAmount), 0);
+            const maxDays = overdue.reduce((m, inv) => Math.max(m, inv.daysOverdue), 0);
+            const paidInvoices = isLinked ? mockInvoices.filter(inv => inv.contractId === id && inv.paidAt).sort((a, b) => (b.paidAt > a.paidAt ? 1 : -1)) : [];
             const status = !isLinked ? 'sem_vinculo' : totalOverdue > 0 ? 'atrasado' : 'em_dia';
 
             return (

@@ -175,6 +175,7 @@ export interface Resource {
   cargo?: string;
   senioridade?: Seniority;
   custoBase: number;
+  beneficios?: number;
   percentualDedicacao: number;
   dataInicio: string;
   dataFim?: string;
