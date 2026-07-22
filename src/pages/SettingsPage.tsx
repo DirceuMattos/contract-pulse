@@ -948,13 +948,26 @@ function FeedzSyncSection() {
                   </TableHeader>
                   <TableBody>
                     {filteredAliases.map((a: any) => (
-                      <TableRow key={a.id}>
+                      <TableRow
+                        key={a.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openEditAlias(a)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openEditAlias(a);
+                          }
+                        }}
+                      >
                         <TableCell className="text-xs">
                           <Badge variant="secondary" className="text-[10px]">{a.alias_type}</Badge>
                         </TableCell>
                         <TableCell className="text-xs">{a.feedz_value}</TableCell>
                         <TableCell className="text-xs">{a.internal_label}</TableCell>
-                        <TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="sm" onClick={() => openEditAlias(a)}><Pencil className="h-3 w-3" /></Button>
                             <Button variant="ghost" size="sm" onClick={() => deleteAlias(a.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>

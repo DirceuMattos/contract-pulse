@@ -434,7 +434,20 @@ export default function ProfilesAdminPage() {
             {ROLE_ORDER.map((role) => {
               const row = buildRowFor(role);
               return (
-                <Card key={role} className="flex flex-col">
+                <Card
+                  key={role}
+                  className="flex flex-col cursor-pointer hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openEdit(role)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openEdit(role);
+                    }
+                  }}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between gap-2">
                       <CardTitle className="text-base">{roleLabels[role]}</CardTitle>
@@ -449,7 +462,7 @@ export default function ProfilesAdminPage() {
                       módulo{row.modules.length === 1 ? '' : 's'} habilitado
                       {row.modules.length === 1 ? '' : 's'}
                     </p>
-                    <Button variant="outline" size="sm" onClick={() => openEdit(role)} className="w-full">
+                    <Button variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); openEdit(role); }} className="w-full">
                       <Settings2 className="h-4 w-4 mr-2" />
                       Configurar
                     </Button>

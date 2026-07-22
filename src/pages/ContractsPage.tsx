@@ -131,6 +131,7 @@ export default function ContractsPage() {
   const { canEdit, canCreate, canDelete, canViewValues, userRole } = useAuth();
   const { getAlertsForContract } = useAlerts();
   const { getAllocation } = useOverheadPool();
+  const canEditContracts = canEdit && userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos';
   
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -572,12 +573,30 @@ export default function ContractsPage() {
       {/* Contracts List */}
       {sortedContracts.length > 0 ? (
         <motion.div variants={containerVariants} className="space-y-3">
-          {sortedContracts.map(({ contract, health, client, alerts }) => (
+          {sortedContracts.map(({ contract, health, client, alerts }) => {
+            const handleCardEdit = () => {
+              if (canEditContracts) navigate(`/contratos/${contract.id}/editar`);
+            };
+
+            return (
             <motion.div key={contract.id} variants={itemVariants}>
               <Card className={cn(
                 "card-elevated hover:shadow-md transition-shadow",
+                canEditContracts && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 (contract.status === 'encerrado' || contract.status === 'suspenso') && 'bg-neutral-900 border-neutral-700'
-              )}>
+              )}
+                role={canEditContracts ? 'button' : undefined}
+                tabIndex={canEditContracts ? 0 : undefined}
+                onClick={handleCardEdit}
+                onKeyDown={(event) => {
+                  if (!canEditContracts) return;
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleCardEdit();
+                  }
+                }}
+              >
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     {/* Health indicator */}
@@ -708,18 +727,18 @@ export default function ContractsPage() {
                     </div>
                     
                     {/* Actions */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={(event) => event.stopPropagation()}>
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}`)}>
                           <Eye className="w-4 h-4 mr-2" />
                           Ver detalhes
                         </DropdownMenuItem>
-                        {canEdit && userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos' && (
+                        {canEditContracts && (
                           <DropdownMenuItem onClick={() => navigate(`/contratos/${contract.id}/editar`)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Editar
@@ -751,7 +770,8 @@ export default function ContractsPage() {
                 </CardContent>
               </Card>
             </motion.div>
-          ))}
+            );
+          })}
         </motion.div>
       ) : (
         <motion.div variants={itemVariants}>

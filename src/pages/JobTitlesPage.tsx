@@ -96,7 +96,30 @@ export default function JobTitlesPage() {
               {jobTitles.map(jt => {
                 const team = getTeamName(jt.teamId);
                 return (
-                  <div key={jt.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div
+                    key={jt.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border bg-card ${canEdit ? 'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''}`}
+                    role={canEdit ? 'button' : undefined}
+                    tabIndex={canEdit ? 0 : undefined}
+                    onClick={() => {
+                      if (!canEdit) return;
+                      setEditingJobTitle({ id: jt.id, label: jt.label, teamId: jt.teamId });
+                      setJobTitleLabel(jt.label);
+                      setJobTitleTeamId(jt.teamId || '');
+                      setJobTitleDialogOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (!canEdit) return;
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setEditingJobTitle({ id: jt.id, label: jt.label, teamId: jt.teamId });
+                        setJobTitleLabel(jt.label);
+                        setJobTitleTeamId(jt.teamId || '');
+                        setJobTitleDialogOpen(true);
+                      }
+                    }}
+                  >
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className={jt.isActive ? 'text-foreground' : 'text-muted-foreground line-through'}>{jt.label}</span>
                       {!jt.isActive && <Badge variant="secondary" className="text-xs">Inativo</Badge>}
@@ -109,7 +132,7 @@ export default function JobTitlesPage() {
                       )}
                     </div>
                     {canEdit && (
-                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
                         <Switch
                           checked={jt.isActive}
                           onCheckedChange={(checked) => updateJobTitle(jt.id, { isActive: checked })}

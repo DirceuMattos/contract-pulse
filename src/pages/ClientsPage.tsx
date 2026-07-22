@@ -77,6 +77,7 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { clients, contracts, deleteClient } = useData();
   const { canEdit, canCreate, canDelete, userRole } = useAuth();
+  const canEditClients = canEdit && userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos';
   
   const [search, setSearch] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
@@ -164,13 +165,29 @@ export default function ClientsPage() {
         <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredClients.map((client, index) => {
             const contractCount = getContractCount(client.id);
+            const handleCardEdit = () => {
+              if (canEditClients) navigate(`/clientes/${client.id}/editar`);
+            };
             
             return (
               <motion.div key={client.id} variants={itemVariants}>
                 <Card className={cn(
                   "card-elevated hover:shadow-md transition-shadow border-l-4",
+                  canEditClients && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   cardColors[index % cardColors.length]
-                )}>
+                )}
+                  role={canEditClients ? 'button' : undefined}
+                  tabIndex={canEditClients ? 0 : undefined}
+                  onClick={handleCardEdit}
+                  onKeyDown={(event) => {
+                    if (!canEditClients) return;
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleCardEdit();
+                    }
+                  }}
+                >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3 min-w-0">
@@ -186,7 +203,7 @@ export default function ClientsPage() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(event) => event.stopPropagation()}>
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -195,7 +212,7 @@ export default function ClientsPage() {
                             <Eye className="w-4 h-4 mr-2" />
                             Ver detalhes
                           </DropdownMenuItem>
-                          {canEdit && userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos' && (
+                          {canEditClients && (
                             <>
                               <DropdownMenuItem onClick={() => navigate(`/clientes/${client.id}/editar`)}>
                                 <Pencil className="w-4 h-4 mr-2" />

@@ -133,7 +133,21 @@ export default function TeamsPage() {
           <CardContent>
             <div className="space-y-2">
               {teams.sort((a, b) => a.sortOrder - b.sortOrder).map(team => (
-                <div key={team.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                <div
+                  key={team.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border bg-card ${canEdit ? 'cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''}`}
+                  role={canEdit ? 'button' : undefined}
+                  tabIndex={canEdit ? 0 : undefined}
+                  onClick={() => { if (canEdit) openEditDialog(team); }}
+                  onKeyDown={(event) => {
+                    if (!canEdit) return;
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openEditDialog(team);
+                    }
+                  }}
+                >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -148,7 +162,7 @@ export default function TeamsPage() {
                     </div>
                   </div>
                   {canEdit && (
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(event) => event.stopPropagation()}>
                       <Switch
                         checked={team.isActive}
                         onCheckedChange={(checked) => updateTeam(team.id, { isActive: checked })}
