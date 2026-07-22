@@ -3,7 +3,7 @@ import { UserRole } from './index';
 
 
 export const MODULE_KEYS = [
-  'DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL',
+  'DASHBOARD', 'HR_DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL',
   'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS',
   'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS',
   'SETTINGS', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS',
@@ -26,6 +26,7 @@ export interface ModuleDefinition {
 
 export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'DASHBOARD', label: 'Dashboard Contratos', description: 'Painel principal com KPIs e visão geral de contratos', routes: ['/dashboard'], roleRestrictions: [] },
+  { key: 'HR_DASHBOARD', label: 'Dashboard RH', description: 'Painel gerencial de custos, alocacao e indicadores de RH', routes: ['/dashboard-rh'], roleRestrictions: ['superadmin', 'c-level', 'rh', 'administrativo'] },
   { key: 'CLIENTS', label: 'Clientes', description: 'Cadastro e gestão de clientes', routes: ['/clientes'], roleRestrictions: [] },
   { key: 'CONTRACTS', label: 'Contratos', description: 'Lista e gestão de contratos', routes: ['/contratos'], roleRestrictions: [] },
   { key: 'CONTRACT_DETAIL', label: 'Detalhe do Contrato', description: 'Visualização detalhada do contrato', routes: ['/contratos/:id'], isSubmodule: true, parentModule: 'CONTRACTS', roleRestrictions: [] },
@@ -57,7 +58,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
  */
 // Default modules enabled per role (modules not listed default to false for these roles)
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
-  'c-level': ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
+  'c-level': ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   leitor: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
   demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'SETTINGS', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'SQUADS', 'CALCULATOR'],
@@ -65,10 +66,10 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   projetos_produtos: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   juridico: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
-  rh: ['DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS'],
-  administrativo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
+  rh: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  administrativo: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'HR', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
-  superadmin: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
+  superadmin: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
 };
 
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
@@ -107,6 +108,7 @@ export function isRoleAllowedForModule(role: UserRole, moduleKey: ModuleKey): bo
 export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   // Specific routes first (more specific patterns before general)
   if (pathname === '/dashboard') return 'DASHBOARD';
+  if (pathname === '/dashboard-rh') return 'HR_DASHBOARD';
   if (pathname === '/alertas') return 'ALERTS';
   if (pathname.startsWith('/squads')) return 'SQUADS';
   if (pathname === '/usuarios/logs') return 'ACCESS_LOGS';

@@ -3189,6 +3189,7 @@ export type Database = {
         | "suspenso"
       module_key:
         | "DASHBOARD"
+        | "HR_DASHBOARD"
         | "CLIENTS"
         | "CONTRACTS"
         | "CONTRACT_DETAIL"

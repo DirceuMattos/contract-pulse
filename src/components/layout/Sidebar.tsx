@@ -71,6 +71,7 @@ const navGroups: NavGroup[] = [
   {
     items: [
       { path: '/dashboard', label: 'Dashboard Contratos', icon: LayoutDashboard, moduleKey: 'DASHBOARD' },
+      { path: '/dashboard-rh', label: 'Dashboard RH', icon: UsersRound, moduleKey: 'HR_DASHBOARD' },
       { path: '/alertas', label: 'Alertas', icon: Bell, moduleKey: 'ALERTS' },
     ],
   },

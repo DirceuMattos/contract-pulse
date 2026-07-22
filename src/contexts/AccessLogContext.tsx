@@ -16,6 +16,7 @@ const AccessLogContext = createContext<AccessLogContextType | undefined>(undefin
 
 const ROUTE_MODULE_MAP: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/dashboard-rh': 'Dashboard RH',
   '/clientes': 'Clientes',
   '/contratos': 'Contratos',
   '/alertas': 'Alertas',

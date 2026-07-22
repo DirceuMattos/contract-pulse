@@ -55,8 +55,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           {canAccessModule('DASHBOARD') && (
             <CommandItem onSelect={() => runCommand(() => navigate('/dashboard'))}>
               <LayoutDashboard className="mr-2 h-4 w-4" />
-              Dashboard
+              Dashboard Contratos
               <span className="ml-auto text-xs text-muted-foreground">g d</span>
+            </CommandItem>
+          )}
+          {canAccessModule('HR_DASHBOARD') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/dashboard-rh'))}>
+              <UsersRound className="mr-2 h-4 w-4" />
+              Dashboard RH
             </CommandItem>
           )}
           {canAccessModule('CONTRACTS') && (

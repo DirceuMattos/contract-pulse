@@ -16,6 +16,7 @@ import { HRProvider } from "@/contexts/HRContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
+import HRDashboardPage from "@/pages/HRDashboardPage";
 import HelpPage from "@/pages/HelpPage";
 import HelpReportsPage from "@/pages/HelpReportsPage";
 import HelpSquadsPage from "@/pages/HelpSquadsPage";
@@ -101,6 +102,7 @@ const App = () => (
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route element={<MainLayout />}>
                           <Route path="/dashboard" element={<DashboardPage />} />
+                          <Route path="/dashboard-rh" element={<HRDashboardPage />} />
                           <Route path="/clientes" element={<ClientsPage />} />
                           <Route path="/clientes/novo" element={<ClientFormPage />} />
                           <Route path="/clientes/:id" element={<ClientDetailPage />} />
