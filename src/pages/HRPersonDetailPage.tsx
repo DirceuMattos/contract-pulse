@@ -164,7 +164,8 @@ export default function HRPersonDetailPage() {
       ? `Encargos PJ (${settings.percentualImpostosPJ}%)`
       : 'Encargos';
   const totalEncargos = person.remuneracaoMensal * (encargosPercentual / 100);
-  const custoTotalRH = person.remuneracaoMensal + totalEncargos + person.beneficios;
+  const remuneracaoTotalRH = person.remuneracaoMensal + person.beneficios;
+  const custoTotalRH = remuneracaoTotalRH + totalEncargos;
 
   const handleSavePerson = async (data: Omit<HRPerson, 'id' | 'createdAt' | 'updatedAt'>) => {
     // Auto-detect changes and log to timeline
@@ -602,10 +603,18 @@ export default function HRPersonDetailPage() {
           <Card>
               <CardHeader><CardTitle className="text-base">Dados Financeiros</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                   <div className="rounded-lg border p-4 text-center">
                     <p className="text-sm text-muted-foreground mb-1">Remuneração Mensal</p>
                     <p className="text-2xl font-bold text-primary">{formatCurrency(person.remuneracaoMensal)}</p>
+                  </div>
+                  <div className="rounded-lg border p-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Total Benefícios</p>
+                    <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
+                  </div>
+                  <div className="rounded-lg border p-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Remuneração Total</p>
+                    <p className="text-2xl font-bold">{formatCurrency(remuneracaoTotalRH)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
                     <div className="mb-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
@@ -613,10 +622,6 @@ export default function HRPersonDetailPage() {
                       <span>{encargosLabel}</span>
                     </div>
                     <p className="text-2xl font-bold">{formatCurrency(totalEncargos)}</p>
-                  </div>
-                  <div className="rounded-lg border p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Total Benefícios</p>
-                    <p className="text-2xl font-bold">{formatCurrency(person.beneficios)}</p>
                   </div>
                   <div className="rounded-lg border p-4 text-center">
                     <div className="mb-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
