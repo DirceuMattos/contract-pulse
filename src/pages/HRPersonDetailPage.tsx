@@ -255,20 +255,32 @@ export default function HRPersonDetailPage() {
     }
 
     // Create one timeline event per change
+    let timelineFailed = false;
     for (const change of changes) {
       const isReajuste = change === remuneracaoChange || change === beneficiosChange;
-      await addTimelineEvent({
-        personId: person.id,
-        eventDate: today,
-        ocorrencia: isReajuste ? 'reajuste' : 'observacao',
-        descricao: change,
-        atualizarRemuneracao: false,
-        ...(change === remuneracaoChange ? { remuneracaoApos: data.remuneracaoMensal } : {}),
-        ...(change === beneficiosChange ? { beneficiosApos: data.beneficios } : {}),
-      });
+      try {
+        await addTimelineEvent({
+          personId: person.id,
+          eventDate: today,
+          ocorrencia: isReajuste ? 'reajuste' : 'observacao',
+          descricao: change,
+          atualizarRemuneracao: false,
+          ...(change === remuneracaoChange ? { remuneracaoApos: data.remuneracaoMensal } : {}),
+          ...(change === beneficiosChange ? { beneficiosApos: data.beneficios } : {}),
+        });
+      } catch (error) {
+        timelineFailed = true;
+        console.error('Erro ao registrar evento da linha do tempo do RH', error);
+      }
     }
 
-    toast.success('Dados atualizados!');
+    if (timelineFailed) {
+      toast.warning('Dados salvos, mas o histórico não foi registrado.', {
+        description: 'Tente salvar novamente após a atualização de permissões.',
+      });
+    } else {
+      toast.success('Dados atualizados!');
+    }
     setEditPersonOpen(false);
   };
 
