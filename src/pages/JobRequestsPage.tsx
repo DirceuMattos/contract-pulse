@@ -324,7 +324,7 @@ export default function JobRequestsPage() {
           actionIcon={Plus}
         />
       ) : (
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {filtered.map((r) => {
             const proximos = STATUS_FLOW[r.status];
             const hardSkills = getRequestSkills(r, 'hard');
@@ -337,7 +337,6 @@ export default function JobRequestsPage() {
                 className="min-w-0 cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 style={{
                   ...getStatusCardStyle(r.status),
-                  flex: '1 1 34rem',
                 }}
                 onClick={() => openEdit(r)}
                 onKeyDown={(event) => {
