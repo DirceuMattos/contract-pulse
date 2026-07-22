@@ -51,7 +51,7 @@ type SortField = 'nome' | 'tipoVinculo' | 'cargo' | 'team' | 'localAtuacao' | 'd
 function HRPeoplePageInner() {
   const navigate = useNavigate();
   const { hrPeople, hrTimeline, addPerson, updatePerson, addTimelineEvent } = useHR();
-  const { teams, jobTitles, resources, contracts } = useData();
+  const { teams, jobTitles, resources, contracts, settings } = useData();
   const { items: pendingReplacements } = usePendingReplacements();
   const pendingCountByPerson = useMemo(() => {
     const m = new Map<string, number>();
@@ -267,9 +267,21 @@ function HRPeoplePageInner() {
 
   const totals = useMemo(() => {
     const totalSalarios = filtered.reduce((sum, p) => sum + (p.remuneracaoMensal || 0), 0);
+    const totalEncargos = filtered.reduce((sum, p) => {
+      const base = p.remuneracaoMensal || 0;
+      if (p.tipoVinculo === 'clt') return sum + base * ((settings.percentualEncargosCLT || 0) / 100);
+      if (p.tipoVinculo === 'pj') return sum + base * ((settings.percentualImpostosPJ || 0) / 100);
+      return sum;
+    }, 0);
     const totalBeneficios = filtered.reduce((sum, p) => sum + (p.beneficios || 0), 0);
-    return { totalSalarios, totalBeneficios, count: filtered.length };
-  }, [filtered]);
+    return {
+      totalSalarios,
+      totalEncargos,
+      totalBeneficios,
+      custoTotalRH: totalSalarios + totalEncargos + totalBeneficios,
+      count: filtered.length,
+    };
+  }, [filtered, settings.percentualEncargosCLT, settings.percentualImpostosPJ]);
 
   return (
     <div className="space-y-6">
@@ -317,7 +329,7 @@ function HRPeoplePageInner() {
 
       {/* Totais financeiros */}
       {canViewHRCosts && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <Card className="border-l-4 border-l-emerald-500">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="h-11 w-11 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
@@ -330,6 +342,20 @@ function HRPeoplePageInner() {
               </div>
             </CardContent>
           </Card>
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-11 w-11 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                <TrendingDown className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Total Encargos (PJ={settings.percentualImpostosPJ}% / CLT={settings.percentualEncargosCLT}%)
+                </p>
+                <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalEncargos)}</p>
+                <p className="text-xs text-muted-foreground">Sobre salários/contratos filtrados</p>
+              </div>
+            </CardContent>
+          </Card>
           <Card className="border-l-4 border-l-sky-500">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="h-11 w-11 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center shrink-0">
@@ -339,6 +365,18 @@ function HRPeoplePageInner() {
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Benefícios</p>
                 <p className="text-2xl font-bold truncate">{formatCurrency(totals.totalBeneficios)}</p>
                 <p className="text-xs text-muted-foreground">{totals.count} pessoa{totals.count !== 1 ? 's' : ''} (filtro atual)</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-primary">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-11 w-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <UsersRound className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Custo total com RH</p>
+                <p className="text-2xl font-bold truncate">{formatCurrency(totals.custoTotalRH)}</p>
+                <p className="text-xs text-muted-foreground">Salários + encargos + benefícios</p>
               </div>
             </CardContent>
           </Card>
