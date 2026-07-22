@@ -4,51 +4,107 @@ import { Callout, DataTable, HelpArticle, HelpSection, Steps } from '@/component
 const sections: HelpSection[] = [
   {
     id: 'visao-geral',
-    label: 'Visão Geral',
-    title: 'O que é Recursos Humanos?',
-    content: <p className="text-sm text-muted-foreground">O módulo de RH concentra o cadastro mestre de pessoas, vínculos, cargos, equipes, situação e informações financeiras autorizadas.</p>,
+    label: 'Visao Geral',
+    title: 'O que e o modulo de Recursos Humanos?',
+    content: (
+      <p className="text-sm text-muted-foreground">
+        Recursos Humanos e o cadastro mestre das pessoas. Nele ficam dados de vinculo, cargo, equipe, situacao,
+        remuneracao, beneficios, linha do tempo, foto e alocacoes em contratos ou subprojetos.
+      </p>
+    ),
   },
   {
-    id: 'cadastro',
-    label: 'Cadastro Mestre',
-    title: 'Cadastro mestre de pessoas',
+    id: 'consulta',
+    label: 'Consultar',
+    title: 'Como localizar uma pessoa',
     content: (
       <Steps items={[
-        { title: 'Acesse Recursos Humanos', body: 'Use filtros de situação, equipe, cargo, vínculo, local e projeto para encontrar a pessoa.' },
-        { title: 'Abra o detalhe', body: 'Consulte dados cadastrais, histórico, benefícios e alocações.' },
-        { title: 'Edite somente quando autorizado', body: 'Perfis sem permissão ficam em modo de consulta para evitar alteração indevida do cadastro mestre.' },
+        { title: 'Use a busca', body: 'Digite nome, matricula ou parte de uma observacao para encontrar rapidamente o RH.' },
+        { title: 'Aplique filtros', body: 'Use situacao, departamento, vinculo, cargo, projeto, regime e marcadores para reduzir a lista.' },
+        { title: 'Abra o detalhe', body: 'Clique na linha ou no icone de visualizacao para acessar resumo, financeiro, linha do tempo e alocacoes.' },
       ]} />
     ),
   },
   {
     id: 'financeiro',
-    label: 'Custos e Salários',
-    title: 'Proteção de salários e custos',
+    label: 'Financeiro',
+    title: 'Remuneracao, beneficios, encargos e custo total',
     content: (
       <>
-        <p className="text-sm text-muted-foreground mb-3">Campos financeiros de RH são sensíveis e aparecem apenas para perfis autorizados a ver custos de RH.</p>
-        <DataTable headers={['Informação', 'Regra']} rows={[
-          ['Salário bruto', 'Oculto para perfis sem Custos RH.'],
-          ['Encargos e impostos', 'Ocultos para perfis sem Custos RH.'],
-          ['Cálculo de custo mensal', 'Oculto para perfis sem Custos RH.'],
-          ['Percentual de dedicação', 'Pode aparecer nos fluxos operacionais de alocação.'],
+        <p className="text-sm text-muted-foreground mb-3">
+          A aba Financeiro mostra a composicao do custo da pessoa. Ela e restrita a perfis autorizados a ver custos de RH.
+        </p>
+        <DataTable headers={['Card', 'Significado']} rows={[
+          ['Remuneracao Mensal', 'Valor mensal de salario ou contrato da pessoa.'],
+          ['Total Beneficios', 'Soma dos beneficios cadastrados.'],
+          ['Remuneracao Total', 'Remuneracao mensal + beneficios. Representa o total pago ao RH.'],
+          ['Encargos', 'Percentual de CLT ou PJ aplicado somente sobre a remuneracao mensal.'],
+          ['Custo total com RH', 'Remuneracao mensal + encargos + beneficios.'],
+        ]} />
+        <Callout type="warn">Encargos nao incidem sobre beneficios. Se houver divergencia, revise o cadastro e avise o administrador.</Callout>
+      </>
+    ),
+  },
+  {
+    id: 'edicao',
+    label: 'Editar',
+    title: 'Editar cadastro de RH',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Perfis autorizados podem alterar dados cadastrais, valores, beneficios, regime de trabalho e observacoes.
+          Perfis operacionais podem consultar dados, mas nao devem alterar o cadastro mestre.
+        </p>
+        <DataTable headers={['Situacao', 'Como proceder']} rows={[
+          ['Alterar salario ou beneficio', 'Abra Editar, ajuste os valores e salve. O sistema cria evento na linha do tempo.'],
+          ['Alterar cargo/equipe', 'Edite o cadastro somente se a informacao mestre mudou. Para alocacao em projeto, use Squads.'],
+          ['Trocar foto', 'Disponivel para Superadmin, C-Level, Administrativo e RH.'],
+          ['RH inativo', 'Revise alocacoes e substituicoes pendentes antes de manter em contratos.'],
+        ]} />
+        <Callout type="info">Se o cadastro salvar mas o historico falhar, a tela informa que os dados foram salvos e que a linha do tempo nao foi registrada.</Callout>
+      </>
+    ),
+  },
+  {
+    id: 'timeline',
+    label: 'Linha do Tempo',
+    title: 'Linha do tempo do RH',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A linha do tempo registra reajustes, mudancas de cargo, beneficios, observacoes e desligamentos.
+          Ela ajuda a entender por que um valor ou situacao mudou.
+        </p>
+        <DataTable headers={['Evento', 'Quando aparece']} rows={[
+          ['Reajuste', 'Quando remuneracao ou beneficios mudam.'],
+          ['Mudanca de cargo', 'Quando o cargo mestre e alterado.'],
+          ['Observacao', 'Quando ha mudancas cadastrais gerais.'],
+          ['Desligamento', 'Quando a pessoa e inativada/desligada.'],
         ]} />
       </>
     ),
   },
   {
     id: 'squads',
-    label: 'Relação com Squads',
-    title: 'Alocações e Squads',
+    label: 'Squads',
+    title: 'Relacao com Squads',
     content: (
       <>
-        <p className="text-sm text-muted-foreground mb-3">Alocações de pessoas em projetos devem ser feitas preferencialmente em Squads quando o objetivo for redistribuir dedicação operacional.</p>
-        <Callout type="info">Líder de Tribo deve usar Squads &gt; Alocar para colocar a mesma pessoa em mais de um projeto sem editar o cadastro mestre de RH.</Callout>
+        <p className="text-sm text-muted-foreground mb-3">
+          Alocacoes em projetos devem ser feitas no modulo Squads, especialmente para Lider de Tribo.
+          O cadastro de RH deve ser preservado como fonte mestre de dados da pessoa.
+        </p>
+        <DataTable headers={['Caso', 'Onde resolver']} rows={[
+          ['Colocar RH em um projeto', 'Squads, visao Por Recurso, botao + no card da pessoa.'],
+          ['Alocar em mais de um projeto', 'Squads, adicionando dedicacoes separadas.'],
+          ['RH com 0% de dedicacao', 'Aparece na visao Por Recurso para permitir primeira alocacao.'],
+          ['Substituir RH inativo', 'Squads, usando o fluxo de substituicao quando houver pendencia.'],
+        ]} />
       </>
     ),
   },
 ];
 
 export default function HelpHRPage() {
-  return <HelpArticle title="Recursos Humanos" description="Cadastro mestre, custos e relação com Squads" icon={UsersRound} sections={sections} />;
+  return <HelpArticle title="Recursos Humanos" description="Cadastro mestre, custos, historico e alocacoes" icon={UsersRound} sections={sections} />;
 }
