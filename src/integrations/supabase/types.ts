@@ -3213,6 +3213,7 @@ export type Database = {
         | "JOB_SKILLS"
         | "PROFILES_ADMIN"
         | "REPORTS"
+        | "SUPPORT_COSTS"
       other_cost_category:
         | "cloud"
         | "licenca"
@@ -3438,6 +3439,7 @@ export const Constants = {
         "JOB_SKILLS",
         "PROFILES_ADMIN",
         "REPORTS",
+        "SUPPORT_COSTS",
       ],
       other_cost_category: [
         "cloud",

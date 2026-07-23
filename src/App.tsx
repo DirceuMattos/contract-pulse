@@ -72,6 +72,7 @@ import TransportPage from "@/pages/TransportPage";
 import ReportsPage from "@/pages/ReportsPage";
 import ReportEditPage from "@/pages/ReportEditPage";
 import ReportTemplateConfigPage from "@/pages/ReportTemplateConfigPage";
+import SupportCostsPage from "@/pages/SupportCostsPage";
 import TrustPage from "@/pages/TrustPage";
 import NotFound from "./pages/NotFound";
 
@@ -143,6 +144,7 @@ const App = () => (
                           <Route path="/relatorios" element={<ReportsPage />} />
                           <Route path="/relatorios/config/:contractId" element={<ReportTemplateConfigPage />} />
                           <Route path="/relatorios/:reportId" element={<ReportEditPage />} />
+                          <Route path="/custos-suporte" element={<SupportCostsPage />} />
                           
                           
                           

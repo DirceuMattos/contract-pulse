@@ -15,6 +15,7 @@ import {
   Sun,
   Briefcase,
   UsersRound,
+  CircleDollarSign,
 } from 'lucide-react';
 import {
   CommandDialog,
@@ -63,6 +64,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <CommandItem onSelect={() => runCommand(() => navigate('/dashboard-rh'))}>
               <UsersRound className="mr-2 h-4 w-4" />
               Dashboard RH
+            </CommandItem>
+          )}
+          {canAccessModule('SUPPORT_COSTS') && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/custos-suporte'))}>
+              <CircleDollarSign className="mr-2 h-4 w-4" />
+              Custos do Suporte
             </CommandItem>
           )}
           {canAccessModule('CONTRACTS') && (
