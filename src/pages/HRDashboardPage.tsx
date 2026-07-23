@@ -13,6 +13,8 @@ import {
   LineChart,
   Line,
   Legend,
+  Label,
+  LabelList,
 } from 'recharts';
 import { Activity, BriefcaseBusiness, Building2, DollarSign, Shield, UsersRound } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -30,7 +32,18 @@ import { formatCurrency, formatPercentage } from '@/lib/calculations';
 
 type MetricMode = 'quantity' | 'cost';
 
-const allocationColors = ['#22c55e', '#f59e0b'];
+const allocationColors = ['#16a34a', '#f59e0b'];
+const statusColors = ['#22c55e', '#3b82f6', '#f97316'];
+const distributionPalettes = {
+  team: ['#0ea5e9', '#14b8a6', '#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#6366f1', '#06b6d4', '#64748b'],
+  job: ['#8b5cf6', '#6366f1', '#3b82f6', '#06b6d4', '#14b8a6', '#22c55e', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#ec4899'],
+  vinculo: ['#14b8a6', '#f97316', '#6366f1', '#eab308', '#ec4899', '#64748b'],
+  level: ['#22c55e', '#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899', '#f97316', '#64748b'],
+  local: ['#f59e0b', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ef4444', '#64748b'],
+  tenure: ['#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#f97316'],
+};
+const chartCardClass = 'bg-slate-50/90 dark:bg-slate-900/55 border-slate-200 dark:border-slate-800 shadow-sm';
+const tabPanelClass = 'rounded-lg bg-slate-100/75 dark:bg-slate-950/45 p-4 space-y-4';
 
 const vinculoLabels: Record<string, string> = {
   clt: 'CLT',
@@ -46,6 +59,17 @@ function formatMaybeCurrency(value: number, canViewValues: boolean): string {
 
 function formatPeople(value: number): string {
   return `${value} pessoa${value === 1 ? '' : 's'}`;
+}
+
+function formatShortCurrency(value: number): string {
+  if (Math.abs(value) >= 1000000) return `R$ ${(value / 1000000).toFixed(1)} mi`;
+  if (Math.abs(value) >= 1000) return `R$ ${(value / 1000).toFixed(0)} mil`;
+  return formatCurrency(value);
+}
+
+function metricValueLabel(value: number, mode: MetricMode, canViewValues: boolean): string {
+  if (mode === 'cost' && canViewValues) return formatShortCurrency(value);
+  return String(value);
 }
 
 function KpiCard({
@@ -96,6 +120,26 @@ function groupMetrics(
     .slice(0, 12);
 }
 
+function groupBnpMetrics(
+  metrics: HRAllocationMetric[],
+  getLabel: (metric: HRAllocationMetric) => string,
+) {
+  const grouped = new Map<string, { name: string; pessoas: number; valor: number }>();
+
+  for (const metric of metrics) {
+    if (metric.bnpCost <= 0) continue;
+    const name = getLabel(metric) || 'Nao informado';
+    const current = grouped.get(name) || { name, pessoas: 0, valor: 0 };
+    current.pessoas += 1;
+    current.valor += metric.bnpCost;
+    grouped.set(name, current);
+  }
+
+  return Array.from(grouped.values())
+    .sort((a, b) => b.valor - a.valor || b.pessoas - a.pessoas || a.name.localeCompare(b.name, 'pt-BR'))
+    .slice(0, 8);
+}
+
 function getTenureBucket(admissionDate: string): string {
   const admission = new Date(`${admissionDate}T12:00:00`);
   const now = new Date();
@@ -116,7 +160,8 @@ function getLastTwelveMonths() {
   for (let offset = 11; offset >= 0; offset -= 1) {
     const start = new Date(now.getFullYear(), now.getMonth() - offset, 1);
     const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59);
-    const label = start.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+    const month = start.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    const label = `${month.charAt(0).toUpperCase()}${month.slice(1)}/${String(start.getFullYear()).slice(2)}`;
     months.push({ label, start, end });
   }
 
@@ -128,32 +173,59 @@ function DistributionChart({
   data,
   mode,
   canViewValues,
+  palette,
+  axisLabel,
 }: {
   title: string;
   data: { name: string; pessoas: number; valor: number }[];
   mode: MetricMode;
   canViewValues: boolean;
+  palette: string[];
+  axisLabel: string;
 }) {
   const dataKey = mode === 'cost' && canViewValues ? 'valor' : 'pessoas';
+  const valueLabel = dataKey === 'valor' ? 'Custo' : 'Pessoas';
 
   return (
-    <Card>
+    <Card className={chartCardClass}>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <Badge variant="secondary">{valueLabel}</Badge>
+        </div>
       </CardHeader>
       <CardContent className="h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 8, right: 18, left: 90, bottom: 8 }}>
+          <BarChart data={data} layout="vertical" margin={{ top: 8, right: 36, left: 96, bottom: 24 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+            <XAxis
+              type="number"
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(value) => dataKey === 'valor' ? formatShortCurrency(Number(value)) : String(value)}
+            >
+              <Label value={valueLabel} offset={-10} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+            </XAxis>
             <YAxis type="category" dataKey="name" width={90} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
             <Tooltip
               formatter={(value: number, name: string) => [
                 name === 'valor' ? formatMaybeCurrency(value, canViewValues) : formatPeople(value),
-                name === 'valor' ? 'Valor' : 'Pessoas',
+                name === 'valor' ? 'Custo' : 'Pessoas',
               ]}
+              labelFormatter={(label) => `${axisLabel}: ${label}`}
             />
-            <Bar dataKey={dataKey} name={dataKey === 'valor' ? 'Valor' : 'Pessoas'} fill={dataKey === 'valor' ? '#14b8a6' : '#3b82f6'} radius={[0, 4, 4, 0]} />
+            <Bar dataKey={dataKey} name={valueLabel} radius={[0, 5, 5, 0]}>
+              {data.map((entry, index) => (
+                <Cell key={entry.name} fill={palette[index % palette.length]} />
+              ))}
+              <LabelList
+                dataKey={dataKey}
+                position="right"
+                formatter={(value: number) => metricValueLabel(value, mode, canViewValues)}
+                className="fill-foreground text-[11px]"
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -197,11 +269,6 @@ export default function HRDashboardPage() {
     { name: 'Sem alocacao', pessoas: summary.unallocatedPeople, valor: summary.metrics.filter((m) => m.allocatedPercent === 0).reduce((sum, m) => sum + m.totalCost, 0) },
   ];
 
-  const topBnpExposure = [...summary.metrics]
-    .filter((metric) => metric.bnpPercent > 0)
-    .sort((a, b) => b.bnpCost - a.bnpCost)
-    .slice(0, 8);
-
   const distributionData = useMemo(() => ({
     byTeam: groupMetrics(summary.metrics, (metric) => teamNameById.get(metric.person.teamId || '') || 'Sem area'),
     byJobTitle: groupMetrics(summary.metrics, (metric) => jobTitleById.get(metric.person.cargoId || '') || metric.person.cargoAntigo || 'Sem cargo'),
@@ -210,6 +277,11 @@ export default function HRDashboardPage() {
     byLocal: groupMetrics(summary.metrics, (metric) => metric.person.localAtuacao || 'Nao informado'),
     byTenure: groupMetrics(summary.metrics, (metric) => getTenureBucket(metric.person.dataAdmissao)),
   }), [summary.metrics, teamNameById, jobTitleById]);
+
+  const bnpExposureByTeam = useMemo(
+    () => groupBnpMetrics(summary.metrics, (metric) => teamNameById.get(metric.person.teamId || '') || 'Sem area'),
+    [summary.metrics, teamNameById],
+  );
 
   const turnoverData = useMemo(() => {
     return getLastTwelveMonths().map((month) => {
@@ -293,7 +365,7 @@ export default function HRDashboardPage() {
           </div>
         </div>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="overview" className={tabPanelClass}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <KpiCard
               title="RHs ativos"
@@ -326,114 +398,181 @@ export default function HRDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-            <Card className="xl:col-span-2">
+            <Card className={`xl:col-span-2 ${chartCardClass}`}>
               <CardHeader>
-                <CardTitle className="text-base">Alocacao financeira</CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base">Alocacao financeira</CardTitle>
+                  <Badge variant="secondary">{canViewHRCosts ? 'Custo' : 'Pessoas'}</Badge>
+                </div>
               </CardHeader>
-              <CardContent className="h-[320px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={allocationChartData} dataKey={canViewHRCosts ? 'valor' : 'pessoas'} nameKey="name" innerRadius={70} outerRadius={105} paddingAngle={3}>
-                      {allocationChartData.map((entry, index) => (
-                        <Cell key={entry.name} fill={allocationColors[index % allocationColors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
-                        name === 'valor' ? 'Valor' : 'Pessoas',
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+              <CardContent className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="relative h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={allocationChartData} dataKey={canViewHRCosts ? 'valor' : 'pessoas'} nameKey="name" innerRadius={72} outerRadius={108} paddingAngle={4} strokeWidth={3}>
+                        {allocationChartData.map((entry, index) => (
+                          <Cell key={entry.name} fill={allocationColors[index % allocationColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
+                          name === 'valor' ? 'Custo' : 'Pessoas',
+                        ]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs uppercase text-muted-foreground">Total RH</span>
+                    <span className="text-xl font-bold">{formatMaybeCurrency(summary.totalCost, canViewHRCosts)}</span>
+                    <span className="text-xs text-muted-foreground">{summary.activePeople} ativos</span>
+                  </div>
+                </div>
+                <div className="space-y-3 self-center">
+                  {allocationChartData.map((entry, index) => (
+                    <div key={entry.name} className="rounded-md border bg-background/70 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: allocationColors[index] }} />
+                          <span className="text-sm font-medium">{entry.name}</span>
+                        </div>
+                        <span className="text-sm font-semibold">{formatPercentage(entry.percentual)}</span>
+                      </div>
+                      <p className="mt-2 text-lg font-bold">
+                        {canViewHRCosts ? formatCurrency(entry.valor) : formatPeople(entry.pessoas)}
+                      </p>
+                      <Progress value={entry.percentual} className="mt-2 h-2" />
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="xl:col-span-3">
+            <Card className={`xl:col-span-3 ${chartCardClass}`}>
               <CardHeader>
-                <CardTitle className="text-base">Situacao de alocacao</CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base">Situacao de alocacao</CardTitle>
+                  <Badge variant="secondary">{metricMode === 'cost' && canViewHRCosts ? 'Custo total' : 'Pessoas'}</Badge>
+                </div>
               </CardHeader>
               <CardContent className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
+                  <BarChart data={statusData} layout="vertical" margin={{ top: 10, right: 52, left: 104, bottom: 26 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => metricMode === 'cost' && canViewHRCosts ? formatShortCurrency(Number(value)) : String(value)}
+                    >
+                      <Label value={metricMode === 'cost' && canViewHRCosts ? 'Custo total' : 'Pessoas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                    </XAxis>
+                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={102} />
                     <Tooltip
                       formatter={(value: number, name: string) => [
                         name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
-                        name === 'valor' ? 'Valor' : 'Pessoas',
+                        name === 'valor' ? 'Custo' : 'Pessoas',
                       ]}
                     />
-                    <Bar dataKey="pessoas" name="Pessoas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    {canViewHRCosts && <Bar dataKey="valor" name="Valor" fill="#14b8a6" radius={[4, 4, 0, 0]} />}
+                    <Bar dataKey={metricMode === 'cost' && canViewHRCosts ? 'valor' : 'pessoas'} radius={[0, 6, 6, 0]}>
+                      {statusData.map((entry, index) => (
+                        <Cell key={entry.name} fill={statusColors[index % statusColors.length]} />
+                      ))}
+                      <LabelList
+                        dataKey={metricMode === 'cost' && canViewHRCosts ? 'valor' : 'pessoas'}
+                        position="right"
+                        formatter={(value: number) => metricValueLabel(value, metricMode, canViewHRCosts)}
+                        className="fill-foreground text-[11px]"
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
+          <Card className={chartCardClass}>
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-base">Maior exposicao BNP</CardTitle>
-                <Badge variant="outline">{topBnpExposure.length} principais</Badge>
+                <CardTitle className="text-base">Custo BNP por area</CardTitle>
+                <Badge variant="outline">{bnpExposureByTeam.length} areas</Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {topBnpExposure.length === 0 ? (
+            <CardContent className="h-[340px]">
+              {bnpExposureByTeam.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  Nenhum RH ativo com custo BNP no momento.
+                  Nenhuma area com custo BNP no momento.
                 </div>
               ) : (
-                topBnpExposure.map((metric) => (
-                  <div key={metric.person.id} className="rounded-md border p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{metric.person.nome}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {metric.allocatedPercent}% alocado - {metric.bnpPercent}% BNP
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{formatMaybeCurrency(metric.bnpCost, canViewHRCosts)}</p>
-                        <p className="text-xs text-muted-foreground">exposicao BNP</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <Progress value={metric.allocatedPercent} className="h-2" />
-                      <span className="text-xs tabular-nums text-muted-foreground w-12 text-right">{metric.allocatedPercent}%</span>
-                    </div>
-                  </div>
-                ))
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={bnpExposureByTeam} layout="vertical" margin={{ top: 8, right: 48, left: 112, bottom: 26 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => canViewHRCosts ? formatShortCurrency(Number(value)) : String(value)}
+                    >
+                      <Label value={canViewHRCosts ? 'Custo BNP' : 'Pessoas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                    </XAxis>
+                    <YAxis type="category" dataKey="name" width={110} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
+                        name === 'valor' ? 'Custo BNP' : 'Pessoas',
+                      ]}
+                      labelFormatter={(label) => `Area: ${label}`}
+                    />
+                    <Bar dataKey={canViewHRCosts ? 'valor' : 'pessoas'} radius={[0, 6, 6, 0]}>
+                      {bnpExposureByTeam.map((entry, index) => (
+                        <Cell key={entry.name} fill={distributionPalettes.team[index % distributionPalettes.team.length]} />
+                      ))}
+                      <LabelList
+                        dataKey={canViewHRCosts ? 'valor' : 'pessoas'}
+                        position="right"
+                        formatter={(value: number) => canViewHRCosts ? formatShortCurrency(value) : String(value)}
+                        className="fill-foreground text-[11px]"
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="distributions" className="space-y-4">
+        <TabsContent value="distributions" className={tabPanelClass}>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <DistributionChart title="Por area" data={distributionData.byTeam} mode={metricMode} canViewValues={canViewHRCosts} />
-            <DistributionChart title="Por cargo / funcao" data={distributionData.byJobTitle} mode={metricMode} canViewValues={canViewHRCosts} />
-            <DistributionChart title="Por forma de contratacao" data={distributionData.byVinculo} mode={metricMode} canViewValues={canViewHRCosts} />
-            <DistributionChart title="Por nivel" data={distributionData.byNivel} mode={metricMode} canViewValues={canViewHRCosts} />
-            <DistributionChart title="Por local de atuacao" data={distributionData.byLocal} mode={metricMode} canViewValues={canViewHRCosts} />
-            <DistributionChart title="Por tempo de casa" data={distributionData.byTenure} mode={metricMode} canViewValues={canViewHRCosts} />
+            <DistributionChart title="Por area" data={distributionData.byTeam} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.team} axisLabel="Area" />
+            <DistributionChart title="Por cargo / funcao" data={distributionData.byJobTitle} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.job} axisLabel="Cargo" />
+            <DistributionChart title="Por forma de contratacao" data={distributionData.byVinculo} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.vinculo} axisLabel="Contratacao" />
+            <DistributionChart title="Por nivel" data={distributionData.byNivel} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.level} axisLabel="Nivel" />
+            <DistributionChart title="Por local de atuacao" data={distributionData.byLocal} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.local} axisLabel="Local" />
+            <DistributionChart title="Por tempo de casa" data={distributionData.byTenure} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.tenure} axisLabel="Tempo de casa" />
           </div>
         </TabsContent>
 
-        <TabsContent value="lifecycle" className="space-y-4">
-          <Card>
+        <TabsContent value="lifecycle" className={tabPanelClass}>
+          <Card className={chartCardClass}>
             <CardHeader>
-              <CardTitle className="text-base">Curva de turnover - ultimos 12 meses</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-base">Curva de turnover - ultimos 12 meses</CardTitle>
+                <Badge variant="secondary">Pessoas x Turnover</Badge>
+              </div>
             </CardHeader>
             <CardContent className="h-[340px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={turnoverData} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
+                <LineChart data={turnoverData} margin={{ top: 10, right: 34, left: 18, bottom: 28 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="mes" tickLine={false} axisLine={false} />
-                  <YAxis yAxisId="left" tickLine={false} axisLine={false} allowDecimals={false} />
-                  <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
+                  <XAxis dataKey="mes" tickLine={false} axisLine={false} interval={0} tick={{ fontSize: 11 }}>
+                    <Label value="Mes" offset={-16} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                  </XAxis>
+                  <YAxis yAxisId="left" tickLine={false} axisLine={false} allowDecimals={false}>
+                    <Label value="Pessoas" angle={-90} position="insideLeft" className="fill-muted-foreground text-[11px]" />
+                  </YAxis>
+                  <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`}>
+                    <Label value="Turnover %" angle={90} position="insideRight" className="fill-muted-foreground text-[11px]" />
+                  </YAxis>
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       name === 'turnover' ? `${value.toFixed(1)}%` : formatPeople(value),
@@ -441,17 +580,17 @@ export default function HRDashboardPage() {
                     ]}
                   />
                   <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="entradas" name="Entradas" stroke="#22c55e" strokeWidth={2} dot={false} />
-                  <Line yAxisId="left" type="monotone" dataKey="saidas" name="Saidas" stroke="#ef4444" strokeWidth={2} dot={false} />
-                  <Line yAxisId="right" type="monotone" dataKey="turnover" name="Turnover" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                  <Line yAxisId="left" type="monotone" dataKey="entradas" name="Entradas" stroke="#22c55e" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line yAxisId="left" type="monotone" dataKey="saidas" name="Saidas" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="turnover" name="Turnover" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <DistributionChart title="Concentracao por tempo de casa" data={distributionData.byTenure} mode="quantity" canViewValues={canViewHRCosts} />
-            <DistributionChart title="Custo por tempo de casa" data={distributionData.byTenure} mode={canViewHRCosts ? 'cost' : 'quantity'} canViewValues={canViewHRCosts} />
+            <DistributionChart title="Concentracao por tempo de casa" data={distributionData.byTenure} mode="quantity" canViewValues={canViewHRCosts} palette={distributionPalettes.tenure} axisLabel="Tempo de casa" />
+            <DistributionChart title="Custo por tempo de casa" data={distributionData.byTenure} mode={canViewHRCosts ? 'cost' : 'quantity'} canViewValues={canViewHRCosts} palette={distributionPalettes.tenure} axisLabel="Tempo de casa" />
           </div>
         </TabsContent>
       </Tabs>
