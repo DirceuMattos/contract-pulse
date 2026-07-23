@@ -61,6 +61,13 @@ type SupportCostsSyncResponse = {
   count?: number;
   records?: SupportCostRecord[];
   error?: string;
+  diagnostics?: {
+    rowsDetected?: number;
+    rowsWithoutHours?: number;
+    recordsDetected?: number;
+    sampleKeys?: string[][];
+    rawShape?: unknown;
+  };
 };
 
 function currentMonthRange() {
@@ -97,6 +104,21 @@ function getFunctionErrorMessage(error: unknown) {
     return 'Não foi possível chamar a Edge Function support-costs-sync. Verifique se ela já foi deployada no Supabase/Lovable.';
   }
   return raw || 'Erro ao sincronizar Milvus.';
+}
+
+function getZeroImportDiagnosticMessage(payload: SupportCostsSyncResponse) {
+  const diagnostics = payload.diagnostics;
+  if (!diagnostics) {
+    return '0 registros importados. A função respondeu, mas não retornou diagnóstico. Verifique os logs da Edge Function.';
+  }
+
+  const firstKeys = diagnostics.sampleKeys?.[0]?.join(', ') || 'nenhuma chave detectada';
+  return [
+    '0 registros importados.',
+    `Linhas brutas detectadas: ${diagnostics.rowsDetected ?? 0}.`,
+    `Linhas sem horas reconhecidas: ${diagnostics.rowsWithoutHours ?? 0}.`,
+    `Campos do primeiro item: ${firstKeys}.`,
+  ].join(' ');
 }
 
 function KpiCard({
@@ -335,7 +357,12 @@ export default function SupportCostsPage() {
 
       setRecords(payload.records || []);
       setLastSyncAt(new Date().toISOString());
-      toast.success(`${payload.records?.length || 0} registro(s) de horas importado(s).`);
+      const importedCount = payload.records?.length || 0;
+      if (importedCount === 0) {
+        toast.warning(getZeroImportDiagnosticMessage(payload), { duration: 12000 });
+      } else {
+        toast.success(`${importedCount} registro(s) de horas importado(s).`);
+      }
     } catch (error) {
       toast.error(getFunctionErrorMessage(error));
     } finally {

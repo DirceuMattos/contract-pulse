@@ -254,7 +254,6 @@ function describeShape(value: unknown, depth = 0): unknown {
     return {
       type: "string",
       length: trimmed.length,
-      preview: trimmed.slice(0, 160),
     };
   }
   return { type: typeof value };
@@ -351,6 +350,7 @@ serve(async (req) => {
         rowsDetected: rows.length,
         recordsDetected: records.length,
       },
+      diagnostics: records.length === 0 ? diagnostics : undefined,
     }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
