@@ -7,7 +7,7 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-duration-date-v5";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-monthly-sync-v6";
 
 type AttendanceRecord = {
   id: string;
@@ -17,6 +17,12 @@ type AttendanceRecord = {
   hours: number;
   date?: string;
   raw: Record<string, unknown>;
+};
+
+type MonthRange = {
+  label: string;
+  from: string;
+  to: string;
 };
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
@@ -98,6 +104,26 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
   return json.result;
 }
 
+async function callAttendanceReport(token: string, range: MonthRange): Promise<unknown> {
+  const baseParams = {
+    date_from: range.from,
+    date_to: range.to,
+  };
+
+  try {
+    return await callMcp(DEVID_URL, token, "milvus_get_attendance_report", {
+      ...baseParams,
+      limit: 1000,
+      page_size: 1000,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/limit|page_size|argument|schema|invalid|unknown|unexpected/i.test(message)) throw error;
+    console.warn(`[support-costs-sync] Retentando ${range.label} sem parametros de limite: ${message}`);
+    return await callMcp(DEVID_URL, token, "milvus_get_attendance_report", baseParams);
+  }
+}
+
 function firstString(record: Record<string, unknown>, keys: string[], fallback = "Nao informado"): string {
   for (const key of keys) {
     const value = record[key];
@@ -143,6 +169,45 @@ function formatDateParts(year: number, month: number, day: number): string | nul
   const date = new Date(year, month - 1, day);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function parseIsoDate(value: string): Date | null {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!formatDateParts(year, month, day)) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function formatIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildMonthRanges(dateFrom: string, dateTo: string): MonthRange[] {
+  const startDate = parseIsoDate(dateFrom);
+  const endDate = parseIsoDate(dateTo);
+  if (!startDate || !endDate || startDate > endDate) return [];
+
+  const ranges: MonthRange[] = [];
+  let cursor = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
+
+  while (cursor <= endDate) {
+    const monthStart = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), 1));
+    const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0));
+    const rangeStart = monthStart < startDate ? startDate : monthStart;
+    const rangeEnd = monthEnd > endDate ? endDate : monthEnd;
+    ranges.push({
+      label: `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`,
+      from: formatIsoDate(rangeStart),
+      to: formatIsoDate(rangeEnd),
+    });
+    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+  }
+
+  return ranges;
 }
 
 function parseDateOnly(value: string | undefined): string | null {
@@ -413,24 +478,56 @@ serve(async (req) => {
     );
     const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
 
-    const rawResult = await callMcp(DEVID_URL, devidToken.replace(/^Bearer\s+/i, ""), "milvus_get_attendance_report", {
-      date_from: dateFrom,
-      date_to: dateTo,
-    });
+    const monthRanges = buildMonthRanges(dateFrom, dateTo);
+    if (monthRanges.length === 0) throw new Error("Periodo invalido");
 
-    const rows = unwrapRows(rawResult);
-    const normalized = rows.map(normalizeRecord);
+    const rows: Record<string, unknown>[] = [];
+    const normalized: AttendanceRecord[] = [];
+    const monthRecords: AttendanceRecord[] = [];
+    const monthDiagnostics: Array<Record<string, unknown>> = [];
+
+    const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
+
+    for (const range of monthRanges) {
+      const rawResult = await callAttendanceReport(cleanDevidToken, range);
+      const monthRows = unwrapRows(rawResult);
+      const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
+      const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
+      const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
+
+      rows.push(...monthRows);
+      normalized.push(...monthNormalized);
+      monthRecords.push(...monthKeptRecords);
+      monthDiagnostics.push({
+        month: range.label,
+        dateFrom: range.from,
+        dateTo: range.to,
+        rowsDetected: monthRows.length,
+        recordsWithHours: monthRecordsWithHours.length,
+        recordsWithoutRecognizedDate: monthRecordsWithHours.filter((record) => !parseDateOnly(record.date)).length,
+        recordsOutsidePeriod: monthRecordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, range.from, range.to)).length,
+        recordsDetected: monthKeptRecords.length,
+        totalHours: Number(monthKeptRecords.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
+      });
+    }
+
     const recordsWithHours = normalized.filter((record) => record.hours > 0);
     const recordsWithoutRecognizedDate = recordsWithHours.filter((record) => !parseDateOnly(record.date)).length;
     const recordsOutsidePeriod = recordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo)).length;
     const seen = new Set<string>();
-    const records = recordsWithHours
-      .filter((record) => shouldKeepRecordForRequestedPeriod(record, dateFrom, dateTo))
+    const records = monthRecords
       .filter((record) => {
-        const key = `${record.id}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours}`;
+        const key = `${record.id}|${record.date ?? ""}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours.toFixed(6)}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
+      })
+      .sort((left, right) => {
+        const leftDate = parseDateOnly(left.date) ?? "";
+        const rightDate = parseDateOnly(right.date) ?? "";
+        return leftDate.localeCompare(rightDate)
+          || left.clientName.localeCompare(right.clientName)
+          || left.projectName.localeCompare(right.projectName);
       });
 
     const diagnostics = {
@@ -441,12 +538,21 @@ serve(async (req) => {
         hasClientFilter: false,
         hasProjectFilter: false,
       },
-      rawShape: describeShape(rawResult),
+      rawShape: {
+        type: "monthly",
+        months: monthRanges.length,
+        rowsDetected: rows.length,
+        recordsDetected: records.length,
+      },
       ...diagnosticsForRows(rows, normalized),
       recordsWithHours: recordsWithHours.length,
       recordsWithoutRecognizedDate,
       recordsOutsidePeriod,
       recordsDetected: records.length,
+      monthRanges,
+      monthDiagnostics,
+      duplicatedRecordsRemoved: monthRecords.length - records.length,
+      totalHours: Number(records.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
     };
     console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
 
@@ -456,7 +562,8 @@ serve(async (req) => {
       count: records.length,
       records,
       rawShape: {
-        type: Array.isArray(rawResult) ? "array" : typeof rawResult,
+        type: "monthly",
+        months: monthRanges.length,
         rowsDetected: rows.length,
         recordsDetected: records.length,
       },
