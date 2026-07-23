@@ -132,10 +132,27 @@ function dateToMonth(date: string) {
   return date.slice(0, 7);
 }
 
-function formatMonthYear(month: string) {
-  const [year, monthValue] = month.split('-');
-  const label = MONTH_OPTIONS.find((option) => option.value === monthValue)?.label || monthValue;
-  return `${label}/${year}`;
+function parseRecordDate(value: string | undefined): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const brMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2].padStart(2, '0')}-${brMatch[1].padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
+}
+
+function isRecordInSelectedPeriod(record: SupportCostRecord, dateFrom: string, dateTo: string) {
+  const recordDate = parseRecordDate(record.date);
+  return Boolean(recordDate && recordDate >= dateFrom && recordDate <= dateTo);
 }
 
 function normalizeText(value: string | undefined) {
@@ -470,24 +487,6 @@ export default function SupportCostsPage() {
   const selectedContract = contracts.find((contract) => contract.id === contractId);
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
-  const periodOptions = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const periods: string[] = [];
-    for (let year = currentYear + 1; year >= currentYear - 8; year--) {
-      for (let month = 12; month >= 1; month--) {
-        periods.push(`${year}-${String(month).padStart(2, '0')}`);
-      }
-    }
-
-    for (const selectedMonth of [monthFrom, monthTo]) {
-      if (selectedMonth && !periods.includes(selectedMonth)) periods.push(selectedMonth);
-    }
-
-    return periods
-      .filter(Boolean)
-      .sort((a, b) => b.localeCompare(a))
-      .map((period) => ({ value: period, label: formatMonthYear(period) }));
-  }, [monthFrom, monthTo]);
 
   const analystOptions = useMemo(() => {
     const names = new Set(records.map((record) => record.analystName).filter(Boolean));
@@ -524,6 +523,7 @@ export default function SupportCostsPage() {
 
   const filteredRecords = useMemo(() => {
     return enrichedRecords.filter((record) => {
+      if (!isRecordInSelectedPeriod(record, dateFrom, dateTo)) return false;
       if (clientId !== 'all') {
         const matchesSelectedClient = record.matchedClient?.id === clientId
           || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
@@ -534,7 +534,7 @@ export default function SupportCostsPage() {
       if (analystName !== 'all' && record.analystName !== analystName) return false;
       return true;
     });
-  }, [analystName, clientId, contractId, enrichedRecords, selectedClient]);
+  }, [analystName, clientId, contractId, dateFrom, dateTo, enrichedRecords, selectedClient]);
 
   const totals = useMemo(() => {
     const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
@@ -680,10 +680,12 @@ export default function SupportCostsPage() {
 
   const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!dateFrom || !dateTo) {
+      setRecords([]);
       if (!silent) toast.error('Informe inicio e fim do periodo.');
       return;
     }
     if (dateFrom > dateTo) {
+      setRecords([]);
       if (!silent) toast.error('O mes inicial deve ser anterior ou igual ao mes final.');
       return;
     }
@@ -691,6 +693,7 @@ export default function SupportCostsPage() {
     const requestId = syncRequestRef.current + 1;
     syncRequestRef.current = requestId;
     setLoadingSync(true);
+    setRecords([]);
     try {
       const { data, error } = await supabase.functions.invoke('support-costs-sync', {
         body: {
@@ -715,6 +718,7 @@ export default function SupportCostsPage() {
         toast.success(importedCount + ' registro(s) de horas importado(s).');
       }
     } catch (error) {
+      if (requestId === syncRequestRef.current) setRecords([]);
       if (!silent) toast.error(getFunctionErrorMessage(error));
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
@@ -826,27 +830,21 @@ export default function SupportCostsPage() {
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Mes/ano inicial</span>
-            <select
+            <input
+              type="month"
               value={monthFrom}
               onChange={(event) => handleMonthFromChange(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {periodOptions.map((period) => (
-                <option key={period.value} value={period.value}>{period.label}</option>
-              ))}
-            </select>
+            />
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Mes/ano final</span>
-            <select
+            <input
+              type="month"
               value={monthTo}
               onChange={(event) => handleMonthToChange(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {periodOptions.map((period) => (
-                <option key={period.value} value={period.value}>{period.label}</option>
-              ))}
-            </select>
+            />
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Cliente</span>
