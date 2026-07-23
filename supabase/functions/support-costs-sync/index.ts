@@ -8,9 +8,10 @@ const CORS = {
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-direct-milvus-v8";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-recursive-milvus-v9";
 const MILVUS_PAGE_SIZE = 50;
-const MILVUS_MAX_PAGES = 80;
+const MILVUS_MAX_SLICES = 160;
+const MILVUS_SLICE_FIELDS = ["tecnico", "prioridade", "categoria_primaria", "categoria_secundaria"] as const;
 
 type AttendanceRecord = {
   id: string;
@@ -31,6 +32,7 @@ type MonthRange = {
 type AttendanceReportResult = {
   source: "milvus-direct" | "devid-mcp";
   rawResult: unknown;
+  diagnostics?: Record<string, unknown>;
 };
 
 type SyncRequest = {
@@ -132,22 +134,46 @@ function getStableRowKey(row: Record<string, unknown>, fallback: string): string
   return firstString(row, ["id", "codigo", "ticket", "ticket_id", "chamado", "numero", "protocolo"], fallback);
 }
 
-async function fetchDirectMilvusPage(token: string, filtroBody: Record<string, unknown>, page: number, strategy: "none" | "pagina" | "page" | "offset"): Promise<unknown> {
+function getMilvusMetaTotal(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  const meta = obj.meta as Record<string, unknown> | undefined;
+  const paginate = meta?.paginate as Record<string, unknown> | undefined;
+  for (const value of [paginate?.total, meta?.total, obj.total]) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/[^\d]/g, ""));
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function compactToken(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+function getMilvusClientTerms(clientName?: string): string[] {
+  if (!clientName?.trim()) return [];
+  const clean = clientName.trim();
+  const words = clean.split(/[\s\-_/.,]+/).map((word) => word.trim()).filter((word) => word.length >= 3);
+  const terms = [clean, words.slice(0, 2).join(" "), words[0], compactToken(clean)]
+    .filter((term) => term && term.length >= 3);
+  return Array.from(new Set(terms));
+}
+
+async function fetchDirectMilvusSlice(token: string, filtroBody: Record<string, unknown>): Promise<unknown> {
   const body: Record<string, unknown> = {
-    total_registros: 10000,
+    page: 1,
+    per_page: MILVUS_PAGE_SIZE,
+    order_by: "codigo",
+    descending: true,
     filtro_body: filtroBody,
   };
-
-  if (strategy === "pagina") {
-    body.pagina = page;
-    body.registros_por_pagina = MILVUS_PAGE_SIZE;
-  } else if (strategy === "page") {
-    body.page = page;
-    body.page_size = MILVUS_PAGE_SIZE;
-  } else if (strategy === "offset") {
-    body.limit = MILVUS_PAGE_SIZE;
-    body.offset = (page - 1) * MILVUS_PAGE_SIZE;
-  }
 
   const milvusRes = await fetch(MILVUS_URL, {
     method: "POST",
@@ -166,55 +192,116 @@ async function fetchDirectMilvusPage(token: string, filtroBody: Record<string, u
   return await milvusRes.json();
 }
 
-async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string): Promise<unknown> {
+function getSliceValues(rows: Record<string, unknown>[], field: typeof MILVUS_SLICE_FIELDS[number]): string[] {
+  const values = new Set<string>();
+  for (const row of rows) {
+    const value = row[field];
+    if (typeof value === "string" && value.trim()) values.add(value.trim());
+    if (typeof value === "number" && Number.isFinite(value)) values.add(String(value));
+  }
+  return Array.from(values).slice(0, 30);
+}
+
+function getOldestParsedDate(rows: Record<string, unknown>[]): string | null {
+  const dates = rows
+    .map((row) => normalizeRecord(row, "date-check").date)
+    .map((date) => parseDateOnly(date))
+    .filter((date): date is string => Boolean(date))
+    .sort();
+  return dates[0] ?? null;
+}
+
+function buildSliceKey(filter: Record<string, unknown>): string {
+  return JSON.stringify(Object.keys(filter).sort().map((key) => [key, filter[key]]));
+}
+
+async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string): Promise<{ lista: Record<string, unknown>[]; extractionDiagnostics: Record<string, unknown> }> {
   const filtroBody: Record<string, unknown> = {
-    data_hora_criacao_inicial: `${range.from} 00:00:00`,
-    data_hora_criacao_final: `${range.to} 23:59:59`,
     status: "Todos",
   };
-  if (clientName?.trim()) filtroBody.cliente = clientName.trim();
+  const clientTerms = getMilvusClientTerms(clientName);
+  if (clientTerms[0]) filtroBody.cliente = clientTerms[0];
 
-  const firstPayload = await fetchDirectMilvusPage(token, filtroBody, 1, "none");
-  const firstRows = getRowsFromMilvusPayload(firstPayload);
-  if (firstRows.length < MILVUS_PAGE_SIZE) return firstPayload;
+  if (clientTerms.length === 0) {
+    const payload = await fetchDirectMilvusSlice(token, filtroBody);
+    const rows = getRowsFromMilvusPayload(payload);
+    return {
+      lista: rows,
+      extractionDiagnostics: {
+        mode: "unfiltered-sample",
+        reason: "cliente nao selecionado",
+        rowsCollected: rows.length,
+        metaTotal: getMilvusMetaTotal(payload),
+      },
+    };
+  }
 
-  const bestRows = [...firstRows];
-  let bestStrategy: "pagina" | "page" | "offset" | null = null;
-  const firstKeys = new Set(firstRows.map((row, index) => getStableRowKey(row, `first-${index}`)));
+  const collected = new Map<string, Record<string, unknown>>();
+  const visited = new Set<string>();
+  const queue: Array<{ filter: Record<string, unknown>; depth: number }> = [{ filter: filtroBody, depth: 0 }];
+  const sliceDiagnostics: Array<Record<string, unknown>> = [];
 
-  for (const strategy of ["pagina", "page", "offset"] as const) {
-    const secondPayload = await fetchDirectMilvusPage(token, filtroBody, 2, strategy);
-    const secondRows = getRowsFromMilvusPayload(secondPayload);
-    const newRows = secondRows.filter((row, index) => !firstKeys.has(getStableRowKey(row, `${strategy}-2-${index}`)));
-    if (newRows.length > 0) {
-      bestStrategy = strategy;
-      bestRows.push(...newRows);
-      break;
+  while (queue.length > 0 && visited.size < MILVUS_MAX_SLICES) {
+    const current = queue.shift()!;
+    const sliceKey = buildSliceKey(current.filter);
+    if (visited.has(sliceKey)) continue;
+    visited.add(sliceKey);
+
+    const payload = await fetchDirectMilvusSlice(token, current.filter);
+    const rows = getRowsFromMilvusPayload(payload);
+    const metaTotal = getMilvusMetaTotal(payload);
+    const oldestDate = getOldestParsedDate(rows);
+    const isComplete = rows.length < MILVUS_PAGE_SIZE
+      || (metaTotal !== null && metaTotal <= MILVUS_PAGE_SIZE)
+      || Boolean(oldestDate && oldestDate < range.from);
+
+    for (const row of rows) {
+      const key = getStableRowKey(row, `slice-${visited.size}-${collected.size}`);
+      collected.set(key, row);
+    }
+
+    sliceDiagnostics.push({
+      filter: current.filter,
+      depth: current.depth,
+      rows: rows.length,
+      metaTotal,
+      oldestDate,
+      complete: isComplete,
+    });
+
+    if (isComplete || current.depth >= MILVUS_SLICE_FIELDS.length) continue;
+
+    const field = MILVUS_SLICE_FIELDS[current.depth];
+    const values = getSliceValues(rows, field);
+    for (const value of values) {
+      queue.push({
+        filter: { ...current.filter, [field]: value },
+        depth: current.depth + 1,
+      });
     }
   }
 
-  if (!bestStrategy) return firstPayload;
-
-  const seen = new Set(bestRows.map((row, index) => getStableRowKey(row, `seed-${index}`)));
-  for (let page = 3; page <= MILVUS_MAX_PAGES; page += 1) {
-    const payload = await fetchDirectMilvusPage(token, filtroBody, page, bestStrategy);
-    const rows = getRowsFromMilvusPayload(payload);
-    const newRows = rows.filter((row, index) => {
-      const key = getStableRowKey(row, `${bestStrategy}-${page}-${index}`);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    if (newRows.length === 0) break;
-    bestRows.push(...newRows);
-    if (rows.length < MILVUS_PAGE_SIZE) break;
+  let rows = Array.from(collected.values());
+  if (clientTerms.length > 1 && rows.length < MILVUS_PAGE_SIZE) {
+    for (const term of clientTerms.slice(1)) {
+      const payload = await fetchDirectMilvusSlice(token, { ...filtroBody, cliente: term });
+      for (const row of getRowsFromMilvusPayload(payload)) {
+        const key = getStableRowKey(row, `client-term-${term}-${collected.size}`);
+        collected.set(key, row);
+      }
+    }
+    rows = Array.from(collected.values());
   }
 
   return {
-    ...(firstPayload && typeof firstPayload === "object" && !Array.isArray(firstPayload) ? firstPayload as Record<string, unknown> : {}),
-    lista: bestRows,
-    paginationStrategy: bestStrategy,
-    pagesMerged: Math.ceil(bestRows.length / MILVUS_PAGE_SIZE),
+    lista: rows,
+    extractionDiagnostics: {
+      clientTerms,
+      slicesVisited: visited.size,
+      slicesLimited: visited.size >= MILVUS_MAX_SLICES,
+      rowsCollected: rows.length,
+      sampleSlices: sliceDiagnostics.slice(0, 12),
+    },
   };
 }
 
@@ -434,7 +521,7 @@ function isRecordInPeriod(record: AttendanceRecord, dateFrom: string, dateTo: st
 
 function shouldKeepRecordForRequestedPeriod(record: AttendanceRecord, dateFrom: string, dateTo: string): boolean {
   const date = parseDateOnly(record.date);
-  if (!date) return true;
+  if (!date) return false;
   return date >= dateFrom && date <= dateTo;
 }
 
@@ -524,7 +611,7 @@ function tryParseJsonText(text: string): unknown | null {
 }
 
 function looksLikeAttendanceRow(record: Record<string, unknown>): boolean {
-  return detectHours(record) > 0 || [
+  return [
     "cliente",
     "client",
     "clientName",
@@ -716,6 +803,7 @@ serve(async (req) => {
 
     const monthRanges = buildMonthRanges(dateFrom, dateTo);
     if (monthRanges.length === 0) throw new Error("Periodo invalido");
+    const syncRanges: MonthRange[] = [{ label: `${dateFrom}_${dateTo}`, from: dateFrom, to: dateTo }];
 
     const rows: Record<string, unknown>[] = [];
     const normalized: AttendanceRecord[] = [];
@@ -724,7 +812,7 @@ serve(async (req) => {
 
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
-    const monthResults = await Promise.all(monthRanges.map(async (range) => {
+    const monthResults = await Promise.all(syncRanges.map(async (range) => {
       const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName);
       const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
@@ -743,6 +831,7 @@ serve(async (req) => {
         source,
         paginationStrategy: rawObject.paginationStrategy ?? null,
         pagesMerged: rawObject.pagesMerged ?? null,
+        extraction: rawObject.extractionDiagnostics ?? null,
         dateFrom: range.from,
         dateTo: range.to,
         rowsDetected: monthRows.length,
