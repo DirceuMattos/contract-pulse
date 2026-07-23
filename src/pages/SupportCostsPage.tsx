@@ -197,10 +197,42 @@ function normalizeText(value: string | undefined) {
     .trim();
 }
 
+function compactText(value: string | undefined) {
+  return normalizeText(value).replace(/[^a-z0-9]/g, '');
+}
+
 function isStrongNameMatch(leftValue: string | undefined, rightValue: string | undefined) {
   const left = normalizeText(leftValue);
   const right = normalizeText(rightValue);
-  return Boolean(left && right && left === right);
+  const compactLeft = compactText(leftValue);
+  const compactRight = compactText(rightValue);
+  return Boolean(
+    left
+    && right
+    && (
+      left === right
+      || (compactLeft.length >= 4 && compactRight.length >= 4 && compactLeft === compactRight)
+    ),
+  );
+}
+
+function isContainedNameMatch(leftValue: string | undefined, rightValue: string | undefined) {
+  const left = normalizeText(leftValue);
+  const right = normalizeText(rightValue);
+  const compactLeft = compactText(leftValue);
+  const compactRight = compactText(rightValue);
+  return Boolean(
+    left
+    && right
+    && (
+      left.includes(right)
+      || right.includes(left)
+      || (compactLeft.length >= 4 && compactRight.length >= 4 && (
+        compactLeft.includes(compactRight)
+        || compactRight.includes(compactLeft)
+      ))
+    ),
+  );
 }
 
 function formatHours(value: number) {
@@ -820,12 +852,7 @@ export default function SupportCostsPage() {
       if (selectedMilvusClientName && !isStrongNameMatch(record.clientName, selectedMilvusClientName)) continue;
       if (clientId !== 'all' && !selectedMilvusClientName) {
         const matchedContract = contracts.find((contract) => {
-          const milvusProject = normalizeText(record.projectName);
-          return milvusProject
-            && (
-              normalizeText(contract.nome).includes(milvusProject)
-              || milvusProject.includes(normalizeText(contract.nome))
-            );
+          return isContainedNameMatch(record.projectName, contract.nome);
         });
         const matchesHubClient = matchedContract?.clientId === clientId
           || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
@@ -833,12 +860,7 @@ export default function SupportCostsPage() {
         if (!matchesHubClient) continue;
       }
       const alreadyMapped = contracts.some((contract) => {
-        const milvusProject = normalizeText(record.projectName);
-        return milvusProject
-          && (
-            normalizeText(contract.nome).includes(milvusProject)
-            || milvusProject.includes(normalizeText(contract.nome))
-          );
+        return isContainedNameMatch(record.projectName, contract.nome);
       });
       if (!alreadyMapped) milvusProjects.add(record.projectName);
     }
@@ -898,12 +920,7 @@ export default function SupportCostsPage() {
       });
 
       const matchedContract = contracts.find((contract) => {
-        const milvusProject = normalizeText(record.projectName);
-        return milvusProject
-          && (
-            normalizeText(contract.nome).includes(milvusProject)
-            || milvusProject.includes(normalizeText(contract.nome))
-          );
+        return isContainedNameMatch(record.projectName, contract.nome);
       });
 
       const technicianCost = getTechnicianCost(record.analystName);
