@@ -937,7 +937,7 @@ export default function SupportCostsPage() {
             <Badge variant="outline">{periodLabel}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-10">
           <label className="space-y-1 xl:col-span-2">
             <span className="text-xs font-medium text-muted-foreground">Mes/ano inicial</span>
             <input
@@ -989,12 +989,12 @@ export default function SupportCostsPage() {
               searchPlaceholder="Buscar responsavel..."
             />
           </label>
-          <div className="flex items-end gap-2 xl:col-span-2">
-            <Button type="button" variant="outline" className="shrink-0" onClick={clearFilters}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2 xl:col-span-10">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={clearFilters}>
               <RotateCcw className="mr-2 h-4 w-4" />
               Limpar
             </Button>
-            <Button type="button" variant="default" className="min-w-0 flex-1 whitespace-nowrap" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
+            <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
               {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
             </Button>
