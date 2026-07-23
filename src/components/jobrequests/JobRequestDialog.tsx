@@ -124,7 +124,7 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
     try {
       const perfil = perfilId !== SEM_PERFIL ? profiles.find((x) => x.id === perfilId) : null;
       // Resolve ids (persiste skills novas) e monta o snapshot para skills_avulsas.
-      const finalIds = await resolveSkillIds(supabase, selectedSkillIds, localSkills);
+      const finalIds = await resolveSkillIds(supabase as any, selectedSkillIds, localSkills);
       const pool = [...allSkills, ...localSkills];
       const skillsSnapshot = finalIds.length > 0
         ? finalIds.map((id) => {
