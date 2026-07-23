@@ -7,7 +7,7 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-us-date-filter-v4";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-duration-date-v5";
 
 type AttendanceRecord = {
   id: string;
@@ -112,12 +112,30 @@ function firstNumber(record: Record<string, unknown>, keys: string[]): number {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string") {
-      const normalized = value.replace(",", ".").replace(/[^\d.-]/g, "");
+      const duration = parseDurationHours(value);
+      if (duration !== null) return duration;
+
+      const normalized = value
+        .trim()
+        .replace(/\.(?=\d{3}(\D|$))/g, "")
+        .replace(",", ".")
+        .replace(/[^\d.-]/g, "");
       const parsed = Number(normalized);
       if (Number.isFinite(parsed)) return parsed;
     }
   }
   return 0;
+}
+
+function parseDurationHours(value: string): number | null {
+  const match = value.trim().match(/^(\d+):([0-5]?\d)(?::([0-5]?\d))?$/);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3] ?? 0);
+  if (![hours, minutes, seconds].every(Number.isFinite)) return null;
+  return hours + minutes / 60 + seconds / 3600;
 }
 
 function formatDateParts(year: number, month: number, day: number): string | null {
@@ -312,6 +330,7 @@ function describeShape(value: unknown, depth = 0): unknown {
 
 function diagnosticsForRows(rows: Record<string, unknown>[], normalized: AttendanceRecord[]) {
   const sampleRows = rows.slice(0, 3);
+  const sampleRecords = normalized.slice(0, 3);
   const rowsWithoutHours = normalized.filter((record) => record.hours <= 0).length;
 
   return {
@@ -330,6 +349,23 @@ function diagnosticsForRows(rows: Record<string, unknown>[], normalized: Attenda
       horas_externas: row.horas_externas,
       minutos: row.minutos,
       minutes: row.minutes,
+    })),
+    sampleDateValues: sampleRows.map((row, index) => ({
+      data_inicial: row.data_inicial,
+      data_final: row.data_final,
+      data_criacao: row.data_criacao,
+      data_solucao: row.data_solucao,
+      created_at: row.created_at,
+      normalizedDate: sampleRecords[index]?.date,
+      parsedDate: parseDateOnly(sampleRecords[index]?.date),
+    })),
+    sampleNormalizedRecords: sampleRecords.map((record) => ({
+      clientName: record.clientName,
+      projectName: record.projectName,
+      analystName: record.analystName,
+      hours: record.hours,
+      date: record.date,
+      parsedDate: parseDateOnly(record.date),
     })),
   };
 }
@@ -398,6 +434,7 @@ serve(async (req) => {
       });
 
     const diagnostics = {
+      functionVersion: FUNCTION_VERSION,
       request: {
         dateFrom,
         dateTo,
