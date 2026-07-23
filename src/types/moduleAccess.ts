@@ -44,7 +44,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'AI_LOGS', label: 'IA Logs', description: 'Fontes e logs das análises de IA', routes: ['/ai/logs'], isSubmodule: true, parentModule: 'AI', roleRestrictions: ['c-level'] },
   { key: 'RECEIVABLES', label: 'Recebíveis', description: 'Posição de pagamentos e inadimplência por contrato', routes: ['/receivables', '/receivables/reconcile'], roleRestrictions: [] },
   { key: 'REPORTS', label: 'Relatórios Mensais', description: 'Relatórios mensais de atividades por contrato', routes: ['/relatorios', '/relatorios/:reportId', '/relatorios/config/:contractId'], roleRestrictions: ['c-level', 'superadmin', 'lider_tribo', 'administrativo', 'coordenacao_suporte', 'projetos_produtos'] },
-  { key: 'SUPPORT_COSTS', label: 'Custos do Suporte', description: 'Custos de atendimento de suporte por cliente e projeto', routes: ['/custos-suporte'], roleRestrictions: ['superadmin', 'c-level', 'rh', 'administrativo', 'lider_tribo'] },
+  { key: 'SUPPORT_COSTS', label: 'Custos do Suporte a Sistemas', description: 'Custos de atendimento de suporte a sistemas por cliente e projeto', routes: ['/custos-suporte'], roleRestrictions: ['superadmin', 'c-level', 'rh', 'administrativo', 'lider_tribo'] },
   { key: 'OVERTIME', label: 'Adm Horas Extras', description: 'Administração de horas extras', routes: ['/horas-extras'], roleRestrictions: [] },
   { key: 'TRANSPORT', label: 'Adm Transportes', description: 'Administração de transportes', routes: ['/transportes'], roleRestrictions: [] },
   { key: 'JOB_REQUESTS', label: 'Requisição de Vagas', description: 'Abertura e acompanhamento de vagas', routes: ['/requisicao-vagas'], roleRestrictions: [] },

@@ -84,7 +84,7 @@ const navGroups: NavGroup[] = [
       { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
       { path: '/receivables', label: 'Recebíveis', icon: Receipt, moduleKey: 'RECEIVABLES' },
       { path: '/relatorios', label: 'Relatórios Mensais', icon: FileBarChart2, moduleKey: 'REPORTS' },
-      { path: '/custos-suporte', label: 'Custos do Suporte', icon: CircleDollarSign, moduleKey: 'SUPPORT_COSTS' },
+      { path: '/custos-suporte', label: 'Custos do Suporte a Sistemas', icon: CircleDollarSign, moduleKey: 'SUPPORT_COSTS' },
       { path: '/calculadora', label: 'Simulador de Contratos', icon: Calculator, moduleKey: 'CALCULATOR' },
     ],
   },
