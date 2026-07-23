@@ -7,7 +7,7 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-diagnostics-v2";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-period-filter-v3";
 
 type AttendanceRecord = {
   id: string;
@@ -143,6 +143,12 @@ function parseDateOnly(value: string | undefined): string | null {
 function isRecordInPeriod(record: AttendanceRecord, dateFrom: string, dateTo: string): boolean {
   const date = parseDateOnly(record.date);
   if (!date) return false;
+  return date >= dateFrom && date <= dateTo;
+}
+
+function shouldKeepRecordForRequestedPeriod(record: AttendanceRecord, dateFrom: string, dateTo: string): boolean {
+  const date = parseDateOnly(record.date);
+  if (!date) return true;
   return date >= dateFrom && date <= dateTo;
 }
 
@@ -349,7 +355,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { dateFrom, dateTo, clientName, projectName } = await req.json();
+    const { dateFrom, dateTo } = await req.json();
     if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
 
     const supabase = createClient(
@@ -361,8 +367,6 @@ serve(async (req) => {
     const rawResult = await callMcp(DEVID_URL, devidToken.replace(/^Bearer\s+/i, ""), "milvus_get_attendance_report", {
       date_from: dateFrom,
       date_to: dateTo,
-      client: clientName || undefined,
-      project: projectName || undefined,
     });
 
     const rows = unwrapRows(rawResult);
@@ -372,7 +376,7 @@ serve(async (req) => {
     const recordsOutsidePeriod = recordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo)).length;
     const seen = new Set<string>();
     const records = recordsWithHours
-      .filter((record) => isRecordInPeriod(record, dateFrom, dateTo))
+      .filter((record) => shouldKeepRecordForRequestedPeriod(record, dateFrom, dateTo))
       .filter((record) => {
         const key = `${record.id}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours}`;
         if (seen.has(key)) return false;
@@ -384,8 +388,8 @@ serve(async (req) => {
       request: {
         dateFrom,
         dateTo,
-        hasClientFilter: Boolean(clientName),
-        hasProjectFilter: Boolean(projectName),
+        hasClientFilter: false,
+        hasProjectFilter: false,
       },
       rawShape: describeShape(rawResult),
       ...diagnosticsForRows(rows, normalized),
