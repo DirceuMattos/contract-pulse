@@ -31,6 +31,12 @@ type AttendanceReportResult = {
   rawResult: unknown;
 };
 
+type SyncRequest = {
+  dateFrom: string;
+  dateTo: string;
+  clientName?: string;
+};
+
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
   const { data, error } = await supabase.rpc("get_vault_secret", { secret_name: name });
   if (error || !data) {
@@ -110,7 +116,14 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
   return json.result;
 }
 
-async function callDirectMilvusAttendanceReport(token: string, range: MonthRange): Promise<unknown> {
+async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string): Promise<unknown> {
+  const filtroBody: Record<string, unknown> = {
+    data_hora_criacao_inicial: `${range.from} 00:00:00`,
+    data_hora_criacao_final: `${range.to} 23:59:59`,
+    status: "Todos",
+  };
+  if (clientName?.trim()) filtroBody.cliente = clientName.trim();
+
   const milvusRes = await fetch(MILVUS_URL, {
     method: "POST",
     headers: {
@@ -119,11 +132,7 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
     },
     body: JSON.stringify({
       total_registros: 10000,
-      filtro_body: {
-        data_hora_criacao_inicial: `${range.from} 00:00:00`,
-        data_hora_criacao_final: `${range.to} 23:59:59`,
-        status: "Todos",
-      },
+      filtro_body: filtroBody,
     }),
   });
 
@@ -135,12 +144,12 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
   return await milvusRes.json();
 }
 
-async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange): Promise<AttendanceReportResult> {
+async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange, clientName?: string): Promise<AttendanceReportResult> {
   if (milvusToken) {
     try {
       return {
         source: "milvus-direct",
-        rawResult: await callDirectMilvusAttendanceReport(milvusToken, range),
+        rawResult: await callDirectMilvusAttendanceReport(milvusToken, range, clientName),
       };
     } catch (error) {
       console.warn(`[support-costs-sync] Milvus direto falhou em ${range.label}; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
@@ -517,7 +526,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { dateFrom, dateTo } = await req.json();
+    const { dateFrom, dateTo, clientName } = await req.json() as SyncRequest;
     if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
 
     const supabase = createClient(
@@ -543,7 +552,7 @@ serve(async (req) => {
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
     const monthResults = await Promise.all(monthRanges.map(async (range) => {
-      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range);
+      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName);
       const monthRows = unwrapRows(rawResult);
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
       const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
@@ -594,7 +603,8 @@ serve(async (req) => {
       request: {
         dateFrom,
         dateTo,
-        hasClientFilter: false,
+        clientName: clientName || null,
+        hasClientFilter: Boolean(clientName?.trim()),
         hasProjectFilter: false,
       },
       rawShape: {

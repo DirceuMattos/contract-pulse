@@ -1070,6 +1070,7 @@ export default function SupportCostsPage() {
   const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
+  const syncClientName = selectedMilvusClientName || selectedClient?.nomeFantasia || selectedClient?.razaoSocial || undefined;
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
@@ -1186,6 +1187,7 @@ export default function SupportCostsPage() {
         body: {
           dateFrom,
           dateTo,
+          clientName: syncClientName,
         },
       });
 
@@ -1212,7 +1214,7 @@ export default function SupportCostsPage() {
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, syncClientName]);
 
   const syncMilvusRef = useRef(syncMilvus);
 
