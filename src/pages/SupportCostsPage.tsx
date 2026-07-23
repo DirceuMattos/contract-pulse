@@ -117,6 +117,12 @@ function normalizeText(value: string | undefined) {
     .trim();
 }
 
+function isStrongNameMatch(leftValue: string | undefined, rightValue: string | undefined) {
+  const left = normalizeText(leftValue);
+  const right = normalizeText(rightValue);
+  return Boolean(left && right && left === right);
+}
+
 function formatHours(value: number) {
   return `${value.toFixed(1)}h`;
 }
@@ -326,14 +332,8 @@ export default function SupportCostsPage() {
   const enrichedRecords = useMemo<EnrichedSupportCostRecord[]>(() => {
     return records.map((record) => {
       const matchedClient = clients.find((client) => {
-        const milvusClient = normalizeText(record.clientName);
-        return milvusClient
-          && (
-            normalizeText(client.nomeFantasia).includes(milvusClient)
-            || milvusClient.includes(normalizeText(client.nomeFantasia))
-            || normalizeText(client.razaoSocial).includes(milvusClient)
-            || milvusClient.includes(normalizeText(client.razaoSocial))
-          );
+        return isStrongNameMatch(record.clientName, client.nomeFantasia)
+          || isStrongNameMatch(record.clientName, client.razaoSocial);
       });
 
       const matchedContract = contracts.find((contract) => {
@@ -359,12 +359,17 @@ export default function SupportCostsPage() {
 
   const filteredRecords = useMemo(() => {
     return enrichedRecords.filter((record) => {
-      if (clientId !== 'all' && record.matchedClient?.id !== clientId) return false;
+      if (clientId !== 'all') {
+        const matchesSelectedClient = record.matchedClient?.id === clientId
+          || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
+          || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
+        if (!matchesSelectedClient) return false;
+      }
       if (contractId !== 'all' && record.matchedContract?.id !== contractId) return false;
       if (analystName !== 'all' && record.analystName !== analystName) return false;
       return true;
     });
-  }, [analystName, clientId, contractId, enrichedRecords]);
+  }, [analystName, clientId, contractId, enrichedRecords, selectedClient]);
 
   const totals = useMemo(() => {
     const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
@@ -377,7 +382,7 @@ export default function SupportCostsPage() {
   const chartByClient = useMemo(() => {
     const grouped = new Map<string, { name: string; hours: number; cost: number }>();
     for (const record of filteredRecords) {
-      const name = record.matchedClient?.nomeFantasia || record.matchedClient?.razaoSocial || record.clientName || 'Não informado';
+      const name = record.clientName || 'Não informado';
       const current = grouped.get(name) || { name, hours: 0, cost: 0 };
       current.hours += record.hours;
       current.cost += record.estimatedCost;
@@ -407,7 +412,7 @@ export default function SupportCostsPage() {
       if (projectCompare !== 0) return projectCompare;
       return a.analystName.localeCompare(b.analystName, 'pt-BR');
     })) {
-      const clientName = record.matchedClient?.nomeFantasia || record.matchedClient?.razaoSocial || record.clientName || 'Nao informado';
+      const clientName = record.clientName || 'Nao informado';
       const group = grouped.get(clientName) || { clientName, hours: 0, cost: 0, records: [] };
       group.hours += record.hours;
       group.cost += record.estimatedCost;
