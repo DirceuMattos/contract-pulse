@@ -269,7 +269,7 @@ function SupportCostTable({
           <tbody>
             {groups.map((group, groupIndex) => (
               <React.Fragment key={group.clientName}>
-                <tr className={groupIndex % 2 === 0 ? 'border-b bg-muted' : 'border-b bg-primary/15'}>
+                <tr className="border-b bg-primary/15">
                   <td className="py-3 pr-3 font-semibold text-foreground" colSpan={3}>{group.clientName}</td>
                   <td className="py-3 pr-3 text-right font-semibold tabular-nums">{formatHours(group.hours)}</td>
                   <td className="py-3 pr-3 text-right font-semibold">{canViewValues ? valueText(group.cost) : 'Confidencial'}</td>
