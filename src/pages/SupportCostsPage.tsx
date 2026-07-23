@@ -1371,8 +1371,9 @@ export default function SupportCostsPage() {
       </Card>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto">
           <TabsTrigger value="overview">Visão geral</TabsTrigger>
+          <TabsTrigger value="executive">Visão executiva</TabsTrigger>
           <TabsTrigger value="client-report">Relatório por cliente</TabsTrigger>
         </TabsList>
 
@@ -1441,7 +1442,7 @@ export default function SupportCostsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="client-report" className="space-y-4">
+        <TabsContent value="executive" className="space-y-4">
           <SupportExecutiveSummary
             records={filteredRecords}
             technicianGroups={technicianGroups}
@@ -1450,7 +1451,9 @@ export default function SupportCostsPage() {
             valueText={valueText}
             periodMonths={periodMonths}
           />
+        </TabsContent>
 
+        <TabsContent value="client-report" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
