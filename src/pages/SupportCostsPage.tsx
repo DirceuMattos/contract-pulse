@@ -6,6 +6,7 @@ import {
   Clock3,
   DatabaseZap,
   Filter,
+  FileSpreadsheet,
   Link2,
   Loader2,
   Shield,
@@ -41,6 +42,7 @@ import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/calculations';
+import { buildXlsx } from '@/lib/importExport';
 
 const PJ_MONTHLY_HOURS = 168;
 const CLT_MONTHLY_HOURS = 200;
@@ -151,6 +153,15 @@ function getMilvusEntries(record: EnrichedSupportCostRecord | null) {
   return Object.entries(record.raw)
     .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     .sort(([left], [right]) => left.localeCompare(right, 'pt-BR'));
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function getFunctionErrorMessage(error: unknown) {
@@ -544,6 +555,7 @@ export default function SupportCostsPage() {
 
   const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
+  const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
@@ -553,6 +565,61 @@ export default function SupportCostsPage() {
   function handleMonthToChange(month: string) {
     const range = monthToDateRange(month);
     if (range) setDateTo(range.to);
+  }
+
+  function exportClientReportXlsx() {
+    if (clientReportGroups.length === 0) {
+      toast.warning('Nenhum registro para exportar.');
+      return;
+    }
+
+    const headers = [
+      'Tipo',
+      'Cliente Milvus',
+      'Projeto Milvus',
+      'Responsavel',
+      'Horas',
+      'Custo Calculado',
+      'Cliente conciliado Hub',
+      'Contrato conciliado Hub',
+      'Status conciliacao',
+      'Data',
+    ];
+
+    const rows: unknown[][] = [];
+    for (const group of clientReportGroups) {
+      rows.push([
+        'Subtotal',
+        group.clientName,
+        '',
+        '',
+        Number(group.hours.toFixed(2)),
+        canViewSupportCosts ? group.cost : 'Confidencial',
+        '',
+        '',
+        '',
+        '',
+      ]);
+
+      for (const record of group.records) {
+        rows.push([
+          'Linha',
+          record.clientName,
+          record.projectName,
+          record.analystName,
+          Number(record.hours.toFixed(2)),
+          canViewSupportCosts ? record.estimatedCost : 'Confidencial',
+          record.matchedClient?.nomeFantasia || record.matchedClient?.razaoSocial || 'Nao conciliado',
+          record.matchedContract?.nome || 'Nao conciliado',
+          record.reconciliationStatus,
+          record.date || '',
+        ]);
+      }
+    }
+
+    const filename = `custos-suporte-tsi-clientes-${dateFrom}-a-${dateTo}.xlsx`;
+    downloadBlob(buildXlsx(headers, rows), filename);
+    toast.success('Planilha exportada com sucesso.');
   }
 
   const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -858,6 +925,20 @@ export default function SupportCostsPage() {
                 Valores incluem remuneracao bruta dos RHs e encargos/impostos. Beneficios nao sao considerados.
               </p>
             </CardHeader>
+            {canExportSupportCosts && (
+              <div className="flex justify-end px-6 pb-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={exportClientReportXlsx}
+                  disabled={clientReportGroups.length === 0}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Exportar XLSX
+                </Button>
+              </div>
+            )}
             <CardContent>
               <SupportCostTable records={filteredRecords} groups={clientReportGroups} canViewValues={canViewSupportCosts} valueText={valueText} />
             </CardContent>
