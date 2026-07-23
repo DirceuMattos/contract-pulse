@@ -7,7 +7,7 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-period-filter-v3";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-us-date-filter-v4";
 
 type AttendanceRecord = {
   id: string;
@@ -120,6 +120,13 @@ function firstNumber(record: Record<string, unknown>, keys: string[]): number {
   return 0;
 }
 
+function formatDateParts(year: number, month: number, day: number): string | null {
+  if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 function parseDateOnly(value: string | undefined): string | null {
   if (!value) return null;
   const raw = value.trim();
@@ -128,11 +135,17 @@ function parseDateOnly(value: string | undefined): string | null {
   const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
 
-  const brMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (brMatch) {
-    const day = brMatch[1].padStart(2, "0");
-    const month = brMatch[2].padStart(2, "0");
-    return `${brMatch[3]}-${month}-${day}`;
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slashMatch) {
+    const first = Number(slashMatch[1]);
+    const second = Number(slashMatch[2]);
+    const year = Number(slashMatch[3]);
+    const usDate = formatDateParts(year, first, second);
+    const brDate = formatDateParts(year, second, first);
+
+    if (first > 12) return brDate;
+    if (second > 12) return usDate;
+    return usDate || brDate;
   }
 
   const parsed = new Date(raw);
