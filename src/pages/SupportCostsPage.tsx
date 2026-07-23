@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Link2,
   Loader2,
+  RotateCcw,
   Shield,
   UsersRound,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Sheet,
   SheetContent,
@@ -431,6 +433,7 @@ export default function SupportCostsPage() {
   const [records, setRecords] = useState<SupportCostRecord[]>([]);
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [syncedRange, setSyncedRange] = useState<{ from: string; to: string } | null>(null);
   const syncRequestRef = useRef(0);
   const { canModuleAction, userRole } = useAuth();
   const { clients, contracts, settings } = useData();
@@ -470,12 +473,102 @@ export default function SupportCostsPage() {
   }, [clientId, contracts]);
 
   const selectedClient = clients.find((client) => client.id === clientId);
+  const selectedMilvusClientName = clientId.startsWith('milvus:')
+    ? clientId.replace(/^milvus:/, '')
+    : undefined;
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
 
+  const clientOptions = useMemo(() => {
+    const hubOptions = sortedClients.map((client) => ({
+      value: client.id,
+      label: client.nomeFantasia || client.razaoSocial,
+      searchText: client.razaoSocial,
+    }));
+
+    const milvusClientNames = new Set<string>();
+    for (const record of records) {
+      if (!record.clientName || record.clientName === 'Nao informado') continue;
+      const alreadyMapped = clients.some((client) => (
+        isStrongNameMatch(record.clientName, client.nomeFantasia)
+        || isStrongNameMatch(record.clientName, client.razaoSocial)
+      ));
+      if (!alreadyMapped) milvusClientNames.add(record.clientName);
+    }
+
+    const milvusOptions = Array.from(milvusClientNames)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map((name) => ({
+        value: `milvus:${name}`,
+        label: `${name} (Milvus)`,
+        searchText: name,
+      }));
+
+    return [
+      { value: 'all', label: 'Todos os clientes' },
+      ...hubOptions,
+      ...milvusOptions,
+    ];
+  }, [clients, records, sortedClients]);
+
+  const projectOptions = useMemo(() => {
+    const hubOptions = filteredContracts.map((contract) => ({
+      value: contract.id,
+      label: contract.nome,
+    }));
+
+    const milvusProjects = new Set<string>();
+    for (const record of records) {
+      if (!record.projectName || record.projectName === 'Nao informado') continue;
+      if (selectedMilvusClientName && !isStrongNameMatch(record.clientName, selectedMilvusClientName)) continue;
+      if (clientId !== 'all' && !selectedMilvusClientName) {
+        const matchedContract = contracts.find((contract) => {
+          const milvusProject = normalizeText(record.projectName);
+          return milvusProject
+            && (
+              normalizeText(contract.nome).includes(milvusProject)
+              || milvusProject.includes(normalizeText(contract.nome))
+            );
+        });
+        const matchesHubClient = matchedContract?.clientId === clientId
+          || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
+          || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
+        if (!matchesHubClient) continue;
+      }
+      const alreadyMapped = contracts.some((contract) => {
+        const milvusProject = normalizeText(record.projectName);
+        return milvusProject
+          && (
+            normalizeText(contract.nome).includes(milvusProject)
+            || milvusProject.includes(normalizeText(contract.nome))
+          );
+      });
+      if (!alreadyMapped) milvusProjects.add(record.projectName);
+    }
+
+    const milvusOptions = Array.from(milvusProjects)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map((name) => ({
+        value: `milvus-project:${name}`,
+        label: `${name} (Milvus)`,
+        searchText: name,
+      }));
+
+    return [
+      { value: 'all', label: 'Todos os projetos' },
+      ...hubOptions,
+      ...milvusOptions,
+    ];
+  }, [clientId, contracts, filteredContracts, records, selectedClient, selectedMilvusClientName]);
+
   const analystOptions = useMemo(() => {
     const names = new Set(records.map((record) => record.analystName).filter(Boolean));
-    return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [
+      { value: 'all', label: 'Todos os responsaveis' },
+      ...Array.from(names)
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        .map((name) => ({ value: name, label: name })),
+    ];
   }, [records]);
 
   const enrichedRecords = useMemo<EnrichedSupportCostRecord[]>(() => {
@@ -507,20 +600,32 @@ export default function SupportCostsPage() {
   }, [clients, contracts, costSummary.averageHourlyCost, records]);
 
   const filteredRecords = useMemo(() => {
+    if (!syncedRange || syncedRange.from !== dateFrom || syncedRange.to !== dateTo) return [];
+
     return enrichedRecords.filter((record) => {
-      if (!isRecordInSelectedPeriod(record, dateFrom, dateTo)) return false;
+      if (parseRecordDate(record.date) && !isRecordInSelectedPeriod(record, dateFrom, dateTo)) return false;
       if (clientId !== 'all') {
-        const matchesSelectedClient = record.matchedClient?.id === clientId
-          || record.matchedContract?.clientId === clientId
-          || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
-          || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
+        const matchesSelectedClient = selectedMilvusClientName
+          ? isStrongNameMatch(record.clientName, selectedMilvusClientName)
+          : record.matchedClient?.id === clientId
+            || record.matchedContract?.clientId === clientId
+            || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
+            || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
         if (!matchesSelectedClient) return false;
       }
-      if (contractId !== 'all' && record.matchedContract?.id !== contractId) return false;
+      if (contractId !== 'all') {
+        const selectedMilvusProjectName = contractId.startsWith('milvus-project:')
+          ? contractId.replace(/^milvus-project:/, '')
+          : undefined;
+        const matchesSelectedProject = selectedMilvusProjectName
+          ? isStrongNameMatch(record.projectName, selectedMilvusProjectName)
+          : record.matchedContract?.id === contractId;
+        if (!matchesSelectedProject) return false;
+      }
       if (analystName !== 'all' && record.analystName !== analystName) return false;
       return true;
     });
-  }, [analystName, clientId, contractId, dateFrom, dateTo, enrichedRecords, selectedClient]);
+  }, [analystName, clientId, contractId, dateFrom, dateTo, enrichedRecords, selectedClient, selectedMilvusClientName, syncedRange]);
 
   const totals = useMemo(() => {
     const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
@@ -589,6 +694,15 @@ export default function SupportCostsPage() {
   function handleMonthToChange(month: string) {
     const range = monthToDateRange(month);
     if (range) setDateTo(range.to);
+  }
+
+  function clearFilters() {
+    const range = currentMonthRange();
+    setDateFrom(range.from);
+    setDateTo(range.to);
+    setClientId('all');
+    setContractId('all');
+    setAnalystName('all');
   }
 
   function exportClientReportXlsx() {
@@ -667,11 +781,13 @@ export default function SupportCostsPage() {
   const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!dateFrom || !dateTo) {
       setRecords([]);
+      setSyncedRange(null);
       if (!silent) toast.error('Informe inicio e fim do periodo.');
       return;
     }
     if (dateFrom > dateTo) {
       setRecords([]);
+      setSyncedRange(null);
       if (!silent) toast.error('O mes inicial deve ser anterior ou igual ao mes final.');
       return;
     }
@@ -694,6 +810,7 @@ export default function SupportCostsPage() {
       if (requestId !== syncRequestRef.current) return;
 
       setRecords(payload.records || []);
+      setSyncedRange({ from: dateFrom, to: dateTo });
       setLastSyncAt(new Date().toISOString());
       const importedCount = payload.records?.length || 0;
       if (!silent && importedCount === 0) {
@@ -702,7 +819,10 @@ export default function SupportCostsPage() {
         toast.success(importedCount + ' registro(s) de horas importado(s).');
       }
     } catch (error) {
-      if (requestId === syncRequestRef.current) setRecords([]);
+      if (requestId === syncRequestRef.current) {
+        setRecords([]);
+        setSyncedRange(null);
+      }
       if (!silent) toast.error(getFunctionErrorMessage(error));
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
@@ -817,8 +937,8 @@ export default function SupportCostsPage() {
             <Badge variant="outline">{periodLabel}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <label className="space-y-1">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+          <label className="space-y-1 xl:col-span-2">
             <span className="text-xs font-medium text-muted-foreground">Mes/ano inicial</span>
             <input
               type="month"
@@ -827,7 +947,7 @@ export default function SupportCostsPage() {
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             />
           </label>
-          <label className="space-y-1">
+          <label className="space-y-1 xl:col-span-2">
             <span className="text-xs font-medium text-muted-foreground">Mes/ano final</span>
             <input
               type="month"
@@ -836,56 +956,45 @@ export default function SupportCostsPage() {
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             />
           </label>
-          <label className="space-y-1">
+          <label className="space-y-1 xl:col-span-2">
             <span className="text-xs font-medium text-muted-foreground">Cliente</span>
-            <select
+            <SearchableSelect
               value={clientId}
-              onChange={(event) => {
-                setClientId(event.target.value);
+              onValueChange={(value) => {
+                setClientId(value);
                 setContractId('all');
               }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="all">Todos os clientes</option>
-              {sortedClients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.nomeFantasia || client.razaoSocial}
-                </option>
-              ))}
-            </select>
+              options={clientOptions}
+              placeholder="Todos os clientes"
+              searchPlaceholder="Buscar cliente..."
+            />
           </label>
-          <label className="space-y-1">
+          <label className="space-y-1 xl:col-span-2">
             <span className="text-xs font-medium text-muted-foreground">Projeto / Contrato</span>
-            <select
+            <SearchableSelect
               value={contractId}
-              onChange={(event) => setContractId(event.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="all">Todos os projetos</option>
-              {filteredContracts.map((contract) => (
-                <option key={contract.id} value={contract.id}>
-                  {contract.nome}
-                </option>
-              ))}
-            </select>
+              onValueChange={setContractId}
+              options={projectOptions}
+              placeholder="Todos os projetos"
+              searchPlaceholder="Buscar projeto..."
+            />
           </label>
-          <label className="space-y-1">
+          <label className="space-y-1 xl:col-span-2">
             <span className="text-xs font-medium text-muted-foreground">Responsavel</span>
-            <select
+            <SearchableSelect
               value={analystName}
-              onChange={(event) => setAnalystName(event.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="all">Todos os responsaveis</option>
-              {analystOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setAnalystName}
+              options={analystOptions}
+              placeholder="Todos os responsaveis"
+              searchPlaceholder="Buscar responsavel..."
+            />
           </label>
-          <div className="flex items-end">
-            <Button type="button" variant="default" className="w-full" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
+          <div className="flex items-end gap-2 xl:col-span-2">
+            <Button type="button" variant="outline" className="shrink-0" onClick={clearFilters}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Limpar
+            </Button>
+            <Button type="button" variant="default" className="min-w-0 flex-1 whitespace-nowrap" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
               {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
             </Button>
