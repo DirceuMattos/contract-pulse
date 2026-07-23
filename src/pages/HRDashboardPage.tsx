@@ -108,7 +108,7 @@ function groupMetrics(
   const grouped = new Map<string, { name: string; pessoas: number; valor: number }>();
 
   for (const metric of metrics) {
-    const name = getLabel(metric) || 'Nao informado';
+    const name = getLabel(metric) || 'Não informado';
     const current = grouped.get(name) || { name, pessoas: 0, valor: 0 };
     current.pessoas += 1;
     current.valor += metric.totalCost;
@@ -128,7 +128,7 @@ function groupBnpMetrics(
 
   for (const metric of metrics) {
     if (metric.bnpCost <= 0) continue;
-    const name = getLabel(metric) || 'Nao informado';
+    const name = getLabel(metric) || 'Não informado';
     const current = grouped.get(name) || { name, pessoas: 0, valor: 0 };
     current.pessoas += 1;
     current.valor += metric.bnpCost;
@@ -145,7 +145,7 @@ function getTenureBucket(admissionDate: string): string {
   const now = new Date();
   const months = Math.max(0, (now.getFullYear() - admission.getFullYear()) * 12 + now.getMonth() - admission.getMonth());
 
-  if (months < 6) return 'Ate 6 meses';
+  if (months < 6) return 'Até 6 meses';
   if (months < 12) return '6 a 12 meses';
   if (months < 24) return '1 a 2 anos';
   if (months < 36) return '2 a 3 anos';
@@ -270,20 +270,20 @@ export default function HRDashboardPage() {
   const statusData = [
     { name: '100% alocados', pessoas: summary.allocatedPeople, valor: summary.metrics.filter((m) => m.allocatedPercent >= 100).reduce((sum, m) => sum + m.totalCost, 0) },
     { name: 'Parciais', pessoas: summary.partiallyAllocatedPeople, valor: summary.metrics.filter((m) => m.allocatedPercent > 0 && m.allocatedPercent < 100).reduce((sum, m) => sum + m.totalCost, 0) },
-    { name: 'Sem alocacao', pessoas: summary.unallocatedPeople, valor: summary.metrics.filter((m) => m.allocatedPercent === 0).reduce((sum, m) => sum + m.totalCost, 0) },
+    { name: 'Sem alocação', pessoas: summary.unallocatedPeople, valor: summary.metrics.filter((m) => m.allocatedPercent === 0).reduce((sum, m) => sum + m.totalCost, 0) },
   ];
 
   const distributionData = useMemo(() => ({
-    byTeam: groupMetrics(summary.metrics, (metric) => teamNameById.get(metric.person.teamId || '') || 'Sem area'),
+    byTeam: groupMetrics(summary.metrics, (metric) => teamNameById.get(metric.person.teamId || '') || 'Sem área'),
     byJobTitle: groupMetrics(summary.metrics, (metric) => jobTitleById.get(metric.person.cargoId || '') || metric.person.cargoAntigo || 'Sem cargo'),
     byVinculo: groupMetrics(summary.metrics, (metric) => vinculoLabels[metric.person.tipoVinculo] || metric.person.tipoVinculo),
-    byNivel: groupMetrics(summary.metrics, (metric) => metric.person.nivel || 'Nao informado'),
-    byLocal: groupMetrics(summary.metrics, (metric) => metric.person.localAtuacao || 'Nao informado'),
+    byNivel: groupMetrics(summary.metrics, (metric) => metric.person.nivel || 'Não informado'),
+    byLocal: groupMetrics(summary.metrics, (metric) => metric.person.localAtuacao || 'Não informado'),
     byTenure: groupMetrics(summary.metrics, (metric) => getTenureBucket(metric.person.dataAdmissao)),
   }), [summary.metrics, teamNameById, jobTitleById]);
 
   const bnpExposureByTeam = useMemo(
-    () => groupBnpMetrics(summary.metrics, (metric) => teamNameById.get(metric.person.teamId || '') || 'Sem area'),
+    () => groupBnpMetrics(summary.metrics, (metric) => teamNameById.get(metric.person.teamId || '') || 'Sem área'),
     [summary.metrics, teamNameById],
   );
 
@@ -321,7 +321,7 @@ export default function HRDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard RH"
-        description="Visao gerencial de custos, alocacao e exposicao BNP dos recursos humanos."
+        description="Visão gerencial de custos, alocação e exposição BNP dos recursos humanos."
         animated={false}
       />
 
@@ -332,7 +332,7 @@ export default function HRDashboardPage() {
             <div>
               <p className="font-medium">Valores financeiros ocultos</p>
               <p className="text-sm text-muted-foreground">
-                Seu perfil pode acessar a visao quantitativa do Dashboard RH, mas os custos permanecem confidenciais.
+                Seu perfil pode acessar a visão quantitativa do Dashboard RH, mas os custos permanecem confidenciais.
               </p>
             </div>
           </CardContent>
@@ -342,8 +342,8 @@ export default function HRDashboardPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto">
-            <TabsTrigger value="overview">Visao geral</TabsTrigger>
-            <TabsTrigger value="distributions">Distribuicoes</TabsTrigger>
+            <TabsTrigger value="overview">Visão geral</TabsTrigger>
+            <TabsTrigger value="distributions">Distribuições</TabsTrigger>
             <TabsTrigger value="lifecycle">Ciclo de pessoas</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
@@ -381,7 +381,7 @@ export default function HRDashboardPage() {
             <KpiCard
               title="Custo total com RH"
               value={formatMaybeCurrency(summary.totalCost, canViewHRCosts)}
-              description="Remuneracao + encargos + beneficios"
+              description="Remuneração + encargos + benefícios"
               icon={<DollarSign className="h-5 w-5 text-emerald-600" />}
               tone="border-l-emerald-500"
             />
@@ -405,7 +405,7 @@ export default function HRDashboardPage() {
             <Card className={`xl:col-span-2 ${chartCardClass}`}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base">Alocacao financeira</CardTitle>
+                  <CardTitle className="text-base">Alocação financeira</CardTitle>
                   <Badge variant="secondary">{canViewHRCosts ? 'Custo' : 'Pessoas'}</Badge>
                 </div>
               </CardHeader>
@@ -455,7 +455,7 @@ export default function HRDashboardPage() {
             <Card className={`xl:col-span-3 ${chartCardClass}`}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base">Situacao de alocacao</CardTitle>
+                  <CardTitle className="text-base">Situação de alocação</CardTitle>
                   <Badge variant="secondary">{metricMode === 'cost' && canViewHRCosts ? 'Custo total' : 'Pessoas'}</Badge>
                 </div>
               </CardHeader>
@@ -498,14 +498,14 @@ export default function HRDashboardPage() {
           <Card className={chartCardClass}>
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-base">Custo BNP por area</CardTitle>
-                <Badge variant="outline">{bnpExposureByTeam.length} areas</Badge>
+                <CardTitle className="text-base">Custo BNP por área</CardTitle>
+                <Badge variant="outline">{bnpExposureByTeam.length} áreas</Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {bnpExposureByTeam.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  Nenhuma area com custo BNP no momento.
+                  Nenhuma área com custo BNP no momento.
                 </div>
               ) : (
                 <>
@@ -527,7 +527,7 @@ export default function HRDashboardPage() {
                             name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
                             name === 'valor' ? 'Custo BNP' : 'Pessoas',
                           ]}
-                          labelFormatter={(label) => `Area: ${label}`}
+                          labelFormatter={(label) => `Área: ${label}`}
                         />
                         <Bar dataKey={canViewHRCosts ? 'valor' : 'pessoas'} radius={[0, 6, 6, 0]}>
                           {bnpExposureByTeam.map((entry, index) => (
@@ -544,8 +544,8 @@ export default function HRDashboardPage() {
                     </ResponsiveContainer>
                   </div>
                   <p className="rounded-md border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-                    Composicao: soma da parcela do custo de RH ainda absorvida pela BNP em cada area,
-                    considerando recursos sem alocacao ou com dedicacao parcial em contratos/subprojetos.
+                    Composição: soma da parcela do custo de RH ainda absorvida pela BNP em cada área,
+                    considerando recursos sem alocação ou com dedicação parcial em contratos/subprojetos.
                   </p>
                 </>
               )}
@@ -555,11 +555,11 @@ export default function HRDashboardPage() {
 
         <TabsContent value="distributions" className={tabPanelClass}>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <DistributionChart title="Por area" data={distributionData.byTeam} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.team} axisLabel="Area" />
-            <DistributionChart title="Por cargo / funcao" data={distributionData.byJobTitle} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.job} axisLabel="Cargo" className="xl:col-span-2" contentClassName="h-[400px]" />
-            <DistributionChart title="Por forma de contratacao" data={distributionData.byVinculo} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.vinculo} axisLabel="Contratacao" />
-            <DistributionChart title="Por nivel" data={distributionData.byNivel} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.level} axisLabel="Nivel" />
-            <DistributionChart title="Por local de atuacao" data={distributionData.byLocal} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.local} axisLabel="Local" />
+            <DistributionChart title="Por área" data={distributionData.byTeam} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.team} axisLabel="Área" className="xl:col-span-2" contentClassName="h-[400px]" />
+            <DistributionChart title="Por cargo / função" data={distributionData.byJobTitle} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.job} axisLabel="Cargo" className="xl:col-span-2" contentClassName="h-[400px]" />
+            <DistributionChart title="Por forma de contratação" data={distributionData.byVinculo} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.vinculo} axisLabel="Contratação" />
+            <DistributionChart title="Por nível" data={distributionData.byNivel} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.level} axisLabel="Nível" />
+            <DistributionChart title="Por local de atuação" data={distributionData.byLocal} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.local} axisLabel="Local" />
             <DistributionChart title="Por tempo de casa" data={distributionData.byTenure} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.tenure} axisLabel="Tempo de casa" />
           </div>
         </TabsContent>
@@ -568,7 +568,7 @@ export default function HRDashboardPage() {
           <Card className={chartCardClass}>
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-base">Curva de turnover - ultimos 12 meses</CardTitle>
+                <CardTitle className="text-base">Curva de turnover - últimos 12 meses</CardTitle>
                 <Badge variant="secondary">Pessoas x Turnover</Badge>
               </div>
             </CardHeader>
@@ -577,7 +577,7 @@ export default function HRDashboardPage() {
                 <LineChart data={turnoverData} margin={{ top: 18, right: 34, left: 18, bottom: 28 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="mes" tickLine={false} axisLine={false} interval={0} tick={{ fontSize: 11 }}>
-                    <Label value="Mes" offset={-16} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                    <Label value="Mês" offset={-16} position="insideBottom" className="fill-muted-foreground text-[11px]" />
                   </XAxis>
                   <YAxis yAxisId="left" tickLine={false} axisLine={false} allowDecimals={false}>
                     <Label value="Pessoas" angle={-90} position="insideLeft" className="fill-muted-foreground text-[11px]" />
@@ -612,7 +612,7 @@ export default function HRDashboardPage() {
           <Activity className="h-4 w-4 mt-0.5 shrink-0" />
           <p>
             Esta versao usa a regra unificada de custo de RH e considera alocacoes diretas em contratos e subprojetos.
-            Quando houver subprojeto para a mesma pessoa no mesmo contrato, a alocacao direta desse contrato e ignorada para evitar duplicidade.
+            Quando houver subprojeto para a mesma pessoa no mesmo contrato, a alocação direta desse contrato é ignorada para evitar duplicidade.
           </p>
         </CardContent>
       </Card>
