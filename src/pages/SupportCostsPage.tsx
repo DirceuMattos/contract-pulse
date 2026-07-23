@@ -132,12 +132,10 @@ function dateToMonth(date: string) {
   return date.slice(0, 7);
 }
 
-function getMonthPart(month: string) {
-  return month.slice(5, 7);
-}
-
-function getYearPart(month: string) {
-  return month.slice(0, 4);
+function formatMonthYear(month: string) {
+  const [year, monthValue] = month.split('-');
+  const label = MONTH_OPTIONS.find((option) => option.value === monthValue)?.label || monthValue;
+  return `${label}/${year}`;
 }
 
 function normalizeText(value: string | undefined) {
@@ -472,13 +470,23 @@ export default function SupportCostsPage() {
   const selectedContract = contracts.find((contract) => contract.id === contractId);
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
-  const yearOptions = useMemo(() => {
+  const periodOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const years = new Set<string>([getYearPart(monthFrom), getYearPart(monthTo)]);
+    const periods: string[] = [];
     for (let year = currentYear + 1; year >= currentYear - 8; year--) {
-      years.add(String(year));
+      for (let month = 12; month >= 1; month--) {
+        periods.push(`${year}-${String(month).padStart(2, '0')}`);
+      }
     }
-    return Array.from(years).filter(Boolean).sort((a, b) => Number(b) - Number(a));
+
+    for (const selectedMonth of [monthFrom, monthTo]) {
+      if (selectedMonth && !periods.includes(selectedMonth)) periods.push(selectedMonth);
+    }
+
+    return periods
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a))
+      .map((period) => ({ value: period, label: formatMonthYear(period) }));
   }, [monthFrom, monthTo]);
 
   const analystOptions = useMemo(() => {
@@ -595,22 +603,6 @@ export default function SupportCostsPage() {
   function handleMonthToChange(month: string) {
     const range = monthToDateRange(month);
     if (range) setDateTo(range.to);
-  }
-
-  function handleFromMonthSelect(month: string) {
-    handleMonthFromChange(`${getYearPart(monthFrom)}-${month}`);
-  }
-
-  function handleFromYearSelect(year: string) {
-    handleMonthFromChange(`${year}-${getMonthPart(monthFrom)}`);
-  }
-
-  function handleToMonthSelect(month: string) {
-    handleMonthToChange(`${getYearPart(monthTo)}-${month}`);
-  }
-
-  function handleToYearSelect(year: string) {
-    handleMonthToChange(`${year}-${getMonthPart(monthTo)}`);
   }
 
   function exportClientReportXlsx() {
@@ -831,52 +823,28 @@ export default function SupportCostsPage() {
             <Badge variant="outline">{periodLabel}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Mes inicial</span>
+            <span className="text-xs font-medium text-muted-foreground">Mes/ano inicial</span>
             <select
-              value={getMonthPart(monthFrom)}
-              onChange={(event) => handleFromMonthSelect(event.target.value)}
+              value={monthFrom}
+              onChange={(event) => handleMonthFromChange(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             >
-              {MONTH_OPTIONS.map((month) => (
-                <option key={month.value} value={month.value}>{month.label}</option>
+              {periodOptions.map((period) => (
+                <option key={period.value} value={period.value}>{period.label}</option>
               ))}
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Ano inicial</span>
+            <span className="text-xs font-medium text-muted-foreground">Mes/ano final</span>
             <select
-              value={getYearPart(monthFrom)}
-              onChange={(event) => handleFromYearSelect(event.target.value)}
+              value={monthTo}
+              onChange={(event) => handleMonthToChange(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Mes final</span>
-            <select
-              value={getMonthPart(monthTo)}
-              onChange={(event) => handleToMonthSelect(event.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {MONTH_OPTIONS.map((month) => (
-                <option key={month.value} value={month.value}>{month.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Ano final</span>
-            <select
-              value={getYearPart(monthTo)}
-              onChange={(event) => handleToYearSelect(event.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>{year}</option>
+              {periodOptions.map((period) => (
+                <option key={period.value} value={period.value}>{period.label}</option>
               ))}
             </select>
           </label>
