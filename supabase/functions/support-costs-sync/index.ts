@@ -228,6 +228,57 @@ function unwrapRows(result: unknown): Record<string, unknown>[] {
   return candidates;
 }
 
+function describeShape(value: unknown, depth = 0): unknown {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (Array.isArray(value)) {
+    return {
+      type: "array",
+      length: value.length,
+      first: depth < 2 ? describeShape(value[0], depth + 1) : undefined,
+    };
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).slice(0, 20);
+    return {
+      type: "object",
+      keys,
+      nested: depth < 2
+        ? Object.fromEntries(keys.slice(0, 5).map((key) => [key, describeShape(obj[key], depth + 1)]))
+        : undefined,
+    };
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return {
+      type: "string",
+      length: trimmed.length,
+      preview: trimmed.slice(0, 160),
+    };
+  }
+  return { type: typeof value };
+}
+
+function diagnosticsForRows(rows: Record<string, unknown>[], normalized: AttendanceRecord[]) {
+  const sampleRows = rows.slice(0, 3);
+  const rowsWithoutHours = normalized.filter((record) => record.hours <= 0).length;
+
+  return {
+    rowsDetected: rows.length,
+    rowsWithoutHours,
+    sampleKeys: sampleRows.map((row) => Object.keys(row).slice(0, 30)),
+    sampleHourValues: sampleRows.map((row) => ({
+      horas: row.horas,
+      hours: row.hours,
+      total_horas: row.total_horas,
+      tempo_horas: row.tempo_horas,
+      minutos: row.minutos,
+      minutes: row.minutes,
+    })),
+  };
+}
+
 function normalizeRecord(record: Record<string, unknown>, index: number): AttendanceRecord {
   const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "razaoSocial", "razao_social", "customer", "empresa"]);
   const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto"], clientName);
@@ -267,9 +318,9 @@ serve(async (req) => {
     });
 
     const rows = unwrapRows(rawResult);
+    const normalized = rows.map(normalizeRecord);
     const seen = new Set<string>();
-    const records = rows
-      .map(normalizeRecord)
+    const records = normalized
       .filter((record) => record.hours > 0)
       .filter((record) => {
         const key = `${record.id}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours}`;
@@ -278,6 +329,19 @@ serve(async (req) => {
         return true;
       });
 
+    const diagnostics = {
+      request: {
+        dateFrom,
+        dateTo,
+        hasClientFilter: Boolean(clientName),
+        hasProjectFilter: Boolean(projectName),
+      },
+      rawShape: describeShape(rawResult),
+      ...diagnosticsForRows(rows, normalized),
+      recordsDetected: records.length,
+    };
+    console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
+
     return new Response(JSON.stringify({
       success: true,
       count: records.length,
@@ -285,6 +349,7 @@ serve(async (req) => {
       rawShape: {
         type: Array.isArray(rawResult) ? "array" : typeof rawResult,
         rowsDetected: rows.length,
+        recordsDetected: records.length,
       },
     }), {
       headers: { ...CORS, "Content-Type": "application/json" },
