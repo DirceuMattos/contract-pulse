@@ -120,16 +120,67 @@ function firstNumber(record: Record<string, unknown>, keys: string[]): number {
 }
 
 function detectHours(record: Record<string, unknown>): number {
-  const directHours = firstNumber(record, ["horas", "hours", "total_horas", "quantidade_horas", "tempo_horas", "duration_hours"]);
+  const directHours = firstNumber(record, [
+    "horas",
+    "hours",
+    "total_horas",
+    "quantidade_horas",
+    "tempo_horas",
+    "duration_hours",
+    "horas_atendimento",
+    "horas_trabalhadas",
+    "tempo_total_horas",
+    "total_hours",
+  ]);
   if (directHours > 0) return directHours;
 
-  const minutes = firstNumber(record, ["minutos", "minutes", "total_minutos", "duration_minutes"]);
+  const minutes = firstNumber(record, ["minutos", "minutes", "total_minutos", "duration_minutes", "tempo_minutos", "total_minutes"]);
   if (minutes > 0) return minutes / 60;
 
-  const seconds = firstNumber(record, ["segundos", "seconds", "total_segundos", "duration_seconds"]);
+  const seconds = firstNumber(record, ["segundos", "seconds", "total_segundos", "duration_seconds", "tempo_segundos", "total_seconds"]);
   if (seconds > 0) return seconds / 3600;
 
   return 0;
+}
+
+function tryParseJsonText(text: string): unknown | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const jsonStart = Math.min(
+      ...["[", "{"]
+        .map((char) => trimmed.indexOf(char))
+        .filter((index) => index >= 0),
+    );
+    if (!Number.isFinite(jsonStart)) return null;
+
+    try {
+      return JSON.parse(trimmed.slice(jsonStart));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function looksLikeAttendanceRow(record: Record<string, unknown>): boolean {
+  return detectHours(record) > 0 || [
+    "cliente",
+    "client",
+    "clientName",
+    "nome_cliente",
+    "projeto",
+    "project",
+    "projectName",
+    "contrato",
+    "responsavel",
+    "analista",
+    "atendente",
+    "ticket",
+    "chamado",
+  ].some((key) => record[key] !== undefined);
 }
 
 function unwrapRows(result: unknown): Record<string, unknown>[] {
@@ -141,25 +192,35 @@ function unwrapRows(result: unknown): Record<string, unknown>[] {
     if (!current) continue;
 
     if (Array.isArray(current)) {
-      if (current.every((item) => item && typeof item === "object" && !Array.isArray(item))) {
-        candidates.push(...current as Record<string, unknown>[]);
-      } else {
-        queue.push(...current);
-      }
+      queue.push(...current);
+      continue;
+    }
+
+    if (typeof current === "string") {
+      const parsed = tryParseJsonText(current);
+      if (parsed !== null) queue.push(parsed);
       continue;
     }
 
     if (typeof current === "object") {
       const obj = current as Record<string, unknown>;
-      for (const key of ["content", "data", "rows", "items", "lista", "result", "records", "relatorio", "report"]) {
-        if (obj[key] !== undefined) queue.push(obj[key]);
-      }
+
       if (typeof obj.type === "string" && obj.type === "text" && typeof obj.text === "string") {
-        try {
-          queue.push(JSON.parse(obj.text));
-        } catch {
-          continue;
+        const parsed = tryParseJsonText(obj.text);
+        if (parsed !== null) queue.push(parsed);
+        continue;
+      }
+
+      let unwrapped = false;
+      for (const key of ["content", "data", "rows", "items", "lista", "result", "records", "relatorio", "report", "tickets", "atendimentos", "horas"]) {
+        if (obj[key] !== undefined) {
+          queue.push(obj[key]);
+          unwrapped = true;
         }
+      }
+
+      if (!unwrapped || looksLikeAttendanceRow(obj)) {
+        candidates.push(obj);
       }
     }
   }
@@ -168,14 +229,14 @@ function unwrapRows(result: unknown): Record<string, unknown>[] {
 }
 
 function normalizeRecord(record: Record<string, unknown>, index: number): AttendanceRecord {
-  const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "razaoSocial", "customer"]);
-  const projectName = firstString(record, ["projeto", "project", "projectName", "contrato", "contract", "servico", "service"], clientName);
-  const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario"]);
+  const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "razaoSocial", "razao_social", "customer", "empresa"]);
+  const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto"], clientName);
+  const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario", "operador", "consultor"]);
   const hours = detectHours(record);
-  const date = firstString(record, ["data", "date", "dia", "created_at", "data_atendimento"], "");
+  const date = firstString(record, ["data", "date", "dia", "created_at", "data_atendimento", "data_chamado", "data_fechamento"], "");
 
   return {
-    id: firstString(record, ["id", "ticket", "ticket_id", "chamado", "codigo"], `milvus-${index}`),
+    id: firstString(record, ["id", "ticket", "ticket_id", "chamado", "codigo", "numero", "protocolo"], `milvus-${index}`),
     clientName,
     projectName,
     analystName,
