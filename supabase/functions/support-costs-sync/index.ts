@@ -8,7 +8,9 @@ const CORS = {
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-direct-milvus-v7";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-direct-milvus-v8";
+const MILVUS_PAGE_SIZE = 50;
+const MILVUS_MAX_PAGES = 80;
 
 type AttendanceRecord = {
   id: string;
@@ -116,6 +118,54 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
   return json.result;
 }
 
+function getRowsFromMilvusPayload(payload: unknown): Record<string, unknown>[] {
+  if (!payload || typeof payload !== "object") return [];
+  const obj = payload as Record<string, unknown>;
+  for (const key of ["lista", "data", "rows", "items", "records", "tickets"]) {
+    const value = obj[key];
+    if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+  }
+  return [];
+}
+
+function getStableRowKey(row: Record<string, unknown>, fallback: string): string {
+  return firstString(row, ["id", "codigo", "ticket", "ticket_id", "chamado", "numero", "protocolo"], fallback);
+}
+
+async function fetchDirectMilvusPage(token: string, filtroBody: Record<string, unknown>, page: number, strategy: "none" | "pagina" | "page" | "offset"): Promise<unknown> {
+  const body: Record<string, unknown> = {
+    total_registros: 10000,
+    filtro_body: filtroBody,
+  };
+
+  if (strategy === "pagina") {
+    body.pagina = page;
+    body.registros_por_pagina = MILVUS_PAGE_SIZE;
+  } else if (strategy === "page") {
+    body.page = page;
+    body.page_size = MILVUS_PAGE_SIZE;
+  } else if (strategy === "offset") {
+    body.limit = MILVUS_PAGE_SIZE;
+    body.offset = (page - 1) * MILVUS_PAGE_SIZE;
+  }
+
+  const milvusRes = await fetch(MILVUS_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!milvusRes.ok) {
+    const responseBody = await milvusRes.text();
+    throw new Error(`Milvus direto retornou ${milvusRes.status}: ${responseBody}`);
+  }
+
+  return await milvusRes.json();
+}
+
 async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string): Promise<unknown> {
   const filtroBody: Record<string, unknown> = {
     data_hora_criacao_inicial: `${range.from} 00:00:00`,
@@ -124,24 +174,48 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
   };
   if (clientName?.trim()) filtroBody.cliente = clientName.trim();
 
-  const milvusRes = await fetch(MILVUS_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      total_registros: 10000,
-      filtro_body: filtroBody,
-    }),
-  });
+  const firstPayload = await fetchDirectMilvusPage(token, filtroBody, 1, "none");
+  const firstRows = getRowsFromMilvusPayload(firstPayload);
+  if (firstRows.length < MILVUS_PAGE_SIZE) return firstPayload;
 
-  if (!milvusRes.ok) {
-    const body = await milvusRes.text();
-    throw new Error(`Milvus direto retornou ${milvusRes.status}: ${body}`);
+  const bestRows = [...firstRows];
+  let bestStrategy: "pagina" | "page" | "offset" | null = null;
+  const firstKeys = new Set(firstRows.map((row, index) => getStableRowKey(row, `first-${index}`)));
+
+  for (const strategy of ["pagina", "page", "offset"] as const) {
+    const secondPayload = await fetchDirectMilvusPage(token, filtroBody, 2, strategy);
+    const secondRows = getRowsFromMilvusPayload(secondPayload);
+    const newRows = secondRows.filter((row, index) => !firstKeys.has(getStableRowKey(row, `${strategy}-2-${index}`)));
+    if (newRows.length > 0) {
+      bestStrategy = strategy;
+      bestRows.push(...newRows);
+      break;
+    }
   }
 
-  return await milvusRes.json();
+  if (!bestStrategy) return firstPayload;
+
+  const seen = new Set(bestRows.map((row, index) => getStableRowKey(row, `seed-${index}`)));
+  for (let page = 3; page <= MILVUS_MAX_PAGES; page += 1) {
+    const payload = await fetchDirectMilvusPage(token, filtroBody, page, bestStrategy);
+    const rows = getRowsFromMilvusPayload(payload);
+    const newRows = rows.filter((row, index) => {
+      const key = getStableRowKey(row, `${bestStrategy}-${page}-${index}`);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (newRows.length === 0) break;
+    bestRows.push(...newRows);
+    if (rows.length < MILVUS_PAGE_SIZE) break;
+  }
+
+  return {
+    ...(firstPayload && typeof firstPayload === "object" && !Array.isArray(firstPayload) ? firstPayload as Record<string, unknown> : {}),
+    lista: bestRows,
+    paginationStrategy: bestStrategy,
+    pagesMerged: Math.ceil(bestRows.length / MILVUS_PAGE_SIZE),
+  };
 }
 
 async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange, clientName?: string): Promise<AttendanceReportResult> {
@@ -208,6 +282,65 @@ function firstNumber(record: Record<string, unknown>, keys: string[]): number {
     }
   }
   return 0;
+}
+
+function keyLooksLikeTime(key: string): boolean {
+  const normalized = key
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (/data|criacao|modificacao|resposta|solucao|agendamento|saida|entrada/.test(normalized)) return false;
+  return /hora|hour|minute|minuto|segundo|second|tempo|duracao|duration|trabalh/.test(normalized);
+}
+
+function numberFromValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const duration = parseDurationHours(value);
+    if (duration !== null) return duration;
+
+    const normalized = value
+      .trim()
+      .replace(/\.(?=\d{3}(\D|$))/g, "")
+      .replace(",", ".")
+      .replace(/[^\d.-]/g, "");
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function detectNestedHours(value: unknown, depth = 0): number {
+  if (!value || depth > 5) return 0;
+
+  if (Array.isArray(value)) {
+    return value.reduce((sum, item) => sum + detectNestedHours(item, depth + 1), 0);
+  }
+
+  if (typeof value !== "object") return 0;
+
+  const obj = value as Record<string, unknown>;
+  let total = 0;
+
+  for (const [key, nestedValue] of Object.entries(obj)) {
+    if (key === "rawTicket") continue;
+    if (keyLooksLikeTime(key)) {
+      const parsed = numberFromValue(nestedValue);
+      if (parsed !== null && parsed > 0) {
+        const normalizedKey = key
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        if (/minuto|minute/.test(normalizedKey)) total += parsed / 60;
+        else if (/segundo|second/.test(normalizedKey)) total += parsed / 3600;
+        else total += parsed;
+        continue;
+      }
+    }
+    if (nestedValue && typeof nestedValue === "object") total += detectNestedHours(nestedValue, depth + 1);
+  }
+
+  return total;
 }
 
 function parseDurationHours(value: string): number | null {
@@ -331,7 +464,41 @@ function detectHours(record: Record<string, unknown>): number {
   const seconds = firstNumber(record, ["segundos", "seconds", "total_segundos", "duration_seconds", "tempo_segundos", "total_seconds"]);
   if (seconds > 0) return seconds / 3600;
 
-  return 0;
+  return detectNestedHours(record);
+}
+
+function arrayFromNestedValue(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+  }
+  if (typeof value === "string") {
+    const parsed = tryParseJsonText(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+    }
+  }
+  return [];
+}
+
+function expandRowsWithNestedServices(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const expanded: Record<string, unknown>[] = [];
+
+  for (const row of rows) {
+    let pushedNested = false;
+    for (const key of ["servico_realizado", "servicos_realizados", "atendimentos", "apontamentos", "horas", "lancamentos"]) {
+      const nestedRows = arrayFromNestedValue(row[key]);
+      for (const nested of nestedRows) {
+        const merged = { ...row, ...nested, rawTicket: row };
+        if (detectHours(merged) > 0) {
+          expanded.push(merged);
+          pushedNested = true;
+        }
+      }
+    }
+    if (!pushedNested) expanded.push(row);
+  }
+
+  return expanded;
 }
 
 function tryParseJsonText(text: string): unknown | null {
@@ -465,12 +632,18 @@ function diagnosticsForRows(rows: Record<string, unknown>[], normalized: Attenda
       total_horas: row.total_horas,
       total_horas_atendimento: row.total_horas_atendimento,
       tempo_horas: row.tempo_horas,
+      tempo: row.tempo,
+      duracao: row.duracao,
+      duration: row.duration,
+      tempo_trabalhado: row.tempo_trabalhado,
+      tempo_atendimento: row.tempo_atendimento,
       horas_ticket: row.horas_ticket,
       horas_operador: row.horas_operador,
       horas_internas: row.horas_internas,
       horas_externas: row.horas_externas,
       minutos: row.minutos,
       minutes: row.minutes,
+      nestedHours: detectNestedHours(row),
     })),
     sampleDateValues: sampleRows.map((row, index) => ({
       data_inicial: row.data_inicial,
@@ -492,7 +665,7 @@ function diagnosticsForRows(rows: Record<string, unknown>[], normalized: Attenda
   };
 }
 
-function normalizeRecord(record: Record<string, unknown>, index: number): AttendanceRecord {
+function normalizeRecord(record: Record<string, unknown>, index: number | string): AttendanceRecord {
   const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "nome_fantasia", "razaoSocial", "razao_social", "customer", "empresa"]);
   const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto", "setor"], clientName);
   const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario", "operador", "consultor", "nome", "sobrenome"]);
@@ -553,20 +726,23 @@ serve(async (req) => {
 
     const monthResults = await Promise.all(monthRanges.map(async (range) => {
       const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName);
-      const monthRows = unwrapRows(rawResult);
+      const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
       const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
       const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
-      return { range, source, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
+      const rawObject = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult) ? rawResult as Record<string, unknown> : {};
+      return { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
     }));
 
-    for (const { range, source, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
+    for (const { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
       rows.push(...monthRows);
       normalized.push(...monthNormalized);
       monthRecords.push(...monthKeptRecords);
       monthDiagnostics.push({
         month: range.label,
         source,
+        paginationStrategy: rawObject.paginationStrategy ?? null,
+        pagesMerged: rawObject.pagesMerged ?? null,
         dateFrom: range.from,
         dateTo: range.to,
         rowsDetected: monthRows.length,
