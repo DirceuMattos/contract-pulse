@@ -47,20 +47,6 @@ import { formatCurrency } from '@/lib/calculations';
 const PJ_MONTHLY_HOURS = 168;
 const CLT_MONTHLY_HOURS = 200;
 const chartColors = ['#0ea5e9', '#14b8a6', '#22c55e', '#eab308', '#f97316', '#ef4444', '#8b5cf6', '#ec4899'];
-const MONTH_OPTIONS = [
-  { value: '01', label: 'Janeiro' },
-  { value: '02', label: 'Fevereiro' },
-  { value: '03', label: 'Março' },
-  { value: '04', label: 'Abril' },
-  { value: '05', label: 'Maio' },
-  { value: '06', label: 'Junho' },
-  { value: '07', label: 'Julho' },
-  { value: '08', label: 'Agosto' },
-  { value: '09', label: 'Setembro' },
-  { value: '10', label: 'Outubro' },
-  { value: '11', label: 'Novembro' },
-  { value: '12', label: 'Dezembro' },
-];
 
 type SupportCostRecord = {
   id: string;
@@ -74,7 +60,7 @@ type SupportCostRecord = {
 
 type EnrichedSupportCostRecord = SupportCostRecord & {
   matchedClient?: { id: string; nomeFantasia?: string; razaoSocial: string };
-  matchedContract?: { id: string; nome: string };
+  matchedContract?: { id: string; nome: string; clientId: string };
   estimatedCost: number;
   reconciliationStatus: 'conciliado' | 'pendente';
 };
@@ -484,7 +470,6 @@ export default function SupportCostsPage() {
   }, [clientId, contracts]);
 
   const selectedClient = clients.find((client) => client.id === clientId);
-  const selectedContract = contracts.find((contract) => contract.id === contractId);
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
 
@@ -526,6 +511,7 @@ export default function SupportCostsPage() {
       if (!isRecordInSelectedPeriod(record, dateFrom, dateTo)) return false;
       if (clientId !== 'all') {
         const matchesSelectedClient = record.matchedClient?.id === clientId
+          || record.matchedContract?.clientId === clientId
           || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
           || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
         if (!matchesSelectedClient) return false;
@@ -699,8 +685,6 @@ export default function SupportCostsPage() {
         body: {
           dateFrom,
           dateTo,
-          clientName: selectedClient?.nomeFantasia || selectedClient?.razaoSocial,
-          projectName: selectedContract?.nome,
         },
       });
 
@@ -723,15 +707,21 @@ export default function SupportCostsPage() {
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [dateFrom, dateTo, selectedClient?.nomeFantasia, selectedClient?.razaoSocial, selectedContract?.nome]);
+  }, [dateFrom, dateTo]);
+
+  const syncMilvusRef = useRef(syncMilvus);
+
+  useEffect(() => {
+    syncMilvusRef.current = syncMilvus;
+  }, [syncMilvus]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      void syncMilvus({ silent: true });
+      void syncMilvusRef.current({ silent: true });
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [syncMilvus]);
+  }, []);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
