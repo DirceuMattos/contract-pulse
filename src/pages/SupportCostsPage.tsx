@@ -7,9 +7,11 @@ import {
   DatabaseZap,
   Filter,
   Link2,
+  Loader2,
   Shield,
   UsersRound,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,9 +19,27 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
+import { supabase } from '@/integrations/supabase/client';
 import { calculateHRPersonCost, formatCurrency } from '@/lib/calculations';
 
 const DEFAULT_MONTHLY_HOURS = 168;
+
+type SupportCostRecord = {
+  id: string;
+  clientName: string;
+  projectName: string;
+  analystName: string;
+  hours: number;
+  date?: string;
+  raw?: Record<string, unknown>;
+};
+
+type SupportCostsSyncResponse = {
+  success?: boolean;
+  count?: number;
+  records?: SupportCostRecord[];
+  error?: string;
+};
 
 function currentMonthRange() {
   const now = new Date();
@@ -29,6 +49,14 @@ function currentMonthRange() {
     from: start.toISOString().slice(0, 10),
     to: end.toISOString().slice(0, 10),
   };
+}
+
+function normalizeText(value: string | undefined) {
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 function KpiCard({
@@ -66,6 +94,9 @@ export default function SupportCostsPage() {
   const [dateTo, setDateTo] = useState(initialRange.to);
   const [clientId, setClientId] = useState('all');
   const [contractId, setContractId] = useState('all');
+  const [records, setRecords] = useState<SupportCostRecord[]>([]);
+  const [loadingSync, setLoadingSync] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const { canViewHRCosts } = useAuth();
   const { clients, contracts, settings } = useData();
   const { hrPeople } = useHR();
@@ -90,6 +121,11 @@ export default function SupportCostsPage() {
     };
   }, [activePeople, settings]);
 
+  const sortedClients = useMemo(
+    () => [...clients].sort((a, b) => (a.nomeFantasia || a.razaoSocial).localeCompare(b.nomeFantasia || b.razaoSocial, 'pt-BR')),
+    [clients],
+  );
+
   const filteredContracts = useMemo(() => {
     const list = clientId === 'all'
       ? contracts
@@ -97,16 +133,95 @@ export default function SupportCostsPage() {
     return [...list].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }, [clientId, contracts]);
 
-  const sortedClients = useMemo(
-    () => [...clients].sort((a, b) => (a.nomeFantasia || a.razaoSocial).localeCompare(b.nomeFantasia || b.razaoSocial, 'pt-BR')),
-    [clients],
-  );
+  const selectedClient = clients.find((client) => client.id === clientId);
+  const selectedContract = contracts.find((contract) => contract.id === contractId);
+
+  const enrichedRecords = useMemo(() => {
+    return records.map((record) => {
+      const matchedClient = clients.find((client) => {
+        const milvusClient = normalizeText(record.clientName);
+        return milvusClient
+          && (
+            normalizeText(client.nomeFantasia).includes(milvusClient)
+            || milvusClient.includes(normalizeText(client.nomeFantasia))
+            || normalizeText(client.razaoSocial).includes(milvusClient)
+            || milvusClient.includes(normalizeText(client.razaoSocial))
+          );
+      });
+
+      const matchedContract = contracts.find((contract) => {
+        const milvusProject = normalizeText(record.projectName);
+        return milvusProject
+          && (
+            normalizeText(contract.nome).includes(milvusProject)
+            || milvusProject.includes(normalizeText(contract.nome))
+          );
+      });
+
+      const estimatedCost = record.hours * costSummary.averageHourlyCost;
+
+      return {
+        ...record,
+        matchedClient,
+        matchedContract,
+        estimatedCost,
+        reconciliationStatus: matchedClient || matchedContract ? 'conciliado' : 'pendente',
+      };
+    });
+  }, [clients, contracts, costSummary.averageHourlyCost, records]);
+
+  const filteredRecords = useMemo(() => {
+    return enrichedRecords.filter((record) => {
+      if (clientId !== 'all' && record.matchedClient?.id !== clientId) return false;
+      if (contractId !== 'all' && record.matchedContract?.id !== contractId) return false;
+      return true;
+    });
+  }, [clientId, contractId, enrichedRecords]);
+
+  const totals = useMemo(() => {
+    const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
+    const totalCost = filteredRecords.reduce((sum, record) => sum + record.estimatedCost, 0);
+    const clientsCount = new Set(filteredRecords.map((record) => record.clientName)).size;
+    const pendingCount = filteredRecords.filter((record) => record.reconciliationStatus === 'pendente').length;
+    return { totalHours, totalCost, clientsCount, pendingCount };
+  }, [filteredRecords]);
 
   const periodLabel = dateFrom && dateTo
     ? `${new Date(`${dateFrom}T12:00:00`).toLocaleDateString('pt-BR')} a ${new Date(`${dateTo}T12:00:00`).toLocaleDateString('pt-BR')}`
     : 'Período não definido';
 
   const valueText = (value: number) => canViewHRCosts ? formatCurrency(value) : 'Confidencial';
+
+  async function handleSyncMilvus() {
+    if (!dateFrom || !dateTo) {
+      toast.error('Informe início e fim do período.');
+      return;
+    }
+
+    setLoadingSync(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('support-costs-sync', {
+        body: {
+          dateFrom,
+          dateTo,
+          clientName: selectedClient?.nomeFantasia || selectedClient?.razaoSocial,
+          projectName: selectedContract?.nome,
+        },
+      });
+
+      if (error) throw error;
+      const payload = data as SupportCostsSyncResponse;
+      if (payload?.success === false) throw new Error(payload.error || 'Erro ao sincronizar Milvus.');
+
+      setRecords(payload.records || []);
+      setLastSyncAt(new Date().toISOString());
+      toast.success(`${payload.records?.length || 0} registro(s) de horas importado(s).`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao sincronizar Milvus.');
+    } finally {
+      setLoadingSync(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -193,8 +308,8 @@ export default function SupportCostsPage() {
             </select>
           </label>
           <div className="flex items-end">
-            <Button type="button" variant="outline" className="w-full" disabled>
-              <DatabaseZap className="mr-2 h-4 w-4" />
+            <Button type="button" variant="default" className="w-full" onClick={handleSyncMilvus} disabled={loadingSync}>
+              {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
             </Button>
           </div>
@@ -204,15 +319,15 @@ export default function SupportCostsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <KpiCard
           title="Horas Milvus"
-          value="0h"
-          description="Aguardando integração operacional"
+          value={`${totals.totalHours.toFixed(1)}h`}
+          description={lastSyncAt ? `Atualizado em ${new Date(lastSyncAt).toLocaleString('pt-BR')}` : 'Aguardando sincronização'}
           icon={<Clock3 className="h-5 w-5 text-sky-600" />}
           tone="border-l-sky-500"
         />
         <KpiCard
           title="Custo estimado"
-          value={valueText(0)}
-          description="Horas conciliadas x custo/hora"
+          value={valueText(totals.totalCost)}
+          description="Horas conciliadas x custo/hora médio"
           icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
           tone="border-l-emerald-500"
         />
@@ -225,8 +340,8 @@ export default function SupportCostsPage() {
         />
         <KpiCard
           title="Clientes atendidos"
-          value="0"
-          description="Conciliação Milvus pendente"
+          value={String(totals.clientsCount)}
+          description={`${totals.pendingCount} registro(s) pendente(s)`}
           icon={<Link2 className="h-5 w-5 text-amber-600" />}
           tone="border-l-amber-500"
         />
@@ -248,13 +363,13 @@ export default function SupportCostsPage() {
                 <p className="mt-1 text-lg font-semibold">{DEFAULT_MONTHLY_HOURS}h</p>
               </div>
               <div className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">Fórmula preparada</p>
+                <p className="text-xs text-muted-foreground">Fórmula aplicada</p>
                 <p className="mt-1 text-lg font-semibold">horas x custo/h</p>
               </div>
             </div>
             <p className="text-muted-foreground">
-              O custo/hora usa remuneração mensal, encargos e benefícios do RH. A próxima etapa conecta as horas reais do Milvus,
-              separando cliente, projeto e responsável quando esses campos vierem disponíveis.
+              O custo/hora usa remuneração mensal, encargos e benefícios do RH. Quando o Milvus trouxer responsável por atendimento,
+              a próxima evolução poderá substituir a média por custo individual do analista.
             </p>
           </CardContent>
         </Card>
@@ -263,15 +378,15 @@ export default function SupportCostsPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
-              Próxima integração
+              Integração Milvus
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              A chamada deve ocorrer por Edge Function própria, reutilizando o acesso seguro já usado nos Relatórios Mensais.
+              A sincronização consulta uma Edge Function própria, reutilizando o acesso seguro já usado nos Relatórios Mensais.
             </p>
             <div className="rounded-md bg-muted/60 p-3">
-              Fonte prevista: <span className="font-medium text-foreground">milvus_get_attendance_report</span>
+              Fonte: <span className="font-medium text-foreground">milvus_get_attendance_report</span>
             </div>
           </CardContent>
         </Card>
@@ -285,13 +400,46 @@ export default function SupportCostsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-dashed p-8 text-center">
-            <p className="font-medium">Nenhuma hora importada ainda.</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Após a integração, esta área mostrará clientes/projetos encontrados no Milvus, vínculos com cadastros do Hub,
-              horas atendidas, custo calculado e itens pendentes de conciliação.
-            </p>
-          </div>
+          {filteredRecords.length === 0 ? (
+            <div className="rounded-md border border-dashed p-8 text-center">
+              <p className="font-medium">Nenhuma hora importada para os filtros atuais.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Sincronize o Milvus para visualizar clientes/projetos encontrados, vínculos com cadastros do Hub,
+                horas atendidas, custo calculado e itens pendentes de conciliação.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                    <th className="py-2 pr-3">Cliente Milvus</th>
+                    <th className="py-2 pr-3">Projeto Milvus</th>
+                    <th className="py-2 pr-3">Responsável</th>
+                    <th className="py-2 pr-3 text-right">Horas</th>
+                    <th className="py-2 pr-3 text-right">Custo estimado</th>
+                    <th className="py-2 pr-3">Conciliação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecords.map((record) => (
+                    <tr key={record.id} className="border-b last:border-0">
+                      <td className="py-3 pr-3">{record.clientName}</td>
+                      <td className="py-3 pr-3">{record.projectName}</td>
+                      <td className="py-3 pr-3">{record.analystName}</td>
+                      <td className="py-3 pr-3 text-right tabular-nums">{record.hours.toFixed(1)}h</td>
+                      <td className="py-3 pr-3 text-right font-medium">{valueText(record.estimatedCost)}</td>
+                      <td className="py-3 pr-3">
+                        <Badge variant={record.reconciliationStatus === 'conciliado' ? 'default' : 'secondary'}>
+                          {record.reconciliationStatus === 'conciliado' ? 'Conciliado' : 'Pendente'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
