@@ -1209,7 +1209,7 @@ export default function SupportCostsPage() {
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, []);
+  }, [analystName, clientId, contractId, dateFrom, dateTo]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
