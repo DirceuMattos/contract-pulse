@@ -91,6 +91,13 @@ type SupportCostsSyncResponse = {
     recordsDetected?: number;
     sampleKeys?: string[][];
     rawShape?: unknown;
+    monthDiagnostics?: Array<{
+      month?: string;
+      source?: string;
+      rowsDetected?: number;
+      recordsDetected?: number;
+      totalHours?: number;
+    }>;
   };
 };
 
@@ -227,12 +234,18 @@ function getZeroImportDiagnosticMessage(payload: SupportCostsSyncResponse) {
   }
 
   const firstKeys = diagnostics.sampleKeys?.[0]?.join(', ') || 'nenhuma chave detectada';
+  const monthSummary = diagnostics.monthDiagnostics?.length
+    ? ' Meses: ' + diagnostics.monthDiagnostics
+      .map((month) => `${month.month || 'n/i'} ${month.source || 'fonte n/i'}: ${month.recordsDetected ?? 0} reg. / ${month.totalHours ?? 0}h`)
+      .join('; ') + '.'
+    : '';
   return [
     '0 registros importados.',
     `Versão da função: ${functionVersion}.`,
     `Linhas brutas detectadas: ${diagnostics.rowsDetected ?? 0}.`,
     `Linhas sem horas reconhecidas: ${diagnostics.rowsWithoutHours ?? 0}.`,
     `Campos do primeiro item: ${firstKeys}.`,
+    monthSummary,
   ].join(' ');
 }
 

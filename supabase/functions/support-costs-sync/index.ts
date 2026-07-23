@@ -7,7 +7,8 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-monthly-sync-v6";
+const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-direct-milvus-v7";
 
 type AttendanceRecord = {
   id: string;
@@ -23,6 +24,11 @@ type MonthRange = {
   label: string;
   from: string;
   to: string;
+};
+
+type AttendanceReportResult = {
+  source: "milvus-direct" | "devid-mcp";
+  rawResult: unknown;
 };
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
@@ -104,23 +110,65 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
   return json.result;
 }
 
-async function callAttendanceReport(token: string, range: MonthRange): Promise<unknown> {
+async function callDirectMilvusAttendanceReport(token: string, range: MonthRange): Promise<unknown> {
+  const milvusRes = await fetch(MILVUS_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      total_registros: 10000,
+      filtro_body: {
+        data_hora_criacao_inicial: `${range.from} 00:00:00`,
+        data_hora_criacao_final: `${range.to} 23:59:59`,
+        status: "Todos",
+      },
+    }),
+  });
+
+  if (!milvusRes.ok) {
+    const body = await milvusRes.text();
+    throw new Error(`Milvus direto retornou ${milvusRes.status}: ${body}`);
+  }
+
+  return await milvusRes.json();
+}
+
+async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange): Promise<AttendanceReportResult> {
+  if (milvusToken) {
+    try {
+      return {
+        source: "milvus-direct",
+        rawResult: await callDirectMilvusAttendanceReport(milvusToken, range),
+      };
+    } catch (error) {
+      console.warn(`[support-costs-sync] Milvus direto falhou em ${range.label}; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   const baseParams = {
     date_from: range.from,
     date_to: range.to,
   };
 
   try {
-    return await callMcp(DEVID_URL, token, "milvus_get_attendance_report", {
-      ...baseParams,
-      limit: 1000,
-      page_size: 1000,
-    });
+    return {
+      source: "devid-mcp",
+      rawResult: await callMcp(DEVID_URL, devidToken, "milvus_get_attendance_report", {
+        ...baseParams,
+        limit: 1000,
+        page_size: 1000,
+      }),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!/limit|page_size|argument|schema|invalid|unknown|unexpected/i.test(message)) throw error;
     console.warn(`[support-costs-sync] Retentando ${range.label} sem parametros de limite: ${message}`);
-    return await callMcp(DEVID_URL, token, "milvus_get_attendance_report", baseParams);
+    return {
+      source: "devid-mcp",
+      rawResult: await callMcp(DEVID_URL, devidToken, "milvus_get_attendance_report", baseParams),
+    };
   }
 }
 
@@ -477,6 +525,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
+    let milvusToken: string | null = null;
+    try {
+      milvusToken = await getVaultSecret(supabase, "MILVUS_TOKEN");
+    } catch (error) {
+      console.warn(`[support-costs-sync] MILVUS_TOKEN indisponivel; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     const monthRanges = buildMonthRanges(dateFrom, dateTo);
     if (monthRanges.length === 0) throw new Error("Periodo invalido");
@@ -489,20 +543,21 @@ serve(async (req) => {
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
     const monthResults = await Promise.all(monthRanges.map(async (range) => {
-      const rawResult = await callAttendanceReport(cleanDevidToken, range);
+      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range);
       const monthRows = unwrapRows(rawResult);
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
       const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
       const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
-      return { range, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
+      return { range, source, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
     }));
 
-    for (const { range, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
+    for (const { range, source, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
       rows.push(...monthRows);
       normalized.push(...monthNormalized);
       monthRecords.push(...monthKeptRecords);
       monthDiagnostics.push({
         month: range.label,
+        source,
         dateFrom: range.from,
         dateTo: range.to,
         rowsDetected: monthRows.length,
