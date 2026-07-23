@@ -61,6 +61,12 @@ type SupportCostsSyncResponse = {
   count?: number;
   records?: SupportCostRecord[];
   error?: string;
+  functionVersion?: string;
+  rawShape?: {
+    type?: string;
+    rowsDetected?: number;
+    recordsDetected?: number;
+  };
   diagnostics?: {
     rowsDetected?: number;
     rowsWithoutHours?: number;
@@ -108,13 +114,22 @@ function getFunctionErrorMessage(error: unknown) {
 
 function getZeroImportDiagnosticMessage(payload: SupportCostsSyncResponse) {
   const diagnostics = payload.diagnostics;
+  const functionVersion = payload.functionVersion || 'versão não informada';
+  const rawShape = payload.rawShape;
+
   if (!diagnostics) {
-    return '0 registros importados. A função respondeu, mas não retornou diagnóstico. Verifique os logs da Edge Function.';
+    return [
+      '0 registros importados.',
+      `Versão da função: ${functionVersion}.`,
+      `Retorno bruto: ${rawShape?.type || 'não informado'} / linhas: ${rawShape?.rowsDetected ?? 'n/i'}.`,
+      'A função respondeu sem diagnóstico completo; isso indica função antiga ou deploy incompleto da Edge Function.',
+    ].join(' ');
   }
 
   const firstKeys = diagnostics.sampleKeys?.[0]?.join(', ') || 'nenhuma chave detectada';
   return [
     '0 registros importados.',
+    `Versão da função: ${functionVersion}.`,
     `Linhas brutas detectadas: ${diagnostics.rowsDetected ?? 0}.`,
     `Linhas sem horas reconhecidas: ${diagnostics.rowsWithoutHours ?? 0}.`,
     `Campos do primeiro item: ${firstKeys}.`,

@@ -7,6 +7,7 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-diagnostics-v2";
 
 type AttendanceRecord = {
   id: string;
@@ -343,6 +344,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
+      functionVersion: FUNCTION_VERSION,
       count: records.length,
       records,
       rawShape: {
