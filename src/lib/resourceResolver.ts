@@ -10,6 +10,8 @@ export interface ResolvedResource {
   teamId?: string;
   tipoVinculo: HRTipoVinculo | string;
   custoBase: number;
+  beneficios?: number;
+
   isLinked: boolean;
   isBrokenLink: boolean;
   isVacant: boolean;

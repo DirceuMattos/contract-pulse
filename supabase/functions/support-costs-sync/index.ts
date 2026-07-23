@@ -488,13 +488,16 @@ serve(async (req) => {
 
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
-    for (const range of monthRanges) {
+    const monthResults = await Promise.all(monthRanges.map(async (range) => {
       const rawResult = await callAttendanceReport(cleanDevidToken, range);
       const monthRows = unwrapRows(rawResult);
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
       const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
       const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
+      return { range, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
+    }));
 
+    for (const { range, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
       rows.push(...monthRows);
       normalized.push(...monthNormalized);
       monthRecords.push(...monthKeptRecords);
@@ -510,6 +513,7 @@ serve(async (req) => {
         totalHours: Number(monthKeptRecords.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
       });
     }
+
 
     const recordsWithHours = normalized.filter((record) => record.hours > 0);
     const recordsWithoutRecognizedDate = recordsWithHours.filter((record) => !parseDateOnly(record.date)).length;
