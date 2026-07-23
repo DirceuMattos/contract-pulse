@@ -47,6 +47,20 @@ import { formatCurrency } from '@/lib/calculations';
 const PJ_MONTHLY_HOURS = 168;
 const CLT_MONTHLY_HOURS = 200;
 const chartColors = ['#0ea5e9', '#14b8a6', '#22c55e', '#eab308', '#f97316', '#ef4444', '#8b5cf6', '#ec4899'];
+const MONTH_OPTIONS = [
+  { value: '01', label: 'Janeiro' },
+  { value: '02', label: 'Fevereiro' },
+  { value: '03', label: 'Março' },
+  { value: '04', label: 'Abril' },
+  { value: '05', label: 'Maio' },
+  { value: '06', label: 'Junho' },
+  { value: '07', label: 'Julho' },
+  { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Setembro' },
+  { value: '10', label: 'Outubro' },
+  { value: '11', label: 'Novembro' },
+  { value: '12', label: 'Dezembro' },
+];
 
 type SupportCostRecord = {
   id: string;
@@ -116,6 +130,14 @@ function monthToDateRange(month: string) {
 
 function dateToMonth(date: string) {
   return date.slice(0, 7);
+}
+
+function getMonthPart(month: string) {
+  return month.slice(5, 7);
+}
+
+function getYearPart(month: string) {
+  return month.slice(0, 4);
 }
 
 function normalizeText(value: string | undefined) {
@@ -450,6 +472,14 @@ export default function SupportCostsPage() {
   const selectedContract = contracts.find((contract) => contract.id === contractId);
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = new Set<string>([getYearPart(monthFrom), getYearPart(monthTo)]);
+    for (let year = currentYear + 1; year >= currentYear - 8; year--) {
+      years.add(String(year));
+    }
+    return Array.from(years).filter(Boolean).sort((a, b) => Number(b) - Number(a));
+  }, [monthFrom, monthTo]);
 
   const analystOptions = useMemo(() => {
     const names = new Set(records.map((record) => record.analystName).filter(Boolean));
@@ -565,6 +595,22 @@ export default function SupportCostsPage() {
   function handleMonthToChange(month: string) {
     const range = monthToDateRange(month);
     if (range) setDateTo(range.to);
+  }
+
+  function handleFromMonthSelect(month: string) {
+    handleMonthFromChange(`${getYearPart(monthFrom)}-${month}`);
+  }
+
+  function handleFromYearSelect(year: string) {
+    handleMonthFromChange(`${year}-${getMonthPart(monthFrom)}`);
+  }
+
+  function handleToMonthSelect(month: string) {
+    handleMonthToChange(`${getYearPart(monthTo)}-${month}`);
+  }
+
+  function handleToYearSelect(year: string) {
+    handleMonthToChange(`${year}-${getMonthPart(monthTo)}`);
   }
 
   function exportClientReportXlsx() {
@@ -785,24 +831,54 @@ export default function SupportCostsPage() {
             <Badge variant="outline">{periodLabel}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Mes inicial</span>
-            <input
-              type="month"
-              value={monthFrom}
-              onChange={(event) => handleMonthFromChange(event.target.value)}
+            <select
+              value={getMonthPart(monthFrom)}
+              onChange={(event) => handleFromMonthSelect(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
+            >
+              {MONTH_OPTIONS.map((month) => (
+                <option key={month.value} value={month.value}>{month.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Ano inicial</span>
+            <select
+              value={getYearPart(monthFrom)}
+              onChange={(event) => handleFromYearSelect(event.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Mes final</span>
-            <input
-              type="month"
-              value={monthTo}
-              onChange={(event) => handleMonthToChange(event.target.value)}
+            <select
+              value={getMonthPart(monthTo)}
+              onChange={(event) => handleToMonthSelect(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
+            >
+              {MONTH_OPTIONS.map((month) => (
+                <option key={month.value} value={month.value}>{month.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Ano final</span>
+            <select
+              value={getYearPart(monthTo)}
+              onChange={(event) => handleToYearSelect(event.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Cliente</span>
