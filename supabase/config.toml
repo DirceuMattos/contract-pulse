@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.feedz-test-photo]
 verify_jwt = false
+
+[functions.support-costs-sync]
+verify_jwt = false
