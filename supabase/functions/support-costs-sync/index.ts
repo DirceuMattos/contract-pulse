@@ -8,7 +8,7 @@ const CORS = {
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-recursive-milvus-v9";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-client-aliases-v10";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_SLICE_FIELDS = ["tecnico", "prioridade", "categoria_primaria", "categoria_secundaria"] as const;
@@ -39,6 +39,7 @@ type SyncRequest = {
   dateFrom: string;
   dateTo: string;
   clientName?: string;
+  clientNames?: string[];
 };
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
@@ -157,13 +158,21 @@ function compactToken(value: string): string {
     .toLowerCase();
 }
 
-function getMilvusClientTerms(clientName?: string): string[] {
-  if (!clientName?.trim()) return [];
-  const clean = clientName.trim();
-  const words = clean.split(/[\s\-_/.,]+/).map((word) => word.trim()).filter((word) => word.length >= 3);
-  const terms = [clean, words.slice(0, 2).join(" "), words[0], compactToken(clean)]
-    .filter((term) => term && term.length >= 3);
-  return Array.from(new Set(terms));
+function getMilvusClientTerms(clientName?: string, clientNames: string[] = []): string[] {
+  const sourceNames = [...clientNames, clientName].filter((value): value is string => Boolean(value?.trim()));
+  const terms: string[] = [];
+
+  for (const sourceName of sourceNames) {
+    const clean = sourceName.trim();
+    const words = clean.split(/[\s\-_/.,]+/).map((word) => word.trim()).filter((word) => word.length >= 3);
+    const acronym = words
+      .filter((word) => /^[A-Z0-9]+$/.test(word) || word.length <= 5)
+      .slice(0, 3)
+      .join(" ");
+    terms.push(clean, words.slice(0, 2).join(" "), words[0], acronym, compactToken(clean));
+  }
+
+  return Array.from(new Set(terms.filter((term) => term && term.length >= 3))).slice(0, 24);
 }
 
 async function fetchDirectMilvusSlice(token: string, filtroBody: Record<string, unknown>): Promise<unknown> {
@@ -215,12 +224,11 @@ function buildSliceKey(filter: Record<string, unknown>): string {
   return JSON.stringify(Object.keys(filter).sort().map((key) => [key, filter[key]]));
 }
 
-async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string): Promise<{ lista: Record<string, unknown>[]; extractionDiagnostics: Record<string, unknown> }> {
+async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string, clientNames: string[] = []): Promise<{ lista: Record<string, unknown>[]; extractionDiagnostics: Record<string, unknown> }> {
   const filtroBody: Record<string, unknown> = {
     status: "Todos",
   };
-  const clientTerms = getMilvusClientTerms(clientName);
-  if (clientTerms[0]) filtroBody.cliente = clientTerms[0];
+  const clientTerms = getMilvusClientTerms(clientName, clientNames);
 
   if (clientTerms.length === 0) {
     const payload = await fetchDirectMilvusSlice(token, filtroBody);
@@ -238,7 +246,10 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
 
   const collected = new Map<string, Record<string, unknown>>();
   const visited = new Set<string>();
-  const queue: Array<{ filter: Record<string, unknown>; depth: number }> = [{ filter: filtroBody, depth: 0 }];
+  const queue: Array<{ filter: Record<string, unknown>; depth: number }> = clientTerms.map((term) => ({
+    filter: { ...filtroBody, cliente: term },
+    depth: 0,
+  }));
   const sliceDiagnostics: Array<Record<string, unknown>> = [];
 
   while (queue.length > 0 && visited.size < MILVUS_MAX_SLICES) {
@@ -281,17 +292,7 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
     }
   }
 
-  let rows = Array.from(collected.values());
-  if (clientTerms.length > 1 && rows.length < MILVUS_PAGE_SIZE) {
-    for (const term of clientTerms.slice(1)) {
-      const payload = await fetchDirectMilvusSlice(token, { ...filtroBody, cliente: term });
-      for (const row of getRowsFromMilvusPayload(payload)) {
-        const key = getStableRowKey(row, `client-term-${term}-${collected.size}`);
-        collected.set(key, row);
-      }
-    }
-    rows = Array.from(collected.values());
-  }
+  const rows = Array.from(collected.values());
 
   return {
     lista: rows,
@@ -305,12 +306,12 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
   };
 }
 
-async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange, clientName?: string): Promise<AttendanceReportResult> {
+async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange, clientName?: string, clientNames: string[] = []): Promise<AttendanceReportResult> {
   if (milvusToken) {
     try {
       return {
         source: "milvus-direct",
-        rawResult: await callDirectMilvusAttendanceReport(milvusToken, range, clientName),
+        rawResult: await callDirectMilvusAttendanceReport(milvusToken, range, clientName, clientNames),
       };
     } catch (error) {
       console.warn(`[support-costs-sync] Milvus direto falhou em ${range.label}; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
@@ -786,7 +787,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { dateFrom, dateTo, clientName } = await req.json() as SyncRequest;
+    const { dateFrom, dateTo, clientName, clientNames = [] } = await req.json() as SyncRequest;
     if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
 
     const supabase = createClient(
@@ -813,7 +814,7 @@ serve(async (req) => {
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
     const monthResults = await Promise.all(syncRanges.map(async (range) => {
-      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName);
+      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, clientNames);
       const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
       const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
@@ -869,7 +870,8 @@ serve(async (req) => {
         dateFrom,
         dateTo,
         clientName: clientName || null,
-        hasClientFilter: Boolean(clientName?.trim()),
+        clientAliasesCount: clientNames.length,
+        hasClientFilter: Boolean(clientName?.trim() || clientNames.length > 0),
         hasProjectFilter: false,
       },
       rawShape: {

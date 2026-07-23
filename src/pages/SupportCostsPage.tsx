@@ -1071,6 +1071,19 @@ export default function SupportCostsPage() {
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
   const syncClientName = selectedMilvusClientName || selectedClient?.nomeFantasia || selectedClient?.razaoSocial || undefined;
+  const syncClientNames = useMemo(() => {
+    if (selectedMilvusClientName) return [selectedMilvusClientName];
+    if (!selectedClient) return [];
+
+    const aliases = new Set<string>();
+    for (const value of [selectedClient.nomeFantasia, selectedClient.razaoSocial]) {
+      if (value?.trim()) aliases.add(value.trim());
+    }
+    for (const contract of contracts) {
+      if (contract.clientId === selectedClient.id && contract.nome?.trim()) aliases.add(contract.nome.trim());
+    }
+    return Array.from(aliases).slice(0, 12);
+  }, [contracts, selectedClient, selectedMilvusClientName]);
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
@@ -1188,6 +1201,7 @@ export default function SupportCostsPage() {
           dateFrom,
           dateTo,
           clientName: syncClientName,
+          clientNames: syncClientNames,
         },
       });
 
@@ -1214,7 +1228,7 @@ export default function SupportCostsPage() {
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [dateFrom, dateTo, syncClientName]);
+  }, [dateFrom, dateTo, syncClientName, syncClientNames]);
 
   const syncMilvusRef = useRef(syncMilvus);
 
