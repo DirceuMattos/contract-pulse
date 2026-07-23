@@ -269,8 +269,8 @@ function SupportCostTable({
           <tbody>
             {groups.map((group, groupIndex) => (
               <React.Fragment key={group.clientName}>
-                <tr className={groupIndex % 2 === 0 ? 'border-b bg-muted/70' : 'border-b bg-primary/5'}>
-                  <td className="py-3 pr-3 font-semibold" colSpan={3}>{group.clientName}</td>
+                <tr className={groupIndex % 2 === 0 ? 'border-b bg-muted' : 'border-b bg-primary/15'}>
+                  <td className="py-3 pr-3 font-semibold text-foreground" colSpan={3}>{group.clientName}</td>
                   <td className="py-3 pr-3 text-right font-semibold tabular-nums">{formatHours(group.hours)}</td>
                   <td className="py-3 pr-3 text-right font-semibold">{canViewValues ? valueText(group.cost) : 'Confidencial'}</td>
                 </tr>
@@ -279,8 +279,8 @@ function SupportCostTable({
                     key={group.clientName + '-' + record.id + '-' + index}
                     className={
                       groupIndex % 2 === 0
-                        ? 'border-b bg-background last:border-0 cursor-pointer transition-colors hover:bg-muted/60'
-                        : 'border-b bg-primary/[0.025] last:border-0 cursor-pointer transition-colors hover:bg-primary/10'
+                        ? 'border-b bg-muted/20 last:border-0 cursor-pointer transition-colors hover:bg-muted/50'
+                        : 'border-b bg-primary/[0.04] last:border-0 cursor-pointer transition-colors hover:bg-primary/10'
                     }
                     tabIndex={0}
                     onClick={() => setSelectedRecord(record)}
@@ -398,10 +398,11 @@ export default function SupportCostsPage() {
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const syncRequestRef = useRef(0);
-  const { canModuleAction } = useAuth();
+  const { canModuleAction, userRole } = useAuth();
   const { clients, contracts, settings } = useData();
   const { hrPeople } = useHR();
   const canViewSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_view_values');
+  const canViewCalculationBase = userRole !== 'lider_tribo';
 
   const activePeople = useMemo(
     () => hrPeople.filter((person) => person.situacao === 'ativo'),
@@ -818,30 +819,32 @@ export default function SupportCostsPage() {
             {renderChart('Totais por projeto', chartByProject)}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Base de calculo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">Base mensal RH ativo</p>
-                  <p className="mt-1 text-lg font-semibold">{valueText(costSummary.totalMonthlyCost)}</p>
+          {canViewCalculationBase && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Base de calculo</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">Base mensal RH ativo</p>
+                    <p className="mt-1 text-lg font-semibold">{valueText(costSummary.totalMonthlyCost)}</p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">Carga mensal usada</p>
+                    <p className="mt-1 text-lg font-semibold">CLT {CLT_MONTHLY_HOURS}h / PJ {PJ_MONTHLY_HOURS}h</p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">Formula aplicada</p>
+                    <p className="mt-1 text-lg font-semibold">horas x custo/h</p>
+                  </div>
                 </div>
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">Carga mensal usada</p>
-                  <p className="mt-1 text-lg font-semibold">CLT {CLT_MONTHLY_HOURS}h / PJ {PJ_MONTHLY_HOURS}h</p>
-                </div>
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">Formula aplicada</p>
-                  <p className="mt-1 text-lg font-semibold">horas x custo/h</p>
-                </div>
-              </div>
-              <p className="text-muted-foreground">
-                O custo/hora usa remuneracao bruta mensal mais encargos/impostos, sem beneficios. CLT usa {CLT_MONTHLY_HOURS}h mensais e PJ usa {PJ_MONTHLY_HOURS}h mensais.
-              </p>
-            </CardContent>
-          </Card>
+                <p className="text-muted-foreground">
+                  O custo/hora usa remuneracao bruta mensal mais encargos/impostos, sem beneficios. CLT usa {CLT_MONTHLY_HOURS}h mensais e PJ usa {PJ_MONTHLY_HOURS}h mensais.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="client-report" className="space-y-4">
