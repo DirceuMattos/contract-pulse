@@ -12,6 +12,7 @@ import {
   Shield,
   UsersRound,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import {
   Bar,
@@ -42,7 +43,6 @@ import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/calculations';
-import { buildXlsx } from '@/lib/importExport';
 
 const PJ_MONTHLY_HOURS = 168;
 const CLT_MONTHLY_HOURS = 200;
@@ -574,51 +574,69 @@ export default function SupportCostsPage() {
     }
 
     const headers = [
-      'Tipo',
       'Cliente Milvus',
       'Projeto Milvus',
       'Responsavel',
       'Horas',
       'Custo Calculado',
-      'Cliente conciliado Hub',
-      'Contrato conciliado Hub',
-      'Status conciliacao',
       'Data',
     ];
 
     const rows: unknown[][] = [];
+    let totalHours = 0;
+    let totalCost = 0;
+
     for (const group of clientReportGroups) {
+      totalHours += group.hours;
+      totalCost += group.cost;
+
       rows.push([
-        'Subtotal',
         group.clientName,
         '',
         '',
         Number(group.hours.toFixed(2)),
         canViewSupportCosts ? group.cost : 'Confidencial',
         '',
-        '',
-        '',
-        '',
       ]);
 
       for (const record of group.records) {
         rows.push([
-          'Linha',
           record.clientName,
           record.projectName,
           record.analystName,
           Number(record.hours.toFixed(2)),
           canViewSupportCosts ? record.estimatedCost : 'Confidencial',
-          record.matchedClient?.nomeFantasia || record.matchedClient?.razaoSocial || 'Nao conciliado',
-          record.matchedContract?.nome || 'Nao conciliado',
-          record.reconciliationStatus,
           record.date || '',
         ]);
       }
+
+      rows.push([]);
     }
 
+    rows.push([
+      'Total geral',
+      '',
+      '',
+      Number(totalHours.toFixed(2)),
+      canViewSupportCosts ? totalCost : 'Confidencial',
+      '',
+    ]);
+
     const filename = `custos-suporte-tsi-clientes-${dateFrom}-a-${dateTo}.xlsx`;
-    downloadBlob(buildXlsx(headers, rows), filename);
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    worksheet['!cols'] = [
+      { wch: 34 },
+      { wch: 34 },
+      { wch: 24 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 14 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
     toast.success('Planilha exportada com sucesso.');
   }
 
