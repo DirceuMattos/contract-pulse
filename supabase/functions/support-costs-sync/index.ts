@@ -125,6 +125,7 @@ function detectHours(record: Record<string, unknown>): number {
     "horas",
     "hours",
     "total_horas",
+    "total_horas_atendimento",
     "quantidade_horas",
     "tempo_horas",
     "duration_hours",
@@ -132,6 +133,10 @@ function detectHours(record: Record<string, unknown>): number {
     "horas_trabalhadas",
     "tempo_total_horas",
     "total_hours",
+    "horas_ticket",
+    "horas_operador",
+    "horas_internas",
+    "horas_externas",
   ]);
   if (directHours > 0) return directHours;
 
@@ -272,7 +277,12 @@ function diagnosticsForRows(rows: Record<string, unknown>[], normalized: Attenda
       horas: row.horas,
       hours: row.hours,
       total_horas: row.total_horas,
+      total_horas_atendimento: row.total_horas_atendimento,
       tempo_horas: row.tempo_horas,
+      horas_ticket: row.horas_ticket,
+      horas_operador: row.horas_operador,
+      horas_internas: row.horas_internas,
+      horas_externas: row.horas_externas,
       minutos: row.minutos,
       minutes: row.minutes,
     })),
@@ -280,9 +290,9 @@ function diagnosticsForRows(rows: Record<string, unknown>[], normalized: Attenda
 }
 
 function normalizeRecord(record: Record<string, unknown>, index: number): AttendanceRecord {
-  const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "razaoSocial", "razao_social", "customer", "empresa"]);
-  const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto"], clientName);
-  const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario", "operador", "consultor"]);
+  const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "nome_fantasia", "razaoSocial", "razao_social", "customer", "empresa"]);
+  const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto", "setor"], clientName);
+  const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario", "operador", "consultor", "nome", "sobrenome"]);
   const hours = detectHours(record);
   const date = firstString(record, ["data", "date", "dia", "created_at", "data_atendimento", "data_chamado", "data_fechamento"], "");
 
