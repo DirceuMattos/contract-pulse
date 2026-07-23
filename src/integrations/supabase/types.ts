@@ -3189,7 +3189,6 @@ export type Database = {
         | "suspenso"
       module_key:
         | "DASHBOARD"
-        | "HR_DASHBOARD"
         | "CLIENTS"
         | "CONTRACTS"
         | "CONTRACT_DETAIL"
@@ -3213,6 +3212,7 @@ export type Database = {
         | "JOB_SKILLS"
         | "PROFILES_ADMIN"
         | "REPORTS"
+        | "HR_DASHBOARD"
         | "SUPPORT_COSTS"
       other_cost_category:
         | "cloud"
@@ -3439,6 +3439,7 @@ export const Constants = {
         "JOB_SKILLS",
         "PROFILES_ADMIN",
         "REPORTS",
+        "HR_DASHBOARD",
         "SUPPORT_COSTS",
       ],
       other_cost_category: [
