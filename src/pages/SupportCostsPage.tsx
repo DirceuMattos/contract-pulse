@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
@@ -277,6 +277,7 @@ export default function SupportCostsPage() {
   const [records, setRecords] = useState<SupportCostRecord[]>([]);
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const syncRequestRef = useRef(0);
   const { canViewHRCosts } = useAuth();
   const { clients, contracts, settings } = useData();
   const { hrPeople } = useHR();
@@ -441,12 +442,18 @@ export default function SupportCostsPage() {
     setAnalystName('all');
   }
 
-  async function handleSyncMilvus() {
+  const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!dateFrom || !dateTo) {
-      toast.error('Informe início e fim do período.');
+      if (!silent) toast.error('Informe inicio e fim do periodo.');
+      return;
+    }
+    if (dateFrom > dateTo) {
+      if (!silent) toast.error('O mes inicial deve ser anterior ou igual ao mes final.');
       return;
     }
 
+    const requestId = syncRequestRef.current + 1;
+    syncRequestRef.current = requestId;
     setLoadingSync(true);
     try {
       const { data, error } = await supabase.functions.invoke('support-costs-sync', {
@@ -461,21 +468,30 @@ export default function SupportCostsPage() {
       if (error) throw error;
       const payload = data as SupportCostsSyncResponse;
       if (payload?.success === false) throw new Error(payload.error || 'Erro ao sincronizar Milvus.');
+      if (requestId !== syncRequestRef.current) return;
 
       setRecords(payload.records || []);
       setLastSyncAt(new Date().toISOString());
       const importedCount = payload.records?.length || 0;
-      if (importedCount === 0) {
+      if (!silent && importedCount === 0) {
         toast.warning(getZeroImportDiagnosticMessage(payload), { duration: 12000 });
-      } else {
-        toast.success(`${importedCount} registro(s) de horas importado(s).`);
+      } else if (!silent) {
+        toast.success(importedCount + ' registro(s) de horas importado(s).');
       }
     } catch (error) {
-      toast.error(getFunctionErrorMessage(error));
+      if (!silent) toast.error(getFunctionErrorMessage(error));
     } finally {
-      setLoadingSync(false);
+      if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }
+  }, [dateFrom, dateTo, selectedClient?.nomeFantasia, selectedClient?.razaoSocial, selectedContract?.nome]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void syncMilvus({ silent: true });
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [syncMilvus]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => (
     <Card>
@@ -630,7 +646,7 @@ export default function SupportCostsPage() {
             </select>
           </label>
           <div className="flex items-end">
-            <Button type="button" variant="default" className="w-full" onClick={handleSyncMilvus} disabled={loadingSync}>
+            <Button type="button" variant="default" className="w-full" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
               {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
             </Button>
