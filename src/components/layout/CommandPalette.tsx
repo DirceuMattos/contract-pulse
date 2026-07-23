@@ -69,7 +69,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           {canAccessModule('SUPPORT_COSTS') && (
             <CommandItem onSelect={() => runCommand(() => navigate('/custos-suporte'))}>
               <CircleDollarSign className="mr-2 h-4 w-4" />
-              Custos do Suporte a Sistemas
+              Custo do Suporte a Sistemas - TSI
             </CommandItem>
           )}
           {canAccessModule('CONTRACTS') && (

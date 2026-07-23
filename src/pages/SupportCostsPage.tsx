@@ -671,7 +671,7 @@ export default function SupportCostsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Custos do Suporte a Sistemas"
+        title="Custo do Suporte a Sistemas - TSI"
         description="Apuração de custo dos atendimentos de suporte a sistemas por período, cliente e projeto."
         animated={false}
       />
