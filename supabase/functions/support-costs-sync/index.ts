@@ -120,6 +120,32 @@ function firstNumber(record: Record<string, unknown>, keys: string[]): number {
   return 0;
 }
 
+function parseDateOnly(value: string | undefined): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const brMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (brMatch) {
+    const day = brMatch[1].padStart(2, "0");
+    const month = brMatch[2].padStart(2, "0");
+    return `${brMatch[3]}-${month}-${day}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
+}
+
+function isRecordInPeriod(record: AttendanceRecord, dateFrom: string, dateTo: string): boolean {
+  const date = parseDateOnly(record.date);
+  if (!date) return false;
+  return date >= dateFrom && date <= dateTo;
+}
+
 function detectHours(record: Record<string, unknown>): number {
   const directHours = firstNumber(record, [
     "horas",
@@ -294,7 +320,19 @@ function normalizeRecord(record: Record<string, unknown>, index: number): Attend
   const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto", "setor"], clientName);
   const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario", "operador", "consultor", "nome", "sobrenome"]);
   const hours = detectHours(record);
-  const date = firstString(record, ["data", "date", "dia", "created_at", "data_atendimento", "data_chamado", "data_fechamento"], "");
+  const date = firstString(record, [
+    "data",
+    "date",
+    "dia",
+    "created_at",
+    "data_atendimento",
+    "data_chamado",
+    "data_fechamento",
+    "data_inicial",
+    "data_final",
+    "data_criacao",
+    "data_saida",
+  ], "");
 
   return {
     id: firstString(record, ["id", "ticket", "ticket_id", "chamado", "codigo", "numero", "protocolo"], `milvus-${index}`),
@@ -329,9 +367,12 @@ serve(async (req) => {
 
     const rows = unwrapRows(rawResult);
     const normalized = rows.map(normalizeRecord);
+    const recordsWithHours = normalized.filter((record) => record.hours > 0);
+    const recordsWithoutRecognizedDate = recordsWithHours.filter((record) => !parseDateOnly(record.date)).length;
+    const recordsOutsidePeriod = recordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo)).length;
     const seen = new Set<string>();
-    const records = normalized
-      .filter((record) => record.hours > 0)
+    const records = recordsWithHours
+      .filter((record) => isRecordInPeriod(record, dateFrom, dateTo))
       .filter((record) => {
         const key = `${record.id}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours}`;
         if (seen.has(key)) return false;
@@ -348,6 +389,9 @@ serve(async (req) => {
       },
       rawShape: describeShape(rawResult),
       ...diagnosticsForRows(rows, normalized),
+      recordsWithHours: recordsWithHours.length,
+      recordsWithoutRecognizedDate,
+      recordsOutsidePeriod,
       recordsDetected: records.length,
     };
     console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
