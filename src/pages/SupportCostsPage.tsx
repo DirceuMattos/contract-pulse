@@ -10,7 +10,6 @@ import {
   Loader2,
   Shield,
   UsersRound,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -238,15 +237,15 @@ function SupportCostTable({
           </tr>
         </thead>
         <tbody>
-          {groups.map((group) => (
+          {groups.map((group, groupIndex) => (
             <React.Fragment key={group.clientName}>
-              <tr className="border-b bg-muted/50">
+              <tr className={groupIndex % 2 === 0 ? 'border-b bg-muted/70' : 'border-b bg-primary/5'}>
                 <td className="py-3 pr-3 font-semibold" colSpan={3}>{group.clientName}</td>
                 <td className="py-3 pr-3 text-right font-semibold tabular-nums">{formatHours(group.hours)}</td>
                 <td className="py-3 pr-3 text-right font-semibold">{canViewValues ? valueText(group.cost) : 'Confidencial'}</td>
               </tr>
               {group.records.map((record, index) => (
-                <tr key={group.clientName + '-' + record.id + '-' + index} className="border-b last:border-0">
+                <tr key={group.clientName + '-' + record.id + '-' + index} className={groupIndex % 2 === 0 ? 'border-b bg-background last:border-0' : 'border-b bg-primary/[0.025] last:border-0'}>
                   <td className="py-3 pr-3 text-muted-foreground">{record.clientName}</td>
                   <td className="py-3 pr-3">
                     <span>{record.projectName}</span>
@@ -278,9 +277,10 @@ export default function SupportCostsPage() {
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const syncRequestRef = useRef(0);
-  const { canViewHRCosts } = useAuth();
+  const { canModuleAction } = useAuth();
   const { clients, contracts, settings } = useData();
   const { hrPeople } = useHR();
+  const canViewSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_view_values');
 
   const activePeople = useMemo(
     () => hrPeople.filter((person) => person.situacao === 'ativo'),
@@ -421,8 +421,8 @@ export default function SupportCostsPage() {
     ? `${new Date(`${dateFrom}T12:00:00`).toLocaleDateString('pt-BR')} a ${new Date(`${dateTo}T12:00:00`).toLocaleDateString('pt-BR')}`
     : 'Período não definido';
 
-  const valueText = (value: number) => canViewHRCosts ? formatCurrency(value) : 'Confidencial';
-  const chartValueKey = canViewHRCosts ? 'cost' : 'hours';
+  const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
+  const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
@@ -432,14 +432,6 @@ export default function SupportCostsPage() {
   function handleMonthToChange(month: string) {
     const range = monthToDateRange(month);
     if (range) setDateTo(range.to);
-  }
-
-  function clearFilters() {
-    setDateFrom(initialRange.from);
-    setDateTo(initialRange.to);
-    setClientId('all');
-    setContractId('all');
-    setAnalystName('all');
   }
 
   const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -494,14 +486,19 @@ export default function SupportCostsPage() {
   }, [syncMilvus]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => (
-    <Card>
+    <Card className="border-l-4 border-l-primary/40 bg-muted/20 shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            {title}
-          </CardTitle>
-          <Badge variant="secondary">{canViewHRCosts ? 'Custo' : 'Horas'}</Badge>
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              {title}
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Valores incluem remuneracao bruta dos RHs e encargos/impostos. Beneficios nao sao considerados.
+            </p>
+          </div>
+          <Badge variant="secondary">{canViewSupportCosts ? 'Custo' : 'Horas'}</Badge>
         </div>
       </CardHeader>
       <CardContent className="h-[460px]">
@@ -517,9 +514,9 @@ export default function SupportCostsPage() {
                 type="number"
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => canViewHRCosts ? formatShortCurrency(Number(value)) : String(value)}
+                tickFormatter={(value) => canViewSupportCosts ? formatShortCurrency(Number(value)) : String(value)}
               >
-                <Label value={canViewHRCosts ? 'Custo calculado' : 'Horas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                <Label value={canViewSupportCosts ? 'Custo calculado' : 'Horas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
               </XAxis>
               <YAxis type="category" dataKey="name" width={108} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
               <Tooltip
@@ -535,7 +532,7 @@ export default function SupportCostsPage() {
                 <LabelList
                   dataKey={chartValueKey}
                   position="right"
-                  formatter={(value: number) => canViewHRCosts ? formatShortCurrency(value) : formatHours(value)}
+                  formatter={(value: number) => canViewSupportCosts ? formatShortCurrency(value) : formatHours(value)}
                   className="fill-foreground text-[11px]"
                 />
               </Bar>
@@ -554,7 +551,7 @@ export default function SupportCostsPage() {
         animated={false}
       />
 
-      {!canViewHRCosts && (
+      {!canViewSupportCosts && (
         <Card className="border-l-4 border-l-amber-500">
           <CardContent className="p-4 flex items-start gap-3">
             <Shield className="h-5 w-5 text-amber-600 mt-0.5" />
@@ -651,12 +648,6 @@ export default function SupportCostsPage() {
               Sincronizar Milvus
             </Button>
           </div>
-          <div className="flex items-end">
-            <Button type="button" variant="outline" className="w-full" onClick={clearFilters}>
-              <X className="mr-2 h-4 w-4" />
-              Limpar filtros
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -736,9 +727,12 @@ export default function SupportCostsPage() {
                 <AlertCircle className="h-4 w-4" />
                 Conciliação Milvus x Hub
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Valores incluem remuneracao bruta dos RHs e encargos/impostos. Beneficios nao sao considerados.
+              </p>
             </CardHeader>
             <CardContent>
-              <SupportCostTable records={filteredRecords} groups={clientReportGroups} canViewValues={canViewHRCosts} valueText={valueText} />
+              <SupportCostTable records={filteredRecords} groups={clientReportGroups} canViewValues={canViewSupportCosts} valueText={valueText} />
             </CardContent>
           </Card>
         </TabsContent>
