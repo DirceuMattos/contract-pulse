@@ -28,6 +28,13 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -133,6 +140,19 @@ function formatShortCurrency(value: number) {
   return formatCurrency(value);
 }
 
+function formatMilvusValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function getMilvusEntries(record: EnrichedSupportCostRecord | null) {
+  if (!record?.raw) return [];
+  return Object.entries(record.raw)
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .sort(([left], [right]) => left.localeCompare(right, 'pt-BR'));
+}
+
 function getFunctionErrorMessage(error: unknown) {
   const raw = error instanceof Error ? error.message : String(error || '');
   if (raw.toLowerCase().includes('failed to send a request')) {
@@ -219,6 +239,9 @@ function SupportCostTable({
   valueText: (value: number) => string;
   groups: ClientReportGroup[];
 }) {
+  const [selectedRecord, setSelectedRecord] = useState<EnrichedSupportCostRecord | null>(null);
+  const milvusEntries = getMilvusEntries(selectedRecord);
+
   if (records.length === 0) {
     return (
       <div className="rounded-md border border-dashed p-8 text-center">
@@ -231,44 +254,136 @@ function SupportCostTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-xs uppercase text-muted-foreground">
-            <th className="py-2 pr-3">Cliente Milvus</th>
-            <th className="py-2 pr-3">Projeto Milvus</th>
-            <th className="py-2 pr-3">Responsavel</th>
-            <th className="py-2 pr-3 text-right">Horas</th>
-            <th className="py-2 pr-3 text-right">Custo Calculado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group, groupIndex) => (
-            <React.Fragment key={group.clientName}>
-              <tr className={groupIndex % 2 === 0 ? 'border-b bg-muted/70' : 'border-b bg-primary/5'}>
-                <td className="py-3 pr-3 font-semibold" colSpan={3}>{group.clientName}</td>
-                <td className="py-3 pr-3 text-right font-semibold tabular-nums">{formatHours(group.hours)}</td>
-                <td className="py-3 pr-3 text-right font-semibold">{canViewValues ? valueText(group.cost) : 'Confidencial'}</td>
-              </tr>
-              {group.records.map((record, index) => (
-                <tr key={group.clientName + '-' + record.id + '-' + index} className={groupIndex % 2 === 0 ? 'border-b bg-background last:border-0' : 'border-b bg-primary/[0.025] last:border-0'}>
-                  <td className="py-3 pr-3 text-muted-foreground">{record.clientName}</td>
-                  <td className="py-3 pr-3">
-                    <span>{record.projectName}</span>
-                    {record.reconciliationStatus === 'pendente' && (
-                      <Badge variant="secondary" className="ml-2">Pendente</Badge>
-                    )}
-                  </td>
-                  <td className="py-3 pr-3">{record.analystName}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">{formatHours(record.hours)}</td>
-                  <td className="py-3 pr-3 text-right font-medium">{canViewValues ? valueText(record.estimatedCost) : 'Confidencial'}</td>
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+              <th className="py-2 pr-3">Cliente Milvus</th>
+              <th className="py-2 pr-3">Projeto Milvus</th>
+              <th className="py-2 pr-3">Responsavel</th>
+              <th className="py-2 pr-3 text-right">Horas</th>
+              <th className="py-2 pr-3 text-right">Custo Calculado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group, groupIndex) => (
+              <React.Fragment key={group.clientName}>
+                <tr className={groupIndex % 2 === 0 ? 'border-b bg-muted/70' : 'border-b bg-primary/5'}>
+                  <td className="py-3 pr-3 font-semibold" colSpan={3}>{group.clientName}</td>
+                  <td className="py-3 pr-3 text-right font-semibold tabular-nums">{formatHours(group.hours)}</td>
+                  <td className="py-3 pr-3 text-right font-semibold">{canViewValues ? valueText(group.cost) : 'Confidencial'}</td>
                 </tr>
-              ))}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                {group.records.map((record, index) => (
+                  <tr
+                    key={group.clientName + '-' + record.id + '-' + index}
+                    className={
+                      groupIndex % 2 === 0
+                        ? 'border-b bg-background last:border-0 cursor-pointer transition-colors hover:bg-muted/60'
+                        : 'border-b bg-primary/[0.025] last:border-0 cursor-pointer transition-colors hover:bg-primary/10'
+                    }
+                    tabIndex={0}
+                    onClick={() => setSelectedRecord(record)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedRecord(record);
+                      }
+                    }}
+                  >
+                    <td className="py-3 pr-3 text-muted-foreground">{record.clientName}</td>
+                    <td className="py-3 pr-3">
+                      <span>{record.projectName}</span>
+                      {record.reconciliationStatus === 'pendente' && (
+                        <Badge variant="secondary" className="ml-2">Pendente</Badge>
+                      )}
+                    </td>
+                    <td className="py-3 pr-3">{record.analystName}</td>
+                    <td className="py-3 pr-3 text-right tabular-nums">{formatHours(record.hours)}</td>
+                    <td className="py-3 pr-3 text-right font-medium">{canViewValues ? valueText(record.estimatedCost) : 'Confidencial'}</td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Sheet open={Boolean(selectedRecord)} onOpenChange={(open) => !open && setSelectedRecord(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>Origem Milvus</SheetTitle>
+            <SheetDescription>
+              Detalhes do atendimento importado para a apuracao de custos.
+            </SheetDescription>
+          </SheetHeader>
+
+          {selectedRecord && (
+            <div className="mt-6 space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Cliente Milvus</p>
+                  <p className="mt-1 font-medium">{selectedRecord.clientName || '—'}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Projeto Milvus</p>
+                  <p className="mt-1 font-medium">{selectedRecord.projectName || '—'}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Responsavel</p>
+                  <p className="mt-1 font-medium">{selectedRecord.analystName || '—'}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Horas</p>
+                  <p className="mt-1 font-medium">{formatHours(selectedRecord.hours)}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Data</p>
+                  <p className="mt-1 font-medium">{selectedRecord.date || '—'}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Custo calculado</p>
+                  <p className="mt-1 font-medium">{canViewValues ? valueText(selectedRecord.estimatedCost) : 'Confidencial'}</p>
+                </div>
+              </div>
+
+              <div className="rounded-md border p-3">
+                <p className="text-sm font-semibold">Conciliação Hub</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Cliente conciliado</p>
+                    <p className="mt-1 text-sm">{selectedRecord.matchedClient?.nomeFantasia || selectedRecord.matchedClient?.razaoSocial || 'Não conciliado'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Contrato conciliado</p>
+                    <p className="mt-1 text-sm">{selectedRecord.matchedContract?.nome || 'Não conciliado'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-md border">
+                <div className="border-b px-3 py-2">
+                  <p className="text-sm font-semibold">Dados originais Milvus</p>
+                  <p className="text-xs text-muted-foreground">Campos recebidos na sincronizacao para esta linha.</p>
+                </div>
+                {milvusEntries.length === 0 ? (
+                  <p className="p-3 text-sm text-muted-foreground">Nenhum dado bruto disponivel para esta linha.</p>
+                ) : (
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {milvusEntries.map(([key, value]) => (
+                      <div key={key} className="grid gap-1 border-b px-3 py-2 last:border-0 sm:grid-cols-[180px_1fr]">
+                        <p className="break-all text-xs font-medium text-muted-foreground">{key}</p>
+                        <p className="break-words text-sm">{formatMilvusValue(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -388,7 +503,7 @@ export default function SupportCostsPage() {
       current.cost += record.estimatedCost;
       grouped.set(name, current);
     }
-    return Array.from(grouped.values()).sort((a, b) => b.cost - a.cost || b.hours - a.hours).slice(0, 10);
+    return Array.from(grouped.values()).sort((a, b) => b.cost - a.cost || b.hours - a.hours);
   }, [filteredRecords]);
 
   const chartByProject = useMemo(() => {
@@ -400,7 +515,7 @@ export default function SupportCostsPage() {
       current.cost += record.estimatedCost;
       grouped.set(name, current);
     }
-    return Array.from(grouped.values()).sort((a, b) => b.cost - a.cost || b.hours - a.hours).slice(0, 10);
+    return Array.from(grouped.values()).sort((a, b) => b.cost - a.cost || b.hours - a.hours);
   }, [filteredRecords]);
 
   const clientReportGroups = useMemo<ClientReportGroup[]>(() => {
@@ -490,7 +605,10 @@ export default function SupportCostsPage() {
     return () => window.clearTimeout(timeout);
   }, [syncMilvus]);
 
-  const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => (
+  const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
+    const chartHeight = Math.max(460, data.length * 42 + 90);
+
+    return (
     <Card className="border-l-4 border-l-primary/40 bg-muted/20 shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
@@ -506,14 +624,14 @@ export default function SupportCostsPage() {
           <Badge variant="secondary">{canViewSupportCosts ? 'Custo' : 'Horas'}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="h-[460px]">
+      <CardContent style={{ height: chartHeight }}>
         {data.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
             Sincronize o Milvus para carregar os dados.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ top: 8, right: 42, left: 110, bottom: 24 }}>
+            <BarChart data={data} layout="vertical" margin={{ top: 8, right: 42, left: 130, bottom: 24 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis
                 type="number"
@@ -523,7 +641,7 @@ export default function SupportCostsPage() {
               >
                 <Label value={canViewSupportCosts ? 'Custo calculado' : 'Horas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
               </XAxis>
-              <YAxis type="category" dataKey="name" width={108} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="name" width={128} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
               <Tooltip
                 formatter={(value: number, name: string) => [
                   name === 'cost' ? valueText(value) : formatHours(value),
@@ -546,7 +664,8 @@ export default function SupportCostsPage() {
         )}
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
