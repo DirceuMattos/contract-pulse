@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
-  CalendarDays,
   CircleDollarSign,
   Clock3,
   DatabaseZap,
@@ -11,6 +10,7 @@ import {
   Loader2,
   Shield,
   UsersRound,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -34,9 +34,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { supabase } from '@/integrations/supabase/client';
-import { calculateHRPersonCost, formatCurrency } from '@/lib/calculations';
+import { formatCurrency } from '@/lib/calculations';
 
-const DEFAULT_MONTHLY_HOURS = 168;
+const PJ_MONTHLY_HOURS = 168;
+const CLT_MONTHLY_HOURS = 200;
 const chartColors = ['#0ea5e9', '#14b8a6', '#22c55e', '#eab308', '#f97316', '#ef4444', '#8b5cf6', '#ec4899'];
 
 type SupportCostRecord = {
@@ -54,6 +55,13 @@ type EnrichedSupportCostRecord = SupportCostRecord & {
   matchedContract?: { id: string; nome: string };
   estimatedCost: number;
   reconciliationStatus: 'conciliado' | 'pendente';
+};
+
+type ClientReportGroup = {
+  clientName: string;
+  hours: number;
+  cost: number;
+  records: EnrichedSupportCostRecord[];
 };
 
 type SupportCostsSyncResponse = {
@@ -84,6 +92,22 @@ function currentMonthRange() {
     from: start.toISOString().slice(0, 10),
     to: end.toISOString().slice(0, 10),
   };
+}
+
+function monthToDateRange(month: string) {
+  const [year, monthIndex] = month.split('-').map(Number);
+  if (!year || !monthIndex) return null;
+
+  const start = new Date(year, monthIndex - 1, 1);
+  const end = new Date(year, monthIndex, 0);
+  return {
+    from: start.toISOString().slice(0, 10),
+    to: end.toISOString().slice(0, 10),
+  };
+}
+
+function dateToMonth(date: string) {
+  return date.slice(0, 7);
 }
 
 function normalizeText(value: string | undefined) {
@@ -136,6 +160,20 @@ function getZeroImportDiagnosticMessage(payload: SupportCostsSyncResponse) {
   ].join(' ');
 }
 
+function calculateSupportMonthlyCost(person: { tipoVinculo: string; remuneracaoMensal: number }, settings: { percentualEncargosCLT: number; percentualImpostosPJ: number }) {
+  const base = person.remuneracaoMensal || 0;
+  const percentual = person.tipoVinculo === 'clt'
+    ? settings.percentualEncargosCLT
+    : person.tipoVinculo === 'pj'
+      ? settings.percentualImpostosPJ
+      : 0;
+  return base + (base * percentual / 100);
+}
+
+function getMonthlyHoursByLinkType(tipoVinculo: string) {
+  return tipoVinculo === 'clt' ? CLT_MONTHLY_HOURS : PJ_MONTHLY_HOURS;
+}
+
 function KpiCard({
   title,
   value,
@@ -169,18 +207,19 @@ function SupportCostTable({
   records,
   canViewValues,
   valueText,
+  groups,
 }: {
   records: EnrichedSupportCostRecord[];
   canViewValues: boolean;
   valueText: (value: number) => string;
+  groups: ClientReportGroup[];
 }) {
   if (records.length === 0) {
     return (
       <div className="rounded-md border border-dashed p-8 text-center">
         <p className="font-medium">Nenhuma hora importada para os filtros atuais.</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sincronize o Milvus para visualizar clientes/projetos encontrados, vínculos com cadastros do Hub,
-          horas atendidas, custo calculado e itens pendentes de conciliação.
+          Sincronize o Milvus para visualizar clientes/projetos encontrados, horas atendidas e custo calculado.
         </p>
       </div>
     );
@@ -193,26 +232,34 @@ function SupportCostTable({
           <tr className="border-b text-left text-xs uppercase text-muted-foreground">
             <th className="py-2 pr-3">Cliente Milvus</th>
             <th className="py-2 pr-3">Projeto Milvus</th>
-            <th className="py-2 pr-3">Responsável</th>
+            <th className="py-2 pr-3">Responsavel</th>
             <th className="py-2 pr-3 text-right">Horas</th>
-            <th className="py-2 pr-3 text-right">Custo estimado</th>
-            <th className="py-2 pr-3">Conciliação</th>
+            <th className="py-2 pr-3 text-right">Custo Calculado</th>
           </tr>
         </thead>
         <tbody>
-          {records.map((record) => (
-            <tr key={record.id} className="border-b last:border-0">
-              <td className="py-3 pr-3">{record.clientName}</td>
-              <td className="py-3 pr-3">{record.projectName}</td>
-              <td className="py-3 pr-3">{record.analystName}</td>
-              <td className="py-3 pr-3 text-right tabular-nums">{formatHours(record.hours)}</td>
-              <td className="py-3 pr-3 text-right font-medium">{canViewValues ? valueText(record.estimatedCost) : 'Confidencial'}</td>
-              <td className="py-3 pr-3">
-                <Badge variant={record.reconciliationStatus === 'conciliado' ? 'default' : 'secondary'}>
-                  {record.reconciliationStatus === 'conciliado' ? 'Conciliado' : 'Pendente'}
-                </Badge>
-              </td>
-            </tr>
+          {groups.map((group) => (
+            <React.Fragment key={group.clientName}>
+              <tr className="border-b bg-muted/50">
+                <td className="py-3 pr-3 font-semibold" colSpan={3}>{group.clientName}</td>
+                <td className="py-3 pr-3 text-right font-semibold tabular-nums">{formatHours(group.hours)}</td>
+                <td className="py-3 pr-3 text-right font-semibold">{canViewValues ? valueText(group.cost) : 'Confidencial'}</td>
+              </tr>
+              {group.records.map((record, index) => (
+                <tr key={group.clientName + '-' + record.id + '-' + index} className="border-b last:border-0">
+                  <td className="py-3 pr-3 text-muted-foreground">{record.clientName}</td>
+                  <td className="py-3 pr-3">
+                    <span>{record.projectName}</span>
+                    {record.reconciliationStatus === 'pendente' && (
+                      <Badge variant="secondary" className="ml-2">Pendente</Badge>
+                    )}
+                  </td>
+                  <td className="py-3 pr-3">{record.analystName}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums">{formatHours(record.hours)}</td>
+                  <td className="py-3 pr-3 text-right font-medium">{canViewValues ? valueText(record.estimatedCost) : 'Confidencial'}</td>
+                </tr>
+              ))}
+            </React.Fragment>
           ))}
         </tbody>
       </table>
@@ -226,6 +273,7 @@ export default function SupportCostsPage() {
   const [dateTo, setDateTo] = useState(initialRange.to);
   const [clientId, setClientId] = useState('all');
   const [contractId, setContractId] = useState('all');
+  const [analystName, setAnalystName] = useState('all');
   const [records, setRecords] = useState<SupportCostRecord[]>([]);
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -239,16 +287,15 @@ export default function SupportCostsPage() {
   );
 
   const costSummary = useMemo(() => {
-    const totalMonthlyCost = activePeople.reduce(
-      (sum, person) => sum + calculateHRPersonCost(person, settings),
-      0,
-    );
-    const averageHourlyCost = activePeople.length > 0
-      ? totalMonthlyCost / (activePeople.length * DEFAULT_MONTHLY_HOURS)
+    const totalMonthlyCost = activePeople.reduce((sum, person) => sum + calculateSupportMonthlyCost(person, settings), 0);
+    const totalMonthlyHours = activePeople.reduce((sum, person) => sum + getMonthlyHoursByLinkType(person.tipoVinculo), 0);
+    const averageHourlyCost = totalMonthlyHours > 0
+      ? totalMonthlyCost / totalMonthlyHours
       : 0;
 
     return {
       totalMonthlyCost,
+      totalMonthlyHours,
       averageHourlyCost,
     };
   }, [activePeople, settings]);
@@ -267,6 +314,13 @@ export default function SupportCostsPage() {
 
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedContract = contracts.find((contract) => contract.id === contractId);
+  const monthFrom = dateToMonth(dateFrom);
+  const monthTo = dateToMonth(dateTo);
+
+  const analystOptions = useMemo(() => {
+    const names = new Set(records.map((record) => record.analystName).filter(Boolean));
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [records]);
 
   const enrichedRecords = useMemo<EnrichedSupportCostRecord[]>(() => {
     return records.map((record) => {
@@ -306,9 +360,10 @@ export default function SupportCostsPage() {
     return enrichedRecords.filter((record) => {
       if (clientId !== 'all' && record.matchedClient?.id !== clientId) return false;
       if (contractId !== 'all' && record.matchedContract?.id !== contractId) return false;
+      if (analystName !== 'all' && record.analystName !== analystName) return false;
       return true;
     });
-  }, [clientId, contractId, enrichedRecords]);
+  }, [analystName, clientId, contractId, enrichedRecords]);
 
   const totals = useMemo(() => {
     const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
@@ -342,12 +397,49 @@ export default function SupportCostsPage() {
     return Array.from(grouped.values()).sort((a, b) => b.cost - a.cost || b.hours - a.hours).slice(0, 10);
   }, [filteredRecords]);
 
+  const clientReportGroups = useMemo<ClientReportGroup[]>(() => {
+    const grouped = new Map<string, ClientReportGroup>();
+    for (const record of [...filteredRecords].sort((a, b) => {
+      const clientCompare = a.clientName.localeCompare(b.clientName, 'pt-BR');
+      if (clientCompare !== 0) return clientCompare;
+      const projectCompare = a.projectName.localeCompare(b.projectName, 'pt-BR');
+      if (projectCompare !== 0) return projectCompare;
+      return a.analystName.localeCompare(b.analystName, 'pt-BR');
+    })) {
+      const clientName = record.matchedClient?.nomeFantasia || record.matchedClient?.razaoSocial || record.clientName || 'Nao informado';
+      const group = grouped.get(clientName) || { clientName, hours: 0, cost: 0, records: [] };
+      group.hours += record.hours;
+      group.cost += record.estimatedCost;
+      group.records.push(record);
+      grouped.set(clientName, group);
+    }
+    return Array.from(grouped.values()).sort((a, b) => a.clientName.localeCompare(b.clientName, 'pt-BR'));
+  }, [filteredRecords]);
+
   const periodLabel = dateFrom && dateTo
     ? `${new Date(`${dateFrom}T12:00:00`).toLocaleDateString('pt-BR')} a ${new Date(`${dateTo}T12:00:00`).toLocaleDateString('pt-BR')}`
     : 'Período não definido';
 
   const valueText = (value: number) => canViewHRCosts ? formatCurrency(value) : 'Confidencial';
   const chartValueKey = canViewHRCosts ? 'cost' : 'hours';
+
+  function handleMonthFromChange(month: string) {
+    const range = monthToDateRange(month);
+    if (range) setDateFrom(range.from);
+  }
+
+  function handleMonthToChange(month: string) {
+    const range = monthToDateRange(month);
+    if (range) setDateTo(range.to);
+  }
+
+  function clearFilters() {
+    setDateFrom(initialRange.from);
+    setDateTo(initialRange.to);
+    setClientId('all');
+    setContractId('all');
+    setAnalystName('all');
+  }
 
   async function handleSyncMilvus() {
     if (!dateFrom || !dateTo) {
@@ -396,7 +488,7 @@ export default function SupportCostsPage() {
           <Badge variant="secondary">{canViewHRCosts ? 'Custo' : 'Horas'}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="h-[340px]">
+      <CardContent className="h-[460px]">
         {data.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
             Sincronize o Milvus para carregar os dados.
@@ -411,13 +503,13 @@ export default function SupportCostsPage() {
                 axisLine={false}
                 tickFormatter={(value) => canViewHRCosts ? formatShortCurrency(Number(value)) : String(value)}
               >
-                <Label value={canViewHRCosts ? 'Custo estimado' : 'Horas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                <Label value={canViewHRCosts ? 'Custo calculado' : 'Horas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
               </XAxis>
               <YAxis type="category" dataKey="name" width={108} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
               <Tooltip
                 formatter={(value: number, name: string) => [
                   name === 'cost' ? valueText(value) : formatHours(value),
-                  name === 'cost' ? 'Custo estimado' : 'Horas',
+                  name === 'cost' ? 'Custo calculado' : 'Horas',
                 ]}
               />
               <Bar dataKey={chartValueKey} radius={[0, 5, 5, 0]}>
@@ -470,22 +562,22 @@ export default function SupportCostsPage() {
             <Badge variant="outline">{periodLabel}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Início</span>
+            <span className="text-xs font-medium text-muted-foreground">Mes inicial</span>
             <input
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
+              type="month"
+              value={monthFrom}
+              onChange={(event) => handleMonthFromChange(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Fim</span>
+            <span className="text-xs font-medium text-muted-foreground">Mes final</span>
             <input
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
+              type="month"
+              value={monthTo}
+              onChange={(event) => handleMonthToChange(event.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             />
           </label>
@@ -522,10 +614,31 @@ export default function SupportCostsPage() {
               ))}
             </select>
           </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Responsavel</span>
+            <select
+              value={analystName}
+              onChange={(event) => setAnalystName(event.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="all">Todos os responsaveis</option>
+              {analystOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex items-end">
             <Button type="button" variant="default" className="w-full" onClick={handleSyncMilvus} disabled={loadingSync}>
               {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
+            </Button>
+          </div>
+          <div className="flex items-end">
+            <Button type="button" variant="outline" className="w-full" onClick={clearFilters}>
+              <X className="mr-2 h-4 w-4" />
+              Limpar filtros
             </Button>
           </div>
         </CardContent>
@@ -542,82 +655,62 @@ export default function SupportCostsPage() {
             <KpiCard
               title="Horas Milvus"
               value={formatHours(totals.totalHours)}
-              description={lastSyncAt ? `Atualizado em ${new Date(lastSyncAt).toLocaleString('pt-BR')}` : 'Aguardando sincronização'}
+              description={lastSyncAt ? 'Atualizado em ' + new Date(lastSyncAt).toLocaleString('pt-BR') : 'Aguardando sincronizacao'}
               icon={<Clock3 className="h-5 w-5 text-sky-600" />}
               tone="border-l-sky-500"
             />
             <KpiCard
-              title="Custo estimado"
+              title="Custo calculado"
               value={valueText(totals.totalCost)}
-              description="Horas conciliadas x custo/hora médio"
+              description="Horas conciliadas x custo/hora medio"
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               tone="border-l-emerald-500"
             />
             <KpiCard
-              title="Custo médio/hora RH"
+              title="Custo medio/hora RH"
               value={valueText(costSummary.averageHourlyCost)}
-              description={`${activePeople.length} RHs ativos / ${DEFAULT_MONTHLY_HOURS}h mês`}
+              description={activePeople.length + ' RHs ativos / ' + Math.round(costSummary.totalMonthlyHours) + 'h base'}
               icon={<UsersRound className="h-5 w-5 text-violet-600" />}
               tone="border-l-violet-500"
             />
             <KpiCard
               title="Clientes atendidos"
               value={String(totals.clientsCount)}
-              description={`${totals.pendingCount} registro(s) pendente(s)`}
+              description={totals.pendingCount + ' registro(s) pendente(s)'}
               icon={<Link2 className="h-5 w-5 text-amber-600" />}
               tone="border-l-amber-500"
             />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="space-y-4">
             {renderChart('Totais por cliente', chartByClient)}
             {renderChart('Totais por projeto', chartByProject)}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-base">Base de cálculo</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-md border p-3">
-                    <p className="text-xs text-muted-foreground">Custo mensal RH ativo</p>
-                    <p className="mt-1 text-lg font-semibold">{valueText(costSummary.totalMonthlyCost)}</p>
-                  </div>
-                  <div className="rounded-md border p-3">
-                    <p className="text-xs text-muted-foreground">Carga mensal inicial</p>
-                    <p className="mt-1 text-lg font-semibold">{DEFAULT_MONTHLY_HOURS}h</p>
-                  </div>
-                  <div className="rounded-md border p-3">
-                    <p className="text-xs text-muted-foreground">Fórmula aplicada</p>
-                    <p className="mt-1 text-lg font-semibold">horas x custo/h</p>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Base de calculo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Base mensal RH ativo</p>
+                  <p className="mt-1 text-lg font-semibold">{valueText(costSummary.totalMonthlyCost)}</p>
                 </div>
-                <p className="text-muted-foreground">
-                  O custo/hora usa remuneração mensal, encargos e benefícios do RH. Quando o Milvus trouxer responsável por atendimento,
-                  a próxima evolução poderá substituir a média por custo individual do analista.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-blue-500">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" />
-                  Integração Milvus
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  A sincronização consulta uma Edge Function própria, reutilizando o acesso seguro já usado nos Relatórios Mensais.
-                </p>
-                <div className="rounded-md bg-muted/60 p-3">
-                  Fonte: <span className="font-medium text-foreground">milvus_get_attendance_report</span>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Carga mensal usada</p>
+                  <p className="mt-1 text-lg font-semibold">CLT {CLT_MONTHLY_HOURS}h / PJ {PJ_MONTHLY_HOURS}h</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Formula aplicada</p>
+                  <p className="mt-1 text-lg font-semibold">horas x custo/h</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground">
+                O custo/hora usa remuneracao bruta mensal mais encargos/impostos, sem beneficios. CLT usa {CLT_MONTHLY_HOURS}h mensais e PJ usa {PJ_MONTHLY_HOURS}h mensais.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="client-report" className="space-y-4">
@@ -629,7 +722,7 @@ export default function SupportCostsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <SupportCostTable records={filteredRecords} canViewValues={canViewHRCosts} valueText={valueText} />
+              <SupportCostTable records={filteredRecords} groups={clientReportGroups} canViewValues={canViewHRCosts} valueText={valueText} />
             </CardContent>
           </Card>
         </TabsContent>
