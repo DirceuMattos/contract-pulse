@@ -175,6 +175,8 @@ function DistributionChart({
   canViewValues,
   palette,
   axisLabel,
+  className = '',
+  contentClassName = 'h-[320px]',
 }: {
   title: string;
   data: { name: string; pessoas: number; valor: number }[];
@@ -182,19 +184,21 @@ function DistributionChart({
   canViewValues: boolean;
   palette: string[];
   axisLabel: string;
+  className?: string;
+  contentClassName?: string;
 }) {
   const dataKey = mode === 'cost' && canViewValues ? 'valor' : 'pessoas';
   const valueLabel = dataKey === 'valor' ? 'Custo' : 'Pessoas';
 
   return (
-    <Card className={chartCardClass}>
+    <Card className={`${chartCardClass} ${className}`}>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-base">{title}</CardTitle>
           <Badge variant="secondary">{valueLabel}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="h-[320px]">
+      <CardContent className={contentClassName}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 8, right: 36, left: 96, bottom: 24 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -207,7 +211,7 @@ function DistributionChart({
             >
               <Label value={valueLabel} offset={-10} position="insideBottom" className="fill-muted-foreground text-[11px]" />
             </XAxis>
-            <YAxis type="category" dataKey="name" width={90} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+            <YAxis type="category" dataKey="name" width={118} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
             <Tooltip
               formatter={(value: number, name: string) => [
                 name === 'valor' ? formatMaybeCurrency(value, canViewValues) : formatPeople(value),
@@ -498,44 +502,52 @@ export default function HRDashboardPage() {
                 <Badge variant="outline">{bnpExposureByTeam.length} areas</Badge>
               </div>
             </CardHeader>
-            <CardContent className="h-[340px]">
+            <CardContent className="space-y-3">
               {bnpExposureByTeam.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   Nenhuma area com custo BNP no momento.
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={bnpExposureByTeam} layout="vertical" margin={{ top: 8, right: 48, left: 112, bottom: 26 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => canViewHRCosts ? formatShortCurrency(Number(value)) : String(value)}
-                    >
-                      <Label value={canViewHRCosts ? 'Custo BNP' : 'Pessoas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
-                    </XAxis>
-                    <YAxis type="category" dataKey="name" width={110} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
-                        name === 'valor' ? 'Custo BNP' : 'Pessoas',
-                      ]}
-                      labelFormatter={(label) => `Area: ${label}`}
-                    />
-                    <Bar dataKey={canViewHRCosts ? 'valor' : 'pessoas'} radius={[0, 6, 6, 0]}>
-                      {bnpExposureByTeam.map((entry, index) => (
-                        <Cell key={entry.name} fill={distributionPalettes.team[index % distributionPalettes.team.length]} />
-                      ))}
-                      <LabelList
-                        dataKey={canViewHRCosts ? 'valor' : 'pessoas'}
-                        position="right"
-                        formatter={(value: number) => canViewHRCosts ? formatShortCurrency(value) : String(value)}
-                        className="fill-foreground text-[11px]"
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <>
+                  <div className="h-[320px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={bnpExposureByTeam} layout="vertical" margin={{ top: 8, right: 48, left: 112, bottom: 26 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => canViewHRCosts ? formatShortCurrency(Number(value)) : String(value)}
+                        >
+                          <Label value={canViewHRCosts ? 'Custo BNP' : 'Pessoas'} offset={-12} position="insideBottom" className="fill-muted-foreground text-[11px]" />
+                        </XAxis>
+                        <YAxis type="category" dataKey="name" width={110} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                        <Tooltip
+                          formatter={(value: number, name: string) => [
+                            name === 'valor' ? formatMaybeCurrency(value, canViewHRCosts) : formatPeople(value),
+                            name === 'valor' ? 'Custo BNP' : 'Pessoas',
+                          ]}
+                          labelFormatter={(label) => `Area: ${label}`}
+                        />
+                        <Bar dataKey={canViewHRCosts ? 'valor' : 'pessoas'} radius={[0, 6, 6, 0]}>
+                          {bnpExposureByTeam.map((entry, index) => (
+                            <Cell key={entry.name} fill={distributionPalettes.team[index % distributionPalettes.team.length]} />
+                          ))}
+                          <LabelList
+                            dataKey={canViewHRCosts ? 'valor' : 'pessoas'}
+                            position="right"
+                            formatter={(value: number) => canViewHRCosts ? formatShortCurrency(value) : String(value)}
+                            className="fill-foreground text-[11px]"
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="rounded-md border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                    Composicao: soma da parcela do custo de RH ainda absorvida pela BNP em cada area,
+                    considerando recursos sem alocacao ou com dedicacao parcial em contratos/subprojetos.
+                  </p>
+                </>
               )}
             </CardContent>
           </Card>
@@ -544,7 +556,7 @@ export default function HRDashboardPage() {
         <TabsContent value="distributions" className={tabPanelClass}>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <DistributionChart title="Por area" data={distributionData.byTeam} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.team} axisLabel="Area" />
-            <DistributionChart title="Por cargo / funcao" data={distributionData.byJobTitle} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.job} axisLabel="Cargo" />
+            <DistributionChart title="Por cargo / funcao" data={distributionData.byJobTitle} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.job} axisLabel="Cargo" className="xl:col-span-2" contentClassName="h-[400px]" />
             <DistributionChart title="Por forma de contratacao" data={distributionData.byVinculo} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.vinculo} axisLabel="Contratacao" />
             <DistributionChart title="Por nivel" data={distributionData.byNivel} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.level} axisLabel="Nivel" />
             <DistributionChart title="Por local de atuacao" data={distributionData.byLocal} mode={metricMode} canViewValues={canViewHRCosts} palette={distributionPalettes.local} axisLabel="Local" />
@@ -562,7 +574,7 @@ export default function HRDashboardPage() {
             </CardHeader>
             <CardContent className="h-[340px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={turnoverData} margin={{ top: 10, right: 34, left: 18, bottom: 28 }}>
+                <LineChart data={turnoverData} margin={{ top: 18, right: 34, left: 18, bottom: 28 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="mes" tickLine={false} axisLine={false} interval={0} tick={{ fontSize: 11 }}>
                     <Label value="Mes" offset={-16} position="insideBottom" className="fill-muted-foreground text-[11px]" />
@@ -579,7 +591,7 @@ export default function HRDashboardPage() {
                       name === 'entradas' ? 'Entradas' : name === 'saidas' ? 'Saidas' : 'Turnover',
                     ]}
                   />
-                  <Legend />
+                  <Legend verticalAlign="top" align="center" height={36} wrapperStyle={{ paddingBottom: 8 }} />
                   <Line yAxisId="left" type="monotone" dataKey="entradas" name="Entradas" stroke="#22c55e" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                   <Line yAxisId="left" type="monotone" dataKey="saidas" name="Saidas" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                   <Line yAxisId="right" type="monotone" dataKey="turnover" name="Turnover" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
