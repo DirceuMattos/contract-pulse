@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   BarChart3,
+  CalendarDays,
   CircleDollarSign,
   Clock3,
   DatabaseZap,
@@ -11,6 +12,8 @@ import {
   Loader2,
   RotateCcw,
   Shield,
+  Ticket,
+  TimerReset,
   UsersRound,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -64,6 +67,9 @@ type EnrichedSupportCostRecord = SupportCostRecord & {
   matchedClient?: { id: string; nomeFantasia?: string; razaoSocial: string };
   matchedContract?: { id: string; nome: string; clientId: string };
   estimatedCost: number;
+  technicianMonthlyCost: number;
+  technicianHourlyCost: number;
+  technicianCostMatched: boolean;
   reconciliationStatus: 'conciliado' | 'pendente';
 };
 
@@ -72,6 +78,24 @@ type ClientReportGroup = {
   hours: number;
   cost: number;
   records: EnrichedSupportCostRecord[];
+};
+
+type TechnicianCostGroup = {
+  name: string;
+  monthlyCost: number | null;
+  hourlyCost: number;
+  tickets: number;
+  hours: number;
+  cost: number;
+  matched: boolean;
+};
+
+type MonthlyCostGroup = {
+  monthKey: string;
+  label: string;
+  tickets: number;
+  hours: number;
+  cost: number;
 };
 
 type SupportCostsSyncResponse = {
@@ -183,10 +207,55 @@ function formatHours(value: number) {
   return `${value.toFixed(1)}h`;
 }
 
+function formatDurationFromMinutes(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return 'N/I';
+  if (value < 60) return `${Math.round(value)} min`;
+  const hours = Math.floor(value / 60);
+  const minutes = Math.round(value % 60);
+  return minutes > 0 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours} h`;
+}
+
 function formatShortCurrency(value: number) {
   if (Math.abs(value) >= 1000000) return `R$ ${(value / 1000000).toFixed(1)} mi`;
   if (Math.abs(value) >= 1000) return `R$ ${(value / 1000).toFixed(0)} mil`;
   return formatCurrency(value);
+}
+
+function getMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number);
+  if (!year || !month) return monthKey;
+  return new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+}
+
+function countMonthsInRange(dateFrom: string, dateTo: string) {
+  const [fromYear, fromMonth] = dateFrom.slice(0, 7).split('-').map(Number);
+  const [toYear, toMonth] = dateTo.slice(0, 7).split('-').map(Number);
+  if (!fromYear || !fromMonth || !toYear || !toMonth) return 1;
+  return Math.max(1, (toYear - fromYear) * 12 + toMonth - fromMonth + 1);
+}
+
+function parseMilvusDateTime(value: unknown): number | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const raw = value.trim();
+  const isoLike = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const parsed = new Date(isoLike);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+}
+
+function minutesBetween(start: unknown, end: unknown) {
+  const startTime = parseMilvusDateTime(start);
+  const endTime = parseMilvusDateTime(end);
+  if (startTime === null || endTime === null || endTime < startTime) return null;
+  return (endTime - startTime) / 60000;
+}
+
+function median(values: number[]) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (sorted.length === 0) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
 }
 
 function formatMilvusValue(value: unknown) {
@@ -451,6 +520,191 @@ function SupportCostTable({
   );
 }
 
+function SupportExecutiveSummary({
+  records,
+  technicianGroups,
+  monthlyGroups,
+  canViewValues,
+  valueText,
+  periodMonths,
+}: {
+  records: EnrichedSupportCostRecord[];
+  technicianGroups: TechnicianCostGroup[];
+  monthlyGroups: MonthlyCostGroup[];
+  canViewValues: boolean;
+  valueText: (value: number) => string;
+  periodMonths: number;
+}) {
+  const totalHours = records.reduce((sum, record) => sum + record.hours, 0);
+  const totalCost = records.reduce((sum, record) => sum + record.estimatedCost, 0);
+  const averageMonthlyCost = totalCost / periodMonths;
+  const costPerTicket = records.length > 0 ? totalCost / records.length : 0;
+  const averageWorkMinutes = records.length > 0 ? (totalHours * 60) / records.length : null;
+  const firstResponseMinutes = median(records
+    .map((record) => minutesBetween(record.raw?.data_criacao, record.raw?.data_inicial))
+    .filter((value): value is number => value !== null));
+  const resolutionMinutes = median(records
+    .map((record) => minutesBetween(record.raw?.data_criacao, record.raw?.data_solucao ?? record.raw?.data_final))
+    .filter((value): value is number => value !== null));
+
+  if (records.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Custo total no periodo"
+          value={valueText(totalCost)}
+          description="Mao de obra apontada"
+          icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
+          tone="border-l-emerald-500"
+        />
+        <KpiCard
+          title="Custo mensal medio"
+          value={valueText(averageMonthlyCost)}
+          description={`${periodMonths} mes(es) no periodo`}
+          icon={<CalendarDays className="h-5 w-5 text-sky-600" />}
+          tone="border-l-sky-500"
+        />
+        <KpiCard
+          title="Volume atendido"
+          value={`${records.length} tickets`}
+          description={`${formatHours(totalHours)} trabalhadas`}
+          icon={<Ticket className="h-5 w-5 text-violet-600" />}
+          tone="border-l-violet-500"
+        />
+        <KpiCard
+          title="Custo por ticket"
+          value={valueText(costPerTicket)}
+          description="Custo total / tickets"
+          icon={<TimerReset className="h-5 w-5 text-amber-600" />}
+          tone="border-l-amber-500"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Custo por tecnico</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Custo empresa mensal dividido pela carga mensal do vinculo. Quando nao ha RH conciliado, usa o custo-hora medio do time.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                    <th className="py-2 pr-3">Tecnico</th>
+                    <th className="py-2 pr-3 text-right">Custo empresa/mes</th>
+                    <th className="py-2 pr-3 text-right">Custo-hora</th>
+                    <th className="py-2 pr-3 text-right">Tickets</th>
+                    <th className="py-2 pr-3 text-right">Horas</th>
+                    <th className="py-2 pr-3 text-right">Custo no periodo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {technicianGroups.map((group) => (
+                    <tr key={group.name} className="border-b last:border-0">
+                      <td className="py-2 pr-3">
+                        <span className="font-medium">{group.name}</span>
+                        {!group.matched && <Badge variant="secondary" className="ml-2">Media</Badge>}
+                      </td>
+                      <td className="py-2 pr-3 text-right">{group.monthlyCost === null ? '-' : valueText(group.monthlyCost)}</td>
+                      <td className="py-2 pr-3 text-right">{valueText(group.hourlyCost)}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{group.tickets}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{formatHours(group.hours)}</td>
+                      <td className="py-2 pr-3 text-right font-medium">{valueText(group.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tempo de atendimento</CardTitle>
+            <p className="text-sm text-muted-foreground">Indicadores calculados com os campos de data recebidos do Milvus.</p>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <div className="rounded-md border p-3">
+              <p className="text-xs uppercase text-muted-foreground">Trabalho por ticket</p>
+              <p className="mt-1 text-2xl font-bold">{formatDurationFromMinutes(averageWorkMinutes)}</p>
+              <p className="text-xs text-muted-foreground">media de horas apontadas</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-xs uppercase text-muted-foreground">Primeira resposta</p>
+              <p className="mt-1 text-2xl font-bold">{formatDurationFromMinutes(firstResponseMinutes)}</p>
+              <p className="text-xs text-muted-foreground">mediana</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-xs uppercase text-muted-foreground">Resolucao</p>
+              <p className="mt-1 text-2xl font-bold">{formatDurationFromMinutes(resolutionMinutes)}</p>
+              <p className="text-xs text-muted-foreground">mediana em tempo corrido</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Evolucao mensal</CardTitle>
+          <p className="text-sm text-muted-foreground">Custo estimado por mes de abertura do ticket.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyGroups} margin={{ top: 12, right: 28, left: 8, bottom: 22 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => canViewValues ? formatShortCurrency(Number(value)) : String(value)} />
+                <Tooltip
+                  formatter={(value: number, name: string) => [
+                    name === 'cost' ? valueText(value) : name === 'hours' ? formatHours(value) : value,
+                    name === 'cost' ? 'Custo' : name === 'hours' ? 'Horas' : 'Tickets',
+                  ]}
+                />
+                <Bar dataKey={canViewValues ? 'cost' : 'hours'} radius={[6, 6, 0, 0]} fill="#3b82f6">
+                  <LabelList
+                    dataKey={canViewValues ? 'cost' : 'hours'}
+                    position="top"
+                    formatter={(value: number) => canViewValues ? formatShortCurrency(value) : formatHours(value)}
+                    className="fill-foreground text-[11px]"
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-2 pr-3">Mes</th>
+                  <th className="py-2 pr-3 text-right">Tickets</th>
+                  <th className="py-2 pr-3 text-right">Horas</th>
+                  <th className="py-2 pr-3 text-right">Custo estimado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyGroups.map((group) => (
+                  <tr key={group.monthKey} className="border-b last:border-0">
+                    <td className="py-2 pr-3 font-medium">{group.label}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{group.tickets}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{formatHours(group.hours)}</td>
+                    <td className="py-2 pr-3 text-right font-medium">{valueText(group.cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SupportCostsPage() {
   const initialRange = useMemo(() => currentMonthRange(), []);
   const [dateFrom, setDateFrom] = useState(initialRange.from);
@@ -487,6 +741,21 @@ export default function SupportCostsPage() {
       averageHourlyCost,
     };
   }, [activePeople, settings]);
+
+  const technicianCostByName = useMemo(() => {
+    const map = new Map<string, { monthlyCost: number; hourlyCost: number }>();
+    for (const person of activePeople) {
+      const normalizedName = normalizeText(person.nome);
+      if (!normalizedName) continue;
+      const monthlyCost = calculateSupportMonthlyCost(person, settings);
+      const monthlyHours = getMonthlyHoursByLinkType(person.tipoVinculo);
+      map.set(normalizedName, {
+        monthlyCost,
+        hourlyCost: monthlyHours > 0 ? monthlyCost / monthlyHours : costSummary.averageHourlyCost,
+      });
+    }
+    return map;
+  }, [activePeople, costSummary.averageHourlyCost, settings]);
 
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => (a.nomeFantasia || a.razaoSocial).localeCompare(b.nomeFantasia || b.razaoSocial, 'pt-BR')),
@@ -599,6 +868,28 @@ export default function SupportCostsPage() {
     ];
   }, [records]);
 
+  const getTechnicianCost = useCallback((analyst: string) => {
+    const normalizedAnalyst = normalizeText(analyst);
+    const direct = technicianCostByName.get(normalizedAnalyst);
+    if (direct) return { ...direct, matched: true };
+
+    for (const [personName, cost] of technicianCostByName.entries()) {
+      if (
+        normalizedAnalyst
+        && personName
+        && (personName.includes(normalizedAnalyst) || normalizedAnalyst.includes(personName))
+      ) {
+        return { ...cost, matched: true };
+      }
+    }
+
+    return {
+      monthlyCost: 0,
+      hourlyCost: costSummary.averageHourlyCost,
+      matched: false,
+    };
+  }, [costSummary.averageHourlyCost, technicianCostByName]);
+
   const enrichedRecords = useMemo<EnrichedSupportCostRecord[]>(() => {
     return records.map((record) => {
       const matchedClient = clients.find((client) => {
@@ -615,17 +906,21 @@ export default function SupportCostsPage() {
           );
       });
 
-      const estimatedCost = record.hours * costSummary.averageHourlyCost;
+      const technicianCost = getTechnicianCost(record.analystName);
+      const estimatedCost = record.hours * technicianCost.hourlyCost;
 
       return {
         ...record,
         matchedClient,
         matchedContract,
         estimatedCost,
+        technicianMonthlyCost: technicianCost.monthlyCost,
+        technicianHourlyCost: technicianCost.hourlyCost,
+        technicianCostMatched: technicianCost.matched,
         reconciliationStatus: matchedClient || matchedContract ? 'conciliado' : 'pendente',
       };
     });
-  }, [clients, contracts, costSummary.averageHourlyCost, records]);
+  }, [clients, contracts, records, getTechnicianCost]);
 
   const filteredRecords = useMemo(() => {
     if (!syncedRange || syncedRange.from !== dateFrom || syncedRange.to !== dateTo) return [];
@@ -661,6 +956,51 @@ export default function SupportCostsPage() {
     const clientsCount = new Set(filteredRecords.map((record) => record.clientName)).size;
     const pendingCount = filteredRecords.filter((record) => record.reconciliationStatus === 'pendente').length;
     return { totalHours, totalCost, clientsCount, pendingCount };
+  }, [filteredRecords]);
+
+  const periodMonths = useMemo(() => countMonthsInRange(dateFrom, dateTo), [dateFrom, dateTo]);
+
+  const technicianGroups = useMemo<TechnicianCostGroup[]>(() => {
+    const grouped = new Map<string, TechnicianCostGroup>();
+    for (const record of filteredRecords) {
+      const name = record.analystName || 'Nao informado';
+      const current = grouped.get(name) || {
+        name,
+        monthlyCost: record.technicianCostMatched ? record.technicianMonthlyCost : null,
+        hourlyCost: record.technicianHourlyCost,
+        tickets: 0,
+        hours: 0,
+        cost: 0,
+        matched: record.technicianCostMatched,
+      };
+      current.tickets += 1;
+      current.hours += record.hours;
+      current.cost += record.estimatedCost;
+      grouped.set(name, current);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => b.cost - a.cost || b.hours - a.hours);
+  }, [filteredRecords]);
+
+  const monthlyGroups = useMemo<MonthlyCostGroup[]>(() => {
+    const grouped = new Map<string, MonthlyCostGroup>();
+    for (const record of filteredRecords) {
+      const parsedDate = parseRecordDate(record.date);
+      const monthKey = parsedDate ? parsedDate.slice(0, 7) : 'sem-data';
+      const current = grouped.get(monthKey) || {
+        monthKey,
+        label: monthKey === 'sem-data' ? 'Sem data' : getMonthLabel(monthKey),
+        tickets: 0,
+        hours: 0,
+        cost: 0,
+      };
+      current.tickets += 1;
+      current.hours += record.hours;
+      current.cost += record.estimatedCost;
+      grouped.set(monthKey, current);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
   }, [filteredRecords]);
 
   const chartByClient = useMemo(() => {
@@ -1102,6 +1442,15 @@ export default function SupportCostsPage() {
         </TabsContent>
 
         <TabsContent value="client-report" className="space-y-4">
+          <SupportExecutiveSummary
+            records={filteredRecords}
+            technicianGroups={technicianGroups}
+            monthlyGroups={monthlyGroups}
+            canViewValues={canViewSupportCosts}
+            valueText={valueText}
+            periodMonths={periodMonths}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
