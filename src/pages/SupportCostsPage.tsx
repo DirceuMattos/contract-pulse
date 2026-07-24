@@ -896,11 +896,19 @@ export default function SupportCostsPage() {
   }, [clientId, contracts]);
 
   const selectedClient = clients.find((client) => client.id === clientId);
+  const selectedContract = contracts.find((contract) => contract.id === contractId);
+  const selectedContractClient = selectedContract
+    ? clients.find((client) => client.id === selectedContract.clientId)
+    : undefined;
   const selectedMilvusClientName = clientId.startsWith('milvus:')
     ? clientId.replace(/^milvus:/, '')
     : undefined;
+  const selectedMilvusProjectName = contractId.startsWith('milvus-project:')
+    ? contractId.replace(/^milvus-project:/, '')
+    : undefined;
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
+
 
   const clientOptions = useMemo(() => {
     const hubOptions = sortedClients.map((client) => ({
