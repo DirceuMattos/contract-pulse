@@ -45,6 +45,9 @@ type SyncRequest = {
   clientName?: string;
   clientNames?: string[];
   fullCatalogSync?: boolean;
+  mode?: "sync" | "audit" | "dry-run" | "write";
+  confirmWrite?: boolean;
+  clientLimit?: number;
 };
 
 type HubClient = {
@@ -1330,12 +1333,145 @@ async function markMonthlyLoadsFinished(
   }
 }
 
+function summarizeClientAudit(names: string[], hubClients: HubClient[]) {
+  const audit = names
+    .map((name) => {
+      const match = bestHubClientMatch(name, hubClients);
+      return {
+        milvusClientName: name,
+        status: match.status,
+        confidence: Number(match.confidence.toFixed(4)),
+        hubClientId: match.item?.id ?? null,
+        hubClientName: match.item ? (match.item.nome_fantasia || match.item.razao_social || "") : "",
+      };
+    })
+    .sort((left, right) => {
+      const statusOrder = { pending: 0, ambiguous: 1, matched: 2 } as Record<string, number>;
+      return (statusOrder[left.status] ?? 9) - (statusOrder[right.status] ?? 9)
+        || left.milvusClientName.localeCompare(right.milvusClientName);
+    });
+
+  return {
+    summary: {
+      milvusClients: names.length,
+      matched: audit.filter((row) => row.status === "matched").length,
+      pending: audit.filter((row) => row.status === "pending").length,
+      ambiguous: audit.filter((row) => row.status === "ambiguous").length,
+    },
+    audit,
+  };
+}
+
+function summarizeProjectAudit(records: AttendanceRecord[], hubContracts: HubContract[], preferredClientByName: Map<string, string | null>) {
+  const projectNames = Array.from(new Map(records.map((record) => [
+    `${compactName(record.clientName)}:${compactName(record.projectName || record.clientName)}`,
+    record,
+  ])).values());
+
+  const audit = projectNames.map((record) => {
+    const match = bestHubContractMatch(
+      record.projectName || record.clientName,
+      hubContracts,
+      preferredClientByName.get(compactName(record.clientName)) ?? null,
+    );
+    return {
+      milvusClientName: record.clientName,
+      milvusProjectName: record.projectName,
+      status: match.status,
+      confidence: Number(match.confidence.toFixed(4)),
+      hubContractId: match.item?.id ?? null,
+      hubContractName: match.item?.nome ?? "",
+    };
+  });
+
+  return {
+    total: audit.length,
+    matched: audit.filter((row) => row.status === "matched").length,
+    pending: audit.filter((row) => row.status === "pending").length,
+    ambiguous: audit.filter((row) => row.status === "ambiguous").length,
+    sample: audit
+      .filter((row) => row.status !== "matched")
+      .slice(0, 80),
+  };
+}
+
+async function collectHistoricalRecords(
+  cleanDevidToken: string,
+  milvusToken: string | null,
+  dateFrom: string,
+  dateTo: string,
+  clientName: string | undefined,
+  clientNames: string[],
+) {
+  const ranges = buildMonthRanges(dateFrom, dateTo);
+  const rows: Record<string, unknown>[] = [];
+  const normalized: AttendanceRecord[] = [];
+  const kept: AttendanceRecord[] = [];
+  const diagnostics: Array<Record<string, unknown>> = [];
+
+  for (const range of ranges) {
+    const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, clientNames);
+    const rangeRows = expandRowsWithNestedServices(unwrapRows(rawResult));
+    const rangeNormalized = rangeRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
+    const rangeKept = rangeNormalized
+      .filter((record) => record.hours > 0)
+      .filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
+    const rawObject = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult) ? rawResult as Record<string, unknown> : {};
+
+    rows.push(...rangeRows);
+    normalized.push(...rangeNormalized);
+    kept.push(...rangeKept);
+    diagnostics.push({
+      month: range.label,
+      source,
+      rowsDetected: rangeRows.length,
+      recordsDetected: rangeKept.length,
+      totalHours: Number(rangeKept.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
+      extraction: rawObject.extractionDiagnostics ?? null,
+    });
+  }
+
+  const seen = new Set<string>();
+  const records = kept
+    .filter((record) => {
+      const key = `${record.id}|${record.date ?? ""}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours.toFixed(6)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => {
+      const leftDate = parseDateOnly(left.date) ?? "";
+      const rightDate = parseDateOnly(right.date) ?? "";
+      return leftDate.localeCompare(rightDate)
+        || left.clientName.localeCompare(right.clientName)
+        || left.projectName.localeCompare(right.projectName);
+    });
+
+  return {
+    ranges,
+    rows,
+    normalized,
+    records,
+    diagnostics,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { dateFrom, dateTo, clientName, clientNames = [], fullCatalogSync = false } = await req.json() as SyncRequest;
-    if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
+    const {
+      dateFrom,
+      dateTo,
+      clientName,
+      clientNames = [],
+      fullCatalogSync = false,
+      mode = "sync",
+      confirmWrite = false,
+      clientLimit = 0,
+    } = await req.json() as SyncRequest;
+    if (mode !== "audit" && (!dateFrom || !dateTo)) throw new Error("Periodo obrigatorio");
+    if (mode === "write" && !confirmWrite) throw new Error("Modo write exige confirmWrite=true");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -1376,7 +1512,109 @@ serve(async (req) => {
       };
     }
 
-    const effectiveClientNames = nameResolution.names.length > 0 ? nameResolution.names : explicitClientNames;
+    const effectiveClientNames = (nameResolution.names.length > 0 ? nameResolution.names : explicitClientNames)
+      .slice(0, clientLimit > 0 ? clientLimit : undefined);
+
+    if (mode === "audit") {
+      const audit = summarizeClientAudit(effectiveClientNames, hubCatalog.clients);
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        functionVersion: FUNCTION_VERSION,
+        source: nameResolution.source,
+        searchedTerms: nameResolution.searchedTerms,
+        catalogRows: nameResolution.catalogRows,
+        ...audit,
+      }), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
+    if (mode === "dry-run" || mode === "write") {
+      const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
+      const collected = await collectHistoricalRecords(
+        cleanDevidToken,
+        milvusToken,
+        dateFrom,
+        dateTo,
+        clientName,
+        effectiveClientNames,
+      );
+      const totalHours = Number(collected.records.reduce((sum, record) => sum + record.hours, 0).toFixed(4));
+      const clientMatches = new Map<string, string | null>();
+      const clientAudit = summarizeClientAudit(
+        Array.from(new Set(collected.records.map((record) => record.clientName).filter(Boolean))),
+        hubCatalog.clients,
+      );
+      for (const row of clientAudit.audit) clientMatches.set(compactName(row.milvusClientName), row.hubClientId);
+      const projectAudit = summarizeProjectAudit(collected.records, hubCatalog.contracts, clientMatches);
+      let persistence: { stored: number; inconsistencies: number } | null = null;
+      let syncRunId: string | null = null;
+
+      if (mode === "write") {
+        const { data: syncRun, error: syncRunError } = await supabase
+          .from("support_cost_sync_runs")
+          .insert({
+            date_from: dateFrom,
+            date_to: dateTo,
+            requested_client_name: clientName || null,
+            requested_client_names: effectiveClientNames,
+            status: "running",
+            diagnostics: { mode: "historical-write", functionVersion: FUNCTION_VERSION },
+          })
+          .select("id")
+          .single();
+        if (syncRunError) throw syncRunError;
+        syncRunId = syncRun.id;
+        persistence = await persistSupportCostRecords(supabase, syncRunId, collected.records, hubCatalog.clients, hubCatalog.contracts);
+        await markMonthlyLoadsFinished(supabase, collected.ranges, collected.records, "imported", syncRunId, persistence.inconsistencies);
+        await supabase
+          .from("support_cost_sync_runs")
+          .update({
+            status: "success",
+            records_detected: collected.records.length,
+            tickets_stored: persistence.stored,
+            inconsistency_count: persistence.inconsistencies,
+            diagnostics: {
+              mode: "historical-write",
+              functionVersion: FUNCTION_VERSION,
+              monthDiagnostics: collected.diagnostics,
+              totalHours,
+              clientAudit: clientAudit.summary,
+              projectAudit,
+            },
+            ended_at: new Date().toISOString(),
+          })
+          .eq("id", syncRunId);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        functionVersion: FUNCTION_VERSION,
+        dryRun: mode === "dry-run",
+        syncRunId,
+        summary: {
+          dateFrom,
+          dateTo,
+          requestedClientName: clientName || null,
+          clientAliasesCount: effectiveClientNames.length,
+          rowsDetected: collected.rows.length,
+          recordsDetected: collected.records.length,
+          totalHours,
+          clientAudit: clientAudit.summary,
+          projectAudit,
+          stored: persistence?.stored ?? 0,
+          inconsistencies: persistence?.inconsistencies ?? clientAudit.summary.pending + clientAudit.summary.ambiguous + projectAudit.pending + projectAudit.ambiguous,
+        },
+        monthDiagnostics: collected.diagnostics,
+        clientAudit: clientAudit.audit.slice(0, 200),
+        sampleRecords: collected.records.slice(0, 50),
+      }), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     let syncRunId: string | null = null;
 
     try {
