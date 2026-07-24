@@ -1308,140 +1308,157 @@ serve(async (req) => {
     if (monthRanges.length === 0) throw new Error("Periodo invalido");
     const syncRanges: MonthRange[] = [{ label: `${dateFrom}_${dateTo}`, from: dateFrom, to: dateTo }];
 
-    const rows: Record<string, unknown>[] = [];
-    const normalized: AttendanceRecord[] = [];
-    const monthRecords: AttendanceRecord[] = [];
-    const monthDiagnostics: Array<Record<string, unknown>> = [];
-
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
-    const monthResults = await Promise.all(syncRanges.map(async (range) => {
-      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, effectiveClientNames);
-      const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
-      const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
-      const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
-      const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
-      const rawObject = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult) ? rawResult as Record<string, unknown> : {};
-      return { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
-    }));
+    // Run the heavy attendance fetch + persistence in the background to avoid
+    // the 150s idle timeout. Frontend polls `support_cost_sync_runs` by syncRunId.
+    const backgroundJob = async () => {
+      const rows: Record<string, unknown>[] = [];
+      const normalized: AttendanceRecord[] = [];
+      const monthRecords: AttendanceRecord[] = [];
+      const monthDiagnostics: Array<Record<string, unknown>> = [];
 
-    for (const { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
-      rows.push(...monthRows);
-      normalized.push(...monthNormalized);
-      monthRecords.push(...monthKeptRecords);
-      monthDiagnostics.push({
-        month: range.label,
-        source,
-        paginationStrategy: rawObject.paginationStrategy ?? null,
-        pagesMerged: rawObject.pagesMerged ?? null,
-        extraction: rawObject.extractionDiagnostics ?? null,
-        dateFrom: range.from,
-        dateTo: range.to,
-        rowsDetected: monthRows.length,
-        recordsWithHours: monthRecordsWithHours.length,
-        recordsWithoutRecognizedDate: monthRecordsWithHours.filter((record) => !parseDateOnly(record.date)).length,
-        recordsOutsidePeriod: monthRecordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, range.from, range.to)).length,
-        recordsDetected: monthKeptRecords.length,
-        totalHours: Number(monthKeptRecords.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
-      });
-    }
+      try {
+        const monthResults = await Promise.all(syncRanges.map(async (range) => {
+          const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, effectiveClientNames);
+          const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
+          const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
+          const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
+          const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
+          const rawObject = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult) ? rawResult as Record<string, unknown> : {};
+          return { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
+        }));
 
+        for (const { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
+          rows.push(...monthRows);
+          normalized.push(...monthNormalized);
+          monthRecords.push(...monthKeptRecords);
+          monthDiagnostics.push({
+            month: range.label,
+            source,
+            paginationStrategy: rawObject.paginationStrategy ?? null,
+            pagesMerged: rawObject.pagesMerged ?? null,
+            extraction: rawObject.extractionDiagnostics ?? null,
+            dateFrom: range.from,
+            dateTo: range.to,
+            rowsDetected: monthRows.length,
+            recordsWithHours: monthRecordsWithHours.length,
+            recordsWithoutRecognizedDate: monthRecordsWithHours.filter((record) => !parseDateOnly(record.date)).length,
+            recordsOutsidePeriod: monthRecordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, range.from, range.to)).length,
+            recordsDetected: monthKeptRecords.length,
+            totalHours: Number(monthKeptRecords.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
+          });
+        }
 
-    const recordsWithHours = normalized.filter((record) => record.hours > 0);
-    const recordsWithoutRecognizedDate = recordsWithHours.filter((record) => !parseDateOnly(record.date)).length;
-    const recordsOutsidePeriod = recordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo)).length;
-    const seen = new Set<string>();
-    const records = monthRecords
-      .filter((record) => {
-        const key = `${record.id}|${record.date ?? ""}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours.toFixed(6)}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((left, right) => {
-        const leftDate = parseDateOnly(left.date) ?? "";
-        const rightDate = parseDateOnly(right.date) ?? "";
-        return leftDate.localeCompare(rightDate)
-          || left.clientName.localeCompare(right.clientName)
-          || left.projectName.localeCompare(right.projectName);
-      });
+        const recordsWithHours = normalized.filter((record) => record.hours > 0);
+        const recordsWithoutRecognizedDate = recordsWithHours.filter((record) => !parseDateOnly(record.date)).length;
+        const recordsOutsidePeriod = recordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo)).length;
+        const seen = new Set<string>();
+        const records = monthRecords
+          .filter((record) => {
+            const key = `${record.id}|${record.date ?? ""}|${record.clientName}|${record.projectName}|${record.analystName}|${record.hours.toFixed(6)}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((left, right) => {
+            const leftDate = parseDateOnly(left.date) ?? "";
+            const rightDate = parseDateOnly(right.date) ?? "";
+            return leftDate.localeCompare(rightDate)
+              || left.clientName.localeCompare(right.clientName)
+              || left.projectName.localeCompare(right.projectName);
+          });
 
-    const diagnostics = {
-      functionVersion: FUNCTION_VERSION,
-      request: {
-        dateFrom,
-        dateTo,
-        clientName: clientName || null,
-        clientAliasesCount: effectiveClientNames.length,
-        clientNameResolutionSource: nameResolution.source,
-        clientCatalogRows: nameResolution.catalogRows,
-        clientSearchTerms: nameResolution.searchedTerms.slice(0, 40),
-        hasClientFilter: Boolean(clientName?.trim() || effectiveClientNames.length > 0),
-        hasProjectFilter: false,
-      },
-      rawShape: {
-        type: "monthly",
-        months: monthRanges.length,
-        rowsDetected: rows.length,
-        recordsDetected: records.length,
-      },
-      ...diagnosticsForRows(rows, normalized),
-      recordsWithHours: recordsWithHours.length,
-      recordsWithoutRecognizedDate,
-      recordsOutsidePeriod,
-      recordsDetected: records.length,
-      monthRanges,
-      monthDiagnostics,
-      duplicatedRecordsRemoved: monthRecords.length - records.length,
-      totalHours: Number(records.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
+        const diagnostics = {
+          functionVersion: FUNCTION_VERSION,
+          request: {
+            dateFrom,
+            dateTo,
+            clientName: clientName || null,
+            clientAliasesCount: effectiveClientNames.length,
+            clientNameResolutionSource: nameResolution.source,
+            clientCatalogRows: nameResolution.catalogRows,
+            clientSearchTerms: nameResolution.searchedTerms.slice(0, 40),
+            hasClientFilter: Boolean(clientName?.trim() || effectiveClientNames.length > 0),
+            hasProjectFilter: false,
+          },
+          rawShape: {
+            type: "monthly",
+            months: monthRanges.length,
+            rowsDetected: rows.length,
+            recordsDetected: records.length,
+          },
+          ...diagnosticsForRows(rows, normalized),
+          recordsWithHours: recordsWithHours.length,
+          recordsWithoutRecognizedDate,
+          recordsOutsidePeriod,
+          recordsDetected: records.length,
+          monthRanges,
+          monthDiagnostics,
+          duplicatedRecordsRemoved: monthRecords.length - records.length,
+          totalHours: Number(records.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
+        };
+
+        if (syncRunId) {
+          try {
+            const persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.contracts);
+            await supabase
+              .from("support_cost_sync_runs")
+              .update({
+                status: "success",
+                records_detected: records.length,
+                tickets_stored: persistence.stored,
+                inconsistency_count: persistence.inconsistencies,
+                diagnostics,
+                ended_at: new Date().toISOString(),
+              })
+              .eq("id", syncRunId);
+          } catch (error) {
+            await supabase
+              .from("support_cost_sync_runs")
+              .update({
+                status: "error",
+                records_detected: records.length,
+                diagnostics,
+                error_message: error instanceof Error ? error.message : String(error),
+                ended_at: new Date().toISOString(),
+              })
+              .eq("id", syncRunId);
+            console.warn(`[support-costs-sync] Persistencia falhou: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
+      } catch (error) {
+        console.error("[support-costs-sync:background]", error);
+        if (syncRunId) {
+          await supabase
+            .from("support_cost_sync_runs")
+            .update({
+              status: "error",
+              error_message: error instanceof Error ? error.message : String(error),
+              ended_at: new Date().toISOString(),
+            })
+            .eq("id", syncRunId);
+        }
+      }
     };
 
-    let persistence = { stored: 0, inconsistencies: 0 };
-    if (syncRunId) {
-      try {
-        persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.contracts);
-        await supabase
-          .from("support_cost_sync_runs")
-          .update({
-            status: "success",
-            records_detected: records.length,
-            tickets_stored: persistence.stored,
-            inconsistency_count: persistence.inconsistencies,
-            diagnostics,
-            ended_at: new Date().toISOString(),
-          })
-          .eq("id", syncRunId);
-      } catch (error) {
-        await supabase
-          .from("support_cost_sync_runs")
-          .update({
-            status: "error",
-            records_detected: records.length,
-            diagnostics,
-            error_message: error instanceof Error ? error.message : String(error),
-            ended_at: new Date().toISOString(),
-          })
-          .eq("id", syncRunId);
-        console.warn(`[support-costs-sync] Persistencia de conciliacao falhou: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    // @ts-ignore EdgeRuntime is provided by Supabase runtime
+    if (typeof EdgeRuntime !== "undefined" && typeof EdgeRuntime.waitUntil === "function") {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(backgroundJob());
+    } else {
+      backgroundJob();
     }
-    console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
 
     return new Response(JSON.stringify({
       success: true,
+      accepted: true,
       functionVersion: FUNCTION_VERSION,
-      count: records.length,
-      records,
       syncRunId,
-      reconciliation: persistence,
-      rawShape: {
-        type: "monthly",
-        months: monthRanges.length,
-        rowsDetected: rows.length,
-        recordsDetected: records.length,
-      },
-      diagnostics: records.length === 0 ? diagnostics : undefined,
+      message: "Sincronizacao iniciada em segundo plano. Acompanhe o status via support_cost_sync_runs.",
     }), {
+      status: 202,
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (error) {
