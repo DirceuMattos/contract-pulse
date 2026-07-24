@@ -7,9 +7,8 @@ const CORS = {
 };
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
-const MILVUS_BASE_URL = "https://apiintegracao.milvus.com.br";
-const MILVUS_URL = `${MILVUS_BASE_URL}/api/chamado/listagem`;
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-milvus-clients-v11";
+const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-client-aliases-v10";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_SLICE_FIELDS = ["tecnico", "prioridade", "categoria_primaria", "categoria_secundaria"] as const;
@@ -37,9 +36,8 @@ type AttendanceReportResult = {
 };
 
 type SyncRequest = {
-  action?: "sync" | "clients";
-  dateFrom?: string;
-  dateTo?: string;
+  dateFrom: string;
+  dateTo: string;
   clientName?: string;
   clientNames?: string[];
 };
@@ -126,57 +124,11 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
 function getRowsFromMilvusPayload(payload: unknown): Record<string, unknown>[] {
   if (!payload || typeof payload !== "object") return [];
   const obj = payload as Record<string, unknown>;
-  for (const key of ["lista", "data", "rows", "items", "records", "tickets", "clientes", "clients"]) {
+  for (const key of ["lista", "data", "rows", "items", "records", "tickets"]) {
     const value = obj[key];
     if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
   }
   return [];
-}
-
-function normalizeMilvusClient(row: Record<string, unknown>): { name: string; document?: string; token?: string } | null {
-  const name = firstString(row, ["nome_fantasia", "nomeFantasia", "nome", "razao_social", "razaoSocial", "cliente", "name"], "");
-  if (!name.trim()) return null;
-  const document = firstString(row, ["documento", "cnpj_cpf", "cpf_cnpj", "cnpj", "cpf"], "");
-  const token = firstString(row, ["token", "cliente_token", "token_cliente"], "");
-  return {
-    name: name.trim(),
-    document: document || undefined,
-    token: token || undefined,
-  };
-}
-
-async function fetchMilvusClients(token: string): Promise<Array<{ name: string; document?: string; token?: string }>> {
-  const url = new URL(`${MILVUS_BASE_URL}/api/cliente/busca`);
-  url.searchParams.set("status", "3");
-
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    headers: {
-      "Authorization": token,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Milvus clientes retornou ${response.status}: ${body}`);
-  }
-
-  const payload = await response.json();
-  const rows = getRowsFromMilvusPayload(payload);
-  const seen = new Set<string>();
-  const clients: Array<{ name: string; document?: string; token?: string }> = [];
-
-  for (const row of rows) {
-    const client = normalizeMilvusClient(row);
-    if (!client) continue;
-    const key = compactToken(client.name);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    clients.push(client);
-  }
-
-  return clients.sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
 }
 
 function getStableRowKey(row: Record<string, unknown>, fallback: string): string {
@@ -835,27 +787,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { action = "sync", dateFrom, dateTo, clientName, clientNames = [] } = await req.json() as SyncRequest;
+    const { dateFrom, dateTo, clientName, clientNames = [] } = await req.json() as SyncRequest;
+    if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-
-    if (action === "clients") {
-      const milvusToken = await getVaultSecret(supabase, "MILVUS_TOKEN");
-      const clients = await fetchMilvusClients(milvusToken);
-      return new Response(JSON.stringify({
-        success: true,
-        functionVersion: FUNCTION_VERSION,
-        clients,
-      }), {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
-
     const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
     let milvusToken: string | null = null;
     try {
