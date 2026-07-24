@@ -2929,6 +2929,446 @@ export type Database = {
         }
         Relationships: []
       }
+      support_cost_inconsistencies: {
+        Row: {
+          created_at: string
+          id: string
+          milvus_client_id: string | null
+          milvus_project_id: string | null
+          milvus_ticket_code: string | null
+          payload: Json
+          reason_code: string
+          reason_detail: string
+          resolved_at: string | null
+          resolved_by: string | null
+          sync_run_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          milvus_client_id?: string | null
+          milvus_project_id?: string | null
+          milvus_ticket_code?: string | null
+          payload?: Json
+          reason_code: string
+          reason_detail?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          sync_run_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          milvus_client_id?: string | null
+          milvus_project_id?: string | null
+          milvus_ticket_code?: string | null
+          payload?: Json
+          reason_code?: string
+          reason_detail?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          sync_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_cost_inconsistencies_milvus_client_id_fkey"
+            columns: ["milvus_client_id"]
+            isOneToOne: false
+            referencedRelation: "support_milvus_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_inconsistencies_milvus_project_id_fkey"
+            columns: ["milvus_project_id"]
+            isOneToOne: false
+            referencedRelation: "support_milvus_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_inconsistencies_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "support_cost_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_cost_monthly_loads: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          inconsistency_count: number
+          last_synced_at: string | null
+          month_key: string
+          period_end: string
+          period_start: string
+          status: string
+          sync_run_id: string | null
+          tickets_count: number
+          total_hours: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          inconsistency_count?: number
+          last_synced_at?: string | null
+          month_key: string
+          period_end: string
+          period_start: string
+          status?: string
+          sync_run_id?: string | null
+          tickets_count?: number
+          total_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          inconsistency_count?: number
+          last_synced_at?: string | null
+          month_key?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          sync_run_id?: string | null
+          tickets_count?: number
+          total_hours?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_cost_monthly_loads_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "support_cost_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_cost_sync_runs: {
+        Row: {
+          date_from: string
+          date_to: string
+          diagnostics: Json
+          ended_at: string | null
+          error_message: string | null
+          id: string
+          inconsistency_count: number
+          records_detected: number
+          requested_client_name: string | null
+          requested_client_names: string[]
+          started_at: string
+          status: string
+          tickets_stored: number
+        }
+        Insert: {
+          date_from: string
+          date_to: string
+          diagnostics?: Json
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          inconsistency_count?: number
+          records_detected?: number
+          requested_client_name?: string | null
+          requested_client_names?: string[]
+          started_at?: string
+          status?: string
+          tickets_stored?: number
+        }
+        Update: {
+          date_from?: string
+          date_to?: string
+          diagnostics?: Json
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          inconsistency_count?: number
+          records_detected?: number
+          requested_client_name?: string | null
+          requested_client_names?: string[]
+          started_at?: string
+          status?: string
+          tickets_stored?: number
+        }
+        Relationships: []
+      }
+      support_cost_tickets: {
+        Row: {
+          analyst_name: string
+          client_name: string
+          created_at: string
+          hours: number
+          hub_client_id: string | null
+          hub_contract_id: string | null
+          id: string
+          milvus_client_id: string | null
+          milvus_project_id: string | null
+          milvus_ticket_code: string
+          milvus_ticket_id: string | null
+          project_name: string
+          raw: Json
+          status: string | null
+          subject: string | null
+          sync_run_id: string | null
+          ticket_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          analyst_name: string
+          client_name: string
+          created_at?: string
+          hours?: number
+          hub_client_id?: string | null
+          hub_contract_id?: string | null
+          id?: string
+          milvus_client_id?: string | null
+          milvus_project_id?: string | null
+          milvus_ticket_code: string
+          milvus_ticket_id?: string | null
+          project_name: string
+          raw?: Json
+          status?: string | null
+          subject?: string | null
+          sync_run_id?: string | null
+          ticket_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analyst_name?: string
+          client_name?: string
+          created_at?: string
+          hours?: number
+          hub_client_id?: string | null
+          hub_contract_id?: string | null
+          id?: string
+          milvus_client_id?: string | null
+          milvus_project_id?: string | null
+          milvus_ticket_code?: string
+          milvus_ticket_id?: string | null
+          project_name?: string
+          raw?: Json
+          status?: string | null
+          subject?: string | null
+          sync_run_id?: string | null
+          ticket_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_cost_tickets_hub_client_id_fkey"
+            columns: ["hub_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_tickets_hub_contract_id_fkey"
+            columns: ["hub_contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_tickets_milvus_client_id_fkey"
+            columns: ["milvus_client_id"]
+            isOneToOne: false
+            referencedRelation: "support_milvus_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_tickets_milvus_project_id_fkey"
+            columns: ["milvus_project_id"]
+            isOneToOne: false
+            referencedRelation: "support_milvus_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_tickets_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "support_cost_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_milvus_client_mappings: {
+        Row: {
+          confidence: number
+          created_at: string
+          hub_client_id: string | null
+          id: string
+          match_method: string
+          milvus_client_id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          hub_client_id?: string | null
+          id?: string
+          match_method?: string
+          milvus_client_id: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          hub_client_id?: string | null
+          id?: string
+          match_method?: string
+          milvus_client_id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_milvus_client_mappings_hub_client_id_fkey"
+            columns: ["hub_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_milvus_client_mappings_milvus_client_id_fkey"
+            columns: ["milvus_client_id"]
+            isOneToOne: true
+            referencedRelation: "support_milvus_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_milvus_clients: {
+        Row: {
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          milvus_client_key: string
+          milvus_client_name: string
+          milvus_document: string | null
+          milvus_token: string | null
+          raw: Json
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          milvus_client_key: string
+          milvus_client_name: string
+          milvus_document?: string | null
+          milvus_token?: string | null
+          raw?: Json
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          milvus_client_key?: string
+          milvus_client_name?: string
+          milvus_document?: string | null
+          milvus_token?: string | null
+          raw?: Json
+        }
+        Relationships: []
+      }
+      support_milvus_project_mappings: {
+        Row: {
+          confidence: number
+          created_at: string
+          hub_contract_id: string | null
+          id: string
+          match_method: string
+          milvus_project_id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          hub_contract_id?: string | null
+          id?: string
+          match_method?: string
+          milvus_project_id: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          hub_contract_id?: string | null
+          id?: string
+          match_method?: string
+          milvus_project_id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_milvus_project_mappings_hub_contract_id_fkey"
+            columns: ["hub_contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_milvus_project_mappings_milvus_project_id_fkey"
+            columns: ["milvus_project_id"]
+            isOneToOne: true
+            referencedRelation: "support_milvus_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_milvus_projects: {
+        Row: {
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          milvus_client_id: string | null
+          milvus_project_key: string
+          milvus_project_name: string
+          raw: Json
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          milvus_client_id?: string | null
+          milvus_project_key: string
+          milvus_project_name: string
+          raw?: Json
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          milvus_client_id?: string | null
+          milvus_project_key?: string
+          milvus_project_name?: string
+          raw?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_milvus_projects_milvus_client_id_fkey"
+            columns: ["milvus_client_id"]
+            isOneToOne: false
+            referencedRelation: "support_milvus_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string
