@@ -8,9 +8,11 @@ const CORS = {
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-reconciliation-v11";
+const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-24-client-catalog-v12";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
+const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
 const MILVUS_SLICE_FIELDS = ["tecnico", "prioridade", "categoria_primaria", "categoria_secundaria"] as const;
 
 type AttendanceRecord = {
@@ -292,6 +294,130 @@ async function fetchDirectMilvusSlice(token: string, filtroBody: Record<string, 
   return await milvusRes.json();
 }
 
+async function fetchMilvusClients(token: string, searchTerm?: string): Promise<Record<string, unknown>[]> {
+  const params = new URLSearchParams({ status: "1" });
+  if (searchTerm?.trim()) params.set("nome_fantasia", searchTerm.trim());
+
+  const milvusRes = await fetch(`${MILVUS_CLIENT_URL}?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      "Authorization": token,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!milvusRes.ok) {
+    const responseBody = await milvusRes.text();
+    throw new Error(`Busca de clientes Milvus retornou ${milvusRes.status}: ${responseBody}`);
+  }
+
+  const payload = await milvusRes.json();
+  return unwrapRows(payload);
+}
+
+function getMilvusClientNameFromRow(row: Record<string, unknown>): string {
+  return firstString(row, [
+    "nome_fantasia",
+    "nomeFantasia",
+    "fantasia",
+    "nome",
+    "razao_social",
+    "razaoSocial",
+    "cliente",
+  ], "");
+}
+
+function getSearchSeedsFromName(name: string): string[] {
+  const normalized = normalizeName(name);
+  const words = normalized.split(/\s+/).filter((word) => word.length >= 3);
+  const seeds = new Set<string>();
+  if (name.trim()) seeds.add(name.trim());
+  if (words.length > 0) seeds.add(words[0]);
+  if (words.length > 1) seeds.add(words.slice(0, 2).join(" "));
+  if (words.length > 2) seeds.add(words.slice(0, 3).join(" "));
+  return Array.from(seeds).filter((seed) => seed.length >= 3);
+}
+
+async function resolveMilvusClientNames(
+  token: string,
+  requestedNames: string[],
+  hubClients: HubClient[],
+  hubContracts: HubContract[],
+): Promise<{ names: string[]; source: string; searchedTerms: string[]; catalogRows: number }> {
+  const found = new Set<string>();
+  const searchedTerms = new Set<string>();
+  let catalogRows = 0;
+
+  async function searchAndCollect(term?: string) {
+    if (term?.trim()) searchedTerms.add(term.trim());
+    const rows = await fetchMilvusClients(token, term);
+    catalogRows += rows.length;
+    for (const row of rows) {
+      const name = getMilvusClientNameFromRow(row);
+      if (name) found.add(name);
+    }
+  }
+
+  const explicitSeeds = requestedNames.flatMap(getSearchSeedsFromName);
+  if (explicitSeeds.length > 0) {
+    for (const seed of explicitSeeds.slice(0, 32)) {
+      try {
+        await searchAndCollect(seed);
+      } catch (error) {
+        console.warn(`[support-costs-sync] Busca cliente Milvus falhou para '${seed}': ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    for (const fallback of requestedNames) {
+      if (fallback.trim()) found.add(fallback.trim());
+    }
+    return {
+      names: Array.from(found).slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
+      source: "requested-client-catalog",
+      searchedTerms: Array.from(searchedTerms),
+      catalogRows,
+    };
+  }
+
+  try {
+    await searchAndCollect();
+    if (found.size > 0) {
+      return {
+        names: Array.from(found).sort((a, b) => a.localeCompare(b)).slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
+        source: "milvus-active-client-catalog",
+        searchedTerms: Array.from(searchedTerms),
+        catalogRows,
+      };
+    }
+  } catch (error) {
+    console.warn(`[support-costs-sync] Catalogo geral Milvus indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const fallbackSeeds = new Set<string>();
+  for (const client of hubClients) {
+    for (const value of [client.nome_fantasia, client.razao_social]) {
+      if (value?.trim()) fallbackSeeds.add(value.trim());
+    }
+  }
+  for (const contract of hubContracts) {
+    if (contract.nome?.trim()) fallbackSeeds.add(contract.nome.trim());
+  }
+
+  for (const seed of Array.from(fallbackSeeds).slice(0, 80).flatMap(getSearchSeedsFromName)) {
+    try {
+      await searchAndCollect(seed);
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    names: Array.from(found).sort((a, b) => a.localeCompare(b)).slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
+    source: "hub-seed-client-catalog",
+    searchedTerms: Array.from(searchedTerms),
+    catalogRows,
+  };
+}
+
 function getSliceValues(rows: Record<string, unknown>[], field: typeof MILVUS_SLICE_FIELDS[number]): string[] {
   const values = new Set<string>();
   for (const row of rows) {
@@ -400,6 +526,56 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
 async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange, clientName?: string, clientNames: string[] = []): Promise<AttendanceReportResult> {
   if (milvusToken) {
     try {
+      if (!clientName?.trim() && clientNames.length > 1) {
+        const collected = new Map<string, Record<string, unknown>>();
+        const clientDiagnostics: Array<Record<string, unknown>> = [];
+        const chunks: string[][] = [];
+        for (let index = 0; index < clientNames.length; index += 4) {
+          chunks.push(clientNames.slice(index, index + 4));
+        }
+
+        for (const chunk of chunks) {
+          const results = await Promise.all(chunk.map(async (name) => {
+            try {
+              const result = await callDirectMilvusAttendanceReport(milvusToken, range, name, [name]);
+              return { name, result, error: null as string | null };
+            } catch (error) {
+              return { name, result: null, error: error instanceof Error ? error.message : String(error) };
+            }
+          }));
+
+          for (const item of results) {
+            if (!item.result) {
+              clientDiagnostics.push({ client: item.name, error: item.error });
+              continue;
+            }
+
+            for (const row of item.result.lista) {
+              const key = getStableRowKey(row, `${item.name}-${collected.size}`);
+              collected.set(key, row);
+            }
+            clientDiagnostics.push({
+              client: item.name,
+              rowsCollected: item.result.lista.length,
+              extraction: item.result.extractionDiagnostics,
+            });
+          }
+        }
+
+        return {
+          source: "milvus-direct",
+          rawResult: {
+            lista: Array.from(collected.values()),
+            extractionDiagnostics: {
+              mode: "client-batch",
+              clientCount: clientNames.length,
+              rowsCollected: collected.size,
+              clientDiagnostics: clientDiagnostics.slice(0, 80),
+            },
+          },
+        };
+      }
+
       return {
         source: "milvus-direct",
         rawResult: await callDirectMilvusAttendanceReport(milvusToken, range, clientName, clientNames),
@@ -912,8 +1088,8 @@ async function persistSupportCostRecords(
 ): Promise<{ stored: number; inconsistencies: number }> {
   let stored = 0;
   let inconsistencies = 0;
-  const clientIdByKey = new Map<string, { id: string; match: MatchResult<HubClient> }>();
-  const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubContract>; clientId?: string | null }>();
+  const clientIdByKey = new Map<string, { id: string; match: MatchResult<HubClient>; hubClientId?: string | null; mappingStatus: string }>();
+  const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubContract>; hubContractId?: string | null; clientId?: string | null; mappingStatus: string }>();
 
   for (const record of records) {
     const clientKey = compactName(record.clientName || "Nao informado") || compactToken(record.clientName || "nao-informado");
@@ -943,9 +1119,20 @@ async function persistSupportCostRecords(
           confidence: match.confidence,
           notes: match.status === "matched" ? null : "Revisar relacao Cliente Milvus x Cliente Hub.",
           updated_at: new Date().toISOString(),
-        }, { onConflict: "milvus_client_id" });
+        }, { onConflict: "milvus_client_id", ignoreDuplicates: true });
 
-      clientEntry = { id: clientRow.id, match };
+      const { data: mappingRow } = await supabase
+        .from("support_milvus_client_mappings")
+        .select("hub_client_id, status")
+        .eq("milvus_client_id", clientRow.id)
+        .maybeSingle();
+
+      clientEntry = {
+        id: clientRow.id,
+        match,
+        hubClientId: String(mappingRow?.hub_client_id ?? match.item?.id ?? "") || null,
+        mappingStatus: String(mappingRow?.status ?? match.status),
+      };
       clientIdByKey.set(clientKey, clientEntry);
     }
 
@@ -953,7 +1140,7 @@ async function persistSupportCostRecords(
     let projectEntry = projectIdByKey.get(projectKey);
 
     if (!projectEntry) {
-      const preferredClientId = clientEntry.match.item?.id ?? null;
+      const preferredClientId = clientEntry.hubClientId ?? clientEntry.match.item?.id ?? null;
       const projectMatch = bestHubContractMatch(record.projectName || record.clientName, hubContracts, preferredClientId);
       const { data: projectRow, error: projectError } = await supabase
         .from("support_milvus_projects")
@@ -978,19 +1165,29 @@ async function persistSupportCostRecords(
           confidence: projectMatch.confidence,
           notes: projectMatch.status === "matched" ? null : "Revisar relacao Projeto Milvus x Contrato Hub.",
           updated_at: new Date().toISOString(),
-        }, { onConflict: "milvus_project_id" });
+        }, { onConflict: "milvus_project_id", ignoreDuplicates: true });
+
+      const { data: mappingRow } = await supabase
+        .from("support_milvus_project_mappings")
+        .select("hub_contract_id, status")
+        .eq("milvus_project_id", projectRow.id)
+        .maybeSingle();
+      const mappedContractId = String(mappingRow?.hub_contract_id ?? projectMatch.item?.id ?? "") || null;
+      const mappedContract = mappedContractId ? hubContracts.find((contract) => contract.id === mappedContractId) : null;
 
       projectEntry = {
         id: projectRow.id,
         match: projectMatch,
-        clientId: projectMatch.item?.client_id ?? preferredClientId,
+        hubContractId: mappedContractId,
+        clientId: mappedContract?.client_id ?? projectMatch.item?.client_id ?? preferredClientId,
+        mappingStatus: String(mappingRow?.status ?? projectMatch.status),
       };
       projectIdByKey.set(projectKey, projectEntry);
     }
 
     const parsedDate = parseDateOnly(record.date);
-    const hubClientId = projectEntry.clientId ?? clientEntry.match.item?.id ?? null;
-    const hubContractId = projectEntry.match.item?.id ?? null;
+    const hubClientId = projectEntry.clientId ?? clientEntry.hubClientId ?? clientEntry.match.item?.id ?? null;
+    const hubContractId = projectEntry.hubContractId ?? projectEntry.match.item?.id ?? null;
     const { error: ticketError } = await supabase
       .from("support_cost_tickets")
       .upsert({
@@ -1015,11 +1212,11 @@ async function persistSupportCostRecords(
     stored += 1;
 
     const reasons: Array<{ code: string; detail: string }> = [];
-    if (clientEntry.match.status !== "matched") {
-      reasons.push({ code: `client_${clientEntry.match.status}`, detail: `Cliente Milvus sem match confiavel: ${record.clientName}` });
+    if (clientEntry.mappingStatus !== "matched") {
+      reasons.push({ code: `client_${clientEntry.mappingStatus}`, detail: `Cliente Milvus sem match confiavel: ${record.clientName}` });
     }
-    if (projectEntry.match.status !== "matched") {
-      reasons.push({ code: `project_${projectEntry.match.status}`, detail: `Projeto/contrato Milvus sem match confiavel: ${record.projectName}` });
+    if (projectEntry.mappingStatus !== "matched") {
+      reasons.push({ code: `project_${projectEntry.mappingStatus}`, detail: `Projeto/contrato Milvus sem match confiavel: ${record.projectName}` });
     }
 
     for (const reason of reasons) {
@@ -1054,10 +1251,39 @@ serve(async (req) => {
     );
     const hubCatalog = await loadHubCatalog(supabase);
     const explicitClientNames = clientNames.filter((name) => Boolean(name?.trim()));
-    const knownMilvusClientNames = (!clientName?.trim() && explicitClientNames.length === 0)
-      ? await loadKnownMilvusClientNames(supabase)
-      : [];
-    const effectiveClientNames = explicitClientNames.length > 0 ? explicitClientNames : knownMilvusClientNames;
+
+    const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
+    let milvusToken: string | null = null;
+    try {
+      milvusToken = await getVaultSecret(supabase, "MILVUS_TOKEN");
+    } catch (error) {
+      console.warn(`[support-costs-sync] MILVUS_TOKEN indisponivel; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    let nameResolution = {
+      names: explicitClientNames,
+      source: explicitClientNames.length > 0 ? "request" : "none",
+      searchedTerms: [] as string[],
+      catalogRows: 0,
+    };
+    if (milvusToken) {
+      nameResolution = await resolveMilvusClientNames(
+        milvusToken,
+        explicitClientNames.length > 0 ? explicitClientNames : (clientName?.trim() ? [clientName.trim()] : []),
+        hubCatalog.clients,
+        hubCatalog.contracts,
+      );
+    } else if (!clientName?.trim() && explicitClientNames.length === 0) {
+      const knownMilvusClientNames = await loadKnownMilvusClientNames(supabase);
+      nameResolution = {
+        names: knownMilvusClientNames,
+        source: "stored-milvus-clients",
+        searchedTerms: [],
+        catalogRows: 0,
+      };
+    }
+
+    const effectiveClientNames = nameResolution.names.length > 0 ? nameResolution.names : explicitClientNames;
     let syncRunId: string | null = null;
 
     try {
@@ -1076,14 +1302,6 @@ serve(async (req) => {
       syncRunId = syncRun.id;
     } catch (error) {
       console.warn(`[support-costs-sync] Nao foi possivel registrar execucao: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
-    let milvusToken: string | null = null;
-    try {
-      milvusToken = await getVaultSecret(supabase, "MILVUS_TOKEN");
-    } catch (error) {
-      console.warn(`[support-costs-sync] MILVUS_TOKEN indisponivel; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     const monthRanges = buildMonthRanges(dateFrom, dateTo);
@@ -1155,7 +1373,9 @@ serve(async (req) => {
         dateTo,
         clientName: clientName || null,
         clientAliasesCount: effectiveClientNames.length,
-        knownMilvusClientsUsed: knownMilvusClientNames.length,
+        clientNameResolutionSource: nameResolution.source,
+        clientCatalogRows: nameResolution.catalogRows,
+        clientSearchTerms: nameResolution.searchedTerms.slice(0, 40),
         hasClientFilter: Boolean(clientName?.trim() || effectiveClientNames.length > 0),
         hasProjectFilter: false,
       },

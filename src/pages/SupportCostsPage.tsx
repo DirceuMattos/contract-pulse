@@ -1062,13 +1062,14 @@ export default function SupportCostsPage() {
         const matchesSelectedProject = selectedMilvusProjectName
           ? isStrongNameMatch(record.projectName, selectedMilvusProjectName)
             || isContainedNameMatch(record.projectName, selectedMilvusProjectName)
-          : record.matchedContract?.id === contractId;
+          : record.matchedContract?.id === contractId
+            || isContainedNameMatch(record.projectName, selectedContract?.nome);
         if (!matchesSelectedProject) return false;
       }
       if (analystName !== 'all' && record.analystName !== analystName) return false;
       return true;
     });
-  }, [analystName, clientId, contractId, dateFrom, dateTo, enrichedRecords, selectedClient, selectedMilvusClientName, syncedRange]);
+  }, [analystName, clientId, contractId, dateFrom, dateTo, enrichedRecords, selectedClient, selectedContract, selectedMilvusClientName, syncedRange]);
 
   const totals = useMemo(() => {
     const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
@@ -1174,6 +1175,9 @@ export default function SupportCostsPage() {
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
   const selectedContract = contracts.find((contract) => contract.id === contractId);
+  const selectedContractClient = selectedContract
+    ? clients.find((client) => client.id === selectedContract.clientId)
+    : undefined;
   const selectedMilvusProjectName = contractId.startsWith('milvus-project:')
     ? contractId.replace(/^milvus-project:/, '')
     : undefined;
@@ -1184,6 +1188,9 @@ export default function SupportCostsPage() {
     const aliases = new Set<string>();
     if (selectedMilvusProjectName) aliases.add(selectedMilvusProjectName);
     if (selectedContract?.nome?.trim()) aliases.add(selectedContract.nome.trim());
+    for (const value of [selectedContractClient?.nomeFantasia, selectedContractClient?.razaoSocial]) {
+      if (value?.trim()) aliases.add(value.trim());
+    }
 
     if (selectedClient) {
       for (const value of [selectedClient.nomeFantasia, selectedClient.razaoSocial]) {
@@ -1201,7 +1208,7 @@ export default function SupportCostsPage() {
     }
 
     return Array.from(aliases).slice(0, 80);
-  }, [contracts, milvusClients, selectedClient, selectedContract, selectedMilvusClientName, selectedMilvusProjectName]);
+  }, [contracts, milvusClients, selectedClient, selectedContract, selectedContractClient, selectedMilvusClientName, selectedMilvusProjectName]);
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
