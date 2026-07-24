@@ -1182,14 +1182,8 @@ export default function SupportCostsPage() {
   const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
-  const selectedContract = contracts.find((contract) => contract.id === contractId);
-  const selectedContractClient = selectedContract
-    ? clients.find((client) => client.id === selectedContract.clientId)
-    : undefined;
-  const selectedMilvusProjectName = contractId.startsWith('milvus-project:')
-    ? contractId.replace(/^milvus-project:/, '')
-    : undefined;
   const syncClientName = selectedMilvusClientName || selectedClient?.nomeFantasia || selectedClient?.razaoSocial || undefined;
+
   const syncClientNames = useMemo(() => {
     if (selectedMilvusClientName) return [selectedMilvusClientName];
 
