@@ -10,7 +10,6 @@ import {
   FileSpreadsheet,
   Link2,
   Loader2,
-  RotateCcw,
   Shield,
   Ticket,
   TimerReset,
@@ -1222,15 +1221,6 @@ export default function SupportCostsPage() {
     if (range) setDateTo(range.to);
   }
 
-  function clearFilters() {
-    const range = currentMonthRange();
-    setDateFrom(range.from);
-    setDateTo(range.to);
-    setClientId('all');
-    setContractId('all');
-    setAnalystName('all');
-  }
-
   function exportClientReportXlsx() {
     if (clientReportGroups.length === 0) {
       toast.warning('Nenhum registro para exportar.');
@@ -1357,20 +1347,6 @@ export default function SupportCostsPage() {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
   }, [dateFrom, dateTo, loadReconciliationData, syncClientName, syncClientNames]);
-
-  const syncMilvusRef = useRef(syncMilvus);
-
-  useEffect(() => {
-    syncMilvusRef.current = syncMilvus;
-  }, [syncMilvus]);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      void syncMilvusRef.current({ silent: true });
-    }, 700);
-
-    return () => window.clearTimeout(timeout);
-  }, [analystName, clientId, contractId, dateFrom, dateTo]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
@@ -1519,10 +1495,6 @@ export default function SupportCostsPage() {
             />
           </label>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2 xl:col-span-10">
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={clearFilters}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Limpar
-            </Button>
             <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
               {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
