@@ -1342,7 +1342,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     const hubCatalog = await loadHubCatalog(supabase);
-    const explicitClientNames = clientNames.filter((name) => Boolean(name?.trim()));
+    const explicitClientNames = fullCatalogSync ? [] : clientNames.filter((name) => Boolean(name?.trim()));
     const hasRequestedClientFilter = !fullCatalogSync && Boolean(clientName?.trim() || explicitClientNames.length > 0);
 
     const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");

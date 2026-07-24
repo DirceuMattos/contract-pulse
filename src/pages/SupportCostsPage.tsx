@@ -1135,6 +1135,13 @@ export default function SupportCostsPage() {
     const pendingCount = filteredRecords.filter((record) => record.reconciliationStatus === 'pendente').length;
     return { totalHours, totalCost, clientsCount, pendingCount };
   }, [filteredRecords]);
+  const selectedPeriodHasNoLocalRecords = Boolean(
+    syncedRange
+    && syncedRange.from === dateFrom
+    && syncedRange.to === dateTo
+    && records.length === 0
+  );
+  const showSyncPendingValues = Boolean(activeSyncRunId && selectedPeriodHasNoLocalRecords);
 
   const periodMonths = useMemo(() => countMonthsInRange(dateFrom, dateTo), [dateFrom, dateTo]);
 
@@ -1229,11 +1236,15 @@ export default function SupportCostsPage() {
     : 'Período não definido';
 
   const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
+  const kpiValueText = (value: number) => showSyncPendingValues ? 'Processando' : valueText(value);
+  const kpiHoursText = (value: number) => showSyncPendingValues ? 'Processando' : formatHours(value);
+  const kpiCountText = (value: number) => showSyncPendingValues ? 'Processando' : String(value);
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
   const syncClientName = selectedMilvusClientName || selectedClient?.nomeFantasia || selectedClient?.razaoSocial || undefined;
 
   const syncClientNames = useMemo(() => {
+    if (clientId === 'all' && contractId === 'all') return [];
     if (selectedMilvusClientName) return [selectedMilvusClientName];
 
     const aliases = new Set<string>();
@@ -1259,7 +1270,7 @@ export default function SupportCostsPage() {
     }
 
     return Array.from(aliases).slice(0, 80);
-  }, [contracts, milvusClients, selectedClient, selectedContract, selectedContractClient, selectedMilvusClientName, selectedMilvusProjectName]);
+  }, [clientId, contractId, contracts, milvusClients, selectedClient, selectedContract, selectedContractClient, selectedMilvusClientName, selectedMilvusProjectName]);
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
@@ -1606,6 +1617,20 @@ export default function SupportCostsPage() {
         </CardContent>
       </Card>
 
+      {showSyncPendingValues && (
+        <Card className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
+          <CardContent className="flex items-start gap-3 p-4 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Sincronizacao em andamento para este periodo.</p>
+              <p className="text-amber-800 dark:text-amber-200">
+                Ainda nao ha base local importada para exibir. Os valores serao carregados automaticamente quando o processamento terminar.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 lg:w-auto">
           <TabsTrigger value="overview">Visão geral</TabsTrigger>
@@ -1617,14 +1642,14 @@ export default function SupportCostsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <KpiCard
               title="Horas Milvus"
-              value={formatHours(totals.totalHours)}
-              description={lastSyncAt ? 'Atualizado em ' + new Date(lastSyncAt).toLocaleString('pt-BR') : 'Aguardando sincronizacao'}
+              value={kpiHoursText(totals.totalHours)}
+              description={showSyncPendingValues ? 'Sincronizacao em andamento' : lastSyncAt ? 'Atualizado em ' + new Date(lastSyncAt).toLocaleString('pt-BR') : 'Aguardando sincronizacao'}
               icon={<Clock3 className="h-5 w-5 text-sky-600" />}
               tone="border-l-sky-500"
             />
             <KpiCard
               title="Custo calculado"
-              value={valueText(totals.totalCost)}
+              value={kpiValueText(totals.totalCost)}
               description="Horas conciliadas x custo/hora medio"
               icon={<CircleDollarSign className="h-5 w-5 text-emerald-600" />}
               tone="border-l-emerald-500"
@@ -1638,8 +1663,8 @@ export default function SupportCostsPage() {
             />
             <KpiCard
               title="Clientes atendidos"
-              value={String(totals.clientsCount)}
-              description={totals.pendingCount + ' registro(s) pendente(s)'}
+              value={kpiCountText(totals.clientsCount)}
+              description={showSyncPendingValues ? 'Aguardando importacao da base local' : totals.pendingCount + ' registro(s) pendente(s)'}
               icon={<Link2 className="h-5 w-5 text-amber-600" />}
               tone="border-l-amber-500"
             />
