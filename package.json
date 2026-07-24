@@ -8,6 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "support-costs:audit": "node scripts/support-costs/manual-milvus-import.mjs --mode audit",
+    "support-costs:import": "node scripts/support-costs/manual-milvus-import.mjs --mode import",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
