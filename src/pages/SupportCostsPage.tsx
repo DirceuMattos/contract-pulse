@@ -125,6 +125,42 @@ type SupportCostsSyncResponse = {
   };
 };
 
+type MilvusClientOption = {
+  id: string;
+  name: string;
+  hubClientId?: string | null;
+  status?: string | null;
+};
+
+type MilvusProjectOption = {
+  id: string;
+  name: string;
+  milvusClientId?: string | null;
+  hubContractId?: string | null;
+  status?: string | null;
+};
+
+type LooseSupabaseError = { message?: string } | null;
+type LooseSupabaseRowsResult = { data?: unknown[] | null; error?: LooseSupabaseError; count?: number | null };
+type LooseSupabaseQuery = {
+  order: (column: string, options?: { ascending?: boolean }) => Promise<LooseSupabaseRowsResult>;
+  is: (column: string, value: unknown) => Promise<LooseSupabaseRowsResult>;
+};
+
+function supportTable(table: string) {
+  return (supabase as unknown as {
+    from: (tableName: string) => {
+      select: (columns: string, options?: { count?: 'exact'; head?: boolean }) => LooseSupabaseQuery;
+    };
+  }).from(table);
+}
+
+function firstNestedRow(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) return (value[0] as Record<string, unknown> | undefined) ?? null;
+  if (value && typeof value === 'object') return value as Record<string, unknown>;
+  return null;
+}
+
 function currentMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -745,6 +781,9 @@ export default function SupportCostsPage() {
   const [contractId, setContractId] = useState('all');
   const [analystName, setAnalystName] = useState('all');
   const [records, setRecords] = useState<SupportCostRecord[]>([]);
+  const [milvusClients, setMilvusClients] = useState<MilvusClientOption[]>([]);
+  const [milvusProjects, setMilvusProjects] = useState<MilvusProjectOption[]>([]);
+  const [openInconsistencies, setOpenInconsistencies] = useState(0);
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [syncedRange, setSyncedRange] = useState<{ from: string; to: string } | null>(null);
@@ -754,6 +793,61 @@ export default function SupportCostsPage() {
   const { hrPeople } = useHR();
   const canViewSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_view_values');
   const canViewCalculationBase = userRole !== 'lider_tribo';
+
+  const loadReconciliationData = useCallback(async () => {
+    try {
+      const [clientsResult, projectsResult, inconsistenciesResult] = await Promise.all([
+        supportTable('support_milvus_clients')
+          .select('id, milvus_client_name, support_milvus_client_mappings(status, hub_client_id)')
+          .order('milvus_client_name', { ascending: true }),
+        supportTable('support_milvus_projects')
+          .select('id, milvus_project_name, milvus_client_id, support_milvus_project_mappings(status, hub_contract_id)')
+          .order('milvus_project_name', { ascending: true }),
+        supportTable('support_cost_inconsistencies')
+          .select('id', { count: 'exact', head: true })
+          .is('resolved_at', null),
+      ]);
+
+      if (!clientsResult.error) {
+        setMilvusClients((clientsResult.data ?? []).map((rawRow) => {
+          const row = rawRow as Record<string, unknown>;
+          const mapping = firstNestedRow(row.support_milvus_client_mappings);
+          return {
+            id: String(row.id ?? ''),
+            name: String(row.milvus_client_name ?? ''),
+            status: String(mapping?.status ?? '') || null,
+            hubClientId: String(mapping?.hub_client_id ?? '') || null,
+          };
+        }));
+      }
+
+      if (!projectsResult.error) {
+        setMilvusProjects((projectsResult.data ?? []).map((rawRow) => {
+          const row = rawRow as Record<string, unknown>;
+          const mapping = firstNestedRow(row.support_milvus_project_mappings);
+          return {
+            id: String(row.id ?? ''),
+            name: String(row.milvus_project_name ?? ''),
+            milvusClientId: String(row.milvus_client_id ?? '') || null,
+            status: String(mapping?.status ?? '') || null,
+            hubContractId: String(mapping?.hub_contract_id ?? '') || null,
+          };
+        }));
+      }
+
+      if (!inconsistenciesResult.error) {
+        setOpenInconsistencies(inconsistenciesResult.count ?? 0);
+      }
+    } catch {
+      setMilvusClients([]);
+      setMilvusProjects([]);
+      setOpenInconsistencies(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReconciliationData();
+  }, [loadReconciliationData]);
 
   const activePeople = useMemo(
     () => hrPeople.filter((person) => person.situacao === 'ativo'),
@@ -816,6 +910,9 @@ export default function SupportCostsPage() {
     }));
 
     const milvusClientNames = new Set<string>();
+    for (const client of milvusClients) {
+      if (client.name && !client.hubClientId) milvusClientNames.add(client.name);
+    }
     for (const record of records) {
       if (!record.clientName || record.clientName === 'Nao informado') continue;
       const alreadyMapped = clients.some((client) => (
@@ -838,7 +935,7 @@ export default function SupportCostsPage() {
       ...hubOptions,
       ...milvusOptions,
     ];
-  }, [clients, records, sortedClients]);
+  }, [clients, milvusClients, records, sortedClients]);
 
   const projectOptions = useMemo(() => {
     const hubOptions = filteredContracts.map((contract) => ({
@@ -846,7 +943,12 @@ export default function SupportCostsPage() {
       label: contract.nome,
     }));
 
-    const milvusProjects = new Set<string>();
+    const milvusProjectNames = new Set<string>();
+    for (const project of milvusProjects) {
+      if (!project.name || project.hubContractId) continue;
+      if (clientId !== 'all' && !selectedMilvusClientName) continue;
+      milvusProjectNames.add(project.name);
+    }
     for (const record of records) {
       if (!record.projectName || record.projectName === 'Nao informado') continue;
       if (selectedMilvusClientName && !isStrongNameMatch(record.clientName, selectedMilvusClientName)) continue;
@@ -862,10 +964,10 @@ export default function SupportCostsPage() {
       const alreadyMapped = contracts.some((contract) => {
         return isContainedNameMatch(record.projectName, contract.nome);
       });
-      if (!alreadyMapped) milvusProjects.add(record.projectName);
+      if (!alreadyMapped) milvusProjectNames.add(record.projectName);
     }
 
-    const milvusOptions = Array.from(milvusProjects)
+    const milvusOptions = Array.from(milvusProjectNames)
       .sort((a, b) => a.localeCompare(b, 'pt-BR'))
       .map((name) => ({
         value: `milvus-project:${name}`,
@@ -878,7 +980,7 @@ export default function SupportCostsPage() {
       ...hubOptions,
       ...milvusOptions,
     ];
-  }, [clientId, contracts, filteredContracts, records, selectedClient, selectedMilvusClientName]);
+  }, [clientId, contracts, filteredContracts, milvusProjects, records, selectedClient, selectedMilvusClientName]);
 
   const analystOptions = useMemo(() => {
     const names = new Set(records.map((record) => record.analystName).filter(Boolean));
@@ -959,6 +1061,7 @@ export default function SupportCostsPage() {
           : undefined;
         const matchesSelectedProject = selectedMilvusProjectName
           ? isStrongNameMatch(record.projectName, selectedMilvusProjectName)
+            || isContainedNameMatch(record.projectName, selectedMilvusProjectName)
           : record.matchedContract?.id === contractId;
         if (!matchesSelectedProject) return false;
       }
@@ -1070,20 +1173,35 @@ export default function SupportCostsPage() {
   const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
+  const selectedContract = contracts.find((contract) => contract.id === contractId);
+  const selectedMilvusProjectName = contractId.startsWith('milvus-project:')
+    ? contractId.replace(/^milvus-project:/, '')
+    : undefined;
   const syncClientName = selectedMilvusClientName || selectedClient?.nomeFantasia || selectedClient?.razaoSocial || undefined;
   const syncClientNames = useMemo(() => {
     if (selectedMilvusClientName) return [selectedMilvusClientName];
-    if (!selectedClient) return [];
 
     const aliases = new Set<string>();
-    for (const value of [selectedClient.nomeFantasia, selectedClient.razaoSocial]) {
-      if (value?.trim()) aliases.add(value.trim());
+    if (selectedMilvusProjectName) aliases.add(selectedMilvusProjectName);
+    if (selectedContract?.nome?.trim()) aliases.add(selectedContract.nome.trim());
+
+    if (selectedClient) {
+      for (const value of [selectedClient.nomeFantasia, selectedClient.razaoSocial]) {
+        if (value?.trim()) aliases.add(value.trim());
+      }
+      for (const contract of contracts) {
+        if (contract.clientId === selectedClient.id && contract.nome?.trim()) aliases.add(contract.nome.trim());
+      }
     }
-    for (const contract of contracts) {
-      if (contract.clientId === selectedClient.id && contract.nome?.trim()) aliases.add(contract.nome.trim());
+
+    if (!selectedClient && !selectedMilvusProjectName && !selectedContract) {
+      for (const client of milvusClients) {
+        if (client.name?.trim()) aliases.add(client.name.trim());
+      }
     }
-    return Array.from(aliases).slice(0, 12);
-  }, [contracts, selectedClient, selectedMilvusClientName]);
+
+    return Array.from(aliases).slice(0, 80);
+  }, [contracts, milvusClients, selectedClient, selectedContract, selectedMilvusClientName, selectedMilvusProjectName]);
 
   function handleMonthFromChange(month: string) {
     const range = monthToDateRange(month);
@@ -1213,6 +1331,7 @@ export default function SupportCostsPage() {
       setRecords(payload.records || []);
       setSyncedRange({ from: dateFrom, to: dateTo });
       setLastSyncAt(new Date().toISOString());
+      void loadReconciliationData();
       const importedCount = payload.records?.length || 0;
       if (!silent && importedCount === 0) {
         toast.warning(getZeroImportDiagnosticMessage(payload), { duration: 12000 });
@@ -1228,7 +1347,7 @@ export default function SupportCostsPage() {
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [dateFrom, dateTo, syncClientName, syncClientNames]);
+  }, [dateFrom, dateTo, loadReconciliationData, syncClientName, syncClientNames]);
 
   const syncMilvusRef = useRef(syncMilvus);
 
@@ -1487,6 +1606,29 @@ export default function SupportCostsPage() {
         </TabsContent>
 
         <TabsContent value="client-report" className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <KpiCard
+              title="Clientes Milvus conhecidos"
+              value={String(milvusClients.length)}
+              description="Base descoberta nas sincronizacoes"
+              icon={<DatabaseZap className="h-5 w-5 text-sky-600" />}
+              tone="border-l-sky-500"
+            />
+            <KpiCard
+              title="Projetos Milvus conhecidos"
+              value={String(milvusProjects.length)}
+              description="Projetos/contratos encontrados no Milvus"
+              icon={<Link2 className="h-5 w-5 text-emerald-600" />}
+              tone="border-l-emerald-500"
+            />
+            <KpiCard
+              title="Inconsistencias abertas"
+              value={String(openInconsistencies)}
+              description="Clientes/projetos ainda sem match confiavel"
+              icon={<AlertCircle className="h-5 w-5 text-amber-600" />}
+              tone="border-l-amber-500"
+            />
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -1494,7 +1636,7 @@ export default function SupportCostsPage() {
                 Conciliação Milvus x Hub
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Valores incluem remuneracao bruta dos RHs e encargos/impostos. Beneficios nao sao considerados.
+                Valores incluem remuneracao bruta dos RHs e encargos/impostos. Beneficios nao sao considerados. Registros sem match confiavel ficam sinalizados para revisao.
               </p>
             </CardHeader>
             {canExportSupportCosts && (

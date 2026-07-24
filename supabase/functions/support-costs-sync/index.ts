@@ -8,7 +8,7 @@ const CORS = {
 
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-23-client-aliases-v10";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-23-reconciliation-v11";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_SLICE_FIELDS = ["tecnico", "prioridade", "categoria_primaria", "categoria_secundaria"] as const;
@@ -40,6 +40,27 @@ type SyncRequest = {
   dateTo: string;
   clientName?: string;
   clientNames?: string[];
+};
+
+type HubClient = {
+  id: string;
+  razao_social?: string | null;
+  nome_fantasia?: string | null;
+  cnpj?: string | null;
+};
+
+type HubContract = {
+  id: string;
+  nome?: string | null;
+  codigo?: string | null;
+  client_id?: string | null;
+};
+
+type MatchResult<T> = {
+  item: T | null;
+  status: "matched" | "pending" | "ambiguous";
+  confidence: number;
+  method: string;
 };
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
@@ -156,6 +177,76 @@ function compactToken(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]/g, "")
     .toLowerCase();
+}
+
+function normalizeName(value: string | undefined | null): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(ltda|me|eireli|sa|s\/a|organizacao|social|de|da|do|dos|das)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function compactName(value: string | undefined | null): string {
+  return normalizeName(value).replace(/[^a-z0-9]/g, "");
+}
+
+function scoreNameMatch(source: string, target: string): number {
+  const sourceCompact = compactName(source);
+  const targetCompact = compactName(target);
+  if (!sourceCompact || !targetCompact) return 0;
+  if (sourceCompact === targetCompact) return 1;
+  if (sourceCompact.length >= 4 && targetCompact.includes(sourceCompact)) return 0.86;
+  if (targetCompact.length >= 4 && sourceCompact.includes(targetCompact)) return 0.82;
+
+  const sourceWords = new Set(normalizeName(source).split(/\s+/).filter((word) => word.length >= 3));
+  const targetWords = new Set(normalizeName(target).split(/\s+/).filter((word) => word.length >= 3));
+  if (sourceWords.size === 0 || targetWords.size === 0) return 0;
+  const common = [...sourceWords].filter((word) => targetWords.has(word)).length;
+  return common / Math.max(sourceWords.size, targetWords.size);
+}
+
+function bestHubClientMatch(name: string, clients: HubClient[]): MatchResult<HubClient> {
+  const scored = clients
+    .map((client) => {
+      const fantasiaScore = scoreNameMatch(name, client.nome_fantasia ?? "");
+      const razaoScore = scoreNameMatch(name, client.razao_social ?? "");
+      return {
+        item: client,
+        score: Math.max(fantasiaScore, razaoScore),
+      };
+    })
+    .filter((entry) => entry.score >= 0.55)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return { item: null, status: "pending", confidence: 0, method: "auto-name" };
+  if (scored.length > 1 && scored[0].score - scored[1].score < 0.08) {
+    return { item: null, status: "ambiguous", confidence: scored[0].score, method: "auto-name" };
+  }
+  return { item: scored[0].item, status: "matched", confidence: scored[0].score, method: "auto-name" };
+}
+
+function bestHubContractMatch(projectName: string, contracts: HubContract[], preferredClientId?: string | null): MatchResult<HubContract> {
+  const scored = contracts
+    .map((contract) => {
+      const nameScore = scoreNameMatch(projectName, contract.nome ?? "");
+      const codeScore = scoreNameMatch(projectName, contract.codigo ?? "");
+      const clientBoost = preferredClientId && contract.client_id === preferredClientId ? 0.08 : 0;
+      return {
+        item: contract,
+        score: Math.min(1, Math.max(nameScore, codeScore) + clientBoost),
+      };
+    })
+    .filter((entry) => entry.score >= 0.52)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return { item: null, status: "pending", confidence: 0, method: "auto-name" };
+  if (scored.length > 1 && scored[0].score - scored[1].score < 0.06) {
+    return { item: null, status: "ambiguous", confidence: scored[0].score, method: "auto-name" };
+  }
+  return { item: scored[0].item, status: "matched", confidence: scored[0].score, method: "auto-name" };
 }
 
 function getMilvusClientTerms(clientName?: string, clientNames: string[] = []): string[] {
@@ -783,6 +874,173 @@ function normalizeRecord(record: Record<string, unknown>, index: number | string
   };
 }
 
+async function loadHubCatalog(supabase: ReturnType<typeof createClient>): Promise<{ clients: HubClient[]; contracts: HubContract[] }> {
+  const [{ data: clients }, { data: contracts }] = await Promise.all([
+    supabase.from("clients").select("id, razao_social, nome_fantasia, cnpj"),
+    supabase.from("contracts").select("id, nome, codigo, client_id"),
+  ]);
+
+  return {
+    clients: (clients ?? []) as HubClient[],
+    contracts: (contracts ?? []) as HubContract[],
+  };
+}
+
+async function loadKnownMilvusClientNames(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("support_milvus_clients")
+    .select("milvus_client_name")
+    .order("milvus_client_name", { ascending: true })
+    .limit(120);
+
+  if (error) {
+    console.warn(`[support-costs-sync] Nao foi possivel carregar clientes Milvus conhecidos: ${error.message}`);
+    return [];
+  }
+
+  return Array.from(new Set((data ?? [])
+    .map((row) => String((row as Record<string, unknown>).milvus_client_name ?? "").trim())
+    .filter(Boolean)));
+}
+
+async function persistSupportCostRecords(
+  supabase: ReturnType<typeof createClient>,
+  syncRunId: string,
+  records: AttendanceRecord[],
+  hubClients: HubClient[],
+  hubContracts: HubContract[],
+): Promise<{ stored: number; inconsistencies: number }> {
+  let stored = 0;
+  let inconsistencies = 0;
+  const clientIdByKey = new Map<string, { id: string; match: MatchResult<HubClient> }>();
+  const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubContract>; clientId?: string | null }>();
+
+  for (const record of records) {
+    const clientKey = compactName(record.clientName || "Nao informado") || compactToken(record.clientName || "nao-informado");
+    let clientEntry = clientIdByKey.get(clientKey);
+
+    if (!clientEntry) {
+      const match = bestHubClientMatch(record.clientName, hubClients);
+      const { data: clientRow, error: clientError } = await supabase
+        .from("support_milvus_clients")
+        .upsert({
+          milvus_client_name: record.clientName || "Nao informado",
+          milvus_client_key: clientKey,
+          raw: { sample: record.raw ?? {} },
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: "milvus_client_key" })
+        .select("id")
+        .single();
+      if (clientError) throw clientError;
+
+      await supabase
+        .from("support_milvus_client_mappings")
+        .upsert({
+          milvus_client_id: clientRow.id,
+          hub_client_id: match.item?.id ?? null,
+          status: match.status,
+          match_method: match.method,
+          confidence: match.confidence,
+          notes: match.status === "matched" ? null : "Revisar relacao Cliente Milvus x Cliente Hub.",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "milvus_client_id" });
+
+      clientEntry = { id: clientRow.id, match };
+      clientIdByKey.set(clientKey, clientEntry);
+    }
+
+    const projectKey = `${clientKey}:${compactName(record.projectName || record.clientName || "Nao informado")}`;
+    let projectEntry = projectIdByKey.get(projectKey);
+
+    if (!projectEntry) {
+      const preferredClientId = clientEntry.match.item?.id ?? null;
+      const projectMatch = bestHubContractMatch(record.projectName || record.clientName, hubContracts, preferredClientId);
+      const { data: projectRow, error: projectError } = await supabase
+        .from("support_milvus_projects")
+        .upsert({
+          milvus_client_id: clientEntry.id,
+          milvus_project_name: record.projectName || record.clientName || "Nao informado",
+          milvus_project_key: compactName(record.projectName || record.clientName || "nao-informado"),
+          raw: { sample: record.raw ?? {} },
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: "milvus_client_id,milvus_project_key" })
+        .select("id")
+        .single();
+      if (projectError) throw projectError;
+
+      await supabase
+        .from("support_milvus_project_mappings")
+        .upsert({
+          milvus_project_id: projectRow.id,
+          hub_contract_id: projectMatch.item?.id ?? null,
+          status: projectMatch.status,
+          match_method: projectMatch.method,
+          confidence: projectMatch.confidence,
+          notes: projectMatch.status === "matched" ? null : "Revisar relacao Projeto Milvus x Contrato Hub.",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "milvus_project_id" });
+
+      projectEntry = {
+        id: projectRow.id,
+        match: projectMatch,
+        clientId: projectMatch.item?.client_id ?? preferredClientId,
+      };
+      projectIdByKey.set(projectKey, projectEntry);
+    }
+
+    const parsedDate = parseDateOnly(record.date);
+    const hubClientId = projectEntry.clientId ?? clientEntry.match.item?.id ?? null;
+    const hubContractId = projectEntry.match.item?.id ?? null;
+    const { error: ticketError } = await supabase
+      .from("support_cost_tickets")
+      .upsert({
+        sync_run_id: syncRunId,
+        milvus_ticket_code: record.id,
+        milvus_ticket_id: String(record.raw?.id ?? record.raw?.ticket_id ?? record.id),
+        milvus_client_id: clientEntry.id,
+        milvus_project_id: projectEntry.id,
+        hub_client_id: hubClientId,
+        hub_contract_id: hubContractId,
+        client_name: record.clientName || "Nao informado",
+        project_name: record.projectName || "Nao informado",
+        analyst_name: record.analystName || "Nao informado",
+        ticket_date: parsedDate,
+        hours: record.hours,
+        subject: firstString(record.raw ?? {}, ["assunto", "subject", "titulo", "title"], ""),
+        status: firstString(record.raw ?? {}, ["status", "situacao"], ""),
+        raw: record.raw ?? {},
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "milvus_ticket_code" });
+    if (ticketError) throw ticketError;
+    stored += 1;
+
+    const reasons: Array<{ code: string; detail: string }> = [];
+    if (clientEntry.match.status !== "matched") {
+      reasons.push({ code: `client_${clientEntry.match.status}`, detail: `Cliente Milvus sem match confiavel: ${record.clientName}` });
+    }
+    if (projectEntry.match.status !== "matched") {
+      reasons.push({ code: `project_${projectEntry.match.status}`, detail: `Projeto/contrato Milvus sem match confiavel: ${record.projectName}` });
+    }
+
+    for (const reason of reasons) {
+      const { error: inconsistencyError } = await supabase
+        .from("support_cost_inconsistencies")
+        .insert({
+          sync_run_id: syncRunId,
+          reason_code: reason.code,
+          reason_detail: reason.detail,
+          milvus_client_id: clientEntry.id,
+          milvus_project_id: projectEntry.id,
+          milvus_ticket_code: record.id,
+          payload: record.raw ?? {},
+        });
+      if (!inconsistencyError) inconsistencies += 1;
+    }
+  }
+
+  return { stored, inconsistencies };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -794,6 +1052,32 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const hubCatalog = await loadHubCatalog(supabase);
+    const explicitClientNames = clientNames.filter((name) => Boolean(name?.trim()));
+    const knownMilvusClientNames = (!clientName?.trim() && explicitClientNames.length === 0)
+      ? await loadKnownMilvusClientNames(supabase)
+      : [];
+    const effectiveClientNames = explicitClientNames.length > 0 ? explicitClientNames : knownMilvusClientNames;
+    let syncRunId: string | null = null;
+
+    try {
+      const { data: syncRun, error: syncRunError } = await supabase
+        .from("support_cost_sync_runs")
+        .insert({
+          date_from: dateFrom,
+          date_to: dateTo,
+          requested_client_name: clientName || null,
+          requested_client_names: effectiveClientNames,
+          status: "running",
+        })
+        .select("id")
+        .single();
+      if (syncRunError) throw syncRunError;
+      syncRunId = syncRun.id;
+    } catch (error) {
+      console.warn(`[support-costs-sync] Nao foi possivel registrar execucao: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
     let milvusToken: string | null = null;
     try {
@@ -814,7 +1098,7 @@ serve(async (req) => {
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
     const monthResults = await Promise.all(syncRanges.map(async (range) => {
-      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, clientNames);
+      const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, effectiveClientNames);
       const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
       const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
       const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
@@ -870,8 +1154,9 @@ serve(async (req) => {
         dateFrom,
         dateTo,
         clientName: clientName || null,
-        clientAliasesCount: clientNames.length,
-        hasClientFilter: Boolean(clientName?.trim() || clientNames.length > 0),
+        clientAliasesCount: effectiveClientNames.length,
+        knownMilvusClientsUsed: knownMilvusClientNames.length,
+        hasClientFilter: Boolean(clientName?.trim() || effectiveClientNames.length > 0),
         hasProjectFilter: false,
       },
       rawShape: {
@@ -890,6 +1175,36 @@ serve(async (req) => {
       duplicatedRecordsRemoved: monthRecords.length - records.length,
       totalHours: Number(records.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
     };
+
+    let persistence = { stored: 0, inconsistencies: 0 };
+    if (syncRunId) {
+      try {
+        persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.contracts);
+        await supabase
+          .from("support_cost_sync_runs")
+          .update({
+            status: "success",
+            records_detected: records.length,
+            tickets_stored: persistence.stored,
+            inconsistency_count: persistence.inconsistencies,
+            diagnostics,
+            ended_at: new Date().toISOString(),
+          })
+          .eq("id", syncRunId);
+      } catch (error) {
+        await supabase
+          .from("support_cost_sync_runs")
+          .update({
+            status: "error",
+            records_detected: records.length,
+            diagnostics,
+            error_message: error instanceof Error ? error.message : String(error),
+            ended_at: new Date().toISOString(),
+          })
+          .eq("id", syncRunId);
+        console.warn(`[support-costs-sync] Persistencia de conciliacao falhou: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
 
     return new Response(JSON.stringify({
@@ -897,6 +1212,8 @@ serve(async (req) => {
       functionVersion: FUNCTION_VERSION,
       count: records.length,
       records,
+      syncRunId,
+      reconciliation: persistence,
       rawShape: {
         type: "monthly",
         months: monthRanges.length,
