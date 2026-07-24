@@ -9,7 +9,7 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-24-client-catalog-v12";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-24-month-cache-v13";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
@@ -44,6 +44,7 @@ type SyncRequest = {
   dateTo: string;
   clientName?: string;
   clientNames?: string[];
+  fullCatalogSync?: boolean;
 };
 
 type HubClient = {
@@ -757,6 +758,38 @@ function buildMonthRanges(dateFrom: string, dateTo: string): MonthRange[] {
   return ranges;
 }
 
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+async function loadImportedClosedMonthKeys(
+  supabase: ReturnType<typeof createClient>,
+  monthRanges: MonthRange[],
+): Promise<Set<string>> {
+  const currentKey = currentMonthKey();
+  const closedMonthKeys = monthRanges
+    .map((range) => range.label)
+    .filter((label) => label < currentKey);
+
+  if (closedMonthKeys.length === 0) return new Set();
+
+  try {
+    const { data, error } = await supabase
+      .from("support_cost_monthly_loads")
+      .select("month_key, status")
+      .in("month_key", closedMonthKeys);
+    if (error) throw error;
+
+    return new Set((data ?? [])
+      .filter((row) => row.status === "imported")
+      .map((row) => String(row.month_key)));
+  } catch (error) {
+    console.warn(`[support-costs-sync] Nao foi possivel consultar cache mensal: ${error instanceof Error ? error.message : String(error)}`);
+    return new Set();
+  }
+}
+
 function parseDateOnly(value: string | undefined): string | null {
   if (!value) return null;
   const raw = value.trim();
@@ -1301,7 +1334,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { dateFrom, dateTo, clientName, clientNames = [] } = await req.json() as SyncRequest;
+    const { dateFrom, dateTo, clientName, clientNames = [], fullCatalogSync = false } = await req.json() as SyncRequest;
     if (!dateFrom || !dateTo) throw new Error("Periodo obrigatorio");
 
     const supabase = createClient(
@@ -1310,6 +1343,7 @@ serve(async (req) => {
     );
     const hubCatalog = await loadHubCatalog(supabase);
     const explicitClientNames = clientNames.filter((name) => Boolean(name?.trim()));
+    const hasRequestedClientFilter = !fullCatalogSync && Boolean(clientName?.trim() || explicitClientNames.length > 0);
 
     const devidToken = await getVaultSecret(supabase, "DEVID_TOKEN");
     let milvusToken: string | null = null;
@@ -1365,8 +1399,65 @@ serve(async (req) => {
 
     const monthRanges = buildMonthRanges(dateFrom, dateTo);
     if (monthRanges.length === 0) throw new Error("Periodo invalido");
-    const syncRanges: MonthRange[] = [{ label: `${dateFrom}_${dateTo}`, from: dateFrom, to: dateTo }];
-    await markMonthlyLoadsSyncing(supabase, monthRanges, syncRunId);
+    const importedClosedMonthKeys = !hasRequestedClientFilter
+      ? await loadImportedClosedMonthKeys(supabase, monthRanges)
+      : new Set<string>();
+    const syncRanges = monthRanges.filter((range) => !importedClosedMonthKeys.has(range.label));
+    const skippedMonthRanges = monthRanges.filter((range) => importedClosedMonthKeys.has(range.label));
+    if (!hasRequestedClientFilter) await markMonthlyLoadsSyncing(supabase, syncRanges, syncRunId);
+
+    if (syncRanges.length === 0) {
+      const diagnostics = {
+        functionVersion: FUNCTION_VERSION,
+        request: {
+          dateFrom,
+          dateTo,
+          clientName: clientName || null,
+          clientAliasesCount: effectiveClientNames.length,
+          clientNameResolutionSource: nameResolution.source,
+          clientCatalogRows: nameResolution.catalogRows,
+          clientSearchTerms: nameResolution.searchedTerms.slice(0, 40),
+          hasClientFilter: hasRequestedClientFilter,
+          hasProjectFilter: false,
+        },
+        rawShape: {
+          type: "monthly-cache",
+          months: monthRanges.length,
+          rowsDetected: 0,
+          recordsDetected: 0,
+        },
+        recordsDetected: 0,
+        monthRanges,
+        skippedMonthRanges,
+        message: "Todos os meses fechados do periodo ja estavam importados na base local.",
+      };
+
+      if (syncRunId) {
+        await supabase
+          .from("support_cost_sync_runs")
+          .update({
+            status: "success",
+            records_detected: 0,
+            tickets_stored: 0,
+            inconsistency_count: 0,
+            diagnostics,
+            ended_at: new Date().toISOString(),
+          })
+          .eq("id", syncRunId);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        accepted: false,
+        functionVersion: FUNCTION_VERSION,
+        syncRunId,
+        count: 0,
+        diagnostics,
+        message: "Periodo ja importado. A tela pode carregar a base local.",
+      }), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
 
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
@@ -1454,6 +1545,8 @@ serve(async (req) => {
           recordsOutsidePeriod,
           recordsDetected: records.length,
           monthRanges,
+          syncRanges,
+          skippedMonthRanges,
           monthDiagnostics,
           duplicatedRecordsRemoved: monthRecords.length - records.length,
           totalHours: Number(records.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
@@ -1462,7 +1555,9 @@ serve(async (req) => {
         if (syncRunId) {
           try {
             const persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.contracts);
-            await markMonthlyLoadsFinished(supabase, monthRanges, records, "imported", syncRunId, persistence.inconsistencies);
+            if (!hasRequestedClientFilter) {
+              await markMonthlyLoadsFinished(supabase, syncRanges, records, "imported", syncRunId, persistence.inconsistencies);
+            }
             await supabase
               .from("support_cost_sync_runs")
               .update({
@@ -1485,15 +1580,17 @@ serve(async (req) => {
                 ended_at: new Date().toISOString(),
               })
               .eq("id", syncRunId);
-            await markMonthlyLoadsFinished(
-              supabase,
-              monthRanges,
-              records,
-              "error",
-              syncRunId,
-              0,
-              error instanceof Error ? error.message : String(error),
-            );
+            if (!hasRequestedClientFilter) {
+              await markMonthlyLoadsFinished(
+                supabase,
+                syncRanges,
+                records,
+                "error",
+                syncRunId,
+                0,
+                error instanceof Error ? error.message : String(error),
+              );
+            }
             console.warn(`[support-costs-sync] Persistencia falhou: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
@@ -1510,15 +1607,17 @@ serve(async (req) => {
             })
             .eq("id", syncRunId);
         }
-        await markMonthlyLoadsFinished(
-          supabase,
-          monthRanges,
-          [],
-          "error",
-          syncRunId,
-          0,
-          error instanceof Error ? error.message : String(error),
-        );
+        if (!hasRequestedClientFilter) {
+          await markMonthlyLoadsFinished(
+            supabase,
+            syncRanges,
+            [],
+            "error",
+            syncRunId,
+            0,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       }
     };
 

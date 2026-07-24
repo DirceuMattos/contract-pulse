@@ -105,6 +105,7 @@ type SupportCostsSyncResponse = {
   error?: string;
   functionVersion?: string;
   syncRunId?: string | null;
+  message?: string;
   rawShape?: {
     type?: string;
     rowsDetected?: number;
@@ -806,6 +807,7 @@ export default function SupportCostsPage() {
   const [openInconsistencies, setOpenInconsistencies] = useState(0);
   const [loadingSync, setLoadingSync] = useState(false);
   const [loadingStoredRecords, setLoadingStoredRecords] = useState(false);
+  const [activeSyncRunId, setActiveSyncRunId] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [syncedRange, setSyncedRange] = useState<{ from: string; to: string } | null>(null);
   const syncRequestRef = useRef(0);
@@ -1343,7 +1345,7 @@ export default function SupportCostsPage() {
   }
 
   const waitForSyncRun = useCallback(async (syncRunId: string) => {
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 2500));
       const { data, error } = await supportTable('support_cost_sync_runs')
         .select('id, status, error_message, tickets_stored, records_detected')
@@ -1365,6 +1367,26 @@ export default function SupportCostsPage() {
     throw new Error('A sincronizacao continua em processamento. Recarregue a base local em instantes.');
   }, []);
 
+  const monitorSyncRun = useCallback(async (syncRunId: string, requestId: number, silent: boolean) => {
+    try {
+      const result = await waitForSyncRun(syncRunId);
+      if (requestId !== syncRequestRef.current) return;
+
+      await loadStoredRecords({ silent: true });
+      setLastSyncAt(new Date().toISOString());
+      void loadReconciliationData();
+      if (!silent) {
+        toast.success(result.ticketsStored + ' registro(s) sincronizado(s) na base local.');
+      }
+    } catch (error) {
+      if (!silent) {
+        toast.warning(getFunctionErrorMessage(error), { duration: 12000 });
+      }
+    } finally {
+      if (requestId === syncRequestRef.current) setActiveSyncRunId(null);
+    }
+  }, [loadReconciliationData, loadStoredRecords, waitForSyncRun]);
+
   const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!dateFrom || !dateTo) {
       setRecords([]);
@@ -1382,7 +1404,6 @@ export default function SupportCostsPage() {
     const requestId = syncRequestRef.current + 1;
     syncRequestRef.current = requestId;
     setLoadingSync(true);
-    setRecords([]);
     try {
       const { data, error } = await supabase.functions.invoke('support-costs-sync', {
         body: {
@@ -1390,6 +1411,7 @@ export default function SupportCostsPage() {
           dateTo,
           clientName: syncClientName,
           clientNames: syncClientNames,
+          fullCatalogSync: clientId === 'all' && contractId === 'all',
         },
       });
 
@@ -1398,34 +1420,36 @@ export default function SupportCostsPage() {
       if (payload?.success === false) throw new Error(payload.error || 'Erro ao sincronizar Milvus.');
       if (requestId !== syncRequestRef.current) return;
 
-      let importedCount = payload.records?.length || 0;
       if (payload.accepted && payload.syncRunId) {
-        if (!silent) toast.info('Sincronizacao iniciada. Vou carregar a base local ao finalizar.');
-        const result = await waitForSyncRun(payload.syncRunId);
-        importedCount = result.ticketsStored;
-      } else {
-        setRecords(payload.records || []);
-        setSyncedRange({ from: dateFrom, to: dateTo });
+        setActiveSyncRunId(payload.syncRunId);
+        if (!silent) toast.info('Sincronizacao iniciada em segundo plano. A tela continua exibindo a ultima base local disponivel.');
+        void monitorSyncRun(payload.syncRunId, requestId, silent);
+        return;
       }
 
-      await loadStoredRecords({ silent: true });
+      if (payload.records) {
+        setRecords(payload.records);
+        setSyncedRange({ from: dateFrom, to: dateTo });
+      } else {
+        await loadStoredRecords({ silent: true });
+      }
+
       setLastSyncAt(new Date().toISOString());
       void loadReconciliationData();
-      if (!silent && importedCount === 0) {
+      const importedCount = payload.count ?? payload.records?.length ?? 0;
+      if (!silent && payload.message?.includes('Periodo ja importado')) {
+        toast.success('Periodo ja importado. Base local carregada.');
+      } else if (!silent && importedCount === 0) {
         toast.warning(getZeroImportDiagnosticMessage(payload), { duration: 12000 });
       } else if (!silent) {
         toast.success(importedCount + ' registro(s) sincronizado(s) na base local.');
       }
     } catch (error) {
-      if (requestId === syncRequestRef.current) {
-        setRecords([]);
-        setSyncedRange(null);
-      }
       if (!silent) toast.error(getFunctionErrorMessage(error));
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [dateFrom, dateTo, loadReconciliationData, loadStoredRecords, syncClientName, syncClientNames, waitForSyncRun]);
+  }, [clientId, contractId, dateFrom, dateTo, loadReconciliationData, loadStoredRecords, monitorSyncRun, syncClientName, syncClientNames]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
@@ -1574,9 +1598,9 @@ export default function SupportCostsPage() {
             />
           </label>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2 xl:col-span-10">
-            <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync || loadingStoredRecords}>
-              {loadingSync || loadingStoredRecords ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
-              Sincronizar Milvus
+            <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync || loadingStoredRecords || Boolean(activeSyncRunId)}>
+              {loadingSync || loadingStoredRecords || activeSyncRunId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+              {activeSyncRunId ? 'Sincronizando...' : 'Sincronizar Milvus'}
             </Button>
           </div>
         </CardContent>
