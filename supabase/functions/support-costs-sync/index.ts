@@ -15,6 +15,8 @@ const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
 const MILVUS_SLICE_FIELDS = ["tecnico", "prioridade", "categoria_primaria", "categoria_secundaria"] as const;
 
+declare const EdgeRuntime: { waitUntil?: (promise: Promise<unknown>) => void } | undefined;
+
 type AttendanceRecord = {
   id: string;
   clientName: string;
@@ -1443,9 +1445,7 @@ serve(async (req) => {
       }
     };
 
-    // @ts-ignore EdgeRuntime is provided by Supabase runtime
     if (typeof EdgeRuntime !== "undefined" && typeof EdgeRuntime.waitUntil === "function") {
-      // @ts-ignore
       EdgeRuntime.waitUntil(backgroundJob());
     } else {
       backgroundJob();
@@ -1465,9 +1465,9 @@ serve(async (req) => {
     console.error("[support-costs-sync]", error);
     return new Response(JSON.stringify({
       success: false,
+      functionVersion: FUNCTION_VERSION,
       error: error instanceof Error ? error.message : String(error),
     }), {
-      status: 400,
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   }
