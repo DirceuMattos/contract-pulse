@@ -125,6 +125,18 @@ type SupportCostsSyncResponse = {
   };
 };
 
+type MilvusClientOption = {
+  name: string;
+  document?: string;
+  token?: string;
+};
+
+type SupportCostsClientsResponse = {
+  success?: boolean;
+  clients?: MilvusClientOption[];
+  error?: string;
+};
+
 function currentMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -742,9 +754,9 @@ export default function SupportCostsPage() {
   const [dateFrom, setDateFrom] = useState(initialRange.from);
   const [dateTo, setDateTo] = useState(initialRange.to);
   const [clientId, setClientId] = useState('all');
-  const [contractId, setContractId] = useState('all');
   const [analystName, setAnalystName] = useState('all');
   const [records, setRecords] = useState<SupportCostRecord[]>([]);
+  const [milvusClients, setMilvusClients] = useState<MilvusClientOption[]>([]);
   const [loadingSync, setLoadingSync] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [syncedRange, setSyncedRange] = useState<{ from: string; to: string } | null>(null);
@@ -794,13 +806,6 @@ export default function SupportCostsPage() {
     [clients],
   );
 
-  const filteredContracts = useMemo(() => {
-    const list = clientId === 'all'
-      ? contracts
-      : contracts.filter((contract) => contract.clientId === clientId);
-    return [...list].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  }, [clientId, contracts]);
-
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedMilvusClientName = clientId.startsWith('milvus:')
     ? clientId.replace(/^milvus:/, '')
@@ -809,15 +814,23 @@ export default function SupportCostsPage() {
   const monthTo = dateToMonth(dateTo);
 
   const clientOptions = useMemo(() => {
-    const hubOptions = sortedClients.map((client) => ({
+    const milvusApiOptions = milvusClients.map((client) => ({
+      value: `milvus:${client.name}`,
+      label: client.name,
+      searchText: [client.document, client.token].filter(Boolean).join(' '),
+    }));
+
+    const hubFallbackOptions = sortedClients.map((client) => ({
       value: client.id,
-      label: client.nomeFantasia || client.razaoSocial,
+      label: `${client.nomeFantasia || client.razaoSocial} (Hub)`,
       searchText: client.razaoSocial,
     }));
 
     const milvusClientNames = new Set<string>();
+    const apiClientKeys = new Set(milvusClients.map((client) => compactText(client.name)));
     for (const record of records) {
       if (!record.clientName || record.clientName === 'Nao informado') continue;
+      if (apiClientKeys.has(compactText(record.clientName))) continue;
       const alreadyMapped = clients.some((client) => (
         isStrongNameMatch(record.clientName, client.nomeFantasia)
         || isStrongNameMatch(record.clientName, client.razaoSocial)
@@ -835,50 +848,10 @@ export default function SupportCostsPage() {
 
     return [
       { value: 'all', label: 'Todos os clientes' },
-      ...hubOptions,
+      ...(milvusApiOptions.length > 0 ? milvusApiOptions : hubFallbackOptions),
       ...milvusOptions,
     ];
-  }, [clients, records, sortedClients]);
-
-  const projectOptions = useMemo(() => {
-    const hubOptions = filteredContracts.map((contract) => ({
-      value: contract.id,
-      label: contract.nome,
-    }));
-
-    const milvusProjects = new Set<string>();
-    for (const record of records) {
-      if (!record.projectName || record.projectName === 'Nao informado') continue;
-      if (selectedMilvusClientName && !isStrongNameMatch(record.clientName, selectedMilvusClientName)) continue;
-      if (clientId !== 'all' && !selectedMilvusClientName) {
-        const matchedContract = contracts.find((contract) => {
-          return isContainedNameMatch(record.projectName, contract.nome);
-        });
-        const matchesHubClient = matchedContract?.clientId === clientId
-          || isStrongNameMatch(record.clientName, selectedClient?.nomeFantasia)
-          || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
-        if (!matchesHubClient) continue;
-      }
-      const alreadyMapped = contracts.some((contract) => {
-        return isContainedNameMatch(record.projectName, contract.nome);
-      });
-      if (!alreadyMapped) milvusProjects.add(record.projectName);
-    }
-
-    const milvusOptions = Array.from(milvusProjects)
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
-      .map((name) => ({
-        value: `milvus-project:${name}`,
-        label: `${name} (Milvus)`,
-        searchText: name,
-      }));
-
-    return [
-      { value: 'all', label: 'Todos os projetos' },
-      ...hubOptions,
-      ...milvusOptions,
-    ];
-  }, [clientId, contracts, filteredContracts, records, selectedClient, selectedMilvusClientName]);
+  }, [clients, milvusClients, records, sortedClients]);
 
   const analystOptions = useMemo(() => {
     const names = new Set(records.map((record) => record.analystName).filter(Boolean));
@@ -953,19 +926,10 @@ export default function SupportCostsPage() {
             || isStrongNameMatch(record.clientName, selectedClient?.razaoSocial);
         if (!matchesSelectedClient) return false;
       }
-      if (contractId !== 'all') {
-        const selectedMilvusProjectName = contractId.startsWith('milvus-project:')
-          ? contractId.replace(/^milvus-project:/, '')
-          : undefined;
-        const matchesSelectedProject = selectedMilvusProjectName
-          ? isStrongNameMatch(record.projectName, selectedMilvusProjectName)
-          : record.matchedContract?.id === contractId;
-        if (!matchesSelectedProject) return false;
-      }
       if (analystName !== 'all' && record.analystName !== analystName) return false;
       return true;
     });
-  }, [analystName, clientId, contractId, dateFrom, dateTo, enrichedRecords, selectedClient, selectedMilvusClientName, syncedRange]);
+  }, [analystName, clientId, dateFrom, dateTo, enrichedRecords, selectedClient, selectedMilvusClientName, syncedRange]);
 
   const totals = useMemo(() => {
     const totalHours = filteredRecords.reduce((sum, record) => sum + record.hours, 0);
@@ -1070,17 +1034,22 @@ export default function SupportCostsPage() {
   const valueText = (value: number) => canViewSupportCosts ? formatCurrency(value) : 'Confidencial';
   const chartValueKey = canViewSupportCosts ? 'cost' : 'hours';
   const canExportSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_export');
-  const syncClientName = selectedMilvusClientName || selectedClient?.nomeFantasia || selectedClient?.razaoSocial || undefined;
+  const syncClientName = selectedMilvusClientName
+    || selectedClient?.nomeFantasia
+    || selectedClient?.razaoSocial
+    || undefined;
   const syncClientNames = useMemo(() => {
     if (selectedMilvusClientName) return [selectedMilvusClientName];
-    if (!selectedClient) return [];
 
     const aliases = new Set<string>();
-    for (const value of [selectedClient.nomeFantasia, selectedClient.razaoSocial]) {
+    for (const value of [
+      selectedClient?.nomeFantasia,
+      selectedClient?.razaoSocial,
+    ]) {
       if (value?.trim()) aliases.add(value.trim());
     }
     for (const contract of contracts) {
-      if (contract.clientId === selectedClient.id && contract.nome?.trim()) aliases.add(contract.nome.trim());
+      if (selectedClient && contract.clientId === selectedClient.id && contract.nome?.trim()) aliases.add(contract.nome.trim());
     }
     return Array.from(aliases).slice(0, 12);
   }, [contracts, selectedClient, selectedMilvusClientName]);
@@ -1100,7 +1069,6 @@ export default function SupportCostsPage() {
     setDateFrom(range.from);
     setDateTo(range.to);
     setClientId('all');
-    setContractId('all');
     setAnalystName('all');
   }
 
@@ -1237,12 +1205,36 @@ export default function SupportCostsPage() {
   }, [syncMilvus]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadMilvusClients() {
+      try {
+        const { data, error } = await supabase.functions.invoke('support-costs-sync', {
+          body: { action: 'clients' },
+        });
+        if (error) throw error;
+        const payload = data as SupportCostsClientsResponse;
+        if (payload?.success === false) throw new Error(payload.error || 'Erro ao carregar clientes Milvus.');
+        if (active) setMilvusClients(payload.clients || []);
+      } catch (error) {
+        console.warn('[support-costs] clientes Milvus indisponiveis', error);
+      }
+    }
+
+    void loadMilvusClients();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => {
       void syncMilvusRef.current({ silent: true });
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [analystName, clientId, contractId, dateFrom, dateTo]);
+  }, [analystName, clientId, dateFrom, dateTo]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
@@ -1361,23 +1353,10 @@ export default function SupportCostsPage() {
             <span className="text-xs font-medium text-muted-foreground">Cliente</span>
             <SearchableSelect
               value={clientId}
-              onValueChange={(value) => {
-                setClientId(value);
-                setContractId('all');
-              }}
+              onValueChange={setClientId}
               options={clientOptions}
               placeholder="Todos os clientes"
               searchPlaceholder="Buscar cliente..."
-            />
-          </label>
-          <label className="space-y-1 xl:col-span-2">
-            <span className="text-xs font-medium text-muted-foreground">Projeto / Contrato</span>
-            <SearchableSelect
-              value={contractId}
-              onValueChange={setContractId}
-              options={projectOptions}
-              placeholder="Todos os projetos"
-              searchPlaceholder="Buscar projeto..."
             />
           </label>
           <label className="space-y-1 xl:col-span-2">
