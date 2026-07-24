@@ -1240,6 +1240,63 @@ async function persistSupportCostRecords(
   return { stored, inconsistencies };
 }
 
+async function markMonthlyLoadsSyncing(
+  supabase: ReturnType<typeof createClient>,
+  monthRanges: MonthRange[],
+  syncRunId: string | null,
+) {
+  try {
+    for (const range of monthRanges) {
+      await supabase
+        .from("support_cost_monthly_loads")
+        .upsert({
+          month_key: range.label,
+          period_start: range.from,
+          period_end: range.to,
+          status: "syncing",
+          sync_run_id: syncRunId,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "month_key" });
+    }
+  } catch (error) {
+    console.warn(`[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function markMonthlyLoadsFinished(
+  supabase: ReturnType<typeof createClient>,
+  monthRanges: MonthRange[],
+  records: AttendanceRecord[],
+  status: "imported" | "error",
+  syncRunId: string | null,
+  inconsistencyCount: number,
+  errorMessage?: string,
+) {
+  try {
+    for (const range of monthRanges) {
+      const monthRecords = records.filter((record) => isRecordInPeriod(record, range.from, range.to));
+      await supabase
+        .from("support_cost_monthly_loads")
+        .upsert({
+          month_key: range.label,
+          period_start: range.from,
+          period_end: range.to,
+          status,
+          sync_run_id: syncRunId,
+          tickets_count: monthRecords.length,
+          total_hours: Number(monthRecords.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
+          inconsistency_count: status === "imported" ? inconsistencyCount : 0,
+          last_synced_at: status === "imported" ? new Date().toISOString() : null,
+          error_message: errorMessage ?? null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "month_key" });
+    }
+  } catch (error) {
+    console.warn(`[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -1309,6 +1366,7 @@ serve(async (req) => {
     const monthRanges = buildMonthRanges(dateFrom, dateTo);
     if (monthRanges.length === 0) throw new Error("Periodo invalido");
     const syncRanges: MonthRange[] = [{ label: `${dateFrom}_${dateTo}`, from: dateFrom, to: dateTo }];
+    await markMonthlyLoadsSyncing(supabase, monthRanges, syncRunId);
 
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
 
@@ -1404,6 +1462,7 @@ serve(async (req) => {
         if (syncRunId) {
           try {
             const persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.contracts);
+            await markMonthlyLoadsFinished(supabase, monthRanges, records, "imported", syncRunId, persistence.inconsistencies);
             await supabase
               .from("support_cost_sync_runs")
               .update({
@@ -1426,6 +1485,15 @@ serve(async (req) => {
                 ended_at: new Date().toISOString(),
               })
               .eq("id", syncRunId);
+            await markMonthlyLoadsFinished(
+              supabase,
+              monthRanges,
+              records,
+              "error",
+              syncRunId,
+              0,
+              error instanceof Error ? error.message : String(error),
+            );
             console.warn(`[support-costs-sync] Persistencia falhou: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
@@ -1442,6 +1510,15 @@ serve(async (req) => {
             })
             .eq("id", syncRunId);
         }
+        await markMonthlyLoadsFinished(
+          supabase,
+          monthRanges,
+          [],
+          "error",
+          syncRunId,
+          0,
+          error instanceof Error ? error.message : String(error),
+        );
       }
     };
 

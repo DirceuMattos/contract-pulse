@@ -99,10 +99,12 @@ type MonthlyCostGroup = {
 
 type SupportCostsSyncResponse = {
   success?: boolean;
+  accepted?: boolean;
   count?: number;
   records?: SupportCostRecord[];
   error?: string;
   functionVersion?: string;
+  syncRunId?: string | null;
   rawShape?: {
     type?: string;
     rowsDetected?: number;
@@ -144,6 +146,10 @@ type LooseSupabaseRowsResult = { data?: unknown[] | null; error?: LooseSupabaseE
 type LooseSupabaseQuery = {
   order: (column: string, options?: { ascending?: boolean }) => Promise<LooseSupabaseRowsResult>;
   is: (column: string, value: unknown) => Promise<LooseSupabaseRowsResult>;
+  gte: (column: string, value: unknown) => LooseSupabaseQuery;
+  lte: (column: string, value: unknown) => LooseSupabaseQuery;
+  eq: (column: string, value: unknown) => LooseSupabaseQuery;
+  maybeSingle: () => Promise<{ data?: unknown | null; error?: LooseSupabaseError }>;
 };
 
 function supportTable(table: string) {
@@ -158,6 +164,21 @@ function firstNestedRow(value: unknown): Record<string, unknown> | null {
   if (Array.isArray(value)) return (value[0] as Record<string, unknown> | undefined) ?? null;
   if (value && typeof value === 'object') return value as Record<string, unknown>;
   return null;
+}
+
+function supportRecordFromTicketRow(row: Record<string, unknown>): SupportCostRecord {
+  const raw = row.raw && typeof row.raw === 'object' && !Array.isArray(row.raw)
+    ? row.raw as Record<string, unknown>
+    : {};
+  return {
+    id: String(row.milvus_ticket_code ?? row.milvus_ticket_id ?? row.id ?? ''),
+    clientName: String(row.client_name ?? 'Nao informado'),
+    projectName: String(row.project_name ?? 'Nao informado'),
+    analystName: String(row.analyst_name ?? 'Nao informado'),
+    hours: Number(row.hours ?? 0),
+    date: row.ticket_date ? String(row.ticket_date) : undefined,
+    raw,
+  };
 }
 
 function currentMonthRange() {
@@ -784,6 +805,7 @@ export default function SupportCostsPage() {
   const [milvusProjects, setMilvusProjects] = useState<MilvusProjectOption[]>([]);
   const [openInconsistencies, setOpenInconsistencies] = useState(0);
   const [loadingSync, setLoadingSync] = useState(false);
+  const [loadingStoredRecords, setLoadingStoredRecords] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [syncedRange, setSyncedRange] = useState<{ from: string; to: string } | null>(null);
   const syncRequestRef = useRef(0);
@@ -847,6 +869,32 @@ export default function SupportCostsPage() {
   useEffect(() => {
     void loadReconciliationData();
   }, [loadReconciliationData]);
+
+  const loadStoredRecords = useCallback(async ({ silent = true }: { silent?: boolean } = {}) => {
+    if (!dateFrom || !dateTo || dateFrom > dateTo) return;
+
+    setLoadingStoredRecords(true);
+    try {
+      const { data, error } = await supportTable('support_cost_tickets')
+        .select('id, milvus_ticket_code, milvus_ticket_id, client_name, project_name, analyst_name, ticket_date, hours, raw')
+        .gte('ticket_date', dateFrom)
+        .lte('ticket_date', dateTo)
+        .order('ticket_date', { ascending: true });
+
+      if (error) throw new Error(error.message || 'Erro ao carregar base local.');
+      setRecords((data ?? []).map((row) => supportRecordFromTicketRow(row as Record<string, unknown>)));
+      setSyncedRange({ from: dateFrom, to: dateTo });
+      if (!silent) toast.success('Base local carregada.');
+    } catch (error) {
+      if (!silent) toast.error(getFunctionErrorMessage(error));
+    } finally {
+      setLoadingStoredRecords(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    void loadStoredRecords({ silent: true });
+  }, [loadStoredRecords]);
 
   const activePeople = useMemo(
     () => hrPeople.filter((person) => person.situacao === 'ativo'),
@@ -1294,6 +1342,29 @@ export default function SupportCostsPage() {
     toast.success('Planilha exportada com sucesso.');
   }
 
+  const waitForSyncRun = useCallback(async (syncRunId: string) => {
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2500));
+      const { data, error } = await supportTable('support_cost_sync_runs')
+        .select('id, status, error_message, tickets_stored, records_detected')
+        .eq('id', syncRunId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message || 'Erro ao acompanhar sincronizacao.');
+      const row = data && typeof data === 'object' ? data as Record<string, unknown> : null;
+      const status = String(row?.status ?? '');
+      if (status === 'success') {
+        return {
+          ticketsStored: Number(row?.tickets_stored ?? row?.records_detected ?? 0),
+        };
+      }
+      if (status === 'error') {
+        throw new Error(String(row?.error_message ?? 'Erro ao sincronizar Milvus.'));
+      }
+    }
+    throw new Error('A sincronizacao continua em processamento. Recarregue a base local em instantes.');
+  }, []);
+
   const syncMilvus = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!dateFrom || !dateTo) {
       setRecords([]);
@@ -1327,15 +1398,23 @@ export default function SupportCostsPage() {
       if (payload?.success === false) throw new Error(payload.error || 'Erro ao sincronizar Milvus.');
       if (requestId !== syncRequestRef.current) return;
 
-      setRecords(payload.records || []);
-      setSyncedRange({ from: dateFrom, to: dateTo });
+      let importedCount = payload.records?.length || 0;
+      if (payload.accepted && payload.syncRunId) {
+        if (!silent) toast.info('Sincronizacao iniciada. Vou carregar a base local ao finalizar.');
+        const result = await waitForSyncRun(payload.syncRunId);
+        importedCount = result.ticketsStored;
+      } else {
+        setRecords(payload.records || []);
+        setSyncedRange({ from: dateFrom, to: dateTo });
+      }
+
+      await loadStoredRecords({ silent: true });
       setLastSyncAt(new Date().toISOString());
       void loadReconciliationData();
-      const importedCount = payload.records?.length || 0;
       if (!silent && importedCount === 0) {
         toast.warning(getZeroImportDiagnosticMessage(payload), { duration: 12000 });
       } else if (!silent) {
-        toast.success(importedCount + ' registro(s) de horas importado(s).');
+        toast.success(importedCount + ' registro(s) sincronizado(s) na base local.');
       }
     } catch (error) {
       if (requestId === syncRequestRef.current) {
@@ -1346,7 +1425,7 @@ export default function SupportCostsPage() {
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [dateFrom, dateTo, loadReconciliationData, syncClientName, syncClientNames]);
+  }, [dateFrom, dateTo, loadReconciliationData, loadStoredRecords, syncClientName, syncClientNames, waitForSyncRun]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
@@ -1495,8 +1574,8 @@ export default function SupportCostsPage() {
             />
           </label>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2 xl:col-span-10">
-            <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync}>
-              {loadingSync ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+            <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync || loadingStoredRecords}>
+              {loadingSync || loadingStoredRecords ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Sincronizar Milvus
             </Button>
           </div>
