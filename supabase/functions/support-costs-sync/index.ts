@@ -9,7 +9,7 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-24-month-cache-v13";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-24-project-mapping-v14";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
@@ -62,6 +62,23 @@ type HubContract = {
   nome?: string | null;
   codigo?: string | null;
   client_id?: string | null;
+};
+
+type HubSubproject = {
+  id: string;
+  name?: string | null;
+  contract_id?: string | null;
+  contract_name?: string | null;
+  client_id?: string | null;
+};
+
+type HubProjectTarget = {
+  kind: "contract" | "subproject";
+  id: string;
+  name?: string | null;
+  code?: string | null;
+  client_id?: string | null;
+  contract_id?: string | null;
 };
 
 type MatchResult<T> = {
@@ -236,14 +253,35 @@ function bestHubClientMatch(name: string, clients: HubClient[]): MatchResult<Hub
   return { item: scored[0].item, status: "matched", confidence: scored[0].score, method: "auto-name" };
 }
 
-function bestHubContractMatch(projectName: string, contracts: HubContract[], preferredClientId?: string | null): MatchResult<HubContract> {
-  const scored = contracts
-    .map((contract) => {
-      const nameScore = scoreNameMatch(projectName, contract.nome ?? "");
-      const codeScore = scoreNameMatch(projectName, contract.codigo ?? "");
-      const clientBoost = preferredClientId && contract.client_id === preferredClientId ? 0.08 : 0;
+function buildHubProjectTargets(contracts: HubContract[], subprojects: HubSubproject[]): HubProjectTarget[] {
+  return [
+    ...contracts.map((contract) => ({
+      kind: "contract" as const,
+      id: contract.id,
+      name: contract.nome,
+      code: contract.codigo,
+      client_id: contract.client_id,
+      contract_id: contract.id,
+    })),
+    ...subprojects.map((subproject) => ({
+      kind: "subproject" as const,
+      id: subproject.id,
+      name: subproject.name,
+      code: subproject.contract_name,
+      client_id: subproject.client_id,
+      contract_id: subproject.contract_id,
+    })),
+  ];
+}
+
+function bestHubProjectMatch(projectName: string, targets: HubProjectTarget[], preferredClientId?: string | null): MatchResult<HubProjectTarget> {
+  const scored = targets
+    .map((target) => {
+      const nameScore = scoreNameMatch(projectName, target.name ?? "");
+      const codeScore = scoreNameMatch(projectName, target.code ?? "");
+      const clientBoost = preferredClientId && target.client_id === preferredClientId ? 0.08 : 0;
       return {
-        item: contract,
+        item: target,
         score: Math.min(1, Math.max(nameScore, codeScore) + clientBoost),
       };
     })
@@ -348,7 +386,7 @@ async function resolveMilvusClientNames(
   token: string,
   requestedNames: string[],
   hubClients: HubClient[],
-  hubContracts: HubContract[],
+  hubProjectTargets: HubProjectTarget[],
 ): Promise<{ names: string[]; source: string; searchedTerms: string[]; catalogRows: number }> {
   const found = new Set<string>();
   const searchedTerms = new Set<string>();
@@ -404,8 +442,8 @@ async function resolveMilvusClientNames(
       if (value?.trim()) fallbackSeeds.add(value.trim());
     }
   }
-  for (const contract of hubContracts) {
-    if (contract.nome?.trim()) fallbackSeeds.add(contract.nome.trim());
+  for (const target of hubProjectTargets) {
+    if (target.name?.trim()) fallbackSeeds.add(target.name.trim());
   }
 
   for (const seed of Array.from(fallbackSeeds).slice(0, 80).flatMap(getSearchSeedsFromName)) {
@@ -1088,15 +1126,29 @@ function normalizeRecord(record: Record<string, unknown>, index: number | string
   };
 }
 
-async function loadHubCatalog(supabase: ReturnType<typeof createClient>): Promise<{ clients: HubClient[]; contracts: HubContract[] }> {
-  const [{ data: clients }, { data: contracts }] = await Promise.all([
+async function loadHubCatalog(supabase: ReturnType<typeof createClient>): Promise<{ clients: HubClient[]; contracts: HubContract[]; subprojects: HubSubproject[]; projectTargets: HubProjectTarget[] }> {
+  const [{ data: clients }, { data: contracts }, { data: subprojects }] = await Promise.all([
     supabase.from("clients").select("id, razao_social, nome_fantasia, cnpj"),
     supabase.from("contracts").select("id, nome, codigo, client_id"),
+    supabase.from("contract_subprojects").select("id, name, contract_id"),
   ]);
+  const typedContracts = (contracts ?? []) as HubContract[];
+  const contractById = new Map(typedContracts.map((contract) => [contract.id, contract]));
+  const typedSubprojects = ((subprojects ?? []) as Array<{ id: string; name?: string | null; contract_id?: string | null }>)
+    .map((subproject) => {
+      const parentContract = subproject.contract_id ? contractById.get(subproject.contract_id) : undefined;
+      return {
+        ...subproject,
+        contract_name: parentContract?.nome ?? null,
+        client_id: parentContract?.client_id ?? null,
+      };
+    });
 
   return {
     clients: (clients ?? []) as HubClient[],
-    contracts: (contracts ?? []) as HubContract[],
+    contracts: typedContracts,
+    subprojects: typedSubprojects,
+    projectTargets: buildHubProjectTargets(typedContracts, typedSubprojects),
   };
 }
 
@@ -1122,12 +1174,12 @@ async function persistSupportCostRecords(
   syncRunId: string,
   records: AttendanceRecord[],
   hubClients: HubClient[],
-  hubContracts: HubContract[],
+  hubProjectTargets: HubProjectTarget[],
 ): Promise<{ stored: number; inconsistencies: number }> {
   let stored = 0;
   let inconsistencies = 0;
   const clientIdByKey = new Map<string, { id: string; match: MatchResult<HubClient>; hubClientId?: string | null; mappingStatus: string }>();
-  const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubContract>; hubContractId?: string | null; clientId?: string | null; mappingStatus: string }>();
+  const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubProjectTarget>; hubContractId?: string | null; hubSubprojectId?: string | null; clientId?: string | null; mappingStatus: string }>();
 
   for (const record of records) {
     const clientKey = compactName(record.clientName || "Nao informado") || compactToken(record.clientName || "nao-informado");
@@ -1179,7 +1231,7 @@ async function persistSupportCostRecords(
 
     if (!projectEntry) {
       const preferredClientId = clientEntry.hubClientId ?? clientEntry.match.item?.id ?? null;
-      const projectMatch = bestHubContractMatch(record.projectName || record.clientName, hubContracts, preferredClientId);
+      const projectMatch = bestHubProjectMatch(record.projectName || record.clientName, hubProjectTargets, preferredClientId);
       const { data: projectRow, error: projectError } = await supabase
         .from("support_milvus_projects")
         .upsert({
@@ -1197,7 +1249,8 @@ async function persistSupportCostRecords(
         .from("support_milvus_project_mappings")
         .upsert({
           milvus_project_id: projectRow.id,
-          hub_contract_id: projectMatch.item?.id ?? null,
+          hub_contract_id: projectMatch.item?.kind === "subproject" ? projectMatch.item.contract_id ?? null : projectMatch.item?.id ?? null,
+          hub_subproject_id: projectMatch.item?.kind === "subproject" ? projectMatch.item.id : null,
           status: projectMatch.status,
           match_method: projectMatch.method,
           confidence: projectMatch.confidence,
@@ -1207,17 +1260,26 @@ async function persistSupportCostRecords(
 
       const { data: mappingRow } = await supabase
         .from("support_milvus_project_mappings")
-        .select("hub_contract_id, status")
+        .select("hub_contract_id, hub_subproject_id, status")
         .eq("milvus_project_id", projectRow.id)
         .maybeSingle();
-      const mappedContractId = String(mappingRow?.hub_contract_id ?? projectMatch.item?.id ?? "") || null;
-      const mappedContract = mappedContractId ? hubContracts.find((contract) => contract.id === mappedContractId) : null;
+      const matchedContractId = projectMatch.item?.kind === "subproject"
+        ? projectMatch.item.contract_id ?? null
+        : projectMatch.item?.id ?? null;
+      const mappedContractId = String(mappingRow?.hub_contract_id ?? matchedContractId ?? "") || null;
+      const mappedSubprojectId = String(mappingRow?.hub_subproject_id ?? (projectMatch.item?.kind === "subproject" ? projectMatch.item.id : "") ?? "") || null;
+      const mappedTarget = mappedSubprojectId
+        ? hubProjectTargets.find((target) => target.kind === "subproject" && target.id === mappedSubprojectId)
+        : mappedContractId
+          ? hubProjectTargets.find((target) => target.kind === "contract" && target.id === mappedContractId)
+          : null;
 
       projectEntry = {
         id: projectRow.id,
         match: projectMatch,
         hubContractId: mappedContractId,
-        clientId: mappedContract?.client_id ?? projectMatch.item?.client_id ?? preferredClientId,
+        hubSubprojectId: mappedSubprojectId,
+        clientId: mappedTarget?.client_id ?? projectMatch.item?.client_id ?? preferredClientId,
         mappingStatus: String(mappingRow?.status ?? projectMatch.status),
       };
       projectIdByKey.set(projectKey, projectEntry);
@@ -1236,6 +1298,7 @@ async function persistSupportCostRecords(
         milvus_project_id: projectEntry.id,
         hub_client_id: hubClientId,
         hub_contract_id: hubContractId,
+        hub_subproject_id: projectEntry.hubSubprojectId ?? null,
         client_name: record.clientName || "Nao informado",
         project_name: record.projectName || "Nao informado",
         analyst_name: record.analystName || "Nao informado",
@@ -1362,16 +1425,16 @@ function summarizeClientAudit(names: string[], hubClients: HubClient[]) {
   };
 }
 
-function summarizeProjectAudit(records: AttendanceRecord[], hubContracts: HubContract[], preferredClientByName: Map<string, string | null>) {
+function summarizeProjectAudit(records: AttendanceRecord[], projectTargets: HubProjectTarget[], preferredClientByName: Map<string, string | null>) {
   const projectNames = Array.from(new Map(records.map((record) => [
     `${compactName(record.clientName)}:${compactName(record.projectName || record.clientName)}`,
     record,
   ])).values());
 
   const audit = projectNames.map((record) => {
-    const match = bestHubContractMatch(
+    const match = bestHubProjectMatch(
       record.projectName || record.clientName,
-      hubContracts,
+      projectTargets,
       preferredClientByName.get(compactName(record.clientName)) ?? null,
     );
     return {
@@ -1379,8 +1442,10 @@ function summarizeProjectAudit(records: AttendanceRecord[], hubContracts: HubCon
       milvusProjectName: record.projectName,
       status: match.status,
       confidence: Number(match.confidence.toFixed(4)),
-      hubContractId: match.item?.id ?? null,
-      hubContractName: match.item?.nome ?? "",
+      hubTargetType: match.item?.kind ?? null,
+      hubContractId: match.item?.kind === "subproject" ? match.item.contract_id ?? null : match.item?.id ?? null,
+      hubSubprojectId: match.item?.kind === "subproject" ? match.item.id : null,
+      hubProjectName: match.item?.name ?? "",
     };
   });
 
@@ -1500,7 +1565,7 @@ serve(async (req) => {
         milvusToken,
         explicitClientNames.length > 0 ? explicitClientNames : (clientName?.trim() ? [clientName.trim()] : []),
         hubCatalog.clients,
-        hubCatalog.contracts,
+        hubCatalog.projectTargets,
       );
     } else if (!clientName?.trim() && explicitClientNames.length === 0) {
       const knownMilvusClientNames = await loadKnownMilvusClientNames(supabase);
@@ -1547,7 +1612,7 @@ serve(async (req) => {
         hubCatalog.clients,
       );
       for (const row of clientAudit.audit) clientMatches.set(compactName(row.milvusClientName), row.hubClientId);
-      const projectAudit = summarizeProjectAudit(collected.records, hubCatalog.contracts, clientMatches);
+      const projectAudit = summarizeProjectAudit(collected.records, hubCatalog.projectTargets, clientMatches);
       let persistence: { stored: number; inconsistencies: number } | null = null;
       let syncRunId: string | null = null;
 
@@ -1566,7 +1631,7 @@ serve(async (req) => {
           .single();
         if (syncRunError) throw syncRunError;
         syncRunId = syncRun.id;
-        persistence = await persistSupportCostRecords(supabase, syncRunId, collected.records, hubCatalog.clients, hubCatalog.contracts);
+        persistence = await persistSupportCostRecords(supabase, syncRunId, collected.records, hubCatalog.clients, hubCatalog.projectTargets);
         await markMonthlyLoadsFinished(supabase, collected.ranges, collected.records, "imported", syncRunId, persistence.inconsistencies);
         await supabase
           .from("support_cost_sync_runs")
@@ -1792,7 +1857,7 @@ serve(async (req) => {
 
         if (syncRunId) {
           try {
-            const persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.contracts);
+            const persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.projectTargets);
             if (!hasRequestedClientFilter) {
               await markMonthlyLoadsFinished(supabase, syncRanges, records, "imported", syncRunId, persistence.inconsistencies);
             }
