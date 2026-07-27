@@ -9,7 +9,7 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-24-batch-write-fast-v17";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-24-milvus-date-filter-v18";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
@@ -128,9 +128,9 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
   const initRes = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "Accept": "application/json, text/event-stream",
+      Accept: "application/json, text/event-stream",
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
@@ -146,9 +146,9 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
 
   const sessionId = initRes.headers.get("mcp-session-id") ?? initRes.headers.get("x-session-id") ?? "";
   const headers: Record<string, string> = {
-    "Authorization": `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "Accept": "application/json, text/event-stream",
+    Accept: "application/json, text/event-stream",
   };
   if (sessionId) headers["mcp-session-id"] = sessionId;
 
@@ -189,7 +189,7 @@ async function callMcp(url: string, token: string, tool: string, params: Record<
     throw new Error("Nenhum resultado valido no SSE");
   }
 
-  const json = await toolRes.json() as Record<string, unknown>;
+  const json = (await toolRes.json()) as Record<string, unknown>;
   return json.result;
 }
 
@@ -198,7 +198,10 @@ function getRowsFromMilvusPayload(payload: unknown): Record<string, unknown>[] {
   const obj = payload as Record<string, unknown>;
   for (const key of ["lista", "data", "rows", "items", "records", "tickets"]) {
     const value = obj[key];
-    if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+    if (Array.isArray(value))
+      return value.filter(
+        (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      );
   }
   return [];
 }
@@ -252,8 +255,16 @@ function scoreNameMatch(source: string, target: string): number {
   if (sourceCompact.length >= 4 && targetCompact.includes(sourceCompact)) return 0.86;
   if (targetCompact.length >= 4 && sourceCompact.includes(targetCompact)) return 0.82;
 
-  const sourceWords = new Set(normalizeName(source).split(/\s+/).filter((word) => word.length >= 3));
-  const targetWords = new Set(normalizeName(target).split(/\s+/).filter((word) => word.length >= 3));
+  const sourceWords = new Set(
+    normalizeName(source)
+      .split(/\s+/)
+      .filter((word) => word.length >= 3),
+  );
+  const targetWords = new Set(
+    normalizeName(target)
+      .split(/\s+/)
+      .filter((word) => word.length >= 3),
+  );
   if (sourceWords.size === 0 || targetWords.size === 0) return 0;
   const common = [...sourceWords].filter((word) => targetWords.has(word)).length;
   return common / Math.max(sourceWords.size, targetWords.size);
@@ -300,7 +311,11 @@ function buildHubProjectTargets(contracts: HubContract[], subprojects: HubSubpro
   ];
 }
 
-function bestHubProjectMatch(projectName: string, targets: HubProjectTarget[], preferredClientId?: string | null): MatchResult<HubProjectTarget> {
+function bestHubProjectMatch(
+  projectName: string,
+  targets: HubProjectTarget[],
+  preferredClientId?: string | null,
+): MatchResult<HubProjectTarget> {
   const scored = targets
     .map((target) => {
       const nameScore = scoreNameMatch(projectName, target.name ?? "");
@@ -327,7 +342,10 @@ function getMilvusClientTerms(clientName?: string, clientNames: string[] = []): 
 
   for (const sourceName of sourceNames) {
     const clean = sourceName.trim();
-    const words = clean.split(/[\s\-_/.,]+/).map((word) => word.trim()).filter((word) => word.length >= 3);
+    const words = clean
+      .split(/[\s\-_/.,]+/)
+      .map((word) => word.trim())
+      .filter((word) => word.length >= 3);
     const acronym = words
       .filter((word) => /^[A-Z0-9]+$/.test(word) || word.length <= 5)
       .slice(0, 3)
@@ -350,7 +368,7 @@ async function fetchDirectMilvusSlice(token: string, filtroBody: Record<string, 
   const milvusRes = await fetch(MILVUS_URL, {
     method: "POST",
     headers: {
-      "Authorization": token,
+      Authorization: token,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -371,7 +389,7 @@ async function fetchMilvusClients(token: string, searchTerm?: string): Promise<R
   const milvusRes = await fetch(`${MILVUS_CLIENT_URL}?${params.toString()}`, {
     method: "GET",
     headers: {
-      "Authorization": token,
+      Authorization: token,
       "Content-Type": "application/json",
     },
   });
@@ -386,15 +404,11 @@ async function fetchMilvusClients(token: string, searchTerm?: string): Promise<R
 }
 
 function getMilvusClientNameFromRow(row: Record<string, unknown>): string {
-  return firstString(row, [
-    "nome_fantasia",
-    "nomeFantasia",
-    "fantasia",
-    "nome",
-    "razao_social",
-    "razaoSocial",
-    "cliente",
-  ], "");
+  return firstString(
+    row,
+    ["nome_fantasia", "nomeFantasia", "fantasia", "nome", "razao_social", "razaoSocial", "cliente"],
+    "",
+  );
 }
 
 function getSearchSeedsFromName(name: string): string[] {
@@ -434,7 +448,9 @@ async function resolveMilvusClientNames(
       try {
         await searchAndCollect(seed);
       } catch (error) {
-        console.warn(`[support-costs-sync] Busca cliente Milvus falhou para '${seed}': ${error instanceof Error ? error.message : String(error)}`);
+        console.warn(
+          `[support-costs-sync] Busca cliente Milvus falhou para '${seed}': ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
     for (const fallback of requestedNames) {
@@ -452,14 +468,18 @@ async function resolveMilvusClientNames(
     await searchAndCollect();
     if (found.size > 0) {
       return {
-        names: Array.from(found).sort((a, b) => a.localeCompare(b)).slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
+        names: Array.from(found)
+          .sort((a, b) => a.localeCompare(b))
+          .slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
         source: "milvus-active-client-catalog",
         searchedTerms: Array.from(searchedTerms),
         catalogRows,
       };
     }
   } catch (error) {
-    console.warn(`[support-costs-sync] Catalogo geral Milvus indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[support-costs-sync] Catalogo geral Milvus indisponivel: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   const fallbackSeeds = new Set<string>();
@@ -481,14 +501,16 @@ async function resolveMilvusClientNames(
   }
 
   return {
-    names: Array.from(found).sort((a, b) => a.localeCompare(b)).slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
+    names: Array.from(found)
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, MILVUS_MAX_CLIENTS_PER_SYNC),
     source: "hub-seed-client-catalog",
     searchedTerms: Array.from(searchedTerms),
     catalogRows,
   };
 }
 
-function getSliceValues(rows: Record<string, unknown>[], field: typeof MILVUS_SLICE_FIELDS[number]): string[] {
+function getSliceValues(rows: Record<string, unknown>[], field: (typeof MILVUS_SLICE_FIELDS)[number]): string[] {
   const values = new Set<string>();
   for (const row of rows) {
     const value = row[field];
@@ -508,12 +530,23 @@ function getOldestParsedDate(rows: Record<string, unknown>[]): string | null {
 }
 
 function buildSliceKey(filter: Record<string, unknown>): string {
-  return JSON.stringify(Object.keys(filter).sort().map((key) => [key, filter[key]]));
+  return JSON.stringify(
+    Object.keys(filter)
+      .sort()
+      .map((key) => [key, filter[key]]),
+  );
 }
 
-async function callDirectMilvusAttendanceReport(token: string, range: MonthRange, clientName?: string, clientNames: string[] = []): Promise<{ lista: Record<string, unknown>[]; extractionDiagnostics: Record<string, unknown> }> {
+async function callDirectMilvusAttendanceReport(
+  token: string,
+  range: MonthRange,
+  clientName?: string,
+  clientNames: string[] = [],
+): Promise<{ lista: Record<string, unknown>[]; extractionDiagnostics: Record<string, unknown> }> {
   const filtroBody: Record<string, unknown> = {
     status: "Todos",
+    data_hora_criacao_inicial: `${range.from} 00:00:00`,
+    data_hora_criacao_final: `${range.to} 23:59:59`,
   };
   const clientTerms = getMilvusClientTerms(clientName, clientNames);
 
@@ -549,9 +582,10 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
     const rows = getRowsFromMilvusPayload(payload);
     const metaTotal = getMilvusMetaTotal(payload);
     const oldestDate = getOldestParsedDate(rows);
-    const isComplete = rows.length < MILVUS_PAGE_SIZE
-      || (metaTotal !== null && metaTotal <= MILVUS_PAGE_SIZE)
-      || Boolean(oldestDate && oldestDate < range.from);
+    const isComplete =
+      rows.length < MILVUS_PAGE_SIZE ||
+      (metaTotal !== null && metaTotal <= MILVUS_PAGE_SIZE) ||
+      Boolean(oldestDate && oldestDate < range.from);
 
     for (const row of rows) {
       const key = getStableRowKey(row, `slice-${visited.size}-${collected.size}`);
@@ -593,7 +627,13 @@ async function callDirectMilvusAttendanceReport(token: string, range: MonthRange
   };
 }
 
-async function callAttendanceReport(devidToken: string, milvusToken: string | null, range: MonthRange, clientName?: string, clientNames: string[] = []): Promise<AttendanceReportResult> {
+async function callAttendanceReport(
+  devidToken: string,
+  milvusToken: string | null,
+  range: MonthRange,
+  clientName?: string,
+  clientNames: string[] = [],
+): Promise<AttendanceReportResult> {
   if (milvusToken) {
     try {
       if (!clientName?.trim() && clientNames.length > 1) {
@@ -605,14 +645,16 @@ async function callAttendanceReport(devidToken: string, milvusToken: string | nu
         }
 
         for (const chunk of chunks) {
-          const results = await Promise.all(chunk.map(async (name) => {
-            try {
-              const result = await callDirectMilvusAttendanceReport(milvusToken, range, name, [name]);
-              return { name, result, error: null as string | null };
-            } catch (error) {
-              return { name, result: null, error: error instanceof Error ? error.message : String(error) };
-            }
-          }));
+          const results = await Promise.all(
+            chunk.map(async (name) => {
+              try {
+                const result = await callDirectMilvusAttendanceReport(milvusToken, range, name, [name]);
+                return { name, result, error: null as string | null };
+              } catch (error) {
+                return { name, result: null, error: error instanceof Error ? error.message : String(error) };
+              }
+            }),
+          );
 
           for (const item of results) {
             if (!item.result) {
@@ -651,7 +693,9 @@ async function callAttendanceReport(devidToken: string, milvusToken: string | nu
         rawResult: await callDirectMilvusAttendanceReport(milvusToken, range, clientName, clientNames),
       };
     } catch (error) {
-      console.warn(`[support-costs-sync] Milvus direto falhou em ${range.label}; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(
+        `[support-costs-sync] Milvus direto falhou em ${range.label}; usando MCP: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -835,9 +879,7 @@ async function loadImportedClosedMonthKeys(
   monthRanges: MonthRange[],
 ): Promise<Set<string>> {
   const currentKey = currentMonthKey();
-  const closedMonthKeys = monthRanges
-    .map((range) => range.label)
-    .filter((label) => label < currentKey);
+  const closedMonthKeys = monthRanges.map((range) => range.label).filter((label) => label < currentKey);
 
   if (closedMonthKeys.length === 0) return new Set();
 
@@ -848,11 +890,11 @@ async function loadImportedClosedMonthKeys(
       .in("month_key", closedMonthKeys);
     if (error) throw error;
 
-    return new Set((data ?? [])
-      .filter((row) => row.status === "imported")
-      .map((row) => String(row.month_key)));
+    return new Set((data ?? []).filter((row) => row.status === "imported").map((row) => String(row.month_key)));
   } catch (error) {
-    console.warn(`[support-costs-sync] Nao foi possivel consultar cache mensal: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[support-costs-sync] Nao foi possivel consultar cache mensal: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return new Set();
   }
 }
@@ -915,10 +957,24 @@ function detectHours(record: Record<string, unknown>): number {
   ]);
   if (directHours > 0) return directHours;
 
-  const minutes = firstNumber(record, ["minutos", "minutes", "total_minutos", "duration_minutes", "tempo_minutos", "total_minutes"]);
+  const minutes = firstNumber(record, [
+    "minutos",
+    "minutes",
+    "total_minutos",
+    "duration_minutes",
+    "tempo_minutos",
+    "total_minutes",
+  ]);
   if (minutes > 0) return minutes / 60;
 
-  const seconds = firstNumber(record, ["segundos", "seconds", "total_segundos", "duration_seconds", "tempo_segundos", "total_seconds"]);
+  const seconds = firstNumber(record, [
+    "segundos",
+    "seconds",
+    "total_segundos",
+    "duration_seconds",
+    "tempo_segundos",
+    "total_seconds",
+  ]);
   if (seconds > 0) return seconds / 3600;
 
   return detectNestedHours(record);
@@ -926,12 +982,16 @@ function detectHours(record: Record<string, unknown>): number {
 
 function arrayFromNestedValue(value: unknown): Record<string, unknown>[] {
   if (Array.isArray(value)) {
-    return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+    return value.filter(
+      (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item),
+    );
   }
   if (typeof value === "string") {
     const parsed = tryParseJsonText(value);
     if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+      return parsed.filter(
+        (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      );
     }
   }
   return [];
@@ -942,7 +1002,14 @@ function expandRowsWithNestedServices(rows: Record<string, unknown>[]): Record<s
 
   for (const row of rows) {
     let pushedNested = false;
-    for (const key of ["servico_realizado", "servicos_realizados", "atendimentos", "apontamentos", "horas", "lancamentos"]) {
+    for (const key of [
+      "servico_realizado",
+      "servicos_realizados",
+      "atendimentos",
+      "apontamentos",
+      "horas",
+      "lancamentos",
+    ]) {
       const nestedRows = arrayFromNestedValue(row[key]);
       for (const nested of nestedRows) {
         const merged = { ...row, ...nested, rawTicket: row };
@@ -965,11 +1032,7 @@ function tryParseJsonText(text: string): unknown | null {
   try {
     return JSON.parse(trimmed);
   } catch {
-    const jsonStart = Math.min(
-      ...["[", "{"]
-        .map((char) => trimmed.indexOf(char))
-        .filter((index) => index >= 0),
-    );
+    const jsonStart = Math.min(...["[", "{"].map((char) => trimmed.indexOf(char)).filter((index) => index >= 0));
     if (!Number.isFinite(jsonStart)) return null;
 
     try {
@@ -1027,7 +1090,20 @@ function unwrapRows(result: unknown): Record<string, unknown>[] {
       }
 
       let unwrapped = false;
-      for (const key of ["content", "data", "rows", "items", "lista", "result", "records", "relatorio", "report", "tickets", "atendimentos", "horas"]) {
+      for (const key of [
+        "content",
+        "data",
+        "rows",
+        "items",
+        "lista",
+        "result",
+        "records",
+        "relatorio",
+        "report",
+        "tickets",
+        "atendimentos",
+        "horas",
+      ]) {
         if (obj[key] !== undefined) {
           queue.push(obj[key]);
           unwrapped = true;
@@ -1059,9 +1135,10 @@ function describeShape(value: unknown, depth = 0): unknown {
     return {
       type: "object",
       keys,
-      nested: depth < 2
-        ? Object.fromEntries(keys.slice(0, 5).map((key) => [key, describeShape(obj[key], depth + 1)]))
-        : undefined,
+      nested:
+        depth < 2
+          ? Object.fromEntries(keys.slice(0, 5).map((key) => [key, describeShape(obj[key], depth + 1)]))
+          : undefined,
     };
   }
   if (typeof value === "string") {
@@ -1123,26 +1200,71 @@ function diagnosticsForRows(rows: Record<string, unknown>[], normalized: Attenda
 }
 
 function normalizeRecord(record: Record<string, unknown>, index: number | string): AttendanceRecord {
-  const clientName = firstString(record, ["cliente", "client", "clientName", "nome_cliente", "nome_fantasia", "razaoSocial", "razao_social", "customer", "empresa"]);
-  const projectName = firstString(record, ["projeto", "project", "projectName", "nome_projeto", "contrato", "contract", "servico", "service", "cliente_projeto", "setor"], clientName);
-  const analystName = firstString(record, ["responsavel", "analista", "atendente", "tecnico", "colaborador", "user", "usuario", "operador", "consultor", "nome", "sobrenome"]);
+  const clientName = firstString(record, [
+    "cliente",
+    "client",
+    "clientName",
+    "nome_cliente",
+    "nome_fantasia",
+    "razaoSocial",
+    "razao_social",
+    "customer",
+    "empresa",
+  ]);
+  const projectName = firstString(
+    record,
+    [
+      "projeto",
+      "project",
+      "projectName",
+      "nome_projeto",
+      "contrato",
+      "contract",
+      "servico",
+      "service",
+      "cliente_projeto",
+      "setor",
+    ],
+    clientName,
+  );
+  const analystName = firstString(record, [
+    "responsavel",
+    "analista",
+    "atendente",
+    "tecnico",
+    "colaborador",
+    "user",
+    "usuario",
+    "operador",
+    "consultor",
+    "nome",
+    "sobrenome",
+  ]);
   const hours = detectHours(record);
-  const date = firstString(record, [
-    "data",
-    "date",
-    "dia",
-    "created_at",
-    "data_atendimento",
-    "data_chamado",
-    "data_fechamento",
-    "data_inicial",
-    "data_final",
-    "data_criacao",
-    "data_saida",
-  ], "");
+  const date = firstString(
+    record,
+    [
+      "data",
+      "date",
+      "dia",
+      "created_at",
+      "data_atendimento",
+      "data_chamado",
+      "data_fechamento",
+      "data_inicial",
+      "data_final",
+      "data_criacao",
+      "data_saida",
+    ],
+    "",
+  );
 
   return {
-    id: firstString(record, ["id", "ticket", "ticket_id", "chamado", "codigo", "numero", "protocolo"], `milvus-${index}`),
+    id: firstString(
+      record,
+      ["id", "ticket", "ticket_id", "chamado", "codigo", "numero", "protocolo"],
+      `milvus-${index}`,
+    ),
     clientName,
     projectName,
     analystName,
@@ -1152,7 +1274,14 @@ function normalizeRecord(record: Record<string, unknown>, index: number | string
   };
 }
 
-async function loadHubCatalog(supabase: ReturnType<typeof createClient>): Promise<{ clients: HubClient[]; contracts: HubContract[]; subprojects: HubSubproject[]; projectTargets: HubProjectTarget[] }> {
+async function loadHubCatalog(
+  supabase: ReturnType<typeof createClient>,
+): Promise<{
+  clients: HubClient[];
+  contracts: HubContract[];
+  subprojects: HubSubproject[];
+  projectTargets: HubProjectTarget[];
+}> {
   const [{ data: clients }, { data: contracts }, { data: subprojects }] = await Promise.all([
     supabase.from("clients").select("id, razao_social, nome_fantasia, cnpj"),
     supabase.from("contracts").select("id, nome, codigo, client_id"),
@@ -1160,15 +1289,16 @@ async function loadHubCatalog(supabase: ReturnType<typeof createClient>): Promis
   ]);
   const typedContracts = (contracts ?? []) as HubContract[];
   const contractById = new Map(typedContracts.map((contract) => [contract.id, contract]));
-  const typedSubprojects = ((subprojects ?? []) as Array<{ id: string; name?: string | null; contract_id?: string | null }>)
-    .map((subproject) => {
-      const parentContract = subproject.contract_id ? contractById.get(subproject.contract_id) : undefined;
-      return {
-        ...subproject,
-        contract_name: parentContract?.nome ?? null,
-        client_id: parentContract?.client_id ?? null,
-      };
-    });
+  const typedSubprojects = (
+    (subprojects ?? []) as Array<{ id: string; name?: string | null; contract_id?: string | null }>
+  ).map((subproject) => {
+    const parentContract = subproject.contract_id ? contractById.get(subproject.contract_id) : undefined;
+    return {
+      ...subproject,
+      contract_name: parentContract?.nome ?? null,
+      client_id: parentContract?.client_id ?? null,
+    };
+  });
 
   return {
     clients: (clients ?? []) as HubClient[],
@@ -1190,9 +1320,13 @@ async function loadKnownMilvusClientNames(supabase: ReturnType<typeof createClie
     return [];
   }
 
-  return Array.from(new Set((data ?? [])
-    .map((row) => String((row as Record<string, unknown>).milvus_client_name ?? "").trim())
-    .filter(Boolean)));
+  return Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) => String((row as Record<string, unknown>).milvus_client_name ?? "").trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 async function persistSupportCostRecords(
@@ -1202,32 +1336,48 @@ async function persistSupportCostRecords(
   hubClients: HubClient[],
   hubProjectTargets: HubProjectTarget[],
 ): Promise<{ stored: number; inconsistencies: number }> {
-  const clientIdByKey = new Map<string, { id: string; match: MatchResult<HubClient>; hubClientId?: string | null; mappingStatus: string }>();
-  const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubProjectTarget>; hubContractId?: string | null; hubSubprojectId?: string | null; clientId?: string | null; mappingStatus: string }>();
+  const clientIdByKey = new Map<
+    string,
+    { id: string; match: MatchResult<HubClient>; hubClientId?: string | null; mappingStatus: string }
+  >();
+  const projectIdByKey = new Map<
+    string,
+    {
+      id: string;
+      match: MatchResult<HubProjectTarget>;
+      hubContractId?: string | null;
+      hubSubprojectId?: string | null;
+      clientId?: string | null;
+      mappingStatus: string;
+    }
+  >();
   const ticketRows: Record<string, unknown>[] = [];
   const inconsistencyCandidates: Record<string, unknown>[] = [];
 
   for (const record of records) {
-    const clientKey = compactName(record.clientName || "Nao informado") || compactToken(record.clientName || "nao-informado");
+    const clientKey =
+      compactName(record.clientName || "Nao informado") || compactToken(record.clientName || "nao-informado");
     let clientEntry = clientIdByKey.get(clientKey);
 
     if (!clientEntry) {
       const match = bestHubClientMatch(record.clientName, hubClients);
       const { data: clientRow, error: clientError } = await supabase
         .from("support_milvus_clients")
-        .upsert({
-          milvus_client_name: record.clientName || "Nao informado",
-          milvus_client_key: clientKey,
-          raw: { sample: record.raw ?? {} },
-          last_seen_at: new Date().toISOString(),
-        }, { onConflict: "milvus_client_key" })
+        .upsert(
+          {
+            milvus_client_name: record.clientName || "Nao informado",
+            milvus_client_key: clientKey,
+            raw: { sample: record.raw ?? {} },
+            last_seen_at: new Date().toISOString(),
+          },
+          { onConflict: "milvus_client_key" },
+        )
         .select("id")
         .single();
       if (clientError) throw clientError;
 
-      await supabase
-        .from("support_milvus_client_mappings")
-        .upsert({
+      await supabase.from("support_milvus_client_mappings").upsert(
+        {
           milvus_client_id: clientRow.id,
           hub_client_id: match.item?.id ?? null,
           status: match.status,
@@ -1235,7 +1385,9 @@ async function persistSupportCostRecords(
           confidence: match.confidence,
           notes: match.status === "matched" ? null : "Revisar relacao Cliente Milvus x Cliente Hub.",
           updated_at: new Date().toISOString(),
-        }, { onConflict: "milvus_client_id", ignoreDuplicates: true });
+        },
+        { onConflict: "milvus_client_id", ignoreDuplicates: true },
+      );
 
       const { data: mappingRow } = await supabase
         .from("support_milvus_client_mappings")
@@ -1257,43 +1409,58 @@ async function persistSupportCostRecords(
 
     if (!projectEntry) {
       const preferredClientId = clientEntry.hubClientId ?? clientEntry.match.item?.id ?? null;
-      const projectMatch = bestHubProjectMatch(record.projectName || record.clientName, hubProjectTargets, preferredClientId);
+      const projectMatch = bestHubProjectMatch(
+        record.projectName || record.clientName,
+        hubProjectTargets,
+        preferredClientId,
+      );
       const { data: projectRow, error: projectError } = await supabase
         .from("support_milvus_projects")
-        .upsert({
-          milvus_client_id: clientEntry.id,
-          milvus_project_name: record.projectName || record.clientName || "Nao informado",
-          milvus_project_key: compactName(record.projectName || record.clientName || "nao-informado"),
-          raw: { sample: record.raw ?? {} },
-          last_seen_at: new Date().toISOString(),
-        }, { onConflict: "milvus_client_id,milvus_project_key" })
+        .upsert(
+          {
+            milvus_client_id: clientEntry.id,
+            milvus_project_name: record.projectName || record.clientName || "Nao informado",
+            milvus_project_key: compactName(record.projectName || record.clientName || "nao-informado"),
+            raw: { sample: record.raw ?? {} },
+            last_seen_at: new Date().toISOString(),
+          },
+          { onConflict: "milvus_client_id,milvus_project_key" },
+        )
         .select("id")
         .single();
       if (projectError) throw projectError;
 
-      await supabase
-        .from("support_milvus_project_mappings")
-        .upsert({
+      await supabase.from("support_milvus_project_mappings").upsert(
+        {
           milvus_project_id: projectRow.id,
-          hub_contract_id: projectMatch.item?.kind === "subproject" ? projectMatch.item.contract_id ?? null : projectMatch.item?.id ?? null,
+          hub_contract_id:
+            projectMatch.item?.kind === "subproject"
+              ? (projectMatch.item.contract_id ?? null)
+              : (projectMatch.item?.id ?? null),
           hub_subproject_id: projectMatch.item?.kind === "subproject" ? projectMatch.item.id : null,
           status: projectMatch.status,
           match_method: projectMatch.method,
           confidence: projectMatch.confidence,
           notes: projectMatch.status === "matched" ? null : "Revisar relacao Projeto Milvus x Contrato Hub.",
           updated_at: new Date().toISOString(),
-        }, { onConflict: "milvus_project_id", ignoreDuplicates: true });
+        },
+        { onConflict: "milvus_project_id", ignoreDuplicates: true },
+      );
 
       const { data: mappingRow } = await supabase
         .from("support_milvus_project_mappings")
         .select("hub_contract_id, hub_subproject_id, status")
         .eq("milvus_project_id", projectRow.id)
         .maybeSingle();
-      const matchedContractId = projectMatch.item?.kind === "subproject"
-        ? projectMatch.item.contract_id ?? null
-        : projectMatch.item?.id ?? null;
+      const matchedContractId =
+        projectMatch.item?.kind === "subproject"
+          ? (projectMatch.item.contract_id ?? null)
+          : (projectMatch.item?.id ?? null);
       const mappedContractId = String(mappingRow?.hub_contract_id ?? matchedContractId ?? "") || null;
-      const mappedSubprojectId = String(mappingRow?.hub_subproject_id ?? (projectMatch.item?.kind === "subproject" ? projectMatch.item.id : "") ?? "") || null;
+      const mappedSubprojectId =
+        String(
+          mappingRow?.hub_subproject_id ?? (projectMatch.item?.kind === "subproject" ? projectMatch.item.id : "") ?? "",
+        ) || null;
       const mappedTarget = mappedSubprojectId
         ? hubProjectTargets.find((target) => target.kind === "subproject" && target.id === mappedSubprojectId)
         : mappedContractId
@@ -1336,10 +1503,16 @@ async function persistSupportCostRecords(
 
     const reasons: Array<{ code: string; detail: string }> = [];
     if (clientEntry.mappingStatus !== "matched") {
-      reasons.push({ code: `client_${clientEntry.mappingStatus}`, detail: `Cliente Milvus sem match confiavel: ${record.clientName}` });
+      reasons.push({
+        code: `client_${clientEntry.mappingStatus}`,
+        detail: `Cliente Milvus sem match confiavel: ${record.clientName}`,
+      });
     }
     if (projectEntry.mappingStatus !== "matched") {
-      reasons.push({ code: `project_${projectEntry.mappingStatus}`, detail: `Projeto/contrato Milvus sem match confiavel: ${record.projectName}` });
+      reasons.push({
+        code: `project_${projectEntry.mappingStatus}`,
+        detail: `Projeto/contrato Milvus sem match confiavel: ${record.projectName}`,
+      });
     }
 
     for (const reason of reasons) {
@@ -1357,9 +1530,7 @@ async function persistSupportCostRecords(
 
   for (let index = 0; index < ticketRows.length; index += 100) {
     const chunk = ticketRows.slice(index, index + 100);
-    const { error } = await supabase
-      .from("support_cost_tickets")
-      .upsert(chunk, { onConflict: "milvus_ticket_code" });
+    const { error } = await supabase.from("support_cost_tickets").upsert(chunk, { onConflict: "milvus_ticket_code" });
     if (error) throw error;
   }
 
@@ -1373,10 +1544,12 @@ async function persistSupportCostRecords(
       .is("resolved_at", null);
     if (existingError) throw existingError;
 
-    const existingKeys = new Set((existingRows ?? []).map((row) => {
-      const raw = row as Record<string, unknown>;
-      return `${String(raw.milvus_ticket_code ?? "")}|${String(raw.reason_code ?? "")}`;
-    }));
+    const existingKeys = new Set(
+      (existingRows ?? []).map((row) => {
+        const raw = row as Record<string, unknown>;
+        return `${String(raw.milvus_ticket_code ?? "")}|${String(raw.reason_code ?? "")}`;
+      }),
+    );
     const seenNewKeys = new Set<string>();
     const newInconsistencies = inconsistencyCandidates.filter((row) => {
       const key = `${String(row.milvus_ticket_code ?? "")}|${String(row.reason_code ?? "")}`;
@@ -1387,9 +1560,7 @@ async function persistSupportCostRecords(
 
     for (let index = 0; index < newInconsistencies.length; index += 100) {
       const chunk = newInconsistencies.slice(index, index + 100);
-      const { error } = await supabase
-        .from("support_cost_inconsistencies")
-        .insert(chunk);
+      const { error } = await supabase.from("support_cost_inconsistencies").insert(chunk);
       if (error) throw error;
       insertedInconsistencies += chunk.length;
     }
@@ -1405,9 +1576,8 @@ async function markMonthlyLoadsSyncing(
 ) {
   try {
     for (const range of monthRanges) {
-      await supabase
-        .from("support_cost_monthly_loads")
-        .upsert({
+      await supabase.from("support_cost_monthly_loads").upsert(
+        {
           month_key: range.label,
           period_start: range.from,
           period_end: range.to,
@@ -1415,10 +1585,14 @@ async function markMonthlyLoadsSyncing(
           sync_run_id: syncRunId,
           error_message: null,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "month_key" });
+        },
+        { onConflict: "month_key" },
+      );
     }
   } catch (error) {
-    console.warn(`[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -1434,9 +1608,8 @@ async function markMonthlyLoadsFinished(
   try {
     for (const range of monthRanges) {
       const monthRecords = records.filter((record) => isRecordInPeriod(record, range.from, range.to));
-      await supabase
-        .from("support_cost_monthly_loads")
-        .upsert({
+      await supabase.from("support_cost_monthly_loads").upsert(
+        {
           month_key: range.label,
           period_start: range.from,
           period_end: range.to,
@@ -1448,10 +1621,14 @@ async function markMonthlyLoadsFinished(
           last_synced_at: status === "imported" ? new Date().toISOString() : null,
           error_message: errorMessage ?? null,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "month_key" });
+        },
+        { onConflict: "month_key" },
+      );
     }
   } catch (error) {
-    console.warn(`[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(
+      `[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -1483,13 +1660,12 @@ async function markMonthlyLoadsFromStoredTickets(
       .select("milvus_ticket_code")
       .is("resolved_at", null);
     if (inconsistencyError) throw inconsistencyError;
-    const inconsistencyCount = (inconsistencyRows ?? [])
-      .filter((row) => uniqueTickets.has(String((row as Record<string, unknown>).milvus_ticket_code ?? "")))
-      .length;
+    const inconsistencyCount = (inconsistencyRows ?? []).filter((row) =>
+      uniqueTickets.has(String((row as Record<string, unknown>).milvus_ticket_code ?? "")),
+    ).length;
 
-    await supabase
-      .from("support_cost_monthly_loads")
-      .upsert({
+    await supabase.from("support_cost_monthly_loads").upsert(
+      {
         month_key: range.label,
         period_start: range.from,
         period_end: range.to,
@@ -1501,7 +1677,9 @@ async function markMonthlyLoadsFromStoredTickets(
         last_synced_at: new Date().toISOString(),
         error_message: null,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "month_key" });
+      },
+      { onConflict: "month_key" },
+    );
   }
 }
 
@@ -1514,13 +1692,15 @@ function summarizeClientAudit(names: string[], hubClients: HubClient[]) {
         status: match.status,
         confidence: Number(match.confidence.toFixed(4)),
         hubClientId: match.item?.id ?? null,
-        hubClientName: match.item ? (match.item.nome_fantasia || match.item.razao_social || "") : "",
+        hubClientName: match.item ? match.item.nome_fantasia || match.item.razao_social || "" : "",
       };
     })
     .sort((left, right) => {
       const statusOrder = { pending: 0, ambiguous: 1, matched: 2 } as Record<string, number>;
-      return (statusOrder[left.status] ?? 9) - (statusOrder[right.status] ?? 9)
-        || left.milvusClientName.localeCompare(right.milvusClientName);
+      return (
+        (statusOrder[left.status] ?? 9) - (statusOrder[right.status] ?? 9) ||
+        left.milvusClientName.localeCompare(right.milvusClientName)
+      );
     });
 
   return {
@@ -1534,11 +1714,19 @@ function summarizeClientAudit(names: string[], hubClients: HubClient[]) {
   };
 }
 
-function summarizeProjectAudit(records: AttendanceRecord[], projectTargets: HubProjectTarget[], preferredClientByName: Map<string, string | null>) {
-  const projectNames = Array.from(new Map(records.map((record) => [
-    `${compactName(record.clientName)}:${compactName(record.projectName || record.clientName)}`,
-    record,
-  ])).values());
+function summarizeProjectAudit(
+  records: AttendanceRecord[],
+  projectTargets: HubProjectTarget[],
+  preferredClientByName: Map<string, string | null>,
+) {
+  const projectNames = Array.from(
+    new Map(
+      records.map((record) => [
+        `${compactName(record.clientName)}:${compactName(record.projectName || record.clientName)}`,
+        record,
+      ]),
+    ).values(),
+  );
 
   const audit = projectNames.map((record) => {
     const match = bestHubProjectMatch(
@@ -1552,7 +1740,7 @@ function summarizeProjectAudit(records: AttendanceRecord[], projectTargets: HubP
       status: match.status,
       confidence: Number(match.confidence.toFixed(4)),
       hubTargetType: match.item?.kind ?? null,
-      hubContractId: match.item?.kind === "subproject" ? match.item.contract_id ?? null : match.item?.id ?? null,
+      hubContractId: match.item?.kind === "subproject" ? (match.item.contract_id ?? null) : (match.item?.id ?? null),
       hubSubprojectId: match.item?.kind === "subproject" ? match.item.id : null,
       hubProjectName: match.item?.name ?? "",
     };
@@ -1563,9 +1751,7 @@ function summarizeProjectAudit(records: AttendanceRecord[], projectTargets: HubP
     matched: audit.filter((row) => row.status === "matched").length,
     pending: audit.filter((row) => row.status === "pending").length,
     ambiguous: audit.filter((row) => row.status === "ambiguous").length,
-    sample: audit
-      .filter((row) => row.status !== "matched")
-      .slice(0, 80),
+    sample: audit.filter((row) => row.status !== "matched").slice(0, 80),
   };
 }
 
@@ -1584,13 +1770,22 @@ async function collectHistoricalRecords(
   const diagnostics: Array<Record<string, unknown>> = [];
 
   for (const range of ranges) {
-    const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, clientNames);
+    const { source, rawResult } = await callAttendanceReport(
+      cleanDevidToken,
+      milvusToken,
+      range,
+      clientName,
+      clientNames,
+    );
     const rangeRows = expandRowsWithNestedServices(unwrapRows(rawResult));
     const rangeNormalized = rangeRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
     const rangeKept = rangeNormalized
       .filter((record) => record.hours > 0)
       .filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
-    const rawObject = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult) ? rawResult as Record<string, unknown> : {};
+    const rawObject =
+      rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
+        ? (rawResult as Record<string, unknown>)
+        : {};
 
     rows.push(...rangeRows);
     normalized.push(...rangeNormalized);
@@ -1616,9 +1811,11 @@ async function collectHistoricalRecords(
     .sort((left, right) => {
       const leftDate = parseDateOnly(left.date) ?? "";
       const rightDate = parseDateOnly(right.date) ?? "";
-      return leftDate.localeCompare(rightDate)
-        || left.clientName.localeCompare(right.clientName)
-        || left.projectName.localeCompare(right.projectName);
+      return (
+        leftDate.localeCompare(rightDate) ||
+        left.clientName.localeCompare(right.clientName) ||
+        left.projectName.localeCompare(right.projectName)
+      );
     });
 
   return {
@@ -1644,29 +1841,29 @@ serve(async (req) => {
       confirmWrite = false,
       finalizeMonthlyLoad = false,
       clientLimit = 0,
-    } = await req.json() as SyncRequest;
+    } = (await req.json()) as SyncRequest;
     if (mode !== "audit" && (!dateFrom || !dateTo)) throw new Error("Periodo obrigatorio");
     if (mode === "write" && !confirmWrite) throw new Error("Modo write exige confirmWrite=true");
     if (mode === "finalize-month" && !confirmWrite) throw new Error("Modo finalize-month exige confirmWrite=true");
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     if (mode === "finalize-month") {
       const monthRanges = buildMonthRanges(dateFrom, dateTo);
       if (monthRanges.length === 0) throw new Error("Periodo invalido");
       await markMonthlyLoadsFromStoredTickets(supabase, monthRanges, null);
-      return new Response(JSON.stringify({
-        success: true,
-        mode,
-        functionVersion: FUNCTION_VERSION,
-        monthRanges,
-        message: "Mes(es) finalizado(s) a partir da base local deduplicada.",
-      }), {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode,
+          functionVersion: FUNCTION_VERSION,
+          monthRanges,
+          message: "Mes(es) finalizado(s) a partir da base local deduplicada.",
+        }),
+        {
+          headers: { ...CORS, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const hubCatalog = await loadHubCatalog(supabase);
@@ -1678,7 +1875,9 @@ serve(async (req) => {
     try {
       milvusToken = await getVaultSecret(supabase, "MILVUS_TOKEN");
     } catch (error) {
-      console.warn(`[support-costs-sync] MILVUS_TOKEN indisponivel; usando MCP: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(
+        `[support-costs-sync] MILVUS_TOKEN indisponivel; usando MCP: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     let nameResolution = {
@@ -1690,7 +1889,7 @@ serve(async (req) => {
     if (milvusToken) {
       nameResolution = await resolveMilvusClientNames(
         milvusToken,
-        explicitClientNames.length > 0 ? explicitClientNames : (clientName?.trim() ? [clientName.trim()] : []),
+        explicitClientNames.length > 0 ? explicitClientNames : clientName?.trim() ? [clientName.trim()] : [],
         hubCatalog.clients,
         hubCatalog.projectTargets,
       );
@@ -1704,22 +1903,27 @@ serve(async (req) => {
       };
     }
 
-    const effectiveClientNames = (nameResolution.names.length > 0 ? nameResolution.names : explicitClientNames)
-      .slice(0, clientLimit > 0 ? clientLimit : undefined);
+    const effectiveClientNames = (nameResolution.names.length > 0 ? nameResolution.names : explicitClientNames).slice(
+      0,
+      clientLimit > 0 ? clientLimit : undefined,
+    );
 
     if (mode === "audit") {
       const audit = summarizeClientAudit(effectiveClientNames, hubCatalog.clients);
-      return new Response(JSON.stringify({
-        success: true,
-        mode,
-        functionVersion: FUNCTION_VERSION,
-        source: nameResolution.source,
-        searchedTerms: nameResolution.searchedTerms,
-        catalogRows: nameResolution.catalogRows,
-        ...audit,
-      }), {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode,
+          functionVersion: FUNCTION_VERSION,
+          source: nameResolution.source,
+          searchedTerms: nameResolution.searchedTerms,
+          catalogRows: nameResolution.catalogRows,
+          ...audit,
+        }),
+        {
+          headers: { ...CORS, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (mode === "dry-run" || mode === "write") {
@@ -1758,7 +1962,13 @@ serve(async (req) => {
           .single();
         if (syncRunError) throw syncRunError;
         syncRunId = syncRun.id;
-        persistence = await persistSupportCostRecords(supabase, syncRunId, collected.records, hubCatalog.clients, hubCatalog.projectTargets);
+        persistence = await persistSupportCostRecords(
+          supabase,
+          syncRunId,
+          collected.records,
+          hubCatalog.clients,
+          hubCatalog.projectTargets,
+        );
         if (finalizeMonthlyLoad) {
           await markMonthlyLoadsFromStoredTickets(supabase, collected.ranges, syncRunId);
         }
@@ -1782,31 +1992,39 @@ serve(async (req) => {
           .eq("id", syncRunId);
       }
 
-      return new Response(JSON.stringify({
-        success: true,
-        mode,
-        functionVersion: FUNCTION_VERSION,
-        dryRun: mode === "dry-run",
-        syncRunId,
-        summary: {
-          dateFrom,
-          dateTo,
-          requestedClientName: clientName || null,
-          clientAliasesCount: effectiveClientNames.length,
-          rowsDetected: collected.rows.length,
-          recordsDetected: collected.records.length,
-          totalHours,
-          clientAudit: clientAudit.summary,
-          projectAudit,
-          stored: persistence?.stored ?? 0,
-          inconsistencies: persistence?.inconsistencies ?? clientAudit.summary.pending + clientAudit.summary.ambiguous + projectAudit.pending + projectAudit.ambiguous,
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode,
+          functionVersion: FUNCTION_VERSION,
+          dryRun: mode === "dry-run",
+          syncRunId,
+          summary: {
+            dateFrom,
+            dateTo,
+            requestedClientName: clientName || null,
+            clientAliasesCount: effectiveClientNames.length,
+            rowsDetected: collected.rows.length,
+            recordsDetected: collected.records.length,
+            totalHours,
+            clientAudit: clientAudit.summary,
+            projectAudit,
+            stored: persistence?.stored ?? 0,
+            inconsistencies:
+              persistence?.inconsistencies ??
+              clientAudit.summary.pending +
+                clientAudit.summary.ambiguous +
+                projectAudit.pending +
+                projectAudit.ambiguous,
+          },
+          monthDiagnostics: collected.diagnostics,
+          clientAudit: clientAudit.audit.slice(0, 200),
+          sampleRecords: collected.records.slice(0, 50),
+        }),
+        {
+          headers: { ...CORS, "Content-Type": "application/json" },
         },
-        monthDiagnostics: collected.diagnostics,
-        clientAudit: clientAudit.audit.slice(0, 200),
-        sampleRecords: collected.records.slice(0, 50),
-      }), {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      );
     }
 
     let syncRunId: string | null = null;
@@ -1826,7 +2044,9 @@ serve(async (req) => {
       if (syncRunError) throw syncRunError;
       syncRunId = syncRun.id;
     } catch (error) {
-      console.warn(`[support-costs-sync] Nao foi possivel registrar execucao: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(
+        `[support-costs-sync] Nao foi possivel registrar execucao: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     const monthRanges = buildMonthRanges(dateFrom, dateTo);
@@ -1878,17 +2098,20 @@ serve(async (req) => {
           .eq("id", syncRunId);
       }
 
-      return new Response(JSON.stringify({
-        success: true,
-        accepted: false,
-        functionVersion: FUNCTION_VERSION,
-        syncRunId,
-        count: 0,
-        diagnostics,
-        message: "Periodo ja importado. A tela pode carregar a base local.",
-      }), {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          accepted: false,
+          functionVersion: FUNCTION_VERSION,
+          syncRunId,
+          count: 0,
+          diagnostics,
+          message: "Periodo ja importado. A tela pode carregar a base local.",
+        }),
+        {
+          headers: { ...CORS, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const cleanDevidToken = devidToken.replace(/^Bearer\s+/i, "");
@@ -1902,17 +2125,38 @@ serve(async (req) => {
       const monthDiagnostics: Array<Record<string, unknown>> = [];
 
       try {
-        const monthResults = await Promise.all(syncRanges.map(async (range) => {
-          const { source, rawResult } = await callAttendanceReport(cleanDevidToken, milvusToken, range, clientName, effectiveClientNames);
-          const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
-          const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
-          const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
-          const monthKeptRecords = monthRecordsWithHours.filter((record) => shouldKeepRecordForRequestedPeriod(record, range.from, range.to));
-          const rawObject = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult) ? rawResult as Record<string, unknown> : {};
-          return { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
-        }));
+        const monthResults = await Promise.all(
+          syncRanges.map(async (range) => {
+            const { source, rawResult } = await callAttendanceReport(
+              cleanDevidToken,
+              milvusToken,
+              range,
+              clientName,
+              effectiveClientNames,
+            );
+            const monthRows = expandRowsWithNestedServices(unwrapRows(rawResult));
+            const monthNormalized = monthRows.map((row, index) => normalizeRecord(row, `${range.label}-${index}`));
+            const monthRecordsWithHours = monthNormalized.filter((record) => record.hours > 0);
+            const monthKeptRecords = monthRecordsWithHours.filter((record) =>
+              shouldKeepRecordForRequestedPeriod(record, range.from, range.to),
+            );
+            const rawObject =
+              rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
+                ? (rawResult as Record<string, unknown>)
+                : {};
+            return { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords };
+          }),
+        );
 
-        for (const { range, source, rawObject, monthRows, monthNormalized, monthRecordsWithHours, monthKeptRecords } of monthResults) {
+        for (const {
+          range,
+          source,
+          rawObject,
+          monthRows,
+          monthNormalized,
+          monthRecordsWithHours,
+          monthKeptRecords,
+        } of monthResults) {
           rows.push(...monthRows);
           normalized.push(...monthNormalized);
           monthRecords.push(...monthKeptRecords);
@@ -1927,7 +2171,9 @@ serve(async (req) => {
             rowsDetected: monthRows.length,
             recordsWithHours: monthRecordsWithHours.length,
             recordsWithoutRecognizedDate: monthRecordsWithHours.filter((record) => !parseDateOnly(record.date)).length,
-            recordsOutsidePeriod: monthRecordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, range.from, range.to)).length,
+            recordsOutsidePeriod: monthRecordsWithHours.filter(
+              (record) => parseDateOnly(record.date) && !isRecordInPeriod(record, range.from, range.to),
+            ).length,
             recordsDetected: monthKeptRecords.length,
             totalHours: Number(monthKeptRecords.reduce((sum, record) => sum + record.hours, 0).toFixed(4)),
           });
@@ -1935,7 +2181,9 @@ serve(async (req) => {
 
         const recordsWithHours = normalized.filter((record) => record.hours > 0);
         const recordsWithoutRecognizedDate = recordsWithHours.filter((record) => !parseDateOnly(record.date)).length;
-        const recordsOutsidePeriod = recordsWithHours.filter((record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo)).length;
+        const recordsOutsidePeriod = recordsWithHours.filter(
+          (record) => parseDateOnly(record.date) && !isRecordInPeriod(record, dateFrom, dateTo),
+        ).length;
         const seen = new Set<string>();
         const records = monthRecords
           .filter((record) => {
@@ -1947,9 +2195,11 @@ serve(async (req) => {
           .sort((left, right) => {
             const leftDate = parseDateOnly(left.date) ?? "";
             const rightDate = parseDateOnly(right.date) ?? "";
-            return leftDate.localeCompare(rightDate)
-              || left.clientName.localeCompare(right.clientName)
-              || left.projectName.localeCompare(right.projectName);
+            return (
+              leftDate.localeCompare(rightDate) ||
+              left.clientName.localeCompare(right.clientName) ||
+              left.projectName.localeCompare(right.projectName)
+            );
           });
 
         const diagnostics = {
@@ -1986,9 +2236,22 @@ serve(async (req) => {
 
         if (syncRunId) {
           try {
-            const persistence = await persistSupportCostRecords(supabase, syncRunId, records, hubCatalog.clients, hubCatalog.projectTargets);
+            const persistence = await persistSupportCostRecords(
+              supabase,
+              syncRunId,
+              records,
+              hubCatalog.clients,
+              hubCatalog.projectTargets,
+            );
             if (!hasRequestedClientFilter) {
-              await markMonthlyLoadsFinished(supabase, syncRanges, records, "imported", syncRunId, persistence.inconsistencies);
+              await markMonthlyLoadsFinished(
+                supabase,
+                syncRanges,
+                records,
+                "imported",
+                syncRunId,
+                persistence.inconsistencies,
+              );
             }
             await supabase
               .from("support_cost_sync_runs")
@@ -2013,15 +2276,7 @@ serve(async (req) => {
               })
               .eq("id", syncRunId);
             if (!hasRequestedClientFilter) {
-              await markMonthlyLoadsFinished(
-                supabase,
-                syncRanges,
-                records,
-                "error",
-                syncRunId,
-                0,
-                errorMessage(error),
-              );
+              await markMonthlyLoadsFinished(supabase, syncRanges, records, "error", syncRunId, 0, errorMessage(error));
             }
             console.warn(`[support-costs-sync] Persistencia falhou: ${errorMessage(error)}`);
           }
@@ -2040,15 +2295,7 @@ serve(async (req) => {
             .eq("id", syncRunId);
         }
         if (!hasRequestedClientFilter) {
-          await markMonthlyLoadsFinished(
-            supabase,
-            syncRanges,
-            [],
-            "error",
-            syncRunId,
-            0,
-            errorMessage(error),
-          );
+          await markMonthlyLoadsFinished(supabase, syncRanges, [], "error", syncRunId, 0, errorMessage(error));
         }
       }
     };
@@ -2059,25 +2306,31 @@ serve(async (req) => {
       backgroundJob();
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      accepted: true,
-      functionVersion: FUNCTION_VERSION,
-      syncRunId,
-      message: "Sincronizacao iniciada em segundo plano. Acompanhe o status via support_cost_sync_runs.",
-    }), {
-      status: 202,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        accepted: true,
+        functionVersion: FUNCTION_VERSION,
+        syncRunId,
+        message: "Sincronizacao iniciada em segundo plano. Acompanhe o status via support_cost_sync_runs.",
+      }),
+      {
+        status: 202,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("[support-costs-sync]", error);
-    return new Response(JSON.stringify({
-      success: false,
-      functionVersion: FUNCTION_VERSION,
-      error: errorMessage(error),
-      errorDetails: serializeError(error),
-    }), {
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        functionVersion: FUNCTION_VERSION,
+        error: errorMessage(error),
+        errorDetails: serializeError(error),
+      }),
+      {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      },
+    );
   }
 });
