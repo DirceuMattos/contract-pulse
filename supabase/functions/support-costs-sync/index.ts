@@ -9,7 +9,7 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-24-batch-write-diagnostics-v16";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-24-batch-write-fast-v17";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
@@ -1202,10 +1202,10 @@ async function persistSupportCostRecords(
   hubClients: HubClient[],
   hubProjectTargets: HubProjectTarget[],
 ): Promise<{ stored: number; inconsistencies: number }> {
-  let stored = 0;
-  let inconsistencies = 0;
   const clientIdByKey = new Map<string, { id: string; match: MatchResult<HubClient>; hubClientId?: string | null; mappingStatus: string }>();
   const projectIdByKey = new Map<string, { id: string; match: MatchResult<HubProjectTarget>; hubContractId?: string | null; hubSubprojectId?: string | null; clientId?: string | null; mappingStatus: string }>();
+  const ticketRows: Record<string, unknown>[] = [];
+  const inconsistencyCandidates: Record<string, unknown>[] = [];
 
   for (const record of records) {
     const clientKey = compactName(record.clientName || "Nao informado") || compactToken(record.clientName || "nao-informado");
@@ -1314,29 +1314,25 @@ async function persistSupportCostRecords(
     const parsedDate = parseDateOnly(record.date);
     const hubClientId = projectEntry.clientId ?? clientEntry.hubClientId ?? clientEntry.match.item?.id ?? null;
     const hubContractId = projectEntry.hubContractId ?? projectEntry.match.item?.id ?? null;
-    const { error: ticketError } = await supabase
-      .from("support_cost_tickets")
-      .upsert({
-        sync_run_id: syncRunId,
-        milvus_ticket_code: record.id,
-        milvus_ticket_id: String(record.raw?.id ?? record.raw?.ticket_id ?? record.id),
-        milvus_client_id: clientEntry.id,
-        milvus_project_id: projectEntry.id,
-        hub_client_id: hubClientId,
-        hub_contract_id: hubContractId,
-        hub_subproject_id: projectEntry.hubSubprojectId ?? null,
-        client_name: record.clientName || "Nao informado",
-        project_name: record.projectName || "Nao informado",
-        analyst_name: record.analystName || "Nao informado",
-        ticket_date: parsedDate,
-        hours: record.hours,
-        subject: firstString(record.raw ?? {}, ["assunto", "subject", "titulo", "title"], ""),
-        status: firstString(record.raw ?? {}, ["status", "situacao"], ""),
-        raw: record.raw ?? {},
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "milvus_ticket_code" });
-    if (ticketError) throw ticketError;
-    stored += 1;
+    ticketRows.push({
+      sync_run_id: syncRunId,
+      milvus_ticket_code: record.id,
+      milvus_ticket_id: String(record.raw?.id ?? record.raw?.ticket_id ?? record.id),
+      milvus_client_id: clientEntry.id,
+      milvus_project_id: projectEntry.id,
+      hub_client_id: hubClientId,
+      hub_contract_id: hubContractId,
+      hub_subproject_id: projectEntry.hubSubprojectId ?? null,
+      client_name: record.clientName || "Nao informado",
+      project_name: record.projectName || "Nao informado",
+      analyst_name: record.analystName || "Nao informado",
+      ticket_date: parsedDate,
+      hours: record.hours,
+      subject: firstString(record.raw ?? {}, ["assunto", "subject", "titulo", "title"], ""),
+      status: firstString(record.raw ?? {}, ["status", "situacao"], ""),
+      raw: record.raw ?? {},
+      updated_at: new Date().toISOString(),
+    });
 
     const reasons: Array<{ code: string; detail: string }> = [];
     if (clientEntry.mappingStatus !== "matched") {
@@ -1347,32 +1343,59 @@ async function persistSupportCostRecords(
     }
 
     for (const reason of reasons) {
-      const { data: existingInconsistency, error: existingInconsistencyError } = await supabase
-        .from("support_cost_inconsistencies")
-        .select("id")
-        .eq("milvus_ticket_code", record.id)
-        .eq("reason_code", reason.code)
-        .is("resolved_at", null)
-        .maybeSingle();
-      if (existingInconsistencyError) throw existingInconsistencyError;
-      if (existingInconsistency) continue;
-
-      const { error: inconsistencyError } = await supabase
-        .from("support_cost_inconsistencies")
-        .insert({
-          sync_run_id: syncRunId,
-          reason_code: reason.code,
-          reason_detail: reason.detail,
-          milvus_client_id: clientEntry.id,
-          milvus_project_id: projectEntry.id,
-          milvus_ticket_code: record.id,
-          payload: record.raw ?? {},
-        });
-      if (!inconsistencyError) inconsistencies += 1;
+      inconsistencyCandidates.push({
+        sync_run_id: syncRunId,
+        reason_code: reason.code,
+        reason_detail: reason.detail,
+        milvus_client_id: clientEntry.id,
+        milvus_project_id: projectEntry.id,
+        milvus_ticket_code: record.id,
+        payload: record.raw ?? {},
+      });
     }
   }
 
-  return { stored, inconsistencies };
+  for (let index = 0; index < ticketRows.length; index += 100) {
+    const chunk = ticketRows.slice(index, index + 100);
+    const { error } = await supabase
+      .from("support_cost_tickets")
+      .upsert(chunk, { onConflict: "milvus_ticket_code" });
+    if (error) throw error;
+  }
+
+  let insertedInconsistencies = 0;
+  if (inconsistencyCandidates.length > 0) {
+    const ticketCodes = Array.from(new Set(inconsistencyCandidates.map((row) => String(row.milvus_ticket_code))));
+    const { data: existingRows, error: existingError } = await supabase
+      .from("support_cost_inconsistencies")
+      .select("milvus_ticket_code, reason_code")
+      .in("milvus_ticket_code", ticketCodes)
+      .is("resolved_at", null);
+    if (existingError) throw existingError;
+
+    const existingKeys = new Set((existingRows ?? []).map((row) => {
+      const raw = row as Record<string, unknown>;
+      return `${String(raw.milvus_ticket_code ?? "")}|${String(raw.reason_code ?? "")}`;
+    }));
+    const seenNewKeys = new Set<string>();
+    const newInconsistencies = inconsistencyCandidates.filter((row) => {
+      const key = `${String(row.milvus_ticket_code ?? "")}|${String(row.reason_code ?? "")}`;
+      if (existingKeys.has(key) || seenNewKeys.has(key)) return false;
+      seenNewKeys.add(key);
+      return true;
+    });
+
+    for (let index = 0; index < newInconsistencies.length; index += 100) {
+      const chunk = newInconsistencies.slice(index, index + 100);
+      const { error } = await supabase
+        .from("support_cost_inconsistencies")
+        .insert(chunk);
+      if (error) throw error;
+      insertedInconsistencies += chunk.length;
+    }
+  }
+
+  return { stored: ticketRows.length, inconsistencies: insertedInconsistencies };
 }
 
 async function markMonthlyLoadsSyncing(
