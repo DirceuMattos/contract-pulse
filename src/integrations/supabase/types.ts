@@ -3000,9 +3000,11 @@ export type Database = {
           id: string
           inconsistency_count: number
           last_synced_at: string | null
+          load_scope: string
           month_key: string
           period_end: string
           period_start: string
+          requested_client_names: string[]
           status: string
           sync_run_id: string | null
           tickets_count: number
@@ -3015,9 +3017,11 @@ export type Database = {
           id?: string
           inconsistency_count?: number
           last_synced_at?: string | null
+          load_scope?: string
           month_key: string
           period_end: string
           period_start: string
+          requested_client_names?: string[]
           status?: string
           sync_run_id?: string | null
           tickets_count?: number
@@ -3030,9 +3034,11 @@ export type Database = {
           id?: string
           inconsistency_count?: number
           last_synced_at?: string | null
+          load_scope?: string
           month_key?: string
           period_end?: string
           period_start?: string
+          requested_client_names?: string[]
           status?: string
           sync_run_id?: string | null
           tickets_count?: number
