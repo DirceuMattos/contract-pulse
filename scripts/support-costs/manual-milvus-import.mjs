@@ -320,7 +320,12 @@ function sliceValues(rows, field) {
 async function fetchClientTickets(token, clientName, dateFrom, dateTo) {
   const collected = new Map();
   const visited = new Set();
-  const queue = [{ filter: { status: 'Todos', cliente: clientName }, depth: 0 }];
+  const baseFilter = {
+    status: 'Todos',
+    data_hora_criacao_inicial: `${dateFrom} 00:00:00`,
+    data_hora_criacao_final: `${dateTo} 23:59:59`,
+  };
+  const queue = [{ filter: { ...baseFilter, cliente: clientName }, depth: 0 }];
   const diagnostics = [];
 
   while (queue.length > 0 && visited.size < MAX_SLICES) {
