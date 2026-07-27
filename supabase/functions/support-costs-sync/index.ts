@@ -438,6 +438,18 @@ async function resolveMilvusClientNames(
     }
   }
 
+  if (requestedNames.length > 0) {
+    return {
+      names: Array.from(new Set(requestedNames.map((name) => name.trim()).filter(Boolean))).slice(
+        0,
+        MILVUS_MAX_CLIENTS_PER_SYNC,
+      ),
+      source: "requested-client-exact",
+      searchedTerms: [],
+      catalogRows: 0,
+    };
+  }
+
   const explicitSeeds = requestedNames.flatMap(getSearchSeedsFromName);
   if (explicitSeeds.length > 0) {
     for (const seed of explicitSeeds.slice(0, 32)) {
