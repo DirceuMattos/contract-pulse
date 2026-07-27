@@ -89,6 +89,31 @@ type MatchResult<T> = {
   method: string;
 };
 
+function serializeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+      stack: error.stack?.split("\n").slice(0, 6).join("\n"),
+    };
+  }
+  if (error && typeof error === "object") {
+    const obj = error as Record<string, unknown>;
+    return {
+      message: String(obj.message ?? obj.error_description ?? obj.error ?? "Erro sem mensagem"),
+      code: obj.code ?? null,
+      details: obj.details ?? null,
+      hint: obj.hint ?? null,
+      raw: obj,
+    };
+  }
+  return { message: String(error) };
+}
+
+function errorMessage(error: unknown): string {
+  return String(serializeError(error).message ?? "Erro desconhecido");
+}
+
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
   const { data, error } = await supabase.rpc("get_vault_secret", { secret_name: name });
   if (error || !data) {
@@ -1960,7 +1985,7 @@ serve(async (req) => {
                 status: "error",
                 records_detected: records.length,
                 diagnostics,
-                error_message: error instanceof Error ? error.message : String(error),
+                error_message: errorMessage(error),
                 ended_at: new Date().toISOString(),
               })
               .eq("id", syncRunId);
@@ -1972,10 +1997,10 @@ serve(async (req) => {
                 "error",
                 syncRunId,
                 0,
-                error instanceof Error ? error.message : String(error),
+                errorMessage(error),
               );
             }
-            console.warn(`[support-costs-sync] Persistencia falhou: ${error instanceof Error ? error.message : String(error)}`);
+            console.warn(`[support-costs-sync] Persistencia falhou: ${errorMessage(error)}`);
           }
         }
         console.log("[support-costs-sync:diagnostics]", JSON.stringify(diagnostics));
@@ -1986,7 +2011,7 @@ serve(async (req) => {
             .from("support_cost_sync_runs")
             .update({
               status: "error",
-              error_message: error instanceof Error ? error.message : String(error),
+              error_message: errorMessage(error),
               ended_at: new Date().toISOString(),
             })
             .eq("id", syncRunId);
@@ -1999,7 +2024,7 @@ serve(async (req) => {
             "error",
             syncRunId,
             0,
-            error instanceof Error ? error.message : String(error),
+            errorMessage(error),
           );
         }
       }
@@ -2026,7 +2051,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: false,
       functionVersion: FUNCTION_VERSION,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
+      errorDetails: serializeError(error),
     }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
