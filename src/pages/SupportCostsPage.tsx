@@ -42,6 +42,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
@@ -55,6 +56,11 @@ const chartColors = ['#0ea5e9', '#14b8a6', '#22c55e', '#eab308', '#f97316', '#ef
 
 type SupportCostRecord = {
   id: string;
+  milvusTicketCode?: string;
+  milvusClientId?: string | null;
+  milvusProjectId?: string | null;
+  hubClientId?: string | null;
+  hubContractId?: string | null;
   clientName: string;
   projectName: string;
   analystName: string;
@@ -148,10 +154,27 @@ type SupportCostInconsistency = {
   reasonCode: string;
   reasonDetail: string;
   ticketCode: string;
+  milvusClientId?: string | null;
+  milvusProjectId?: string | null;
   clientName: string;
   projectName: string;
   analystName: string;
   createdAt: string;
+};
+
+type SupportInconsistencyGroup = {
+  key: string;
+  reasonCode: string;
+  reasonDetail: string;
+  milvusClientId?: string | null;
+  milvusProjectId?: string | null;
+  clientName: string;
+  projectName: string;
+  tickets: number;
+  rowIds: string[];
+  ticketCodes: string[];
+  analysts: string[];
+  firstSeenAt: string;
 };
 
 type LooseSupabaseError = { message?: string } | null;
@@ -185,6 +208,11 @@ function supportRecordFromTicketRow(row: Record<string, unknown>): SupportCostRe
     : {};
   return {
     id: String(row.milvus_ticket_code ?? row.milvus_ticket_id ?? row.id ?? ''),
+    milvusTicketCode: String(row.milvus_ticket_code ?? ''),
+    milvusClientId: String(row.milvus_client_id ?? '') || null,
+    milvusProjectId: String(row.milvus_project_id ?? '') || null,
+    hubClientId: String(row.hub_client_id ?? '') || null,
+    hubContractId: String(row.hub_contract_id ?? '') || null,
     clientName: String(row.client_name ?? 'Nao informado'),
     projectName: String(row.project_name ?? 'Nao informado'),
     analystName: String(row.analyst_name ?? 'Nao informado'),
@@ -632,9 +660,122 @@ function SupportCostTable({
 
 function SupportInconsistenciesPanel({
   rows,
+  clients,
+  contracts,
+  onResolve,
+  canResolve,
 }: {
   rows: SupportCostInconsistency[];
+  clients: { id: string; razaoSocial: string; nomeFantasia?: string }[];
+  contracts: { id: string; nome: string; clientId: string }[];
+  onResolve: (group: SupportInconsistencyGroup, target: { hubClientId?: string; hubContractId?: string }) => Promise<void>;
+  canResolve: boolean;
 }) {
+  const [query, setQuery] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<SupportInconsistencyGroup | null>(null);
+  const [hubClientId, setHubClientId] = useState('all');
+  const [hubContractId, setHubContractId] = useState('all');
+  const [saving, setSaving] = useState(false);
+
+  const clientOptions = useMemo(() => [
+    { value: 'all', label: 'Selecione o cliente Hub' },
+    ...clients
+      .map((client) => ({
+        value: client.id,
+        label: client.nomeFantasia || client.razaoSocial,
+        searchText: client.razaoSocial,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+  ], [clients]);
+
+  const contractOptions = useMemo(() => {
+    const availableContracts = hubClientId === 'all'
+      ? contracts
+      : contracts.filter((contract) => contract.clientId === hubClientId);
+    return [
+      { value: 'all', label: 'Sem vinculo de projeto' },
+      ...availableContracts
+        .map((contract) => ({ value: contract.id, label: contract.nome }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+    ];
+  }, [contracts, hubClientId]);
+
+  const groups = useMemo<SupportInconsistencyGroup[]>(() => {
+    const grouped = new Map<string, SupportInconsistencyGroup>();
+    for (const row of rows) {
+      const key = [
+        row.reasonCode,
+        row.milvusClientId || compactText(row.clientName),
+        row.milvusProjectId || compactText(row.projectName),
+      ].join('|');
+      const current = grouped.get(key);
+      if (current) {
+        current.tickets += 1;
+        current.rowIds.push(row.id);
+        if (row.ticketCode) current.ticketCodes.push(row.ticketCode);
+        if (row.analystName && !current.analysts.includes(row.analystName)) current.analysts.push(row.analystName);
+        if (row.createdAt && row.createdAt < current.firstSeenAt) current.firstSeenAt = row.createdAt;
+        continue;
+      }
+      grouped.set(key, {
+        key,
+        reasonCode: row.reasonCode,
+        reasonDetail: row.reasonDetail,
+        milvusClientId: row.milvusClientId,
+        milvusProjectId: row.milvusProjectId,
+        clientName: row.clientName || 'Nao informado',
+        projectName: row.projectName || 'Nao informado',
+        tickets: 1,
+        rowIds: [row.id],
+        ticketCodes: row.ticketCode ? [row.ticketCode] : [],
+        analysts: row.analystName ? [row.analystName] : [],
+        firstSeenAt: row.createdAt,
+      });
+    }
+    return Array.from(grouped.values()).sort((a, b) => (
+      a.clientName.localeCompare(b.clientName, 'pt-BR')
+      || a.projectName.localeCompare(b.projectName, 'pt-BR')
+      || b.tickets - a.tickets
+    ));
+  }, [rows]);
+
+  const filteredGroups = useMemo(() => {
+    const normalized = normalizeText(query);
+    if (!normalized) return groups;
+    return groups.filter((group) => normalizeText([
+      group.clientName,
+      group.projectName,
+      group.reasonCode,
+      group.reasonDetail,
+      group.analysts.join(' '),
+    ].join(' ')).includes(normalized));
+  }, [groups, query]);
+
+  function openResolveDialog(group: SupportInconsistencyGroup) {
+    setSelectedGroup(group);
+    setHubClientId('all');
+    setHubContractId('all');
+  }
+
+  async function confirmResolve() {
+    if (!selectedGroup) return;
+    if (hubClientId === 'all' && hubContractId === 'all') {
+      toast.error('Selecione ao menos um cliente ou projeto do Hub.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onResolve(selectedGroup, {
+        hubClientId: hubClientId === 'all' ? undefined : hubClientId,
+        hubContractId: hubContractId === 'all' ? undefined : hubContractId,
+      });
+      setSelectedGroup(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (rows.length === 0) {
     return (
       <Card>
@@ -645,6 +786,137 @@ function SupportInconsistenciesPanel({
           </p>
         </CardContent>
       </Card>
+    );
+  }
+
+  if (groups.length >= 0) {
+    return (
+      <>
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  Inconsistencias Milvus x Hub
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Pendencias agrupadas por cliente/projeto para revisao e vinculo com o cadastro Hub.
+                </p>
+              </div>
+              <div className="grid gap-2 text-sm sm:grid-cols-3">
+                <div className="rounded-md border px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Grupos</p>
+                  <p className="font-semibold">{groups.length}</p>
+                </div>
+                <div className="rounded-md border px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Tickets</p>
+                  <p className="font-semibold">{rows.length}</p>
+                </div>
+                <div className="rounded-md border px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Exibidos</p>
+                  <p className="font-semibold">{filteredGroups.length}</p>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar por cliente, projeto, responsavel ou tipo..."
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                    <th className="py-2 pr-3">Tipo</th>
+                    <th className="py-2 pr-3">Cliente Milvus</th>
+                    <th className="py-2 pr-3">Projeto Milvus</th>
+                    <th className="py-2 pr-3 text-right">Tickets</th>
+                    <th className="py-2 pr-3">Responsaveis</th>
+                    <th className="py-2 pr-3">Detectado em</th>
+                    <th className="py-2 pr-3 text-right">Acao</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGroups.map((group) => (
+                    <tr key={group.key} className="border-b last:border-0">
+                      <td className="py-3 pr-3">
+                        <Badge variant="secondary">{group.reasonCode.replace('_', ' ')}</Badge>
+                        <p className="mt-1 max-w-[280px] text-xs text-muted-foreground">{group.reasonDetail}</p>
+                      </td>
+                      <td className="py-3 pr-3 font-medium">{group.clientName}</td>
+                      <td className="py-3 pr-3">{group.projectName}</td>
+                      <td className="py-3 pr-3 text-right font-semibold tabular-nums">{group.tickets}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">{group.analysts.slice(0, 3).join(', ') || '-'}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">
+                        {group.firstSeenAt ? new Date(group.firstSeenAt).toLocaleString('pt-BR') : '-'}
+                      </td>
+                      <td className="py-3 pr-3 text-right">
+                        <Button type="button" variant="outline" size="sm" disabled={!canResolve} onClick={() => openResolveDialog(group)}>
+                          Vincular Hub
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Dialog open={Boolean(selectedGroup)} onOpenChange={(open) => !open && setSelectedGroup(null)}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Vincular Milvus ao Hub</DialogTitle>
+              <DialogDescription>
+                O vinculo atualiza os tickets locais e remove este grupo da lista de inconsistencias.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedGroup && (
+              <div className="space-y-4">
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  <p><strong>Cliente Milvus:</strong> {selectedGroup.clientName}</p>
+                  <p><strong>Projeto Milvus:</strong> {selectedGroup.projectName}</p>
+                  <p><strong>Tickets afetados:</strong> {selectedGroup.tickets}</p>
+                </div>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">Cliente Hub</span>
+                  <SearchableSelect
+                    value={hubClientId}
+                    onValueChange={(value) => {
+                      setHubClientId(value);
+                      setHubContractId('all');
+                    }}
+                    options={clientOptions}
+                    searchPlaceholder="Buscar cliente Hub..."
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">Projeto / Contrato Hub</span>
+                  <SearchableSelect
+                    value={hubContractId}
+                    onValueChange={setHubContractId}
+                    options={contractOptions}
+                    searchPlaceholder="Buscar projeto ou contrato Hub..."
+                  />
+                </label>
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSelectedGroup(null)} disabled={saving}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={confirmResolve} disabled={saving}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Salvar vinculo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -906,6 +1178,7 @@ export default function SupportCostsPage() {
   const { clients, contracts, settings } = useData();
   const { hrPeople } = useHR();
   const canViewSupportCosts = canModuleAction('SUPPORT_COSTS', 'can_view_values');
+  const canResolveSupportMappings = canModuleAction('SUPPORT_COSTS', 'can_edit');
   const canViewCalculationBase = userRole !== 'lider_tribo';
 
   const loadReconciliationData = useCallback(async () => {
@@ -918,7 +1191,7 @@ export default function SupportCostsPage() {
           .select('id, milvus_project_name, milvus_client_id, support_milvus_project_mappings(status, hub_contract_id)')
           .order('milvus_project_name', { ascending: true }),
         supportTable('support_cost_inconsistencies')
-          .select('id, reason_code, reason_detail, milvus_ticket_code, payload, created_at', { count: 'exact' })
+          .select('id, reason_code, reason_detail, milvus_client_id, milvus_project_id, milvus_ticket_code, payload, created_at', { count: 'exact' })
           .is('resolved_at', null),
       ]);
 
@@ -961,6 +1234,8 @@ export default function SupportCostsPage() {
             reasonCode: String(row.reason_code ?? 'pendente'),
             reasonDetail: String(row.reason_detail ?? ''),
             ticketCode: String(row.milvus_ticket_code ?? ''),
+            milvusClientId: String(row.milvus_client_id ?? '') || null,
+            milvusProjectId: String(row.milvus_project_id ?? '') || null,
             clientName: firstStringFromRaw(payload, ['nome_fantasia', 'cliente', 'clientName', 'cliente_nome']),
             projectName: firstStringFromRaw(payload, ['projeto', 'projectName', 'contrato', 'unidade_de_negocio']),
             analystName: firstStringFromRaw(payload, ['tecnico', 'analista', 'responsavel', 'operador']),
@@ -987,14 +1262,36 @@ export default function SupportCostsPage() {
 
     setLoadingStoredRecords(true);
     try {
-      const { data, error } = await supportTable('support_cost_tickets')
-        .select('id, milvus_ticket_code, milvus_ticket_id, client_name, project_name, analyst_name, ticket_date, hours, raw')
-        .gte('ticket_date', dateFrom)
-        .lte('ticket_date', dateTo)
-        .order('ticket_date', { ascending: true });
+      const pageSize = 1000;
+      const rows: unknown[] = [];
 
-      if (error) throw new Error(error.message || 'Erro ao carregar base local.');
-      setRecords((data ?? []).map((row) => supportRecordFromTicketRow(row as Record<string, unknown>)));
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await (supabase as unknown as {
+          from: (tableName: string) => {
+            select: (columns: string) => {
+              gte: (column: string, value: unknown) => {
+                lte: (column: string, value: unknown) => {
+                  order: (column: string, options?: { ascending?: boolean }) => {
+                    range: (from: number, to: number) => Promise<LooseSupabaseRowsResult>;
+                  };
+                };
+              };
+            };
+          };
+        })
+          .from('support_cost_tickets')
+          .select('id, milvus_ticket_code, milvus_ticket_id, milvus_client_id, milvus_project_id, hub_client_id, hub_contract_id, client_name, project_name, analyst_name, ticket_date, hours, raw')
+          .gte('ticket_date', dateFrom)
+          .lte('ticket_date', dateTo)
+          .order('ticket_date', { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw new Error(error.message || 'Erro ao carregar base local.');
+        rows.push(...(data ?? []));
+        if ((data ?? []).length < pageSize) break;
+      }
+
+      setRecords(rows.map((row) => supportRecordFromTicketRow(row as Record<string, unknown>)));
       setSyncedRange({ from: dateFrom, to: dateTo });
       if (!silent) toast.success('Base local carregada.');
     } catch (error) {
@@ -1042,6 +1339,22 @@ export default function SupportCostsPage() {
     return map;
   }, [activePeople, costSummary.averageHourlyCost, settings]);
 
+  const milvusClientHubMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const client of milvusClients) {
+      if (client.id && client.hubClientId && client.status === 'matched') map.set(client.id, client.hubClientId);
+    }
+    return map;
+  }, [milvusClients]);
+
+  const milvusProjectHubMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const project of milvusProjects) {
+      if (project.id && project.hubContractId && project.status === 'matched') map.set(project.id, project.hubContractId);
+    }
+    return map;
+  }, [milvusProjects]);
+
   const sortedClients = useMemo(
     () => [...clients].sort((a, b) => (a.nomeFantasia || a.razaoSocial).localeCompare(b.nomeFantasia || b.razaoSocial, 'pt-BR')),
     [clients],
@@ -1070,6 +1383,13 @@ export default function SupportCostsPage() {
   const currentFilterSignature = `${dateFrom}|${dateTo}|${clientId}|${contractId}|${analystName}`;
   const filtersNeedSync = currentFilterSignature !== lastAppliedFilterSignature;
 
+  useEffect(() => {
+    if (!filtersNeedSync) return;
+    syncRequestRef.current += 1;
+    setActiveSyncRunId(null);
+    setLoadingSync(false);
+  }, [filtersNeedSync, currentFilterSignature]);
+
   const clientOptions = useMemo(() => {
     const hubOptions = sortedClients.map((client) => ({
       value: client.id,
@@ -1079,7 +1399,7 @@ export default function SupportCostsPage() {
 
     const milvusClientNames = new Set<string>();
     for (const client of milvusClients) {
-      if (client.name && !client.hubClientId) milvusClientNames.add(client.name);
+      if (client.name) milvusClientNames.add(client.name);
     }
     for (const record of records) {
       if (!record.clientName || record.clientName === 'Nao informado') continue;
@@ -1113,7 +1433,7 @@ export default function SupportCostsPage() {
 
     const milvusProjectNames = new Set<string>();
     for (const project of milvusProjects) {
-      if (!project.name || project.hubContractId) continue;
+      if (!project.name) continue;
       if (clientId !== 'all' && !selectedMilvusClientName) continue;
       milvusProjectNames.add(project.name);
     }
@@ -1184,14 +1504,20 @@ export default function SupportCostsPage() {
 
   const enrichedRecords = useMemo<EnrichedSupportCostRecord[]>(() => {
     return records.map((record) => {
-      const matchedClient = clients.find((client) => {
-        return isStrongNameMatch(record.clientName, client.nomeFantasia)
-          || isStrongNameMatch(record.clientName, client.razaoSocial);
-      });
+      const mappedClientId = record.hubClientId || (record.milvusClientId ? milvusClientHubMap.get(record.milvusClientId) : undefined);
+      const mappedContractId = record.hubContractId || (record.milvusProjectId ? milvusProjectHubMap.get(record.milvusProjectId) : undefined);
+      const matchedClient = mappedClientId
+        ? clients.find((client) => client.id === mappedClientId)
+        : clients.find((client) => {
+          return isStrongNameMatch(record.clientName, client.nomeFantasia)
+            || isStrongNameMatch(record.clientName, client.razaoSocial);
+        });
 
-      const matchedContract = contracts.find((contract) => {
-        return isContainedNameMatch(record.projectName, contract.nome);
-      });
+      const matchedContract = mappedContractId
+        ? contracts.find((contract) => contract.id === mappedContractId)
+        : contracts.find((contract) => {
+          return isContainedNameMatch(record.projectName, contract.nome);
+        });
 
       const technicianCost = getTechnicianCost(record.analystName);
       const estimatedCost = record.hours * technicianCost.hourlyCost;
@@ -1207,7 +1533,7 @@ export default function SupportCostsPage() {
         reconciliationStatus: matchedClient || matchedContract ? 'conciliado' : 'pendente',
       };
     });
-  }, [clients, contracts, records, getTechnicianCost]);
+  }, [clients, contracts, records, getTechnicianCost, milvusClientHubMap, milvusProjectHubMap]);
 
   const filteredRecords = useMemo(() => {
     if (!syncedRange || syncedRange.from !== dateFrom || syncedRange.to !== dateTo) return [];
@@ -1575,6 +1901,77 @@ export default function SupportCostsPage() {
     }
   }, [clientId, contractId, currentFilterSignature, dateFrom, dateTo, loadReconciliationData, loadStoredRecords, monitorSyncRun, syncClientName, syncClientNames]);
 
+  const resolveSupportInconsistency = useCallback(async (
+    group: SupportInconsistencyGroup,
+    target: { hubClientId?: string; hubContractId?: string },
+  ) => {
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (target.hubClientId) updates.hub_client_id = target.hubClientId;
+    if (target.hubContractId) updates.hub_contract_id = target.hubContractId;
+
+    const db = supabase as unknown as {
+      from: (tableName: string) => {
+        upsert: (values: unknown, options?: { onConflict?: string }) => Promise<{ error?: LooseSupabaseError }>;
+        update: (values: unknown) => {
+          eq: (column: string, value: unknown) => Promise<{ error?: LooseSupabaseError }> & {
+            in: (column: string, values: unknown[]) => Promise<{ error?: LooseSupabaseError }>;
+          };
+          in: (column: string, values: unknown[]) => Promise<{ error?: LooseSupabaseError }>;
+        };
+      };
+    };
+
+    if (group.milvusClientId && target.hubClientId) {
+      const { error } = await db.from('support_milvus_client_mappings').upsert({
+        milvus_client_id: group.milvusClientId,
+        hub_client_id: target.hubClientId,
+        status: 'matched',
+        match_method: 'manual',
+        confidence: 1,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'milvus_client_id' });
+      if (error) throw new Error(error.message || 'Erro ao vincular cliente Milvus.');
+    }
+
+    if (group.milvusProjectId && target.hubContractId) {
+      const { error } = await db.from('support_milvus_project_mappings').upsert({
+        milvus_project_id: group.milvusProjectId,
+        hub_contract_id: target.hubContractId,
+        status: 'matched',
+        match_method: 'manual',
+        confidence: 1,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'milvus_project_id' });
+      if (error) throw new Error(error.message || 'Erro ao vincular projeto Milvus.');
+    }
+
+    if (group.milvusProjectId) {
+      const { error } = await db.from('support_cost_tickets').update(updates).eq('milvus_project_id', group.milvusProjectId);
+      if (error) throw new Error(error.message || 'Erro ao atualizar tickets do projeto.');
+    } else if (group.milvusClientId) {
+      const { error } = await db.from('support_cost_tickets').update(updates).eq('milvus_client_id', group.milvusClientId);
+      if (error) throw new Error(error.message || 'Erro ao atualizar tickets do cliente.');
+    } else if (group.ticketCodes.length > 0) {
+      const { error } = await db.from('support_cost_tickets').update(updates).in('milvus_ticket_code', group.ticketCodes);
+      if (error) throw new Error(error.message || 'Erro ao atualizar tickets.');
+    }
+
+    if (group.rowIds.length > 0) {
+      const { error } = await db.from('support_cost_inconsistencies').update({
+        resolved_at: new Date().toISOString(),
+      }).in('id', group.rowIds);
+      if (error) throw new Error(error.message || 'Erro ao resolver inconsistencias.');
+    }
+
+    toast.success('Vinculo salvo e inconsistencias resolvidas.');
+    await Promise.all([
+      loadReconciliationData(),
+      loadStoredRecords({ silent: true }),
+    ]);
+  }, [loadReconciliationData, loadStoredRecords]);
+
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
 
@@ -1911,7 +2308,13 @@ export default function SupportCostsPage() {
         </TabsContent>
 
         <TabsContent value="inconsistencies" className="space-y-4">
-          <SupportInconsistenciesPanel rows={inconsistencies} />
+          <SupportInconsistenciesPanel
+            rows={inconsistencies}
+            clients={clients}
+            contracts={contracts}
+            canResolve={canResolveSupportMappings}
+            onResolve={resolveSupportInconsistency}
+          />
         </TabsContent>
       </Tabs>
     </div>

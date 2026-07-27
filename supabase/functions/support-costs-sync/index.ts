@@ -9,7 +9,7 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-24-exact-requested-clients-v20";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-27-cache-scope-v21";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
@@ -895,6 +895,7 @@ async function loadImportedClosedMonthKeys(
     const { data, error } = await supabase
       .from("support_cost_monthly_loads")
       .select("month_key, status")
+      .eq("load_scope", "full")
       .in("month_key", closedMonthKeys);
     if (error) throw error;
 
@@ -1585,6 +1586,7 @@ async function markMonthlyLoadsSyncing(
       await supabase.from("support_cost_monthly_loads").upsert(
         {
           month_key: range.label,
+          load_scope: "full",
           period_start: range.from,
           period_end: range.to,
           status: "syncing",
@@ -1592,7 +1594,7 @@ async function markMonthlyLoadsSyncing(
           error_message: null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "month_key" },
+        { onConflict: "month_key,load_scope" },
       );
     }
   } catch (error) {
@@ -1617,6 +1619,7 @@ async function markMonthlyLoadsFinished(
       await supabase.from("support_cost_monthly_loads").upsert(
         {
           month_key: range.label,
+          load_scope: "full",
           period_start: range.from,
           period_end: range.to,
           status,
@@ -1628,7 +1631,7 @@ async function markMonthlyLoadsFinished(
           error_message: errorMessage ?? null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "month_key" },
+        { onConflict: "month_key,load_scope" },
       );
     }
   } catch (error) {
@@ -1673,6 +1676,7 @@ async function markMonthlyLoadsFromStoredTickets(
     await supabase.from("support_cost_monthly_loads").upsert(
       {
         month_key: range.label,
+        load_scope: "full",
         period_start: range.from,
         period_end: range.to,
         status: "imported",
@@ -1684,7 +1688,7 @@ async function markMonthlyLoadsFromStoredTickets(
         error_message: null,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "month_key" },
+      { onConflict: "month_key,load_scope" },
     );
   }
 }
@@ -1975,7 +1979,7 @@ serve(async (req) => {
           hubCatalog.clients,
           hubCatalog.projectTargets,
         );
-        if (finalizeMonthlyLoad) {
+        if (finalizeMonthlyLoad && !hasRequestedClientFilter) {
           await markMonthlyLoadsFromStoredTickets(supabase, collected.ranges, syncRunId);
         }
         await supabase
