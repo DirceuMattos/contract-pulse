@@ -3105,6 +3105,7 @@ export type Database = {
           hours: number
           hub_client_id: string | null
           hub_contract_id: string | null
+          hub_subproject_id: string | null
           id: string
           milvus_client_id: string | null
           milvus_project_id: string | null
@@ -3125,6 +3126,7 @@ export type Database = {
           hours?: number
           hub_client_id?: string | null
           hub_contract_id?: string | null
+          hub_subproject_id?: string | null
           id?: string
           milvus_client_id?: string | null
           milvus_project_id?: string | null
@@ -3145,6 +3147,7 @@ export type Database = {
           hours?: number
           hub_client_id?: string | null
           hub_contract_id?: string | null
+          hub_subproject_id?: string | null
           id?: string
           milvus_client_id?: string | null
           milvus_project_id?: string | null
@@ -3171,6 +3174,13 @@ export type Database = {
             columns: ["hub_contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cost_tickets_hub_subproject_id_fkey"
+            columns: ["hub_subproject_id"]
+            isOneToOne: false
+            referencedRelation: "contract_subprojects"
             referencedColumns: ["id"]
           },
           {
@@ -3285,6 +3295,7 @@ export type Database = {
           confidence: number
           created_at: string
           hub_contract_id: string | null
+          hub_subproject_id: string | null
           id: string
           match_method: string
           milvus_project_id: string
@@ -3296,6 +3307,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           hub_contract_id?: string | null
+          hub_subproject_id?: string | null
           id?: string
           match_method?: string
           milvus_project_id: string
@@ -3307,6 +3319,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           hub_contract_id?: string | null
+          hub_subproject_id?: string | null
           id?: string
           match_method?: string
           milvus_project_id?: string
@@ -3320,6 +3333,13 @@ export type Database = {
             columns: ["hub_contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_milvus_project_mappings_hub_subproject_id_fkey"
+            columns: ["hub_subproject_id"]
+            isOneToOne: false
+            referencedRelation: "contract_subprojects"
             referencedColumns: ["id"]
           },
           {
