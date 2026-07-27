@@ -9,7 +9,7 @@ const CORS = {
 const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
 const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 const MILVUS_CLIENT_URL = "https://apiintegracao.milvus.com.br/api/cliente/busca";
-const FUNCTION_VERSION = "support-costs-sync-2026-07-24-project-mapping-v14";
+const FUNCTION_VERSION = "support-costs-sync-2026-07-24-batch-write-v15";
 const MILVUS_PAGE_SIZE = 50;
 const MILVUS_MAX_SLICES = 160;
 const MILVUS_MAX_CLIENTS_PER_SYNC = 140;
@@ -45,8 +45,9 @@ type SyncRequest = {
   clientName?: string;
   clientNames?: string[];
   fullCatalogSync?: boolean;
-  mode?: "sync" | "audit" | "dry-run" | "write";
+  mode?: "sync" | "audit" | "dry-run" | "write" | "finalize-month";
   confirmWrite?: boolean;
+  finalizeMonthlyLoad?: boolean;
   clientLimit?: number;
 };
 
@@ -1321,6 +1322,16 @@ async function persistSupportCostRecords(
     }
 
     for (const reason of reasons) {
+      const { data: existingInconsistency, error: existingInconsistencyError } = await supabase
+        .from("support_cost_inconsistencies")
+        .select("id")
+        .eq("milvus_ticket_code", record.id)
+        .eq("reason_code", reason.code)
+        .is("resolved_at", null)
+        .maybeSingle();
+      if (existingInconsistencyError) throw existingInconsistencyError;
+      if (existingInconsistency) continue;
+
       const { error: inconsistencyError } = await supabase
         .from("support_cost_inconsistencies")
         .insert({
@@ -1393,6 +1404,56 @@ async function markMonthlyLoadsFinished(
     }
   } catch (error) {
     console.warn(`[support-costs-sync] Controle mensal indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function markMonthlyLoadsFromStoredTickets(
+  supabase: ReturnType<typeof createClient>,
+  monthRanges: MonthRange[],
+  syncRunId: string | null,
+) {
+  for (const range of monthRanges) {
+    const { data, error } = await supabase
+      .from("support_cost_tickets")
+      .select("milvus_ticket_code, hours")
+      .gte("ticket_date", range.from)
+      .lte("ticket_date", range.to);
+    if (error) throw error;
+
+    const uniqueTickets = new Set<string>();
+    let totalHours = 0;
+    for (const row of data ?? []) {
+      const ticketCode = String((row as Record<string, unknown>).milvus_ticket_code ?? "");
+      if (!ticketCode || uniqueTickets.has(ticketCode)) continue;
+      uniqueTickets.add(ticketCode);
+      const hours = Number((row as Record<string, unknown>).hours ?? 0);
+      if (Number.isFinite(hours)) totalHours += hours;
+    }
+
+    const { data: inconsistencyRows, error: inconsistencyError } = await supabase
+      .from("support_cost_inconsistencies")
+      .select("milvus_ticket_code")
+      .is("resolved_at", null);
+    if (inconsistencyError) throw inconsistencyError;
+    const inconsistencyCount = (inconsistencyRows ?? [])
+      .filter((row) => uniqueTickets.has(String((row as Record<string, unknown>).milvus_ticket_code ?? "")))
+      .length;
+
+    await supabase
+      .from("support_cost_monthly_loads")
+      .upsert({
+        month_key: range.label,
+        period_start: range.from,
+        period_end: range.to,
+        status: "imported",
+        sync_run_id: syncRunId,
+        tickets_count: uniqueTickets.size,
+        total_hours: Number(totalHours.toFixed(4)),
+        inconsistency_count: inconsistencyCount,
+        last_synced_at: new Date().toISOString(),
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "month_key" });
   }
 }
 
@@ -1533,15 +1594,33 @@ serve(async (req) => {
       fullCatalogSync = false,
       mode = "sync",
       confirmWrite = false,
+      finalizeMonthlyLoad = false,
       clientLimit = 0,
     } = await req.json() as SyncRequest;
     if (mode !== "audit" && (!dateFrom || !dateTo)) throw new Error("Periodo obrigatorio");
     if (mode === "write" && !confirmWrite) throw new Error("Modo write exige confirmWrite=true");
+    if (mode === "finalize-month" && !confirmWrite) throw new Error("Modo finalize-month exige confirmWrite=true");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    if (mode === "finalize-month") {
+      const monthRanges = buildMonthRanges(dateFrom, dateTo);
+      if (monthRanges.length === 0) throw new Error("Periodo invalido");
+      await markMonthlyLoadsFromStoredTickets(supabase, monthRanges, null);
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        functionVersion: FUNCTION_VERSION,
+        monthRanges,
+        message: "Mes(es) finalizado(s) a partir da base local deduplicada.",
+      }), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     const hubCatalog = await loadHubCatalog(supabase);
     const explicitClientNames = fullCatalogSync ? [] : clientNames.filter((name) => Boolean(name?.trim()));
     const hasRequestedClientFilter = !fullCatalogSync && Boolean(clientName?.trim() || explicitClientNames.length > 0);
@@ -1632,7 +1711,9 @@ serve(async (req) => {
         if (syncRunError) throw syncRunError;
         syncRunId = syncRun.id;
         persistence = await persistSupportCostRecords(supabase, syncRunId, collected.records, hubCatalog.clients, hubCatalog.projectTargets);
-        await markMonthlyLoadsFinished(supabase, collected.ranges, collected.records, "imported", syncRunId, persistence.inconsistencies);
+        if (finalizeMonthlyLoad) {
+          await markMonthlyLoadsFromStoredTickets(supabase, collected.ranges, syncRunId);
+        }
         await supabase
           .from("support_cost_sync_runs")
           .update({
