@@ -47,6 +47,7 @@ import { useData } from '@/contexts/DataContext';
 import { useHR } from '@/contexts/HRContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/calculations';
+import { cn } from '@/lib/utils';
 
 const PJ_MONTHLY_HOURS = 168;
 const CLT_MONTHLY_HOURS = 200;
@@ -140,6 +141,17 @@ type MilvusProjectOption = {
   milvusClientId?: string | null;
   hubContractId?: string | null;
   status?: string | null;
+};
+
+type SupportCostInconsistency = {
+  id: string;
+  reasonCode: string;
+  reasonDetail: string;
+  ticketCode: string;
+  clientName: string;
+  projectName: string;
+  analystName: string;
+  createdAt: string;
 };
 
 type LooseSupabaseError = { message?: string } | null;
@@ -351,6 +363,15 @@ function formatMilvusValue(value: unknown) {
   if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function firstStringFromRaw(raw: Record<string, unknown>, keys: string[], fallback = 'Nao informado') {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return fallback;
 }
 
 function getMilvusEntries(record: EnrichedSupportCostRecord | null) {
@@ -609,6 +630,72 @@ function SupportCostTable({
   );
 }
 
+function SupportInconsistenciesPanel({
+  rows,
+}: {
+  rows: SupportCostInconsistency[];
+}) {
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="font-medium">Nenhuma inconsistência aberta.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Os clientes e projetos conhecidos na base atual não possuem pendências visíveis para revisão.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          Inconsistências Milvus x Hub
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Clientes ou projetos importados do Milvus sem vínculo confiável com os cadastros do Hub.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                <th className="py-2 pr-3">Tipo</th>
+                <th className="py-2 pr-3">Cliente Milvus</th>
+                <th className="py-2 pr-3">Projeto Milvus</th>
+                <th className="py-2 pr-3">Responsável</th>
+                <th className="py-2 pr-3">Ticket</th>
+                <th className="py-2 pr-3">Detectado em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b last:border-0">
+                  <td className="py-3 pr-3">
+                    <Badge variant="secondary">{row.reasonCode.replace('_', ' ')}</Badge>
+                    <p className="mt-1 max-w-[280px] text-xs text-muted-foreground">{row.reasonDetail}</p>
+                  </td>
+                  <td className="py-3 pr-3 font-medium">{row.clientName}</td>
+                  <td className="py-3 pr-3">{row.projectName}</td>
+                  <td className="py-3 pr-3">{row.analystName}</td>
+                  <td className="py-3 pr-3 tabular-nums">{row.ticketCode || '-'}</td>
+                  <td className="py-3 pr-3 text-muted-foreground">
+                    {row.createdAt ? new Date(row.createdAt).toLocaleString('pt-BR') : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SupportExecutiveSummary({
   records,
   technicianGroups,
@@ -805,11 +892,15 @@ export default function SupportCostsPage() {
   const [milvusClients, setMilvusClients] = useState<MilvusClientOption[]>([]);
   const [milvusProjects, setMilvusProjects] = useState<MilvusProjectOption[]>([]);
   const [openInconsistencies, setOpenInconsistencies] = useState(0);
+  const [inconsistencies, setInconsistencies] = useState<SupportCostInconsistency[]>([]);
   const [loadingSync, setLoadingSync] = useState(false);
   const [loadingStoredRecords, setLoadingStoredRecords] = useState(false);
   const [activeSyncRunId, setActiveSyncRunId] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [syncedRange, setSyncedRange] = useState<{ from: string; to: string } | null>(null);
+  const [lastAppliedFilterSignature, setLastAppliedFilterSignature] = useState(
+    `${initialRange.from}|${initialRange.to}|all|all|all`,
+  );
   const syncRequestRef = useRef(0);
   const { canModuleAction, userRole } = useAuth();
   const { clients, contracts, settings } = useData();
@@ -827,7 +918,7 @@ export default function SupportCostsPage() {
           .select('id, milvus_project_name, milvus_client_id, support_milvus_project_mappings(status, hub_contract_id)')
           .order('milvus_project_name', { ascending: true }),
         supportTable('support_cost_inconsistencies')
-          .select('id', { count: 'exact', head: true })
+          .select('id, reason_code, reason_detail, milvus_ticket_code, payload, created_at', { count: 'exact' })
           .is('resolved_at', null),
       ]);
 
@@ -859,11 +950,30 @@ export default function SupportCostsPage() {
       }
 
       if (!inconsistenciesResult.error) {
-        setOpenInconsistencies(inconsistenciesResult.count ?? 0);
+        const rows = (inconsistenciesResult.data ?? []).map((rawRow) => {
+          const row = rawRow as Record<string, unknown>;
+          const payload = row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+            ? row.payload as Record<string, unknown>
+            : {};
+
+          return {
+            id: String(row.id ?? ''),
+            reasonCode: String(row.reason_code ?? 'pendente'),
+            reasonDetail: String(row.reason_detail ?? ''),
+            ticketCode: String(row.milvus_ticket_code ?? ''),
+            clientName: firstStringFromRaw(payload, ['nome_fantasia', 'cliente', 'clientName', 'cliente_nome']),
+            projectName: firstStringFromRaw(payload, ['projeto', 'projectName', 'contrato', 'unidade_de_negocio']),
+            analystName: firstStringFromRaw(payload, ['tecnico', 'analista', 'responsavel', 'operador']),
+            createdAt: String(row.created_at ?? ''),
+          };
+        });
+        setInconsistencies(rows);
+        setOpenInconsistencies(inconsistenciesResult.count ?? rows.length);
       }
     } catch {
       setMilvusClients([]);
       setMilvusProjects([]);
+      setInconsistencies([]);
       setOpenInconsistencies(0);
     }
   }, []);
@@ -957,7 +1067,8 @@ export default function SupportCostsPage() {
     : undefined;
   const monthFrom = dateToMonth(dateFrom);
   const monthTo = dateToMonth(dateTo);
-
+  const currentFilterSignature = `${dateFrom}|${dateTo}|${clientId}|${contractId}|${analystName}`;
+  const filtersNeedSync = currentFilterSignature !== lastAppliedFilterSignature;
 
   const clientOptions = useMemo(() => {
     const hubOptions = sortedClients.map((client) => ({
@@ -1378,13 +1489,14 @@ export default function SupportCostsPage() {
     throw new Error('A sincronizacao continua em processamento. Recarregue a base local em instantes.');
   }, []);
 
-  const monitorSyncRun = useCallback(async (syncRunId: string, requestId: number, silent: boolean) => {
+  const monitorSyncRun = useCallback(async (syncRunId: string, requestId: number, silent: boolean, filterSignature: string) => {
     try {
       const result = await waitForSyncRun(syncRunId);
       if (requestId !== syncRequestRef.current) return;
 
       await loadStoredRecords({ silent: true });
       setLastSyncAt(new Date().toISOString());
+      setLastAppliedFilterSignature(filterSignature);
       void loadReconciliationData();
       if (!silent) {
         toast.success(result.ticketsStored + ' registro(s) sincronizado(s) na base local.');
@@ -1434,7 +1546,7 @@ export default function SupportCostsPage() {
       if (payload.accepted && payload.syncRunId) {
         setActiveSyncRunId(payload.syncRunId);
         if (!silent) toast.info('Sincronizacao iniciada em segundo plano. A tela continua exibindo a ultima base local disponivel.');
-        void monitorSyncRun(payload.syncRunId, requestId, silent);
+        void monitorSyncRun(payload.syncRunId, requestId, silent, currentFilterSignature);
         return;
       }
 
@@ -1446,6 +1558,7 @@ export default function SupportCostsPage() {
       }
 
       setLastSyncAt(new Date().toISOString());
+      setLastAppliedFilterSignature(currentFilterSignature);
       void loadReconciliationData();
       const importedCount = payload.count ?? payload.records?.length ?? 0;
       if (!silent && payload.message?.includes('Periodo ja importado')) {
@@ -1460,7 +1573,7 @@ export default function SupportCostsPage() {
     } finally {
       if (requestId === syncRequestRef.current) setLoadingSync(false);
     }
-  }, [clientId, contractId, dateFrom, dateTo, loadReconciliationData, loadStoredRecords, monitorSyncRun, syncClientName, syncClientNames]);
+  }, [clientId, contractId, currentFilterSignature, dateFrom, dateTo, loadReconciliationData, loadStoredRecords, monitorSyncRun, syncClientName, syncClientNames]);
 
   const renderChart = (title: string, data: { name: string; hours: number; cost: number }[]) => {
     const chartHeight = Math.max(460, data.length * 42 + 90);
@@ -1608,14 +1721,42 @@ export default function SupportCostsPage() {
               searchPlaceholder="Buscar responsavel..."
             />
           </label>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2 xl:col-span-10">
-            <Button type="button" variant="default" className="w-full whitespace-nowrap sm:w-auto" onClick={() => syncMilvus({ silent: false })} disabled={loadingSync || loadingStoredRecords || Boolean(activeSyncRunId)}>
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end md:col-span-2 xl:col-span-10">
+            {filtersNeedSync && (
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                Filtros alterados. Sincronize para atualizar a base.
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="default"
+              className={cn(
+                'w-full whitespace-nowrap sm:w-auto',
+                filtersNeedSync && 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500',
+              )}
+              onClick={() => syncMilvus({ silent: false })}
+              disabled={loadingSync || loadingStoredRecords || Boolean(activeSyncRunId)}
+            >
               {loadingSync || loadingStoredRecords || activeSyncRunId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
-              {activeSyncRunId ? 'Sincronizando...' : 'Sincronizar Milvus'}
+              {activeSyncRunId ? 'Sincronizando...' : filtersNeedSync ? 'Sincronizar para atualizar' : 'Sincronizar Milvus'}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {filtersNeedSync && (
+        <Card className="border-red-200 bg-red-50 text-red-950 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-100">
+          <CardContent className="flex items-start gap-3 p-4 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Os filtros foram alterados depois da última sincronização.</p>
+              <p className="text-red-800 dark:text-red-200">
+                A tela pode estar exibindo a base local disponível para o período. Use o botão em destaque para buscar dados atualizados do Milvus.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {showSyncPendingValues && (
         <Card className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
@@ -1632,10 +1773,11 @@ export default function SupportCostsPage() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:w-auto">
           <TabsTrigger value="overview">Visão geral</TabsTrigger>
           <TabsTrigger value="executive">Visão executiva</TabsTrigger>
           <TabsTrigger value="client-report">Relatório por cliente</TabsTrigger>
+          <TabsTrigger value="inconsistencies">Inconsistências</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -1766,6 +1908,10 @@ export default function SupportCostsPage() {
               <SupportCostTable records={filteredRecords} groups={clientReportGroups} canViewValues={canViewSupportCosts} valueText={valueText} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="inconsistencies" className="space-y-4">
+          <SupportInconsistenciesPanel rows={inconsistencies} />
         </TabsContent>
       </Tabs>
     </div>
