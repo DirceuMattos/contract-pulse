@@ -346,11 +346,7 @@ function getMilvusClientTerms(clientName?: string, clientNames: string[] = []): 
       .split(/[\s\-_/.,]+/)
       .map((word) => word.trim())
       .filter((word) => word.length >= 3);
-    const acronym = words
-      .filter((word) => /^[A-Z0-9]+$/.test(word) || word.length <= 5)
-      .slice(0, 3)
-      .join(" ");
-    terms.push(clean, words.slice(0, 2).join(" "), words[0], acronym, compactToken(clean));
+    terms.push(clean, words.slice(0, 2).join(" "), words.slice(0, 3).join(" "));
   }
 
   return Array.from(new Set(terms.filter((term) => term && term.length >= 3))).slice(0, 24);
