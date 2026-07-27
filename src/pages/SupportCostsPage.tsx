@@ -1950,8 +1950,14 @@ export default function SupportCostsPage() {
     if (group.milvusProjectId) {
       const { error } = await db.from('support_cost_tickets').update(updates).eq('milvus_project_id', group.milvusProjectId);
       if (error) throw new Error(error.message || 'Erro ao atualizar tickets do projeto.');
+    } else if (target.hubContractId && group.projectName && group.projectName !== 'Nao informado') {
+      const { error } = await db.from('support_cost_tickets').update(updates).eq('project_name', group.projectName);
+      if (error) throw new Error(error.message || 'Erro ao atualizar tickets do projeto.');
     } else if (group.milvusClientId) {
       const { error } = await db.from('support_cost_tickets').update(updates).eq('milvus_client_id', group.milvusClientId);
+      if (error) throw new Error(error.message || 'Erro ao atualizar tickets do cliente.');
+    } else if (target.hubClientId && group.clientName && group.clientName !== 'Nao informado') {
+      const { error } = await db.from('support_cost_tickets').update(updates).eq('client_name', group.clientName);
       if (error) throw new Error(error.message || 'Erro ao atualizar tickets do cliente.');
     } else if (group.ticketCodes.length > 0) {
       const { error } = await db.from('support_cost_tickets').update(updates).in('milvus_ticket_code', group.ticketCodes);
@@ -2132,9 +2138,9 @@ export default function SupportCostsPage() {
                 filtersNeedSync && 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500',
               )}
               onClick={() => syncMilvus({ silent: false })}
-              disabled={loadingSync || loadingStoredRecords || Boolean(activeSyncRunId)}
+              disabled={loadingSync || Boolean(activeSyncRunId)}
             >
-              {loadingSync || loadingStoredRecords || activeSyncRunId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+              {loadingSync || activeSyncRunId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               {activeSyncRunId ? 'Sincronizando...' : filtersNeedSync ? 'Sincronizar para atualizar' : 'Sincronizar Milvus'}
             </Button>
           </div>
