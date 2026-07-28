@@ -3656,13 +3656,13 @@ export type Database = {
         | "juridico"
         | "operacional"
         | "governanca"
+      job_request_fill_source: "hunting" | "bnp" | "indicacao"
       job_request_status:
         | "solicitado"
         | "em_avaliacao"
         | "aprovado_em_contratacao"
         | "preenchida"
         | "suspenso"
-      job_request_fill_source: "hunting" | "bnp" | "indicacao"
       module_key:
         | "DASHBOARD"
         | "CLIENTS"
@@ -3883,6 +3883,7 @@ export const Constants = {
         "operacional",
         "governanca",
       ],
+      job_request_fill_source: ["hunting", "bnp", "indicacao"],
       job_request_status: [
         "solicitado",
         "em_avaliacao",
@@ -3890,7 +3891,6 @@ export const Constants = {
         "preenchida",
         "suspenso",
       ],
-      job_request_fill_source: ["hunting", "bnp", "indicacao"],
       module_key: [
         "DASHBOARD",
         "CLIENTS",
