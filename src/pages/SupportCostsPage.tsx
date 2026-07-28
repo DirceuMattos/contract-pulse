@@ -1911,16 +1911,46 @@ export default function SupportCostsPage() {
     if (target.hubClientId) updates.hub_client_id = target.hubClientId;
     if (target.hubContractId) updates.hub_contract_id = target.hubContractId;
 
+    type SupportMutationBuilder = PromiseLike<{ error?: LooseSupabaseError }> & {
+      eq: (column: string, value: unknown) => SupportMutationBuilder;
+      in: (column: string, values: unknown[]) => SupportMutationBuilder;
+    };
+    type SupportSelectBuilder = PromiseLike<LooseSupabaseRowsResult> & {
+      eq: (column: string, value: unknown) => SupportSelectBuilder;
+      limit: (count: number) => SupportSelectBuilder;
+    };
+
     const db = supabase as unknown as {
       from: (tableName: string) => {
         upsert: (values: unknown, options?: { onConflict?: string }) => Promise<{ error?: LooseSupabaseError }>;
-        update: (values: unknown) => {
-          eq: (column: string, value: unknown) => Promise<{ error?: LooseSupabaseError }> & {
-            in: (column: string, values: unknown[]) => Promise<{ error?: LooseSupabaseError }>;
-          };
-          in: (column: string, values: unknown[]) => Promise<{ error?: LooseSupabaseError }>;
-        };
+        update: (values: unknown) => SupportMutationBuilder;
+        select: (columns: string) => SupportSelectBuilder;
       };
+    };
+
+    const resolveUpdates = { resolved_at: new Date().toISOString() };
+    const validProjectName = group.projectName && group.projectName !== 'Nao informado';
+    const validClientName = group.clientName && group.clientName !== 'Nao informado';
+    const loadAffectedTicketCodes = async () => {
+      let query = db.from('support_cost_tickets').select('milvus_ticket_code');
+      if (group.milvusProjectId) {
+        query = query.eq('milvus_project_id', group.milvusProjectId);
+      } else if (target.hubContractId && validProjectName) {
+        query = query.eq('project_name', group.projectName);
+      } else if (group.milvusClientId) {
+        query = query.eq('milvus_client_id', group.milvusClientId);
+      } else if (target.hubClientId && validClientName) {
+        query = query.eq('client_name', group.clientName);
+      } else {
+        return group.ticketCodes;
+      }
+
+      const { data, error } = await query.limit(5000);
+      if (error) throw new Error(error.message || 'Erro ao localizar tickets vinculados.');
+      const codes = (data ?? [])
+        .map((row) => String((row as Record<string, unknown>).milvus_ticket_code ?? ''))
+        .filter(Boolean);
+      return Array.from(new Set([...group.ticketCodes, ...codes]));
     };
 
     if (group.milvusClientId && target.hubClientId) {
@@ -1964,10 +1994,21 @@ export default function SupportCostsPage() {
       if (error) throw new Error(error.message || 'Erro ao atualizar tickets.');
     }
 
-    if (group.rowIds.length > 0) {
-      const { error } = await db.from('support_cost_inconsistencies').update({
-        resolved_at: new Date().toISOString(),
-      }).in('id', group.rowIds);
+    const affectedTicketCodes = await loadAffectedTicketCodes();
+
+    if (group.milvusProjectId) {
+      const { error } = await db.from('support_cost_inconsistencies').update(resolveUpdates).eq('milvus_project_id', group.milvusProjectId);
+      if (error) throw new Error(error.message || 'Erro ao resolver inconsistencias do projeto.');
+    } else if (group.milvusClientId) {
+      const { error } = await db.from('support_cost_inconsistencies').update(resolveUpdates).eq('milvus_client_id', group.milvusClientId);
+      if (error) throw new Error(error.message || 'Erro ao resolver inconsistencias do cliente.');
+    }
+
+    if (affectedTicketCodes.length > 0) {
+      const { error } = await db.from('support_cost_inconsistencies').update(resolveUpdates).in('milvus_ticket_code', affectedTicketCodes);
+      if (error) throw new Error(error.message || 'Erro ao resolver inconsistencias dos tickets.');
+    } else if (group.rowIds.length > 0) {
+      const { error } = await db.from('support_cost_inconsistencies').update(resolveUpdates).in('id', group.rowIds);
       if (error) throw new Error(error.message || 'Erro ao resolver inconsistencias.');
     }
 
