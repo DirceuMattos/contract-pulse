@@ -31,6 +31,7 @@ export interface JobRequest {
   pending_replacement_id: string | null;
   contract_id: string | null;
   solicitante_id: string | null;
+  solicitante_nome: string | null;
   observacoes: string | null;
   created_at: string;
   updated_at: string;
@@ -76,7 +77,11 @@ export function useJobRequests() {
         .order('created_at', { ascending: false });
       if (e) throw e;
       const rows = (data ?? []) as JobRequestRow[];
-      const requesterIds = Array.from(new Set(rows.map((r) => r.solicitante_id).filter(Boolean) as string[]));
+      // Fallback só para vagas antigas sem solicitante_nome gravado na linha.
+      const requesterIds = Array.from(new Set(
+        rows.filter((r) => !r.solicitante_nome && r.solicitante_id)
+            .map((r) => r.solicitante_id) as string[],
+      ));
       const requesterMap = new Map<string, string>();
 
       if (requesterIds.length > 0) {
@@ -93,7 +98,8 @@ export function useJobRequests() {
       const mapped: JobRequest[] = rows.map((r) => ({
         ...r,
         jobTitleLabel: r.job_titles?.label ?? null,
-        solicitanteNome: r.solicitante_id ? requesterMap.get(r.solicitante_id) ?? null : null,
+        solicitanteNome: r.solicitante_nome
+          ?? (r.solicitante_id ? requesterMap.get(r.solicitante_id) ?? null : null),
       }));
       setRequests(mapped);
     } catch (err) {

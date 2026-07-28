@@ -154,7 +154,7 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
         if (error) throw error;
       } else {
         const { error } = await supabase.from('job_requests')
-          .insert({ ...payload, status: 'solicitado', solicitante_id: user?.id ?? null });
+          .insert({ ...payload, status: 'solicitado', solicitante_id: user?.id ?? null, solicitante_nome: user?.name ?? null });
         if (error) throw error;
       }
       toast.success(editing ? 'Vaga atualizada' : 'Vaga criada');

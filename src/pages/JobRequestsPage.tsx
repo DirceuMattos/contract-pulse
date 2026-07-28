@@ -123,6 +123,7 @@ export default function JobRequestsPage() {
       pending_replacement_id: rep.id,
       contract_id: rep.contract_id,
       solicitante_id: user?.id ?? null,
+      solicitante_nome: user?.name ?? null,
     });
     if (e) { toast.error('Erro ao abrir vaga'); return; }
     // marca as demais reposições da mesma pessoa como resolvidas (replaced)
