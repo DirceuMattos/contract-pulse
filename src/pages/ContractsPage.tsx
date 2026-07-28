@@ -12,7 +12,6 @@ import {
   Trash2,
   Eye,
   Users,
-  Filter,
   X,
   Download,
   ArrowUpDown,
@@ -45,12 +44,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { formatDate, formatCurrency, formatPercentage, calculateContractHealth } from '@/lib/calculations';
@@ -120,8 +113,6 @@ const sortLabels: Record<SortOption, string> = {
   'margem-asc': 'Margem % ↑',
 };
 
-type AlertFilter = 'vencimento' | 'reajuste' | 'margem';
-
 export default function ContractsPage() {
   const navigate = useNavigate();
   const { contracts, clients, resources: _rawResources, settings, deleteContract } = useData();
@@ -143,10 +134,7 @@ export default function ContractsPage() {
     tipo: 'all',
     status: 'all',
     health: [] as HealthStatus[],
-    alerts: [] as AlertFilter[],
   });
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
   const peopleMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   
   // Calculate health for each contract
@@ -159,7 +147,7 @@ export default function ContractsPage() {
   }), [contracts, resources, settings, clients, getAlertsForContract, getAllocation, getAllocationsByContract, peopleMap]);
   
   // Apply filters
-  const filteredContracts = contractsWithHealth.filter(({ contract, health, alerts, client }) => {
+  const filteredContracts = contractsWithHealth.filter(({ contract, health, client }) => {
     const searchLower = search.toLowerCase();
     const matchesSearch = !search ||
       contract.nome.toLowerCase().includes(searchLower) ||
@@ -172,20 +160,7 @@ export default function ContractsPage() {
     const matchesStatus = filters.status === 'all' || contract.status === filters.status;
     const matchesHealth = filters.health.length === 0 || filters.health.includes(health.status);
     
-    // Alert filters
-    let matchesAlerts = true;
-    if (filters.alerts.length > 0) {
-      const hasVencimento = alerts.some(a => a.alertCategory === 'prazo');
-      const hasReajuste = alerts.some(a => a.alertCategory === 'reajuste');
-      const hasMargem = alerts.some(a => a.alertCategory === 'financeiro');
-      matchesAlerts = filters.alerts.some(af => 
-        (af === 'vencimento' && hasVencimento) ||
-        (af === 'reajuste' && hasReajuste) ||
-        (af === 'margem' && hasMargem)
-      );
-    }
-    
-    return matchesSearch && matchesSegmento && matchesTipo && matchesStatus && matchesHealth && matchesAlerts;
+    return matchesSearch && matchesSegmento && matchesTipo && matchesStatus && matchesHealth;
   });
   
   // Sort
@@ -211,8 +186,7 @@ export default function ContractsPage() {
     (filters.segmento !== 'all' ? 1 : 0) +
     (filters.tipo !== 'all' ? 1 : 0) +
     (filters.status !== 'all' ? 1 : 0) +
-    filters.health.length +
-    filters.alerts.length;
+    filters.health.length;
   
   const clearFilters = () => {
     setFilters({
@@ -220,7 +194,6 @@ export default function ContractsPage() {
       tipo: 'all',
       status: 'all',
       health: [],
-      alerts: [],
     });
   };
   
@@ -238,15 +211,6 @@ export default function ContractsPage() {
       health: prev.health.includes(status)
         ? prev.health.filter(h => h !== status)
         : [...prev.health, status],
-    }));
-  };
-
-  const toggleAlertFilter = (alert: AlertFilter) => {
-    setFilters(prev => ({
-      ...prev,
-      alerts: prev.alerts.includes(alert)
-        ? prev.alerts.filter(a => a !== alert)
-        : [...prev.alerts, alert],
     }));
   };
 
@@ -383,127 +347,6 @@ export default function ContractsPage() {
             </SelectContent>
           </Select>
 
-          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Filtros</span>
-                {activeFiltersCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm">Filtros</h4>
-                  {activeFiltersCount > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto py-1 px-2 text-xs">
-                      Limpar
-                    </Button>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Segmento</Label>
-                  <Select value={filters.segmento} onValueChange={(v) => setFilters(prev => ({ ...prev, segmento: v }))}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="govtech">Govtech</SelectItem>
-                      <SelectItem value="privado">Privado</SelectItem>
-                      <SelectItem value="hibrido">Híbrido</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Tipo</Label>
-                  <Select value={filters.tipo} onValueChange={(v) => setFilters(prev => ({ ...prev, tipo: v }))}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="sistema">Sistema</SelectItem>
-                      <SelectItem value="infraestrutura">Infraestrutura</SelectItem>
-                      <SelectItem value="hibrido">Híbrido</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Status Operacional</Label>
-                  <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="operacao">Em Operação</SelectItem>
-                      <SelectItem value="implantacao">Em Implantação</SelectItem>
-                      <SelectItem value="suspenso">Suspenso</SelectItem>
-                      <SelectItem value="encerrado">Encerrado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Saúde Financeira</Label>
-                  <div className="space-y-2">
-                    {(['saudavel', 'atencao', 'critico'] as HealthStatus[]).map(status => (
-                      <div key={status} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`health-${status}`}
-                          checked={filters.health.includes(status)}
-                          onCheckedChange={() => toggleHealthFilter(status)}
-                        />
-                        <label 
-                          htmlFor={`health-${status}`}
-                          className={cn(
-                            'text-sm cursor-pointer',
-                            status === 'saudavel' && 'text-health-healthy',
-                            status === 'atencao' && 'text-health-attention',
-                            status === 'critico' && 'text-health-critical',
-                          )}
-                        >
-                          {healthLabels[status]}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Alertas
-                  </Label>
-                  <div className="space-y-2">
-                    {([
-                      { key: 'vencimento' as AlertFilter, label: 'Vencimento próximo' },
-                      { key: 'reajuste' as AlertFilter, label: 'Reajuste próximo' },
-                      { key: 'margem' as AlertFilter, label: 'Margem crítica / Déficit' },
-                    ]).map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`alert-${key}`}
-                          checked={filters.alerts.includes(key)}
-                          onCheckedChange={() => toggleAlertFilter(key)}
-                        />
-                        <label htmlFor={`alert-${key}`} className="text-sm cursor-pointer">
-                          {label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
         </div>
         </div>
 
@@ -518,7 +361,7 @@ export default function ContractsPage() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="govtech">Govtech</SelectItem>
                 <SelectItem value="privado">Privado</SelectItem>
-                <SelectItem value="hibrido">HÃ­brido</SelectItem>
+                <SelectItem value="hibrido">Híbrido</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -533,7 +376,7 @@ export default function ContractsPage() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="sistema">Sistema</SelectItem>
                 <SelectItem value="infraestrutura">Infraestrutura</SelectItem>
-                <SelectItem value="hibrido">HÃ­brido</SelectItem>
+                <SelectItem value="hibrido">Híbrido</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -546,8 +389,8 @@ export default function ContractsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="operacao">Em OperaÃ§Ã£o</SelectItem>
-                <SelectItem value="implantacao">Em ImplantaÃ§Ã£o</SelectItem>
+                <SelectItem value="operacao">Em Operação</SelectItem>
+                <SelectItem value="implantacao">Em Implantação</SelectItem>
                 <SelectItem value="suspenso">Suspenso</SelectItem>
                 <SelectItem value="encerrado">Encerrado</SelectItem>
               </SelectContent>
@@ -555,7 +398,7 @@ export default function ContractsPage() {
           </div>
 
           <div className="space-y-1.5 md:col-span-2">
-            <Label className="text-xs text-muted-foreground">SaÃºde financeira</Label>
+            <Label className="text-xs text-muted-foreground">Saúde financeira</Label>
             <div className="flex min-h-9 flex-wrap items-center gap-2">
               {(['saudavel', 'atencao', 'critico'] as HealthStatus[]).map(status => {
                 const selected = filters.health.includes(status);
@@ -581,28 +424,6 @@ export default function ContractsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center">
-          <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Filter className="w-3.5 h-3.5" />
-            Alertas
-          </Label>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {([
-              { key: 'vencimento' as AlertFilter, label: 'Vencimento prÃ³ximo' },
-              { key: 'reajuste' as AlertFilter, label: 'Reajuste prÃ³ximo' },
-              { key: 'margem' as AlertFilter, label: 'Margem crÃ­tica / DÃ©ficit' },
-            ]).map(({ key, label }) => (
-              <label key={key} className="flex cursor-pointer items-center gap-2 text-sm">
-                <Checkbox
-                  id={`alert-inline-${key}`}
-                  checked={filters.alerts.includes(key)}
-                  onCheckedChange={() => toggleAlertFilter(key)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
       </motion.div>
       
       {/* Active filters */}
@@ -645,15 +466,6 @@ export default function ContractsPage() {
             >
               {healthLabels[status]}
               <button onClick={() => toggleHealthFilter(status)}>
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          ))}
-          {filters.alerts.map(alert => (
-            <Badge key={alert} variant="secondary" className="gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              {alert === 'vencimento' ? 'Vencimento' : alert === 'reajuste' ? 'Reajuste' : 'Margem'}
-              <button onClick={() => toggleAlertFilter(alert)}>
                 <X className="w-3 h-3" />
               </button>
             </Badge>
