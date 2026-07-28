@@ -17,7 +17,7 @@ async function dispatch(
 ) {
   try {
     await supabase.rpc('notify_roles_and_users', {
-      _roles: ROLES_VAGAS as unknown as string[],
+      _roles: [...ROLES_VAGAS],
       _extra_users: extraUsers.filter(Boolean) as string[],
       _tipo: tipo,
       _titulo: titulo,
