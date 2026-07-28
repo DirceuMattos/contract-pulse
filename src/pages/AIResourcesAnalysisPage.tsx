@@ -28,7 +28,7 @@ export default function AIResourcesAnalysisPage() {
   const { userRole } = useAuth();
   const { toast } = useToast();
 
-  const isAdmin = userRole === 'c-level';
+  const isAdmin = userRole === 'superadmin' || userRole === 'c-level';
   const [generated, setGenerated] = useState(false);
   const [showNames, setShowNames] = useState(isAdmin);
   const [filterTeam, setFilterTeam] = useState('all');

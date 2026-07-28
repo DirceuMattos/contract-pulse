@@ -146,7 +146,7 @@ export default function AILogsPage() {
   const [publishNewVersion, setPublishNewVersion] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
-  const isAdmin = user?.role === 'c-level';
+  const isAdmin = user?.role === 'superadmin' || user?.role === 'c-level';
 
   const fetchData = async () => {
     setLoading(true);

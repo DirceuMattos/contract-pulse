@@ -75,7 +75,7 @@ export default function AIDraftsPage() {
   // DB templates cache
   const [dbTemplates, setDbTemplates] = useState<Record<string, { body: string; version: string }>>({});
 
-  const isAdmin = user?.role === 'c-level';
+  const isAdmin = user?.role === 'superadmin' || user?.role === 'c-level';
 
   // Fetch active templates from DB on mount
   React.useEffect(() => {

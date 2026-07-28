@@ -328,7 +328,7 @@ export default function ContractsPage() {
         description="Gerencie seus contratos e acompanhe a saúde financeira"
         actions={
           <div className="flex items-center gap-2">
-            {(userRole === 'c-level' || userRole === 'administrativo') && (
+            {(userRole === 'superadmin' || userRole === 'c-level' || userRole === 'administrativo') && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5">

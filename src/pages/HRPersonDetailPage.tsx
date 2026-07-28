@@ -369,7 +369,7 @@ export default function HRPersonDetailPage() {
     setDeleteEventId(null);
   };
 
-  const isCLevel = user?.role === 'c-level';
+  const canReactivatePerson = user?.role === 'superadmin' || user?.role === 'c-level';
 
   return (
     <div className="space-y-6">
@@ -402,7 +402,7 @@ export default function HRPersonDetailPage() {
                     Desligamento
                   </Button>
                 )}
-                {person.situacao === 'inativo' && isCLevel && (
+                {person.situacao === 'inativo' && canReactivatePerson && (
                   <Button variant="outline" onClick={() => setReativarOpen(true)}>
                     <UserCheck className="h-4 w-4 mr-2" />
                     Reativar

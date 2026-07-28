@@ -358,7 +358,7 @@ export default function ContractDocumentsTab({ contractId, contractCode }: Contr
             <Plus className="w-4 h-4" /> Anexar documento
           </Button>
         )}
-        {user?.role === 'c-level' && (
+        {(user?.role === 'superadmin' || user?.role === 'c-level') && (
           <Button variant="outline" onClick={() => setConfigOpen(true)} className="gap-2">
             <Settings2 className="w-4 h-4" /> Gerenciar tipos
           </Button>

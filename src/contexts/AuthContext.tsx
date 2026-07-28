@@ -187,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canModuleAction = (moduleKey: ModuleKey, action: ActionFlagKey): boolean => {
+    if (isSuperAdmin) return true;
     const moduleFlags = moduleActionPermissions?.[moduleKey];
     if (moduleFlags) return moduleFlags[action];
     return legacyActionFlags[action];
