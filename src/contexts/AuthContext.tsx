@@ -39,6 +39,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Evita instâncias duplicadas do contexto durante o HMR (causa de
+// "useAuth must be used within an AuthProvider" no preview).
+if (import.meta.hot) {
+  import.meta.hot.accept(() => import.meta.hot?.invalidate());
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
