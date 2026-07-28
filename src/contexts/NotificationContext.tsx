@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useDbNotifications, type DbNotification } from '@/hooks/useDbNotifications';
 import { useAlerts } from '@/hooks/useAlerts';
 import type { Notification as AppNotification, NotificationSettings } from '@/types';
 
@@ -16,12 +17,23 @@ interface NotificationContextType {
   requestBrowserPermission: () => Promise<NotificationPermission>;
   toggleBrowserNotifications: () => Promise<void>;
   processAlerts: (alerts: import('@/types').Alert[]) => void;
+  // Notificações persistidas (I1)
+  dbNotifications: DbNotification[];
+  dbUnreadCount: number;
+  markDbAsRead: (id: string) => void;
+  markAllDbAsRead: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { alerts } = useAlerts();
+  const {
+    items: dbNotifications,
+    unreadCount: dbUnreadCount,
+    markAsRead: markDbAsRead,
+    markAllAsRead: markAllDbAsRead,
+  } = useDbNotifications();
   const {
     notifications,
     settings,
@@ -59,6 +71,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         requestBrowserPermission,
         toggleBrowserNotifications,
         processAlerts,
+        dbNotifications,
+        dbUnreadCount,
+        markDbAsRead,
+        markAllDbAsRead,
       }}
     >
       {children}

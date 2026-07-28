@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useJobSkills, type Skill } from '@/hooks/useJobSkills';
 import { SkillSelector } from '@/components/jobskills/SkillSelector';
 import { JobRequestHistory } from '@/components/jobrequests/JobRequestHistory';
+import { notifyVagaAberta } from '@/lib/notifyVagas';
 import { toast } from 'sonner';
 import type { JobRequest } from '@/hooks/useJobRequests';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -153,9 +154,12 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
         const { error } = await supabase.from('job_requests').update(payload).eq('id', editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('job_requests')
-          .insert({ ...payload, status: 'solicitado', solicitante_id: user?.id ?? null, solicitante_nome: user?.name ?? null });
+        const { data: nova, error } = await supabase.from('job_requests')
+          .insert({ ...payload, status: 'solicitado', solicitante_id: user?.id ?? null, solicitante_nome: user?.name ?? null })
+          .select('id')
+          .single();
         if (error) throw error;
+        notifyVagaAberta(payload.titulo, nova?.id ?? null, user?.name ?? null, user?.id);
       }
       toast.success(editing ? 'Vaga atualizada' : 'Vaga criada');
       onSaved();

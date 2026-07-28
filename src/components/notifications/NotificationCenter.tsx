@@ -166,6 +166,10 @@ export function NotificationCenter() {
     updateSettings,
     toggleBrowserNotifications,
     requestBrowserPermission,
+    dbNotifications,
+    dbUnreadCount,
+    markDbAsRead,
+    markAllDbAsRead,
   } = useNotificationContext();
 
   const criticalNotifications = notifications.filter((n) => n.severity === 'critico');
@@ -188,14 +192,14 @@ export function NotificationCenter() {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
+          {(unreadCount + dbUnreadCount) > 0 && (
             <span
               className={cn(
                 'absolute -top-1 -right-1 h-5 w-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white',
                 criticalUnreadCount > 0 ? 'bg-health-critical' : 'bg-health-attention'
               )}
             >
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {(unreadCount + dbUnreadCount) > 99 ? '99+' : (unreadCount + dbUnreadCount)}
             </span>
           )}
         </Button>
@@ -224,6 +228,9 @@ export function NotificationCenter() {
               <TabsTrigger value="critico" className="flex-1 text-xs">
                 <AlertTriangle className="h-3 w-3 mr-1 text-health-critical" />
                 Críticas ({criticalNotifications.length})
+              </TabsTrigger>
+              <TabsTrigger value="mensagens" className="flex-1 text-xs">
+                Mensagens ({dbNotifications.length})
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex-1 text-xs">
                 <Settings className="h-3 w-3 mr-1" />
@@ -292,6 +299,50 @@ export function NotificationCenter() {
                 </AnimatePresence>
               )}
             </ScrollArea>
+          </TabsContent>
+
+          {/* Mensagens (notificações persistidas — I1) */}
+          <TabsContent value="mensagens" className="m-0">
+            <ScrollArea className="h-[350px]">
+              {dbNotifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
+                  <Bell className="h-10 w-10 mb-2 opacity-50" />
+                  <p className="text-sm">Nenhuma mensagem</p>
+                </div>
+              ) : (
+                dbNotifications.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => {
+                      if (!n.lida) markDbAsRead(n.id);
+                      if (n.link) navigate(n.link);
+                    }}
+                    className={cn(
+                      'w-full text-left p-3 border-b border-border hover:bg-muted/40 transition-colors',
+                      !n.lida && 'bg-primary/5',
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <h4 className={cn('text-sm', !n.lida && 'font-semibold')}>{n.titulo}</h4>
+                      {!n.lida && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                    </div>
+                    {n.mensagem && <p className="text-xs text-muted-foreground mt-0.5">{n.mensagem}</p>}
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+                    </p>
+                  </button>
+                ))
+              )}
+            </ScrollArea>
+            {dbNotifications.some((n) => !n.lida) && (
+              <div className="p-2 border-t border-border">
+                <Button variant="ghost" size="sm" className="w-full text-xs" onClick={markAllDbAsRead}>
+                  <CheckCheck className="h-3 w-3 mr-1" />
+                  Marcar todas como lidas
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Settings */}

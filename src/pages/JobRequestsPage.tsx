@@ -22,6 +22,7 @@ import {
 import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsForVaga';
 import { JobRequestDialog } from '@/components/jobrequests/JobRequestDialog';
 import { NaoReporDialog } from '@/components/jobrequests/NaoReporDialog';
+import { notifyVagaAberta, notifyVagaStatus } from '@/lib/notifyVagas';
 import { ExportJobRequestDialog } from '@/components/jobrequests/ExportJobRequestDialog';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 
@@ -113,7 +114,7 @@ export default function JobRequestsPage() {
     const titulo = rep.cargoLabel
       ? `${rep.cargoLabel}${rep.nivel ? ` (${rep.nivel})` : ''}`
       : `Reposição — ${rep.pessoaNome}`;
-    const { error: e } = await supabase.from('job_requests').insert({
+    const { data: nova, error: e } = await supabase.from('job_requests').insert({
       titulo,
       descricao: `Reposição de ${rep.pessoaNome}.`,
       job_title_id: rep.cargoId,
@@ -124,8 +125,9 @@ export default function JobRequestsPage() {
       contract_id: rep.contract_id,
       solicitante_id: user?.id ?? null,
       solicitante_nome: user?.name ?? null,
-    });
+    }).select('id').single();
     if (e) { toast.error('Erro ao abrir vaga'); return; }
+    notifyVagaAberta(titulo, nova?.id ?? null, user?.name ?? null, user?.id);
     // marca as demais reposições da mesma pessoa como resolvidas (replaced)
     const outras = rep.allIds.filter((id) => id !== rep.id);
     if (outras.length > 0) {
@@ -184,6 +186,7 @@ export default function JobRequestsPage() {
 
     const { error: e } = await supabase.from('job_requests').update({ status: novo }).eq('id', r.id);
     if (e) { toast.error('Erro ao mudar status'); return; }
+    notifyVagaStatus(r.titulo, r.id, novo, r.solicitante_id);
     toast.success(`Vaga movida para "${STATUS_META[novo].label}"`);
     reload();
   };
@@ -205,6 +208,7 @@ export default function JobRequestsPage() {
       return;
     }
 
+    notifyVagaStatus(fillingRequest.titulo, fillingRequest.id, 'preenchida', fillingRequest.solicitante_id);
     toast.success(`Vaga preenchida por ${FILL_SOURCE_LABELS[fillSource]}`);
     setFillingRequest(null);
     reload();
