@@ -9,6 +9,8 @@ export type JobRequestStatus =
   | 'preenchida'
   | 'suspenso';
 
+export type JobRequestFillSource = 'hunting' | 'bnp' | 'indicacao';
+
 export interface JobRequest {
   id: string;
   titulo: string;
@@ -25,6 +27,7 @@ export interface JobRequest {
   viagens_requeridas: boolean;
   beneficios: string | null;
   status: JobRequestStatus;
+  origem_preenchimento: JobRequestFillSource | null;
   pending_replacement_id: string | null;
   contract_id: string | null;
   solicitante_id: string | null;
@@ -33,6 +36,7 @@ export interface JobRequest {
   updated_at: string;
   // derivados
   jobTitleLabel?: string;
+  solicitanteNome?: string | null;
 }
 
 type JobRequestRow = JobRequest & {
@@ -72,9 +76,24 @@ export function useJobRequests() {
         .order('created_at', { ascending: false });
       if (e) throw e;
       const rows = (data ?? []) as JobRequestRow[];
+      const requesterIds = Array.from(new Set(rows.map((r) => r.solicitante_id).filter(Boolean) as string[]));
+      const requesterMap = new Map<string, string>();
+
+      if (requesterIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', requesterIds);
+
+        (profilesData ?? []).forEach((profile) => {
+          requesterMap.set(profile.id, profile.name);
+        });
+      }
+
       const mapped: JobRequest[] = rows.map((r) => ({
         ...r,
         jobTitleLabel: r.job_titles?.label ?? null,
+        solicitanteNome: r.solicitante_id ? requesterMap.get(r.solicitante_id) ?? null : null,
       }));
       setRequests(mapped);
     } catch (err) {

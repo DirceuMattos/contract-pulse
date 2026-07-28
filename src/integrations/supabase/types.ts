@@ -1558,6 +1558,9 @@ export type Database = {
           modalidade_trabalho: string | null
           nivel: string | null
           observacoes: string | null
+          origem_preenchimento:
+            | Database["public"]["Enums"]["job_request_fill_source"]
+            | null
           pending_replacement_id: string | null
           preenchida_em: string | null
           preenchida_por_hr_person_id: string | null
@@ -1583,6 +1586,9 @@ export type Database = {
           modalidade_trabalho?: string | null
           nivel?: string | null
           observacoes?: string | null
+          origem_preenchimento?:
+            | Database["public"]["Enums"]["job_request_fill_source"]
+            | null
           pending_replacement_id?: string | null
           preenchida_em?: string | null
           preenchida_por_hr_person_id?: string | null
@@ -1608,6 +1614,9 @@ export type Database = {
           modalidade_trabalho?: string | null
           nivel?: string | null
           observacoes?: string | null
+          origem_preenchimento?:
+            | Database["public"]["Enums"]["job_request_fill_source"]
+            | null
           pending_replacement_id?: string | null
           preenchida_em?: string | null
           preenchida_por_hr_person_id?: string | null
@@ -3653,6 +3662,7 @@ export type Database = {
         | "aprovado_em_contratacao"
         | "preenchida"
         | "suspenso"
+      job_request_fill_source: "hunting" | "bnp" | "indicacao"
       module_key:
         | "DASHBOARD"
         | "CLIENTS"
@@ -3880,6 +3890,7 @@ export const Constants = {
         "preenchida",
         "suspenso",
       ],
+      job_request_fill_source: ["hunting", "bnp", "indicacao"],
       module_key: [
         "DASHBOARD",
         "CLIENTS",

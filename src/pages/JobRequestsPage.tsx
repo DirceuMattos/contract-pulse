@@ -1,9 +1,12 @@
 // v6 - Vagas: subtela "Nao repostas / Contratacoes avulsas" + reposto por
 import { useState } from 'react';
-import { Briefcase, Copy, Gift, MapPin, Pencil, Plane, Plus, Trash2, UserMinus } from 'lucide-react';
+import { Briefcase, Check, Copy, Gift, MapPin, Pencil, Plane, Plus, Trash2, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -13,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  useJobRequests, type JobRequest, type JobRequestStatus,
+  useJobRequests, type JobRequest, type JobRequestFillSource, type JobRequestStatus,
   STATUS_META, STATUS_FLOW,
 } from '@/hooks/useJobRequests';
 import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsForVaga';
@@ -25,6 +28,14 @@ import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 const STATUS_ORDER: (JobRequestStatus | 'todos')[] = [
   'todos', 'solicitado', 'em_avaliacao', 'aprovado_em_contratacao', 'preenchida', 'suspenso',
 ];
+
+const MOVABLE_STATUS_ORDER = STATUS_ORDER.filter((s): s is JobRequestStatus => s !== 'todos');
+
+const FILL_SOURCE_LABELS: Record<JobRequestFillSource, string> = {
+  hunting: 'Empresa de Hunting',
+  bnp: 'BNP',
+  indicacao: 'BNP Indicação',
+};
 
 const CARD_STATUS_ORDER: Record<JobRequestStatus, number> = {
   solicitado: 1,
@@ -76,7 +87,7 @@ function getRequestSkills(request: JobRequest, tipo: 'hard' | 'soft') {
 }
 
 export default function JobRequestsPage() {
-  const { canEdit, userRole } = useAuth();
+  const { canEdit, userRole, user } = useAuth();
   const { requests, loading, error, reload } = useJobRequests();
   const { items: reposicoes, reload: reloadReposicoes } = usePendingReplacementsForVaga();
   const [filter, setFilter] = useState<JobRequestStatus | 'todos'>('todos');
@@ -85,10 +96,17 @@ export default function JobRequestsPage() {
   const [exporting, setExporting] = useState<JobRequest | null>(null);
   const [notReplacing, setNotReplacing] = useState<JobRequest | null>(null);
   const [deleting, setDeleting] = useState<JobRequest | null>(null);
+  const [fillingRequest, setFillingRequest] = useState<JobRequest | null>(null);
+  const [fillSource, setFillSource] = useState<JobRequestFillSource>('bnp');
   const canDeleteJobRequests = userRole === 'superadmin' || userRole === 'rh' || userRole === 'administrativo';
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: JobRequest) => { setEditing(r); setDialogOpen(true); };
+  const getStatusOptions = (status: JobRequestStatus) => (
+    userRole === 'rh'
+      ? MOVABLE_STATUS_ORDER.filter((s) => s !== status)
+      : STATUS_FLOW[status]
+  );
 
   // Cria vaga pré-preenchida a partir de uma reposição pendente (1 clique).
   const abrirVagaDeReposicao = async (rep: typeof reposicoes[number]) => {
@@ -104,7 +122,7 @@ export default function JobRequestsPage() {
       status: 'solicitado',
       pending_replacement_id: rep.id,
       contract_id: rep.contract_id,
-      solicitante_id: null,
+      solicitante_id: user?.id ?? null,
     });
     if (e) { toast.error('Erro ao abrir vaga'); return; }
     // marca as demais reposições da mesma pessoa como resolvidas (replaced)
@@ -157,9 +175,37 @@ export default function JobRequestsPage() {
   };
 
   const changeStatus = async (r: JobRequest, novo: JobRequestStatus) => {
+    if (novo === 'preenchida') {
+      setFillingRequest(r);
+      setFillSource(r.origem_preenchimento ?? 'bnp');
+      return;
+    }
+
     const { error: e } = await supabase.from('job_requests').update({ status: novo }).eq('id', r.id);
     if (e) { toast.error('Erro ao mudar status'); return; }
     toast.success(`Vaga movida para "${STATUS_META[novo].label}"`);
+    reload();
+  };
+
+  const confirmFilledStatus = async () => {
+    if (!fillingRequest) return;
+
+    const { error: e } = await supabase
+      .from('job_requests')
+      .update({
+        status: 'preenchida',
+        origem_preenchimento: fillSource,
+        preenchida_em: new Date().toISOString(),
+      })
+      .eq('id', fillingRequest.id);
+
+    if (e) {
+      toast.error('Erro ao mudar status');
+      return;
+    }
+
+    toast.success(`Vaga preenchida por ${FILL_SOURCE_LABELS[fillSource]}`);
+    setFillingRequest(null);
     reload();
   };
 
@@ -326,7 +372,7 @@ export default function JobRequestsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {filtered.map((r) => {
-            const proximos = STATUS_FLOW[r.status];
+            const proximos = getStatusOptions(r.status);
             const hardSkills = getRequestSkills(r, 'hard');
             const softSkills = getRequestSkills(r, 'soft');
             return (
@@ -410,6 +456,12 @@ export default function JobRequestsPage() {
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {r.anos_experiencia != null && <span>{r.anos_experiencia} ano(s) de exp.</span>}
                     <span>Aberta em {new Date(r.created_at).toLocaleDateString('pt-BR')}</span>
+                    {r.solicitanteNome && <span>Solicitada por {r.solicitanteNome}</span>}
+                    {r.status === 'preenchida' && r.origem_preenchimento && (
+                      <Badge variant="outline">
+                        Preenchida: {FILL_SOURCE_LABELS[r.origem_preenchimento]}
+                      </Badge>
+                    )}
                     {r.modalidade_trabalho && (
                       <Badge variant="outline" className="gap-1">
                         <Briefcase className="h-3 w-3" />
@@ -544,6 +596,40 @@ export default function JobRequestsPage() {
         description={`A vaga "${deleting?.titulo ?? ''}" será removida permanentemente, incluindo seu histórico de status. Esta ação não pode ser desfeita.`}
         confirmLabel="Excluir"
       />
+      <Dialog open={fillingRequest !== null} onOpenChange={(open) => { if (!open) setFillingRequest(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Como a vaga foi preenchida?</DialogTitle>
+            <DialogDescription>
+              Selecione a origem da contratação para registrar o fechamento da vaga.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2">
+            {(Object.keys(FILL_SOURCE_LABELS) as JobRequestFillSource[]).map((source) => {
+              const active = fillSource === source;
+              return (
+                <button
+                  key={source}
+                  type="button"
+                  className={`flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                    active ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => setFillSource(source)}
+                >
+                  <span>{FILL_SOURCE_LABELS[source]}</span>
+                  {active && <Check className="h-4 w-4" />}
+                </button>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFillingRequest(null)}>Cancelar</Button>
+            <Button onClick={() => { void confirmFilledStatus(); }}>Confirmar preenchimento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
