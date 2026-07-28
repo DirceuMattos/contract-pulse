@@ -370,6 +370,7 @@ export default function HRPersonDetailPage() {
   };
 
   const canReactivatePerson = user?.role === 'superadmin' || user?.role === 'c-level';
+  const canViewComite = userRole === 'superadmin' || userRole === 'c-level' || userRole === 'administrativo' || userRole === 'demo';
 
   return (
     <div className="space-y-6">
@@ -595,7 +596,7 @@ export default function HRPersonDetailPage() {
           </div>
 
           {/* Atualização mensal */}
-          {(userRole === 'c-level' || userRole === 'rh' || userRole === 'superadmin' || userRole === 'demo') && (
+          {canViewComite && (
             <Card className="border-amber-500/30 bg-amber-500/5">
               <CardHeader><CardTitle className="text-base text-amber-700 dark:text-amber-400">📋 Destaque para Comitê Gestor em</CardTitle></CardHeader>
               <CardContent className="space-y-3">

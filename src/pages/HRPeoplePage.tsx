@@ -59,7 +59,7 @@ function HRPeoplePageInner() {
     return m;
   }, [pendingReplacements]);
   const { canEdit, canCreate, canViewHRCosts, userRole } = useAuth();
-  const canViewComite = userRole === 'c-level' || userRole === 'rh' || userRole === 'superadmin';
+  const canViewComite = userRole === 'superadmin' || userRole === 'c-level' || userRole === 'administrativo';
   const canEditComite = canEdit && (userRole !== 'lider_tribo' && userRole !== 'coordenacao_suporte' && userRole !== 'projetos_produtos');
   const { underutilized } = useUnderutilized();
   const underutilizedByPerson = useMemo(() => {
