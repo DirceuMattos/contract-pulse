@@ -189,7 +189,7 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[min(920px,calc(100vw-2rem))] max-w-none">
         <DialogHeader>
           <DialogTitle>Adicionar a Projeto</DialogTitle>
         </DialogHeader>
@@ -199,11 +199,11 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
             <p className="font-medium">{personName}</p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_120px_auto] md:items-end">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_110px_auto] lg:items-end">
+            <div className="min-w-0 space-y-1.5">
               <Label>Contrato *</Label>
               <Select value={contractId} onValueChange={(v) => { setContractId(v); setSubprojectId(''); }}>
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 w-full text-sm">
                   <SelectValue placeholder="Selecione o contrato..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -217,14 +217,14 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Subprojeto</Label>
               <Select
                 value={subprojectId}
                 onValueChange={setSubprojectId}
                 disabled={!selectedHasSubprojects || subprojects.length === 0}
               >
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 w-full text-sm">
                   <SelectValue placeholder={selectedHasSubprojects ? 'Selecione...' : 'Nao se aplica'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -235,7 +235,7 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="add-dedication">Dedicacao (%)</Label>
               <Input
                 id="add-dedication"
@@ -247,7 +247,7 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
               />
             </div>
 
-            <Button type="button" variant="outline" onClick={addPendingAllocation} className="gap-2">
+            <Button type="button" variant="outline" onClick={addPendingAllocation} className="w-full gap-2 lg:w-auto">
               <Plus className="h-4 w-4" />
               Incluir
             </Button>
@@ -258,16 +258,17 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
               <Label className="text-xs text-muted-foreground">Projetos selecionados</Label>
               <div className="mt-2 space-y-2">
                 {pendingAllocations.map(item => (
-                  <div key={item.id} className="flex items-center gap-3 rounded-md border bg-background px-3 py-2 text-sm">
+                  <div key={item.id} className="flex min-w-0 items-center gap-3 rounded-md border bg-background px-3 py-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{getContractLabel(item.contractId)}</p>
                       {item.subprojectId && <p className="truncate text-xs text-muted-foreground">{getSubprojectLabel(item.subprojectId)}</p>}
                     </div>
-                    <span className="tabular-nums font-medium">{item.dedication}%</span>
+                    <span className="shrink-0 tabular-nums font-medium">{item.dedication}%</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
+                      className="shrink-0"
                       onClick={() => setPendingAllocations(prev => prev.filter(current => current.id !== item.id))}
                     >
                       <X className="h-4 w-4" />
@@ -278,7 +279,7 @@ export function AddResourceToContractDialog({ open, onOpenChange, hrPersonId, pe
             </div>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? 'Adicionando...' : pendingAllocations.length > 0 ? 'Adicionar Selecionados' : 'Adicionar'}
