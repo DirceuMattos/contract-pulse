@@ -1568,6 +1568,7 @@ export type Database = {
           quantidade: number
           skills_avulsas: Json | null
           solicitante_id: string | null
+          solicitante_nome: string | null
           status: Database["public"]["Enums"]["job_request_status"]
           titulo: string
           updated_at: string
@@ -1596,6 +1597,7 @@ export type Database = {
           quantidade?: number
           skills_avulsas?: Json | null
           solicitante_id?: string | null
+          solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo: string
           updated_at?: string
@@ -1624,6 +1626,7 @@ export type Database = {
           quantidade?: number
           skills_avulsas?: Json | null
           solicitante_id?: string | null
+          solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo?: string
           updated_at?: string
