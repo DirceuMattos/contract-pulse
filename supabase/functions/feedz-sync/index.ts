@@ -67,7 +67,11 @@ async function insertTimelineIdempotent(db: SupabaseClient, novoEvento: Record<s
 
   const { data: existing } = await query.maybeSingle()
   if (existing) return
-  await db.from('hr_timeline').insert(novoEvento)
+
+  const { error } = await db.from('hr_timeline').insert(novoEvento)
+  if (error && error.code !== '23505') {
+    throw error
+  }
 }
 
 async function insertPendingReplacementIdempotent(db: SupabaseClient, row: Record<string, string | null>): Promise<void> {

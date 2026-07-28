@@ -76,7 +76,11 @@ export function SearchableSelect({
       <PopoverContent className={cn('z-[80] w-[--radix-popover-trigger-width] p-0', className)} align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
-          <CommandList className="max-h-[min(18rem,calc(100vh-12rem))] overflow-y-auto overscroll-contain">
+          <CommandList
+            className="max-h-[min(18rem,calc(100vh-12rem))] overflow-y-auto overscroll-contain"
+            onWheel={(event) => event.stopPropagation()}
+            onTouchMove={(event) => event.stopPropagation()}
+          >
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (

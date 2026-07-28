@@ -145,8 +145,8 @@ export default function ContractsPage() {
     health: [] as HealthStatus[],
     alerts: [] as AlertFilter[],
   });
-  
   const [filtersOpen, setFiltersOpen] = useState(false);
+
   const peopleMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   
   // Calculate health for each contract
@@ -358,7 +358,8 @@ export default function ContractsPage() {
       />
       
       {/* Filters */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3">
+      <motion.div variants={itemVariants} className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -369,9 +370,9 @@ export default function ContractsPage() {
           />
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[150px] sm:w-[170px]">
+            <SelectTrigger className="w-full sm:w-[190px]">
               <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 shrink-0" />
               <SelectValue />
             </SelectTrigger>
@@ -503,6 +504,104 @@ export default function ContractsPage() {
               </div>
             </PopoverContent>
           </Popover>
+        </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Segmento</Label>
+            <Select value={filters.segmento} onValueChange={(v) => setFilters(prev => ({ ...prev, segmento: v }))}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="govtech">Govtech</SelectItem>
+                <SelectItem value="privado">Privado</SelectItem>
+                <SelectItem value="hibrido">HÃ­brido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Select value={filters.tipo} onValueChange={(v) => setFilters(prev => ({ ...prev, tipo: v }))}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="sistema">Sistema</SelectItem>
+                <SelectItem value="infraestrutura">Infraestrutura</SelectItem>
+                <SelectItem value="hibrido">HÃ­brido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Status operacional</Label>
+            <Select value={filters.status} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v }))}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="operacao">Em OperaÃ§Ã£o</SelectItem>
+                <SelectItem value="implantacao">Em ImplantaÃ§Ã£o</SelectItem>
+                <SelectItem value="suspenso">Suspenso</SelectItem>
+                <SelectItem value="encerrado">Encerrado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs text-muted-foreground">SaÃºde financeira</Label>
+            <div className="flex min-h-9 flex-wrap items-center gap-2">
+              {(['saudavel', 'atencao', 'critico'] as HealthStatus[]).map(status => {
+                const selected = filters.health.includes(status);
+                return (
+                  <Button
+                    key={status}
+                    type="button"
+                    variant={selected ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleHealthFilter(status)}
+                    className={cn(
+                      'h-8 px-2.5 text-xs',
+                      !selected && status === 'saudavel' && 'text-health-healthy hover:text-health-healthy',
+                      !selected && status === 'atencao' && 'text-health-attention hover:text-health-attention',
+                      !selected && status === 'critico' && 'text-health-critical hover:text-health-critical',
+                    )}
+                  >
+                    {healthLabels[status]}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center">
+          <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Filter className="w-3.5 h-3.5" />
+            Alertas
+          </Label>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {([
+              { key: 'vencimento' as AlertFilter, label: 'Vencimento prÃ³ximo' },
+              { key: 'reajuste' as AlertFilter, label: 'Reajuste prÃ³ximo' },
+              { key: 'margem' as AlertFilter, label: 'Margem crÃ­tica / DÃ©ficit' },
+            ]).map(({ key, label }) => (
+              <label key={key} className="flex cursor-pointer items-center gap-2 text-sm">
+                <Checkbox
+                  id={`alert-inline-${key}`}
+                  checked={filters.alerts.includes(key)}
+                  onCheckedChange={() => toggleAlertFilter(key)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
         </div>
       </motion.div>
       
