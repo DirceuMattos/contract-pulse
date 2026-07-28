@@ -1877,6 +1877,45 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          entidade: string | null
+          entidade_id: string | null
+          id: string
+          lida: boolean
+          link: string | null
+          mensagem: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entidade?: string | null
+          entidade_id?: string | null
+          id?: string
+          lida?: boolean
+          link?: string | null
+          mensagem?: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entidade?: string | null
+          entidade_id?: string | null
+          id?: string
+          lida?: boolean
+          link?: string | null
+          mensagem?: string | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       overhead_items: {
         Row: {
           categoria: Database["public"]["Enums"]["overhead_category"]
@@ -3615,6 +3654,19 @@ export type Database = {
           page_start: number
           rank: number
         }[]
+      }
+      notify_roles_and_users: {
+        Args: {
+          _entidade: string
+          _entidade_id: string
+          _extra_users: string[]
+          _link: string
+          _mensagem: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _tipo: string
+          _titulo: string
+        }
+        Returns: number
       }
     }
     Enums: {
