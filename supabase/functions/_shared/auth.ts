@@ -37,6 +37,7 @@ function getAuthorizationHeader(req: Request): string {
 
 export async function requireAuthenticatedUser(req: Request) {
   const authHeader = getAuthorizationHeader(req);
+  const token = authHeader.replace("Bearer ", "").trim();
   const supabaseUrl = requireEnv("SUPABASE_URL");
   const anonKey = requireEnv("SUPABASE_ANON_KEY");
 
@@ -45,6 +46,22 @@ export async function requireAuthenticatedUser(req: Request) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Validate the JWT itself (works even if the auth-server session row is gone,
+  // e.g. after a sign-out elsewhere, which makes getUser() return 403).
+  const { data: claimsData, error: claimsError } = await authClient.auth
+    .getClaims(token);
+
+  const sub = (claimsData as { claims?: { sub?: string; email?: string } } | null)
+    ?.claims?.sub;
+
+  if (!claimsError && sub) {
+    return {
+      id: sub,
+      email: (claimsData as { claims?: { email?: string } }).claims?.email ?? null,
+    };
+  }
+
+  // Fallback for older tokens / edge cases
   const {
     data: { user },
     error,
@@ -54,8 +71,9 @@ export async function requireAuthenticatedUser(req: Request) {
     throw new AuthError(AUTH_ERROR_MESSAGE, 401);
   }
 
-  return user;
+  return { id: user.id, email: user.email ?? null };
 }
+
 
 export async function requireAnyRole(
   req: Request,
