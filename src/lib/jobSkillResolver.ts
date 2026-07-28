@@ -1,6 +1,6 @@
 import type { Skill, SkillType } from '@/hooks/useJobSkills';
 
-interface SkillSupabaseClient {
+export interface SkillSupabaseClient {
   from: (table: 'skills') => {
     insert: (row: { nome: string; tipo: SkillType; origem: 'manual' }) => {
       select: (columns: string) => {

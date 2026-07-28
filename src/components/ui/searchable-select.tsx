@@ -73,10 +73,10 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('w-[--radix-popover-trigger-width] p-0', className)} align="start">
+      <PopoverContent className={cn('z-[80] w-[--radix-popover-trigger-width] p-0', className)} align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
-          <CommandList className="max-h-72 overflow-y-auto">
+          <CommandList className="max-h-[min(18rem,calc(100vh-12rem))] overflow-y-auto overscroll-contain">
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (

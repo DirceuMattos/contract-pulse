@@ -17,7 +17,7 @@ import { JobRequestHistory } from '@/components/jobrequests/JobRequestHistory';
 import { toast } from 'sonner';
 import type { JobRequest } from '@/hooks/useJobRequests';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { resolveSkillIds } from '@/lib/jobSkillResolver';
+import { resolveSkillIds, type SkillSupabaseClient } from '@/lib/jobSkillResolver';
 
 interface Props {
   open: boolean;
@@ -124,7 +124,7 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
     try {
       const perfil = perfilId !== SEM_PERFIL ? profiles.find((x) => x.id === perfilId) : null;
       // Resolve ids (persiste skills novas) e monta o snapshot para skills_avulsas.
-      const finalIds = await resolveSkillIds(supabase as any, selectedSkillIds, localSkills);
+      const finalIds = await resolveSkillIds(supabase as unknown as SkillSupabaseClient, selectedSkillIds, localSkills);
       const pool = [...allSkills, ...localSkills];
       const skillsSnapshot = finalIds.length > 0
         ? finalIds.map((id) => {
