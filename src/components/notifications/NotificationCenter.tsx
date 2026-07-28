@@ -192,28 +192,27 @@ export function NotificationCenter() {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {(unreadCount + dbUnreadCount) > 0 && (
+          {dbUnreadCount > 0 && (
             <span
               className={cn(
-                'absolute -top-1 -right-1 h-5 w-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white',
-                criticalUnreadCount > 0 ? 'bg-health-critical' : 'bg-health-attention'
+                'absolute -top-1 -right-1 h-5 w-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white bg-health-attention'
               )}
             >
-              {(unreadCount + dbUnreadCount) > 99 ? '99+' : (unreadCount + dbUnreadCount)}
+              {dbUnreadCount > 99 ? '99+' : dbUnreadCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
 
       <PopoverContent className="w-[400px] p-0" align="end">
-        <Tabs defaultValue="all">
+        <Tabs defaultValue="mensagens">
           {/* Header */}
           <div className="p-3 border-b border-border">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Notificações</h3>
               <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={markAllAsRead}>
+                {dbNotifications.some((n) => !n.lida) && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={markAllDbAsRead}>
                     <CheckCheck className="h-3 w-3 mr-1" />
                     Marcar todas como lidas
                   </Button>
@@ -222,13 +221,6 @@ export function NotificationCenter() {
             </div>
 
             <TabsList className="w-full">
-              <TabsTrigger value="all" className="flex-1 text-xs">
-                Todas ({notifications.length})
-              </TabsTrigger>
-              <TabsTrigger value="critico" className="flex-1 text-xs">
-                <AlertTriangle className="h-3 w-3 mr-1 text-health-critical" />
-                Críticas ({criticalNotifications.length})
-              </TabsTrigger>
               <TabsTrigger value="mensagens" className="flex-1 text-xs">
                 Mensagens ({dbNotifications.length})
               </TabsTrigger>
@@ -238,68 +230,6 @@ export function NotificationCenter() {
               </TabsTrigger>
             </TabsList>
           </div>
-
-          {/* All Notifications */}
-          <TabsContent value="all" className="m-0">
-            <ScrollArea className="h-[350px]">
-              {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-                  <Bell className="h-10 w-10 mb-2 opacity-50" />
-                  <p className="text-sm">Nenhuma notificação</p>
-                </div>
-              ) : (
-                <AnimatePresence mode="popLayout">
-                  {notifications.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      notification={notification}
-                      onRead={() => markAsRead(notification.id)}
-                      onDelete={() => deleteNotification(notification.id)}
-                      onClick={() => handleNotificationClick(notification)}
-                    />
-                  ))}
-                </AnimatePresence>
-              )}
-            </ScrollArea>
-            {notifications.length > 0 && (
-              <div className="p-2 border-t border-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs text-muted-foreground hover:text-destructive"
-                  onClick={clearAllNotifications}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Limpar todas
-                </Button>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Critical Notifications */}
-          <TabsContent value="critico" className="m-0">
-            <ScrollArea className="h-[350px]">
-              {criticalNotifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-                  <AlertTriangle className="h-10 w-10 mb-2 opacity-50" />
-                  <p className="text-sm">Nenhuma notificação crítica</p>
-                  <p className="text-xs mt-1">Ótimo! Tudo sob controle 🎉</p>
-                </div>
-              ) : (
-                <AnimatePresence mode="popLayout">
-                  {criticalNotifications.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      notification={notification}
-                      onRead={() => markAsRead(notification.id)}
-                      onDelete={() => deleteNotification(notification.id)}
-                      onClick={() => handleNotificationClick(notification)}
-                    />
-                  ))}
-                </AnimatePresence>
-              )}
-            </ScrollArea>
-          </TabsContent>
 
           {/* Mensagens (notificações persistidas — I1) */}
           <TabsContent value="mensagens" className="m-0">

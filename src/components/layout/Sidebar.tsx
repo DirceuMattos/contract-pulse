@@ -94,8 +94,6 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
       { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
-      { path: '#', label: 'Adm Horas Extras', icon: Clock, comingSoon: true },
-      { path: '/adm-transportes', label: 'Adm Deslocamentos (Aplicativo)', icon: Truck },
       {
         path: '/requisicao-vagas',
         label: 'Requisição de Vagas',
@@ -103,6 +101,8 @@ const navGroups: NavGroup[] = [
         moduleKey: 'JOB_REQUESTS',
       },
       { path: '/skills-vagas', label: 'Skills de Vagas', icon: Sparkles, moduleKey: 'JOB_SKILLS' },
+      { path: '#', label: 'Adm Horas Extras', icon: Clock, comingSoon: true },
+      { path: '/adm-transportes', label: 'Adm Deslocamentos (Aplicativo)', icon: Truck },
     ],
   },
   {
