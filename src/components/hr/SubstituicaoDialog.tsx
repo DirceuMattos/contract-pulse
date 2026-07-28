@@ -5,9 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useHR } from '@/contexts/HRContext';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +45,6 @@ export function SubstituicaoDialog({
   const [saving, setSaving] = useState(false);
 
   const outgoing = hrPeople.find(p => p.id === hrPersonId);
-  const targetVinculo = outgoing?.tipoVinculo;
   const resolvedContractName = contractName
     || contracts.find(c => c.id === contractId)?.nome
     || contracts.find(c => c.id === contractId)?.codigo
@@ -64,9 +61,14 @@ export function SubstituicaoDialog({
   const candidates = useMemo(() => {
     return hrPeople
       .filter(p => p.situacao === 'ativo' && p.id !== hrPersonId)
-      .filter(p => !targetVinculo || p.tipoVinculo === targetVinculo)
-      .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [hrPeople, hrPersonId, targetVinculo]);
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+  }, [hrPeople, hrPersonId]);
+
+  const candidateOptions = useMemo(() => candidates.map((person) => ({
+    value: person.id,
+    label: `${person.nome} - ${(person.tipoVinculo || 'sem vínculo').toUpperCase()}`,
+    searchText: `${person.nome} ${person.tipoVinculo ?? ''} ${person.cargoAntigo ?? ''}`,
+  })), [candidates]);
 
   const handleConfirm = async () => {
     if (!selectedId) return;
@@ -135,25 +137,14 @@ export function SubstituicaoDialog({
           <TabsContent value="colaborador" className="space-y-4">
             <div className="space-y-2">
               <Label>Novo Colaborador</Label>
-              <Select value={selectedId ?? ''} onValueChange={setSelectedId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um colaborador ativo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <ScrollArea className="h-64">
-                    {candidates.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground">Nenhum colaborador disponível.</div>
-                    ) : candidates.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{p.nome}</span>
-                          <Badge variant="outline" className="text-[10px] uppercase">{p.tipoVinculo}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </ScrollArea>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedId ?? ''}
+                onValueChange={setSelectedId}
+                options={candidateOptions}
+                placeholder="Selecione um colaborador ativo..."
+                searchPlaceholder="Buscar colaborador..."
+                emptyMessage="Nenhum colaborador ativo encontrado."
+              />
             </div>
 
             {selectedId && (

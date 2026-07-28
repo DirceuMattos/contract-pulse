@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+type SupabaseClient = ReturnType<typeof createClient>
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -49,17 +51,36 @@ function normalizePhone(phone: string | null | undefined): string | null {
 }
 
 // ─── TIMELINE IDEMPOTENT INSERT ──────────────────────────────────────────────
-async function insertTimelineIdempotent(db: any, novoEvento: Record<string, any>): Promise<void> {
-  const { data: existing } = await db
+async function insertTimelineIdempotent(db: SupabaseClient, novoEvento: Record<string, string | number | boolean | null>): Promise<void> {
+  let query = db
     .from('hr_timeline')
     .select('id')
     .eq('person_id', novoEvento.person_id)
     .eq('event_date', novoEvento.event_date)
     .eq('ocorrencia', novoEvento.ocorrencia)
-    .eq('descricao', novoEvento.descricao)
-    .maybeSingle()
+
+  if (novoEvento.source === 'feedz') {
+    query = query.eq('source', 'feedz')
+  } else {
+    query = query.eq('descricao', novoEvento.descricao)
+  }
+
+  const { data: existing } = await query.maybeSingle()
   if (existing) return
   await db.from('hr_timeline').insert(novoEvento)
+}
+
+async function insertPendingReplacementIdempotent(db: SupabaseClient, row: Record<string, string | null>): Promise<void> {
+  const { data: existing } = await db
+    .from('pending_replacements')
+    .select('id')
+    .eq('hr_person_id', row.hr_person_id)
+    .eq('resource_id', row.resource_id)
+    .eq('contract_id', row.contract_id)
+    .eq('status', 'pending')
+    .maybeSingle()
+  if (existing) return
+  await db.from('pending_replacements').insert(row)
 }
 
 // ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
@@ -637,7 +658,9 @@ Deno.serve(async (req) => {
                 contract_id: r.contract_id,
                 status: 'pending',
               }))
-              await db.from('pending_replacements').insert(rows)
+              for (const row of rows) {
+                await insertPendingReplacementIdempotent(db, row)
+              }
             }
           }
         } else if (feedzStatus === 'ativo' && terminationDate) {

@@ -76,7 +76,7 @@ export function SearchableSelect({
       <PopoverContent className={cn('w-[--radix-popover-trigger-width] p-0', className)} align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
-          <CommandList>
+          <CommandList className="max-h-72 overflow-y-auto">
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
