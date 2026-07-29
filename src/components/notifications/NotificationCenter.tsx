@@ -51,118 +51,10 @@ const alertTypeIcons: Record<AlertType, React.ReactNode> = {
   'deploy-build': <RefreshCw className="w-4 h-4" />,
 };
 
-interface NotificationItemProps {
-  notification: AppNotification;
-  onRead: () => void;
-  onDelete: () => void;
-  onClick: () => void;
-}
-
-function NotificationItem({ notification, onRead, onDelete, onClick }: NotificationItemProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className={cn(
-        'p-3 border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
-        !notification.read && 'bg-primary/5'
-      )}
-      onClick={onClick}
-    >
-      <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div
-          className={cn(
-            'p-1.5 rounded-lg shrink-0',
-            notification.severity === 'critico'
-              ? 'bg-health-critical/10 text-health-critical'
-              : 'bg-health-attention/10 text-health-attention'
-          )}
-        >
-          {alertTypeIcons[notification.type]}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h4 className={cn('text-sm font-medium', !notification.read && 'font-semibold')}>
-                {notification.title}
-              </h4>
-              {!notification.read && (
-                <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-              )}
-            </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-[10px] shrink-0',
-                notification.severity === 'critico'
-                  ? 'border-health-critical text-health-critical'
-                  : 'border-health-attention text-health-attention'
-              )}
-            >
-              {notification.severity === 'critico' ? 'Crítico' : 'Atenção'}
-            </Badge>
-          </div>
-
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            {notification.description}
-          </p>
-
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-[10px] text-muted-foreground">
-              {formatDistanceToNow(new Date(notification.createdAt), {
-                addSuffix: true,
-                locale: ptBR,
-              })}
-            </span>
-
-            <div className="flex items-center gap-1">
-              {!notification.read && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRead();
-                  }}
-                >
-                  <Check className="h-3 w-3" />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 export function NotificationCenter() {
   const navigate = useNavigate();
   const {
-    notifications,
     settings,
-    unreadCount,
-    criticalUnreadCount,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-    clearAllNotifications,
     updateSettings,
     toggleBrowserNotifications,
     requestBrowserPermission,
@@ -171,14 +63,6 @@ export function NotificationCenter() {
     markDbAsRead,
     markAllDbAsRead,
   } = useNotificationContext();
-
-  const criticalNotifications = notifications.filter((n) => n.severity === 'critico');
-  const warningNotifications = notifications.filter((n) => n.severity === 'atencao');
-
-  const handleNotificationClick = (notification: AppNotification) => {
-    markAsRead(notification.id);
-    navigate(`/contratos/${notification.contractId}`);
-  };
 
   const handleEnableBrowserNotifications = async () => {
     const permission = await requestBrowserPermission();

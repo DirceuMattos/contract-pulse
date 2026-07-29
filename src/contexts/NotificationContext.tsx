@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useDbNotifications, type DbNotification } from '@/hooks/useDbNotifications';
-import { useAlerts } from '@/hooks/useAlerts';
 import type { Notification as AppNotification, NotificationSettings } from '@/types';
 
 interface NotificationContextType {
@@ -27,7 +26,6 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const { alerts } = useAlerts();
   const {
     items: dbNotifications,
     unreadCount: dbUnreadCount,
@@ -49,12 +47,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     toggleBrowserNotifications,
   } = useNotifications();
 
-  // Process alerts when they change
-  useEffect(() => {
-    if (alerts.length > 0) {
-      processAlerts(alerts);
-    }
-  }, [alerts, processAlerts]);
+  // Alertas de contrato não são mais postados no sino (só notificações
+  // persistidas na aba Mensagens). processAlerts segue disponível no contexto
+  // para uso pontual (ex.: notificação de browser), mas não roda em massa aqui.
 
   return (
     <NotificationContext.Provider
