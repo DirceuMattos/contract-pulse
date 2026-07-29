@@ -3662,7 +3662,7 @@ export type Database = {
           _extra_users: string[]
           _link: string
           _mensagem: string
-          _roles: Database["public"]["Enums"]["app_role"][]
+          _roles: string[]
           _tipo: string
           _titulo: string
         }
