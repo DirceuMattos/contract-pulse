@@ -34,9 +34,9 @@ interface Props {
 }
 
 export function OvertimeManualDialog({ open, onOpenChange, onSaved }: Props) {
-  const { getActivePersons } = useHR();
+  const { hrPeople } = useHR();
   const { teams } = useData();
-  const pessoas = useMemo(() => getActivePersons().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [getActivePersons]);
+  const pessoas = useMemo(() => hrPeople.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [hrPeople]);
 
   const now = new Date();
   const [pessoaId, setPessoaId] = useState('');
@@ -108,7 +108,7 @@ export function OvertimeManualDialog({ open, onOpenChange, onSaved }: Props) {
             <Select value={pessoaId} onValueChange={setPessoaId}>
               <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
               <SelectContent>
-                {pessoas.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                {pessoas.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}{p.situacao !== 'ativo' ? ' (inativo)' : ''}</SelectItem>)}
               </SelectContent>
             </Select>
             {pessoa && (

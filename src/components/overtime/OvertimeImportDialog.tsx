@@ -39,9 +39,10 @@ interface Props {
 }
 
 export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
-  const { getActivePersons } = useHR();
+  const { hrPeople } = useHR();
   const { teams } = useData();
-  const pessoas = useMemo(() => getActivePersons(), [getActivePersons]);
+  // Inclui inativos: a carga é de dados históricos, com colaboradores já desligados.
+  const pessoas = useMemo(() => hrPeople, [hrPeople]);
 
   const [ano, setAno] = useState(String(new Date().getFullYear()));
   const [rows, setRows] = useState<MatchedRow[]>([]);
@@ -215,7 +216,9 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
                           </SelectTrigger>
                           <SelectContent>
                             {pessoas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.nome}{p.situacao !== 'ativo' ? ' (inativo)' : ''}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
