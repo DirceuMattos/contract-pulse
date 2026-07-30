@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Plus, Clock, Upload, Download } from 'lucide-react';
 import { useOvertimeData } from '@/hooks/useOvertimeData';
 import { OvertimeManualDialog } from '@/components/overtime/OvertimeManualDialog';
@@ -25,6 +26,10 @@ export default function OvertimePage() {
   const [mes, setMes] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Filtros locais da aba Lançamentos (refinam a tabela, não os dashboards).
+  const [fColab, setFColab] = useState('');
+  const [fArea, setFArea] = useState<string>('all');
+  const [fMes, setFMes] = useState<string>('all');
 
   const { entries, availableYears, isLoading, refetch } = useOvertimeData({ year: ano, month: mes });
 
@@ -42,6 +47,23 @@ export default function OvertimePage() {
   const refetchAll = useCallback(() => { refetch(); loadPendCount(); }, [refetch, loadPendCount]);
 
   const anos = availableYears.length ? availableYears : [now.getFullYear()];
+
+  // Áreas presentes no conjunto atual, para o filtro local.
+  const areasDisponiveis = useMemo(
+    () => Array.from(new Set(entries.map((e) => e.area).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [entries],
+  );
+
+  // Tabela da aba Lançamentos: aplica os filtros locais sobre entries.
+  const entriesLista = useMemo(() => {
+    const termo = fColab.trim().toLowerCase();
+    return entries.filter((e) => {
+      if (termo && !e.colaborador_nome.toLowerCase().includes(termo)) return false;
+      if (fArea !== 'all' && (e.area ?? '') !== fArea) return false;
+      if (fMes !== 'all' && e.mes !== Number(fMes)) return false;
+      return true;
+    });
+  }, [entries, fColab, fArea, fMes]);
 
   // Média mensal do ano e valor do último mês fechado.
   // Base: todos os lançamentos do ano filtrado (ignora o filtro de mês, pois
@@ -249,10 +271,39 @@ export default function OvertimePage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
         <CardContent>
+          {/* Filtros locais */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Input
+              value={fColab}
+              onChange={(e) => setFColab(e.target.value)}
+              placeholder="Buscar colaborador…"
+              className="w-56"
+            />
+            <Select value={fArea} onValueChange={setFArea}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Área" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as áreas</SelectItem>
+                {areasDisponiveis.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fMes} onValueChange={setFMes}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="Mês" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os meses</SelectItem>
+                {MESES.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(fColab || fArea !== 'all' || fMes !== 'all') && (
+              <Button variant="ghost" size="sm" onClick={() => { setFColab(''); setFArea('all'); setFMes('all'); }}>
+                Limpar
+              </Button>
+            )}
+          </div>
+
           {isLoading ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
-          ) : entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum lançamento no período.</p>
+          ) : entriesLista.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum lançamento com os filtros aplicados.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -267,7 +318,7 @@ export default function OvertimePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((e) => (
+                  {entriesLista.map((e) => (
                     <tr key={e.id} className="border-b last:border-0">
                       <td className="py-2 pr-4">{e.colaborador_nome}</td>
                       <td className="py-2 pr-4">{MESES[e.mes - 1]}/{e.ano}</td>
