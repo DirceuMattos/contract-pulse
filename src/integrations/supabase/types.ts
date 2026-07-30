@@ -1967,6 +1967,7 @@ export type Database = {
           area_team_id: string | null
           colaborador_nome: string
           created_at: string
+          dedup_key: string | null
           historico: string | null
           horas: number
           hr_person_id: string | null
@@ -1985,6 +1986,7 @@ export type Database = {
           area_team_id?: string | null
           colaborador_nome: string
           created_at?: string
+          dedup_key?: string | null
           historico?: string | null
           horas?: number
           hr_person_id?: string | null
@@ -2003,6 +2005,7 @@ export type Database = {
           area_team_id?: string | null
           colaborador_nome?: string
           created_at?: string
+          dedup_key?: string | null
           historico?: string | null
           horas?: number
           hr_person_id?: string | null
