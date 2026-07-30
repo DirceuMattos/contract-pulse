@@ -25,6 +25,13 @@ function norm(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+// Reproduz a dedup_key gerada no banco (migration 20260730180000):
+// coalesce(hr_person_id, lower(nome)) | mes | ano | round(valor,2) | round(horas,2) | origem
+function dedupKey(hrPersonId: string | null, nome: string, mes: number, ano: number, valor: number, horas: number, origem: string): string {
+  const idPart = hrPersonId ?? nome.toLowerCase();
+  return `${idPart}|${mes}|${ano}|${valor.toFixed(2)}|${horas.toFixed(2)}|${origem}`;
+}
+
 interface MatchedRow extends ParsedOvertimeRow {
   key: string;
   matchedId: string | null;   // hr_person_id resolvido
@@ -81,12 +88,36 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
     try {
       const { formato: fmt, rows: parsed } = await parseOvertimeFile(file, Number(ano));
       setFormato(fmt);
-      const matched: MatchedRow[] = parsed.map((r, i) => {
-        const m = matchNome(r.colaborador_nome);
-        return { ...r, key: `${i}`, matchedId: m.id, ambiguo: m.ambiguo, ignorar: false };
-      });
+
+      // Chaves já existentes no banco (para suprimir o que já foi inserido,
+      // inclusive em reuploads do mesmo arquivo). Busca as dedup_key da tabela.
+      const existentes = new Set<string>();
+      const anos = Array.from(new Set(parsed.map((r) => r.ano)));
+      const { data: existRows } = await db
+        .from('overtime_entries')
+        .select('dedup_key')
+        .in('ano', anos.length ? anos : [Number(ano)]);
+      for (const e of (existRows ?? []) as { dedup_key: string }[]) existentes.add(e.dedup_key);
+
+      const matched: MatchedRow[] = parsed
+        .map((r, i) => {
+          const m = matchNome(r.colaborador_nome);
+          return { ...r, key: `${i}`, matchedId: m.id, ambiguo: m.ambiguo, ignorar: false };
+        })
+        // Esconde as que já existem no banco (só dá para saber isso nas que casaram,
+        // pois a chave usa hr_person_id; as sem match nunca foram inseridas).
+        .filter((r) => {
+          if (!r.matchedId) return true;
+          const k = dedupKey(r.matchedId, r.colaborador_nome, r.mes, r.ano, r.valor, r.horas, 'import_excel');
+          return !existentes.has(k);
+        });
+
       setRows(matched);
-      if (matched.length === 0) toast.error('Nenhuma linha reconhecida na planilha');
+      if (parsed.length > 0 && matched.length === 0) {
+        toast.success('Tudo desta planilha já está no banco — nada a importar');
+      } else if (matched.length === 0) {
+        toast.error('Nenhuma linha reconhecida na planilha');
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao ler a planilha');
     } finally {
@@ -145,8 +176,16 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
           : `${inseridas} lançamento(s) importado(s)`,
       );
       onSaved();
-      onOpenChange(false);
-      setRows([]);
+      // Remove da lista o que foi salvo (tinha match e não foi ignorado);
+      // mantém visíveis as pendências (sem match) para o usuário continuar resolvendo.
+      const restantes = rows.filter((r) => r.ignorar || !r.matchedId);
+      if (restantes.length === 0) {
+        onOpenChange(false);
+        setRows([]);
+      } else {
+        setRows(restantes);
+        toast.info(`${restantes.filter((r) => !r.matchedId).length} pendência(s) restante(s)`);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar');
     } finally {
