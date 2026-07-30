@@ -21,6 +21,7 @@ import {
   UsersRound,
   Receipt,
   Clock,
+  Laptop,
   Truck,
   ClipboardList,
   Sparkles,
@@ -94,6 +95,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
       { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
+      { path: '#', label: 'Controle de Equipamentos', icon: Laptop, comingSoon: true },
       {
         path: '/requisicao-vagas',
         label: 'Requisição de Vagas',
