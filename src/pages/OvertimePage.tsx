@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -6,6 +6,9 @@ import { Plus, Clock, Upload, Download } from 'lucide-react';
 import { useOvertimeData } from '@/hooks/useOvertimeData';
 import { OvertimeManualDialog } from '@/components/overtime/OvertimeManualDialog';
 import { OvertimeImportDialog } from '@/components/overtime/OvertimeImportDialog';
+import { OvertimePendingTab } from '@/components/overtime/OvertimePendingTab';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, Legend, ResponsiveContainer, Cell,
@@ -24,6 +27,19 @@ export default function OvertimePage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const { entries, availableYears, isLoading, refetch } = useOvertimeData({ year: ano, month: mes });
+
+  const [pendCount, setPendCount] = useState(0);
+  const loadPendCount = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count } = await (supabase as any)
+      .from('overtime_pending')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pendente');
+    setPendCount(count ?? 0);
+  }, []);
+  useEffect(() => { loadPendCount(); }, [loadPendCount]);
+
+  const refetchAll = useCallback(() => { refetch(); loadPendCount(); }, [refetch, loadPendCount]);
 
   const totais = useMemo(() => ({
     valor: entries.reduce((s, e) => s + Number(e.valor), 0),
@@ -100,6 +116,13 @@ export default function OvertimePage() {
         </div>
       </div>
 
+      <Tabs defaultValue="lancamentos">
+        <TabsList>
+          <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+          <TabsTrigger value="pendencias">Pendências{pendCount > 0 ? ` (${pendCount})` : ''}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lancamentos" className="space-y-6 mt-4">
       {/* Filtros */}
       <div className="flex gap-3">
         <Select value={ano === null ? 'all' : String(ano)} onValueChange={(v) => setAno(v === 'all' ? null : Number(v))}>
@@ -231,9 +254,20 @@ export default function OvertimePage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <OvertimeManualDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={refetch} />
-      <OvertimeImportDialog open={importOpen} onOpenChange={setImportOpen} onSaved={refetch} />
+        <TabsContent value="pendencias" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Pendências de conciliação</CardTitle></CardHeader>
+            <CardContent>
+              <OvertimePendingTab onResolved={refetchAll} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <OvertimeManualDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={refetchAll} />
+      <OvertimeImportDialog open={importOpen} onOpenChange={setImportOpen} onSaved={refetchAll} />
     </div>
   );
 }

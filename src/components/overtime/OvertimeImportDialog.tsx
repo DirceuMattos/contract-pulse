@@ -136,7 +136,8 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
   const aSalvar = rows.filter((r) => !r.ignorar && r.matchedId);
 
   const salvar = async () => {
-    if (aSalvar.length === 0) { toast.error('Nada para salvar'); return; }
+    const naoResolvidosCount = rows.filter((r) => !r.ignorar && !r.matchedId).length;
+    if (aSalvar.length === 0 && naoResolvidosCount === 0) { toast.error('Nada para salvar'); return; }
     setSaving(true);
     setProgress(0);
     try {
@@ -170,22 +171,35 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
         setProgress(Math.round(((i + chunk.length) / payload.length) * 100));
       }
       const ignoradas = payload.length - inseridas;
+
+      // Não resolvidos (sem match, não ignorados) -> fila de pendências persistente.
+      const naoResolvidos = rows.filter((r) => !r.ignorar && !r.matchedId);
+      let pendGravadas = 0;
+      if (naoResolvidos.length > 0) {
+        const pendPayload = naoResolvidos.map((r) => ({
+          colaborador_nome: r.colaborador_nome,
+          mes: r.mes, ano: r.ano, valor: r.valor, horas: r.horas,
+          regime_hint: r.regime_hint, area_hint: r.area_hint,
+          origem: 'import_excel', status: 'pendente',
+        }));
+        for (let i = 0; i < pendPayload.length; i += 100) {
+          const chunk = pendPayload.slice(i, i + 100);
+          const { data, error } = await db.from('overtime_pending')
+            .upsert(chunk, { onConflict: 'dedup_key', ignoreDuplicates: true })
+            .select('id');
+          if (error) throw error;
+          pendGravadas += (data?.length ?? 0);
+        }
+      }
+
       toast.success(
-        ignoradas > 0
-          ? `${inseridas} importado(s), ${ignoradas} já existente(s) ignorado(s)`
-          : `${inseridas} lançamento(s) importado(s)`,
+        `${inseridas} importado(s)` +
+        (ignoradas > 0 ? `, ${ignoradas} já existente(s)` : '') +
+        (pendGravadas > 0 ? `, ${pendGravadas} enviado(s) para Pendências` : ''),
       );
       onSaved();
-      // Remove da lista o que foi salvo (tinha match e não foi ignorado);
-      // mantém visíveis as pendências (sem match) para o usuário continuar resolvendo.
-      const restantes = rows.filter((r) => r.ignorar || !r.matchedId);
-      if (restantes.length === 0) {
-        onOpenChange(false);
-        setRows([]);
-      } else {
-        setRows(restantes);
-        toast.info(`${restantes.filter((r) => !r.matchedId).length} pendência(s) restante(s)`);
-      }
+      onOpenChange(false);
+      setRows([]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar');
     } finally {
@@ -276,8 +290,8 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
             {saving && <Progress value={progress} className="mt-2" />}
             <div className="flex justify-end gap-2 pt-3">
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={salvar} disabled={saving || aSalvar.length === 0}>
-                {saving ? 'Salvando…' : `Salvar ${aSalvar.length} lançamento(s)`}
+              <Button onClick={salvar} disabled={saving || (aSalvar.length === 0 && pendentes === 0)}>
+                {saving ? 'Salvando…' : (aSalvar.length > 0 ? `Salvar ${aSalvar.length}` : 'Enviar') + (pendentes > 0 ? ` (+${pendentes} p/ Pendências)` : '')}
               </Button>
             </div>
           </>
