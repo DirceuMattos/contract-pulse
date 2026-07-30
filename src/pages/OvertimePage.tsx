@@ -31,7 +31,7 @@ export default function OvertimePage() {
   const [fArea, setFArea] = useState<string>('all');
   const [fMes, setFMes] = useState<string>('all');
 
-  const { entries, availableYears, isLoading, refetch } = useOvertimeData({ year: ano, month: mes });
+  const { entries, availableYears, yearlyComparison, isLoading, refetch } = useOvertimeData({ year: ano, month: mes });
 
   const [pendCount, setPendCount] = useState(0);
   const loadPendCount = useCallback(async () => {
@@ -127,6 +127,22 @@ export default function OvertimePage() {
     return Array.from(m, ([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor).slice(0, 10);
   }, [entries]);
 
+  // Comparativo anual: eixo X = meses, uma linha por ano (base inteira, sem filtro).
+  const anosComparativo = useMemo(
+    () => Array.from(new Set(yearlyComparison.map((r) => r.ano))).sort((a, b) => a - b),
+    [yearlyComparison],
+  );
+  const comparativoAnual = useMemo(() => {
+    const base = MESES.map((nome, i) => {
+      const ponto: Record<string, number | string> = { mes: nome };
+      for (const a of anosComparativo) ponto[String(a)] = 0;
+      // preenche os valores existentes daquele mês (i+1)
+      for (const r of yearlyComparison) if (r.mes === i + 1) ponto[String(r.ano)] = Number(r.total_valor);
+      return ponto;
+    });
+    return base;
+  }, [yearlyComparison, anosComparativo]);
+
   const exportarCsv = () => {
     const head = ['Colaborador', 'Mes', 'Ano', 'Regime', 'Area', 'Horas', 'Valor', 'Ocorrencias', 'Origem'];
     const linhas = entries.map((e) => [
@@ -220,15 +236,31 @@ export default function OvertimePage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Por mês</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">
+              {ano === null ? 'Por mês (comparativo por ano)' : 'Por mês'}
+            </CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={porMes}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="nome" fontSize={12} /><YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                  <Line type="monotone" dataKey="valor" stroke="#2563eb" strokeWidth={2} dot={false} />
-                </LineChart>
+                {ano === null ? (
+                  <LineChart data={comparativoAnual}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="mes" fontSize={12} />
+                    <YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Legend />
+                    {anosComparativo.map((a, i) => (
+                      <Line key={a} type="monotone" dataKey={String(a)} name={String(a)}
+                        stroke={CORES[i % CORES.length]} strokeWidth={2} dot={{ r: 3 }} />
+                    ))}
+                  </LineChart>
+                ) : (
+                  <LineChart data={porMes}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="nome" fontSize={12} /><YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Line type="monotone" dataKey="valor" stroke="#2563eb" strokeWidth={2} dot={false} />
+                  </LineChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
