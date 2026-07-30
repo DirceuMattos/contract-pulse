@@ -86,6 +86,8 @@ function parseConsolidada(wb: XLSX.WorkBook, ano: number): ParsedOvertimeRow[] {
   const iCat = col(['categoria', 'regime']);
   const iValConv = col(['valor convertido']);
   const iValor = col(['valor']);
+  const iAno = col(['ano']);
+  const iHoras = col(['horas', 'hora']);
 
   const out: ParsedOvertimeRow[] = [];
   for (let r = hdrIdx + 1; r < rows.length; r++) {
@@ -93,12 +95,13 @@ function parseConsolidada(wb: XLSX.WorkBook, ano: number): ParsedOvertimeRow[] {
     const nome = String(row[iNome] ?? '').trim();
     if (!nome) continue;
     const valorRaw = iValConv >= 0 && row[iValConv] ? row[iValConv] : row[iValor];
+    const anoLinha = iAno >= 0 ? (parseInt(String(row[iAno] ?? ''), 10) || ano) : ano;
     out.push({
       colaborador_nome: nome,
       mes: parseInt(String(row[iMes] ?? ''), 10) || 0,
-      ano,
+      ano: anoLinha,
       valor: parseValor(valorRaw),
-      horas: 0, // a consolidada não traz horas
+      horas: iHoras >= 0 ? parseHoras(row[iHoras]) : 0,
       regime_hint: normRegime(iCat >= 0 ? String(row[iCat]) : null),
       area_hint: iArea >= 0 ? String(row[iArea] ?? '').trim() || null : null,
     });
