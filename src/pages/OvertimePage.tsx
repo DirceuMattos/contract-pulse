@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Plus, Clock, Upload, Download } from 'lucide-react';
-import { useOvertimeData } from '@/hooks/useOvertimeData';
+import { useOvertimeData, type OvertimeEntry } from '@/hooks/useOvertimeData';
 import { OvertimeManualDialog } from '@/components/overtime/OvertimeManualDialog';
 import { OvertimeImportDialog } from '@/components/overtime/OvertimeImportDialog';
 import { OvertimePendingTab } from '@/components/overtime/OvertimePendingTab';
@@ -19,6 +19,30 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 const REGIME_LABEL: Record<string, string> = { clt: 'CLT', pj: 'PJ', cooperado: 'Cooperado', socio: 'Sócio', estagio: 'Estágio' };
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtHoras = (h: number) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+
+// Agrupa entries por chave -> linha { nome, [ano]: valor, __total }, ordena pelo total (top N).
+// Usada nas barras agrupadas por ano (regime/área/colaborador quando "todos os anos").
+function agrupaPorAno(
+  entries: OvertimeEntry[],
+  anos: number[],
+  keyFn: (e: OvertimeEntry) => string,
+  topN: number,
+): Record<string, number | string>[] {
+  const porChave = new Map<string, { total: number; anos: Map<number, number> }>();
+  for (const e of entries) {
+    const k = keyFn(e);
+    const reg = porChave.get(k) ?? { total: 0, anos: new Map<number, number>() };
+    reg.total += Number(e.valor);
+    reg.anos.set(e.ano, (reg.anos.get(e.ano) ?? 0) + Number(e.valor));
+    porChave.set(k, reg);
+  }
+  return Array.from(porChave, ([nome, reg]) => {
+    const row: Record<string, number | string> = { nome };
+    for (const a of anos) row[String(a)] = reg.anos.get(a) ?? 0;
+    row.__total = reg.total;
+    return row;
+  }).sort((a, b) => (b.__total as number) - (a.__total as number)).slice(0, topN);
+}
 
 export default function OvertimePage() {
   const now = useMemo(() => new Date(), []);
@@ -110,14 +134,14 @@ export default function OvertimePage() {
     return arr;
   }, [entries]);
 
-  // Por área (top 8)
+  // Por área (top 10)
   const porArea = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of entries) {
       const k = e.area ?? 'Sem área';
       m.set(k, (m.get(k) ?? 0) + Number(e.valor));
     }
-    return Array.from(m, ([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor).slice(0, 8);
+    return Array.from(m, ([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor).slice(0, 10);
   }, [entries]);
 
   // Por colaborador (top 10)
@@ -142,6 +166,25 @@ export default function OvertimePage() {
     });
     return base;
   }, [yearlyComparison, anosComparativo]);
+
+  // Anos presentes em entries (para as barras agrupadas por ano).
+  const anosEntries = useMemo(
+    () => Array.from(new Set(entries.map((e) => e.ano))).sort((a, b) => a - b),
+    [entries],
+  );
+
+  const regimePorAno = useMemo(
+    () => agrupaPorAno(entries, anosEntries, (e) => REGIME_LABEL[e.regime ?? ''] ?? (e.regime ?? 'Sem regime'), 10),
+    [entries, anosEntries],
+  );
+  const areaPorAno = useMemo(
+    () => agrupaPorAno(entries, anosEntries, (e) => e.area ?? 'Sem área', 10),
+    [entries, anosEntries],
+  );
+  const colabPorAno = useMemo(
+    () => agrupaPorAno(entries, anosEntries, (e) => e.colaborador_nome, 10),
+    [entries, anosEntries],
+  );
 
   const exportarCsv = () => {
     const head = ['Colaborador', 'Mes', 'Ano', 'Regime', 'Area', 'Horas', 'Valor', 'Ocorrencias', 'Origem'];
@@ -220,17 +263,31 @@ export default function OvertimePage() {
       {entries.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">Por regime</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">
+              {ano === null ? 'Por regime (por ano)' : 'Por regime'}
+            </CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={porRegime}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="nome" fontSize={12} /><YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                  <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-                    {porRegime.map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
-                  </Bar>
-                </BarChart>
+                {ano === null ? (
+                  <BarChart data={regimePorAno}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="nome" fontSize={12} /><YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Legend />
+                    {anosEntries.map((a, i) => (
+                      <Bar key={a} dataKey={String(a)} name={String(a)} fill={CORES[i % CORES.length]} radius={[4, 4, 0, 0]} />
+                    ))}
+                  </BarChart>
+                ) : (
+                  <BarChart data={porRegime}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="nome" fontSize={12} /><YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                      {porRegime.map((_, i) => <Cell key={i} fill={CORES[i % CORES.length]} />)}
+                    </Bar>
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -266,31 +323,61 @@ export default function OvertimePage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Por área (top 8)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">
+              {ano === null ? 'Ranking por área (por ano · top 10)' : 'Por área (top 10)'}
+            </CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={porArea} layout="vertical" margin={{ left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="nome" fontSize={11} width={110} />
-                  <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                  <Bar dataKey="valor" radius={[0, 4, 4, 0]} fill="#16a34a" />
-                </BarChart>
+              <ResponsiveContainer width="100%" height={ano === null ? 320 : 260}>
+                {ano === null ? (
+                  <BarChart data={areaPorAno} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="nome" fontSize={11} width={110} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Legend />
+                    {anosEntries.map((a, i) => (
+                      <Bar key={a} dataKey={String(a)} name={String(a)} fill={CORES[i % CORES.length]} radius={[0, 3, 3, 0]} />
+                    ))}
+                  </BarChart>
+                ) : (
+                  <BarChart data={porArea} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="nome" fontSize={11} width={110} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Bar dataKey="valor" radius={[0, 4, 4, 0]} fill="#16a34a" />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Por colaborador (top 10)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">
+              {ano === null ? 'Ranking por colaborador (por ano · top 10)' : 'Por colaborador (top 10)'}
+            </CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={porColab} layout="vertical" margin={{ left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="nome" fontSize={11} width={120} />
-                  <RTooltip formatter={(v: number) => fmtBRL(v)} />
-                  <Bar dataKey="valor" radius={[0, 4, 4, 0]} fill="#7c3aed" />
-                </BarChart>
+              <ResponsiveContainer width="100%" height={ano === null ? 320 : 260}>
+                {ano === null ? (
+                  <BarChart data={colabPorAno} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="nome" fontSize={11} width={120} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Legend />
+                    {anosEntries.map((a, i) => (
+                      <Bar key={a} dataKey={String(a)} name={String(a)} fill={CORES[i % CORES.length]} radius={[0, 3, 3, 0]} />
+                    ))}
+                  </BarChart>
+                ) : (
+                  <BarChart data={porColab} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="nome" fontSize={11} width={120} />
+                    <RTooltip formatter={(v: number) => fmtBRL(v)} />
+                    <Bar dataKey="valor" radius={[0, 4, 4, 0]} fill="#7c3aed" />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
