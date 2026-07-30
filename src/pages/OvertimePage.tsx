@@ -20,7 +20,7 @@ const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', cur
 const fmtHoras = (h: number) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
 export default function OvertimePage() {
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
   const [ano, setAno] = useState<number | null>(now.getFullYear());
   const [mes, setMes] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -41,13 +41,33 @@ export default function OvertimePage() {
 
   const refetchAll = useCallback(() => { refetch(); loadPendCount(); }, [refetch, loadPendCount]);
 
-  const totais = useMemo(() => ({
-    valor: entries.reduce((s, e) => s + Number(e.valor), 0),
-    horas: entries.reduce((s, e) => s + Number(e.horas), 0),
-    lancamentos: entries.length,
-  }), [entries]);
-
   const anos = availableYears.length ? availableYears : [now.getFullYear()];
+
+  // Média mensal do ano e valor do último mês fechado.
+  // Base: todos os lançamentos do ano filtrado (ignora o filtro de mês, pois
+  // são métricas anuais). Se "todos os anos", usa o conjunto inteiro.
+  const cardsMetrics = useMemo(() => {
+    // agrupa valor por mês (1-12) no escopo atual de entries
+    const porMesMap = new Map<number, number>();
+    for (const e of entries) porMesMap.set(e.mes, (porMesMap.get(e.mes) ?? 0) + Number(e.valor));
+    const mesesComDados = Array.from(porMesMap.keys()).sort((a, b) => a - b);
+    const totalAno = Array.from(porMesMap.values()).reduce((s, v) => s + v, 0);
+    const media = mesesComDados.length > 0 ? totalAno / mesesComDados.length : 0;
+
+    // último mês fechado = maior mês com dados que seja < mês atual (se ano corrente)
+    // ou simplesmente o maior mês com dados (anos passados / todos).
+    let ultimoMesFechado: number | null = null;
+    if (mesesComDados.length > 0) {
+      if (ano === now.getFullYear()) {
+        const fechados = mesesComDados.filter((m) => m < now.getMonth() + 1);
+        ultimoMesFechado = fechados.length ? fechados[fechados.length - 1] : null;
+      } else {
+        ultimoMesFechado = mesesComDados[mesesComDados.length - 1];
+      }
+    }
+    const valorUltimoMes = ultimoMesFechado ? (porMesMap.get(ultimoMesFechado) ?? 0) : 0;
+    return { media, ultimoMesFechado, valorUltimoMes };
+  }, [entries, ano, now]);
 
   const CORES = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 
@@ -116,13 +136,14 @@ export default function OvertimePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="lancamentos">
+      <Tabs defaultValue="painel">
         <TabsList>
+          <TabsTrigger value="painel">Painel</TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
           <TabsTrigger value="pendencias">Pendências{pendCount > 0 ? ` (${pendCount})` : ''}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="lancamentos" className="space-y-6 mt-4">
+        <TabsContent value="painel" className="space-y-6 mt-4">
       {/* Filtros */}
       <div className="flex gap-3">
         <Select value={ano === null ? 'all' : String(ano)} onValueChange={(v) => setAno(v === 'all' ? null : Number(v))}>
@@ -142,13 +163,19 @@ export default function OvertimePage() {
       </div>
 
       {/* Cards de resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Valor total</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{fmtBRL(totais.valor)}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Horas totais</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{fmtHoras(totais.horas)}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Lançamentos</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{totais.lancamentos}</p></CardContent></Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">
+            Média mensal {ano ?? '(todos os anos)'}
+          </CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{fmtBRL(cardsMetrics.media)}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">
+            Último mês fechado{cardsMetrics.ultimoMesFechado ? ` · ${MESES[cardsMetrics.ultimoMesFechado - 1]}` : ''}
+          </CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{fmtBRL(cardsMetrics.valorUltimoMes)}</p></CardContent>
+        </Card>
       </div>
 
       {/* Dashboards */}
@@ -215,7 +242,9 @@ export default function OvertimePage() {
           </Card>
         </div>
       )}
+        </TabsContent>
 
+        <TabsContent value="lancamentos" className="mt-4">
       {/* Lista */}
       <Card>
         <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
