@@ -2028,6 +2028,68 @@ export type Database = {
           },
         ]
       }
+      overtime_pending: {
+        Row: {
+          ano: number
+          area_hint: string | null
+          colaborador_nome: string
+          created_at: string
+          dedup_key: string | null
+          horas: number
+          id: string
+          mes: number
+          origem: string
+          regime_hint: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_entry_id: string | null
+          status: string
+          valor: number
+        }
+        Insert: {
+          ano: number
+          area_hint?: string | null
+          colaborador_nome: string
+          created_at?: string
+          dedup_key?: string | null
+          horas?: number
+          id?: string
+          mes: number
+          origem?: string
+          regime_hint?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_entry_id?: string | null
+          status?: string
+          valor?: number
+        }
+        Update: {
+          ano?: number
+          area_hint?: string | null
+          colaborador_nome?: string
+          created_at?: string
+          dedup_key?: string | null
+          horas?: number
+          id?: string
+          mes?: number
+          origem?: string
+          regime_hint?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_entry_id?: string | null
+          status?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_pending_resolved_entry_id_fkey"
+            columns: ["resolved_entry_id"]
+            isOneToOne: false
+            referencedRelation: "overtime_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_replacements: {
         Row: {
           contract_id: string
