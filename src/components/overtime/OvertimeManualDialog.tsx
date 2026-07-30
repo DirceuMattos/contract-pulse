@@ -64,7 +64,7 @@ export function OvertimeManualDialog({ open, onOpenChange, onSaved }: Props) {
     if (!pessoa) { toast.error('Selecione o colaborador'); return; }
     setSaving(true);
     try {
-      const { error } = await db.from('overtime_entries').insert({
+      const { data, error } = await db.from('overtime_entries').upsert({
         hr_person_id: pessoa.id,
         colaborador_nome: pessoa.nome,
         mes: Number(mes),
@@ -78,9 +78,13 @@ export function OvertimeManualDialog({ open, onOpenChange, onSaved }: Props) {
         historico: historico || null,
         origem: 'manual',
         status: 'confirmado',
-      });
+      }, { onConflict: 'dedup_key', ignoreDuplicates: true }).select('id');
       if (error) throw error;
-      toast.success('Lançamento registrado');
+      if (!data || data.length === 0) {
+        toast.warning('Lançamento idêntico já existe — não foi duplicado');
+      } else {
+        toast.success('Lançamento registrado');
+      }
       onSaved();
       onOpenChange(false);
     } catch (e) {

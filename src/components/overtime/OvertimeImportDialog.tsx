@@ -126,14 +126,23 @@ export function OvertimeImportDialog({ open, onOpenChange, onSaved }: Props) {
           status: 'confirmado',
         };
       });
-      // insere em lotes de 100
+      // insere em lotes de 100 (upsert ignora duplicatas pela dedup_key)
+      let inseridas = 0;
       for (let i = 0; i < payload.length; i += 100) {
         const chunk = payload.slice(i, i + 100);
-        const { error } = await db.from('overtime_entries').insert(chunk);
+        const { data, error } = await db.from('overtime_entries')
+          .upsert(chunk, { onConflict: 'dedup_key', ignoreDuplicates: true })
+          .select('id');
         if (error) throw error;
+        inseridas += (data?.length ?? 0);
         setProgress(Math.round(((i + chunk.length) / payload.length) * 100));
       }
-      toast.success(`${payload.length} lançamento(s) importado(s)`);
+      const ignoradas = payload.length - inseridas;
+      toast.success(
+        ignoradas > 0
+          ? `${inseridas} importado(s), ${ignoradas} já existente(s) ignorado(s)`
+          : `${inseridas} lançamento(s) importado(s)`,
+      );
       onSaved();
       onOpenChange(false);
       setRows([]);
