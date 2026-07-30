@@ -1960,6 +1960,71 @@ export type Database = {
           },
         ]
       }
+      overtime_entries: {
+        Row: {
+          ano: number
+          area: string | null
+          area_team_id: string | null
+          colaborador_nome: string
+          created_at: string
+          historico: string | null
+          horas: number
+          hr_person_id: string | null
+          id: string
+          mes: number
+          ocorrencias: number
+          origem: string
+          regime: string | null
+          status: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ano: number
+          area?: string | null
+          area_team_id?: string | null
+          colaborador_nome: string
+          created_at?: string
+          historico?: string | null
+          horas?: number
+          hr_person_id?: string | null
+          id?: string
+          mes: number
+          ocorrencias?: number
+          origem?: string
+          regime?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          ano?: number
+          area?: string | null
+          area_team_id?: string | null
+          colaborador_nome?: string
+          created_at?: string
+          historico?: string | null
+          horas?: number
+          hr_person_id?: string | null
+          id?: string
+          mes?: number
+          ocorrencias?: number
+          origem?: string
+          regime?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_entries_hr_person_id_fkey"
+            columns: ["hr_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_replacements: {
         Row: {
           contract_id: string
@@ -3611,6 +3676,21 @@ export type Database = {
           owner_id: string
           owner_type: string
           status: string
+        }[]
+      }
+      get_overtime_yearly_totals: {
+        Args: never
+        Returns: {
+          ano: number
+          mes: number
+          total_horas: number
+          total_valor: number
+        }[]
+      }
+      get_overtime_years: {
+        Args: never
+        Returns: {
+          ano: number
         }[]
       }
       get_transport_yearly_totals: {
