@@ -69,6 +69,7 @@ import AILogsPage from "@/pages/AILogsPage";
 import ReceivablesDashboardPage from "@/pages/ReceivablesDashboardPage";
 import ReceivablesReconcilePage from "@/pages/ReceivablesReconcilePage";
 import TransportPage from "@/pages/TransportPage";
+import OvertimePage from "@/pages/OvertimePage";
 import ReportsPage from "@/pages/ReportsPage";
 import ReportEditPage from "@/pages/ReportEditPage";
 import ReportTemplateConfigPage from "@/pages/ReportTemplateConfigPage";
@@ -141,6 +142,7 @@ const App = () => (
                           <Route path="/receivables" element={<ReceivablesDashboardPage />} />
                           <Route path="/receivables/reconcile" element={<ReceivablesReconcilePage />} />
                           <Route path="/adm-transportes" element={<TransportPage />} />
+                          <Route path="/horas-extras" element={<OvertimePage />} />
                           <Route path="/relatorios" element={<ReportsPage />} />
                           <Route path="/relatorios/config/:contractId" element={<ReportTemplateConfigPage />} />
                           <Route path="/relatorios/:reportId" element={<ReportEditPage />} />
