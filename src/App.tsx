@@ -34,6 +34,7 @@ import HelpProfilesPage from "@/pages/HelpProfilesPage";
 import HelpReceivablesPage from "@/pages/HelpReceivablesPage";
 import HelpSettingsPage from "@/pages/HelpSettingsPage";
 import HelpTransportPage from "@/pages/HelpTransportPage";
+import HelpOvertimePage from "@/pages/HelpOvertimePage";
 import HelpUsersPage from "@/pages/HelpUsersPage";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
@@ -168,6 +169,7 @@ const App = () => (
                           <Route path="/ajuda/simulador" element={<HelpCalculatorPage />} />
                           <Route path="/ajuda/ia" element={<HelpAIPage />} />
                           <Route path="/ajuda/transportes" element={<HelpTransportPage />} />
+                          <Route path="/ajuda/horas-extras" element={<HelpOvertimePage />} />
                         </Route>
                         <Route path="*" element={<NotFound />} />
                       </Routes>

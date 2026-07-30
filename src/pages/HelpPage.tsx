@@ -7,6 +7,7 @@ import {
   Calculator,
   ChevronRight,
   ClipboardList,
+  Clock,
   FileBarChart2,
   FileText,
   LayoutDashboard,
@@ -141,6 +142,13 @@ const TUTORIALS = [
     title: 'Adm Transportes',
     description: 'Como analisar deslocamentos, custos e projecoes.',
     topics: ['Gastos', 'Destinos', 'Projecao', 'Mercado'],
+  },
+  {
+    path: '/ajuda/horas-extras',
+    icon: Clock,
+    title: 'Adm Horas Extras',
+    description: 'Como importar, lancar e analisar horas extras.',
+    topics: ['Importar', 'Manual', 'Pendencias', 'Dashboards'],
   },
 ];
 
