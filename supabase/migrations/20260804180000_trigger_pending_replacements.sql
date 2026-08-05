@@ -5,6 +5,27 @@
 -- correção) não disparavam — deixando desligados sem reposição (ex.: João Eduardo).
 -- 2026-08-04
 
+-- Restaura o índice único parcial (uma pendência aberta por alocação) caso tenha
+-- sido perdido/sobrescrito. Antes, remove duplicatas 'pending' existentes.
+WITH ranked AS (
+  SELECT id, row_number() OVER (
+    PARTITION BY hr_person_id, resource_id, contract_id
+    ORDER BY created_at ASC, id ASC
+  ) AS rn
+  FROM public.pending_replacements
+  WHERE status = 'pending'
+)
+UPDATE public.pending_replacements pr
+SET status = 'removed', resolved_at = now()
+FROM ranked
+WHERE pr.id = ranked.id AND ranked.rn > 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS pending_replacements_one_pending_per_allocation
+ON public.pending_replacements (hr_person_id, resource_id, contract_id)
+WHERE status = 'pending';
+
+-- Trigger: usa NOT EXISTS (não depende de ON CONFLICT/índice) para ser idempotente
+-- de forma robusta — cria a pendência só se ainda não houver uma aberta igual.
 CREATE OR REPLACE FUNCTION public.create_pending_replacements_on_termination()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -12,15 +33,18 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Só age na transição ativo -> inativo.
   IF (COALESCE(OLD.situacao, '') = 'ativo' AND NEW.situacao = 'inativo') THEN
     INSERT INTO public.pending_replacements (hr_person_id, resource_id, contract_id, status)
     SELECT NEW.id, r.id, r.contract_id, 'pending'
     FROM public.resources r
     WHERE r.hr_person_id = NEW.id
-    -- idempotente: respeita o índice único parcial (uma pendência por alocação)
-    ON CONFLICT (hr_person_id, resource_id, contract_id) WHERE status = 'pending'
-    DO NOTHING;
+      AND NOT EXISTS (
+        SELECT 1 FROM public.pending_replacements pr
+        WHERE pr.hr_person_id = NEW.id
+          AND pr.resource_id = r.id
+          AND pr.contract_id = r.contract_id
+          AND pr.status = 'pending'
+      );
   END IF;
   RETURN NEW;
 END;
