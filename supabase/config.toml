@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.feedz-get-employee]
 verify_jwt = false
+
+[functions.transport-vehicle-market]
+verify_jwt = false

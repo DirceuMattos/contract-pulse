@@ -41,16 +41,20 @@ serve(async (req) => {
     const { data: pat } = await supabase.rpc("get_vault_secret", { secret_name: "AZURE_DEVOPS_PAT" });
     const authHeader = "Basic " + btoa(":" + (pat as string));
 
-    const startDate = new Date(Date.UTC(year, month - 1, 1)).toISOString().split("T")[0];
-    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59)).toISOString().split("T")[0];
+    const startDate = new Date(Date.UTC(Number(year), Number(month) - 1, 1)).toISOString().split("T")[0];
+    const endDate = new Date(Date.UTC(Number(year), Number(month), 0, 23, 59, 59)).toISOString().split("T")[0];
+
+    // Sanitização anti-injeção WIQL: escapa aspas simples (padrão SQL/WIQL: ' -> '').
+    const wiqlEscape = (v: string) => String(v).replace(/'/g, "''");
+    const safeProject = wiqlEscape(azureProject);
 
     const tagsFilter = azureTags && azureTags.length > 0
-      ? ` AND (${azureTags.map((t: string) => `[System.Tags] CONTAINS '${t}'`).join(" OR ")})`
+      ? ` AND (${azureTags.map((t: string) => `[System.Tags] CONTAINS '${wiqlEscape(t)}'`).join(" OR ")})`
       : "";
 
     const wiql = {
       query: `SELECT [System.Id] FROM WorkItems 
-              WHERE [System.TeamProject] = '${azureProject}'
+              WHERE [System.TeamProject] = '${safeProject}'
               AND [System.State] IN ('Done', 'Closed', 'Resolved', 'Completed')
               AND [Microsoft.VSTS.Common.ClosedDate] >= '${startDate}'
               AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDate}'

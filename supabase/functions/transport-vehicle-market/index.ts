@@ -1,4 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { requireAuthenticatedUser, AuthError } from '../_shared/auth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -6,6 +7,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Segurança: exige usuário logado (a função consome a API de IA / custo).
+    await requireAuthenticatedUser(req);
+
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY missing' }), {
@@ -51,8 +55,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
+    const status = err instanceof AuthError ? err.status : 500;
     return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
+      status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
