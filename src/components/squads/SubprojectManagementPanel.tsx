@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Pencil, Trash2, Users, Package, ChevronDown, ChevronRight, Info, AlertTriangle } from 'lucide-react';
 import { ContractSubproject, SubprojectAllocation } from '@/types';
 import { useSubprojects } from '@/contexts/SubprojectContext';
@@ -52,6 +52,16 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   const resourceMap = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources]);
+
+  // Subprojetos vêm expandidos por padrão (evita o clique extra no ">").
+  // Só inicializa uma vez, sem sobrescrever colapsos manuais do usuário depois.
+  const didInitExpand = useRef(false);
+  useEffect(() => {
+    if (!didInitExpand.current && subprojects.length > 0) {
+      setExpandedSubprojects(new Set(subprojects.map(sp => sp.id)));
+      didInitExpand.current = true;
+    }
+  }, [subprojects]);
 
   const toggleExpanded = (spId: string) => {
     setExpandedSubprojects(prev => {
@@ -162,7 +172,9 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         <div className="space-y-3">
           {subprojects.map(sp => {
             const allocations = getAllocationsBySubproject(sp.id);
-            const hrAllocs = allocations.filter(a => a.hrPersonId);
+            const hrAllocs = allocations
+              .filter(a => a.hrPersonId)
+              .sort((a, b) => (hrMap.get(a.hrPersonId!)?.nome || '').localeCompare(hrMap.get(b.hrPersonId!)?.nome || '', 'pt-BR'));
             const resAllocs = allocations.filter(a => a.resourceId);
             const totalFTE = hrAllocs.reduce((s, a) => s + a.dedicationPercent / 100, 0);
             const isExpanded = expandedSubprojects.has(sp.id);

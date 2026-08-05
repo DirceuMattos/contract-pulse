@@ -267,6 +267,9 @@ function SquadsPageInner() {
 
           if (spResources.length === 0 && searchQuery) continue;
 
+          // Ordem alfabética dos recursos dentro do subprojeto.
+          spResources.sort((a, b) => a.resolvedNome.localeCompare(b.resolvedNome, 'pt-BR'));
+
           // Group by team
           const teamGroupMap = new Map<string, { team: Team | null; items: typeof spResources }>();
           for (const item of spResources) {
@@ -323,12 +326,20 @@ function SquadsPageInner() {
         // Resources do contrato que NÃO estão em nenhum subprojeto (órfãos).
         // Sem isto, alguém alocado no contrato mas fora de subprojeto some da tela
         // (ex.: resource que sobrou após remover a alocação de subprojeto).
-        const allSpAllocations = subprojects.flatMap(sp => getAllocationsBySubproject(sp.id));
+        // Só conta alocações em subprojetos NÃO encerrados — senão alguém alocado
+        // apenas num subprojeto encerrado (que não vira card) sumiria daqui também.
+        const activeSubprojects = subprojects.filter(sp => sp.status !== 'encerrado');
+        const allSpAllocations = activeSubprojects.flatMap(sp => getAllocationsBySubproject(sp.id));
         const allocatedPersonIds = new Set(
           allSpAllocations.filter(a => a.hrPersonId).map(a => a.hrPersonId),
         );
+        const allocatedResourceIds = new Set(
+          allSpAllocations.filter(a => a.resourceId).map(a => a.resourceId),
+        );
         const orphanResources = hrResources.filter(
-          r => r.hrPersonId && !allocatedPersonIds.has(r.hrPersonId),
+          r => r.hrPersonId
+            && !allocatedPersonIds.has(r.hrPersonId)
+            && !allocatedResourceIds.has(r.id),
         );
         if (orphanResources.length > 0) {
           const orphanResolved = orphanResources.map(r => {
