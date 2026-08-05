@@ -216,7 +216,15 @@ function SquadsPageInner() {
         for (const sp of subprojects) {
           if (sp.status === 'encerrado') continue;
           const spAllocations = getAllocationsBySubproject(sp.id);
-          if (spAllocations.length === 0 && searchQuery) continue;
+          // A busca pode casar com o contexto (contrato/subprojeto/cliente),
+          // não só com pessoas — nesse caso o card deve aparecer mesmo sem match de pessoa.
+          const matchContexto = !!searchQuery && (
+            contract.nome.toLowerCase().includes(searchLower)
+            || contract.codigo.toLowerCase().includes(searchLower)
+            || sp.name.toLowerCase().includes(searchLower)
+            || client.razaoSocial.toLowerCase().includes(searchLower)
+          );
+          if (spAllocations.length === 0 && searchQuery && !matchContexto) continue;
 
           // Build resources from subproject allocations
           const spResources: { resource: Resource; resolvedNome: string; resolvedCargo: string; isBrokenLink: boolean; isVacant: boolean }[] = [];
@@ -229,7 +237,9 @@ function SquadsPageInner() {
             const nome = person.nome || 'Sem nome';
             const isVacant = person.situacao === 'inativo';
             
-            if (searchQuery && !nome.toLowerCase().includes(searchLower) && !resolvedCargo.toLowerCase().includes(searchLower) && !client.razaoSocial.toLowerCase().includes(searchLower)) continue;
+            if (searchQuery && !matchContexto
+              && !nome.toLowerCase().includes(searchLower)
+              && !resolvedCargo.toLowerCase().includes(searchLower)) continue;
 
             // Create a synthetic resource for display
             const syntheticResource: Resource = {
@@ -265,7 +275,7 @@ function SquadsPageInner() {
             });
           }
 
-          if (spResources.length === 0 && searchQuery) continue;
+          if (spResources.length === 0 && searchQuery && !matchContexto) continue;
 
           // Ordem alfabética dos recursos dentro do subprojeto.
           spResources.sort((a, b) => a.resolvedNome.localeCompare(b.resolvedNome, 'pt-BR'));
@@ -341,20 +351,6 @@ function SquadsPageInner() {
             && !allocatedPersonIds.has(r.hrPersonId)
             && !allocatedResourceIds.has(r.id),
         );
-        // DIAGNÓSTICO TEMPORÁRIO (remover depois): investiga o card de órfãos.
-        if (contract.id === '1c13f104-2937-4084-9f7e-d9278af206fe') {
-          console.log('[DIAG órfãos SCEIC PROAC]', {
-            hasSubprojects: hasSubprojects(contract.id),
-            totalHrResources: hrResources.length,
-            hrResourceIds: hrResources.map(r => ({ id: r.id, hrPersonId: r.hrPersonId, tipo: r.tipo })),
-            activeSubprojectsCount: activeSubprojects.length,
-            allocatedPersonIds: Array.from(allocatedPersonIds),
-            allocatedResourceIds: Array.from(allocatedResourceIds),
-            orphanResourcesCount: orphanResources.length,
-            orphanResourceIds: orphanResources.map(r => r.id),
-            searchQuery,
-          });
-        }
         if (orphanResources.length > 0) {
           const orphanResolved = orphanResources.map(r => {
             const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
