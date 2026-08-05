@@ -341,6 +341,20 @@ function SquadsPageInner() {
             && !allocatedPersonIds.has(r.hrPersonId)
             && !allocatedResourceIds.has(r.id),
         );
+        // DIAGNÓSTICO TEMPORÁRIO (remover depois): investiga o card de órfãos.
+        if (contract.id === '1c13f104-2937-4084-9f7e-d9278af206fe') {
+          console.log('[DIAG órfãos SCEIC PROAC]', {
+            hasSubprojects: hasSubprojects(contract.id),
+            totalHrResources: hrResources.length,
+            hrResourceIds: hrResources.map(r => ({ id: r.id, hrPersonId: r.hrPersonId, tipo: r.tipo })),
+            activeSubprojectsCount: activeSubprojects.length,
+            allocatedPersonIds: Array.from(allocatedPersonIds),
+            allocatedResourceIds: Array.from(allocatedResourceIds),
+            orphanResourcesCount: orphanResources.length,
+            orphanResourceIds: orphanResources.map(r => r.id),
+            searchQuery,
+          });
+        }
         if (orphanResources.length > 0) {
           const orphanResolved = orphanResources.map(r => {
             const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
