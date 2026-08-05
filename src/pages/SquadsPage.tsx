@@ -319,6 +319,38 @@ function SquadsPageInner() {
             subprojectName: sp.name,
           });
         }
+
+        // Resources do contrato que NÃO estão em nenhum subprojeto (órfãos).
+        // Sem isto, alguém alocado no contrato mas fora de subprojeto some da tela
+        // (ex.: resource que sobrou após remover a alocação de subprojeto).
+        const allSpAllocations = subprojects.flatMap(sp => getAllocationsBySubproject(sp.id));
+        const allocatedPersonIds = new Set(
+          allSpAllocations.filter(a => a.hrPersonId).map(a => a.hrPersonId),
+        );
+        const orphanResources = hrResources.filter(
+          r => r.hrPersonId && !allocatedPersonIds.has(r.hrPersonId),
+        );
+        if (orphanResources.length > 0) {
+          const orphanResolved = orphanResources.map(r => {
+            const resolved = resolveResource(r, peopleMap, jobMap, teamMap);
+            return { resource: r, resolvedNome: resolved.nome, resolvedCargo: resolved.cargo || 'Sem cargo', isBrokenLink: false, isVacant: false };
+          }).filter(({ resolvedNome, resolvedCargo }) =>
+            !searchQuery || resolvedNome.toLowerCase().includes(searchLower) || resolvedCargo.toLowerCase().includes(searchLower),
+          );
+          if (orphanResolved.length > 0) {
+            const health = calculateContractHealth(contract, resources, settings, [], getOverheadAllocation(contract.id).value, getAllocationsByContract(contract.id), peopleMap);
+            const hc = healthConfig[health.status];
+            const totalFTE = orphanResolved.reduce((s, { resource: r }) => s + r.percentualDedicacao / 100, 0);
+            result.push({
+              contractId: contract.id, contractCodigo: contract.codigo, contractNome: contract.nome,
+              clientId: client.id, clientName: client.razaoSocial, segmento: contract.segmento,
+              healthStatus: health.status, healthLabel: hc.label, totalFTE, hrCount: orphanResolved.length,
+              teams: [{ team: null, teamName: 'Sem equipe', resources: orphanResolved, fte: totalFTE, percent: 100 }],
+              subprojectId: '__orphans__',
+              subprojectName: 'Não alocados em subprojeto',
+            });
+          }
+        }
         continue;
       }
 
@@ -450,6 +482,7 @@ function SquadsPageInner() {
 
           const entry = resourceMap.get(key)!;
           if (isVacant) entry.isVacant = true;
+          const isOrphanCard = cd.subprojectId === '__orphans__';
           entry.totalDedicacao += r.percentualDedicacao;
           entry.allocations.push({
             resourceId: r.id,
@@ -460,9 +493,10 @@ function SquadsPageInner() {
             healthStatus: cd.healthStatus,
             percentualDedicacao: r.percentualDedicacao,
             hrPersonId: r.hrPersonId || null,
-            isSubprojectAllocation: !!cd.subprojectId,
-            subprojectId: cd.subprojectId,
-            subprojectName: cd.subprojectName,
+            // Card de órfãos = resource real do contrato (não alocação de subprojeto).
+            isSubprojectAllocation: !!cd.subprojectId && !isOrphanCard,
+            subprojectId: isOrphanCard ? undefined : cd.subprojectId,
+            subprojectName: isOrphanCard ? undefined : cd.subprojectName,
           });
         }
       }
