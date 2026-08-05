@@ -180,6 +180,24 @@ function ReportsPageInner() {
     try {
       const nextMonth = report.month === 12 ? 1 : report.month + 1;
       const nextYear = report.month === 12 ? report.year + 1 : report.year;
+
+      // Evita erro de constraint (contract+mês+ano únicos) ao duplicar repetido:
+      // se o relatório do mês-alvo já existe, avisa em vez de estourar erro.
+      const { data: existing } = await supabase
+        .from('monthly_reports')
+        .select('id')
+        .eq('contract_id', report.contractId)
+        .eq('month', nextMonth)
+        .eq('year', nextYear)
+        .maybeSingle();
+      if (existing) {
+        toast({
+          title: 'Relatório já existe',
+          description: `Já há um relatório de ${MONTHS_SHORT[nextMonth - 1]}/${nextYear} para este contrato.`,
+        });
+        return;
+      }
+
       const { data: newReport, error } = await supabase.from('monthly_reports').insert({
         contract_id: report.contractId,
         month: nextMonth,

@@ -316,6 +316,10 @@ export default function ReportEditPage() {
 
   const handleSyncAll = async (silent = false) => {
     if (!report) return;
+    // CRÍTICO: grava as edições manuais pendentes ANTES de sincronizar. Sem isto,
+    // o sync roda antes do autosave (debounce) e o merge no banco não vê os dados
+    // manuais — apagando o que o usuário acabou de inserir.
+    await flushPendingSaves();
     setSyncing(true);
     if (!silent) setSyncResults(null);
     try {
@@ -393,6 +397,8 @@ export default function ReportEditPage() {
 
   const handleResyncSection = async (key: ReportSectionKey) => {
     if (!report) return;
+    // Grava edições manuais pendentes antes de re-sincronizar a seção (ver handleSyncAll).
+    await flushPendingSaves();
     setSyncing(true);
     try {
       const meta = SECTION_META_BY_KEY[key];
@@ -599,7 +605,7 @@ export default function ReportEditPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/relatorios')}>
+          <Button variant="ghost" size="icon" onClick={async () => { await flushPendingSaves(); navigate('/relatorios'); }}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <ClientLogo nome={client?.nomeFantasia || client?.razaoSocial || '?'} logoUrl={contract?.logoUrl} fallbackLogoUrl={client?.logoUrl} size="lg" />
