@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_overtime_person ON public.overtime_entries(hr_per
 
 -- trigger updated_at (usa a convenção do projeto se existir; senão cria)
 CREATE OR REPLACE FUNCTION public.set_updated_at_overtime()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 
 DROP TRIGGER IF EXISTS trg_overtime_updated_at ON public.overtime_entries;

@@ -1,5 +1,8 @@
 // v2 - merge-preserva-manual: treinamentos_reunioes (nao apaga itens/rodape manuais)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireAnyRole, AuthError } from '../_shared/auth.ts';
+
+const REPORT_ROLES = ['c-level', 'superadmin', 'lider_tribo', 'administrativo', 'coordenacao_suporte', 'projetos_produtos'];
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,6 +74,10 @@ Deno.serve(async (req) => {
   try {
     const { reportId, clientEmailDomain, firefliesKeywords = [], month, year } = (await req.json()) as Body;
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Segurança: só perfis do módulo de Relatórios podem sincronizar.
+    await requireAnyRole(req, supabase, REPORT_ROLES);
+
     const lovableKey = Deno.env.get('LOVABLE_API_KEY');
     const firefliesKey = Deno.env.get('FIREFLIES_API_KEY');
     if (!lovableKey || !firefliesKey) {
@@ -161,8 +168,9 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'erro';
+    const status = err instanceof AuthError ? err.status : 500;
     return new Response(JSON.stringify({ ok: false, error: msg }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

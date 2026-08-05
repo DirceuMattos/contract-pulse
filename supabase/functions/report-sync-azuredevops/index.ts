@@ -1,6 +1,9 @@
 // v3 - merge-preserva-manual: eficiencia_previsibilidade (nao apaga campos manuais)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAnyRole, AuthError } from "../_shared/auth.ts";
+
+const REPORT_ROLES = ["c-level", "superadmin", "lider_tribo", "administrativo", "coordenacao_suporte", "projetos_produtos"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +34,9 @@ serve(async (req) => {
     if (!azureProject) throw new Error("azureProject obrigatório");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Segurança: só perfis do módulo de Relatórios podem sincronizar.
+    await requireAnyRole(req, supabase, REPORT_ROLES);
 
     const { data: pat } = await supabase.rpc("get_vault_secret", { secret_name: "AZURE_DEVOPS_PAT" });
     const authHeader = "Basic " + btoa(":" + (pat as string));
@@ -183,8 +189,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("[AzureDevOps]", (error as Error).message);
+    const status = error instanceof AuthError ? error.status : 500;
     return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500, headers: { ...CORS, "Content-Type": "application/json" },
+      status, headers: { ...CORS, "Content-Type": "application/json" },
     });
   }
 });

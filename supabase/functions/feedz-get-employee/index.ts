@@ -1,3 +1,8 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireAnyRole, AuthError } from '../_shared/auth.ts';
+
+const PII_ROLES = ['rh', 'administrativo', 'c-level', 'superadmin'];
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -24,6 +29,10 @@ function findPhotoLikeFields(obj: unknown, path = ''): Array<{ path: string; val
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
+    // Segurança: endpoint retorna PII de colaborador — exige perfil de RH/admin.
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    await requireAnyRole(req, supabase, PII_ROLES);
+
     const feedzToken = Deno.env.get('FEEDZ_API_TOKEN');
     if (!feedzToken) {
       return new Response(JSON.stringify({ error: 'FEEDZ_API_TOKEN not configured' }), {
@@ -64,8 +73,9 @@ Deno.serve(async (req) => {
       bodyRaw: parsed ? undefined : rawText.slice(0, 4000),
     }, null, 2), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (err) {
+    const status = err instanceof AuthError ? err.status : 500;
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

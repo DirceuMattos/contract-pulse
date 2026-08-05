@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import pptxgen from "https://esm.sh/pptxgenjs@3.12.0";
+import { requireAnyRole, AuthError } from "../_shared/auth.ts";
+
+// Perfis com acesso ao módulo de Relatórios (REPORTS).
+const REPORT_ROLES = ["c-level", "superadmin", "lider_tribo", "administrativo", "coordenacao_suporte", "projetos_produtos"];
 
 const AZUL_ESCURO = "1A4F8A";
 const AZUL_MEDIO = "2D7FC1";
@@ -43,8 +47,13 @@ serve(async (req) => {
   }
 
   try {
-    const { reportId } = await req.json();
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Segurança: só perfis do módulo de Relatórios podem gerar o PPTX
+    // (a função usa service_role e devolve dados de contrato/cliente).
+    await requireAnyRole(req, supabase, REPORT_ROLES);
+
+    const { reportId } = await req.json();
 
     const { data: report } = await supabase
       .from("monthly_reports")
@@ -958,8 +967,9 @@ serve(async (req) => {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
+    const status = error instanceof AuthError ? error.status : 500;
     return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
+      status,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     });
   }

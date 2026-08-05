@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAnyRole, AuthError } from "../_shared/auth.ts";
+
+const SUPPORT_COSTS_ROLES = ["superadmin", "c-level", "rh", "administrativo", "lider_tribo"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -1858,6 +1861,9 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // Segurança: só perfis do módulo Custo do Suporte podem sincronizar/gravar.
+    await requireAnyRole(req, supabase, SUPPORT_COSTS_ROLES);
+
     if (mode === "finalize-month") {
       const monthRanges = buildMonthRanges(dateFrom, dateTo);
       if (monthRanges.length === 0) throw new Error("Periodo invalido");
@@ -2331,6 +2337,7 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[support-costs-sync]", error);
+    const status = error instanceof AuthError ? error.status : 200;
     return new Response(
       JSON.stringify({
         success: false,
@@ -2339,6 +2346,7 @@ serve(async (req) => {
         errorDetails: serializeError(error),
       }),
       {
+        status,
         headers: { ...CORS, "Content-Type": "application/json" },
       },
     );

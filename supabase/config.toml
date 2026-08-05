@@ -53,3 +53,21 @@ verify_jwt = false
 
 [functions.support-costs-sync]
 verify_jwt = false
+
+[functions.report-generate-pptx]
+verify_jwt = false
+
+[functions.report-sync-asana]
+verify_jwt = false
+
+[functions.report-sync-azuredevops]
+verify_jwt = false
+
+[functions.report-sync-devid]
+verify_jwt = false
+
+[functions.report-sync-fireflies]
+verify_jwt = false
+
+[functions.feedz-get-employee]
+verify_jwt = false

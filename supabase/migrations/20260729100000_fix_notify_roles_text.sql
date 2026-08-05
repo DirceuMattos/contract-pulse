@@ -44,3 +44,11 @@ $$;
 DROP FUNCTION IF EXISTS public.notify_roles_and_users(
   public.app_role[], uuid[], text, text, text, text, text, uuid
 );
+
+-- Segurança: função SECURITY DEFINER não deve ser executável por public/anon.
+REVOKE EXECUTE ON FUNCTION public.notify_roles_and_users(
+  text[], uuid[], text, text, text, text, text, uuid
+) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.notify_roles_and_users(
+  text[], uuid[], text, text, text, text, text, uuid
+) TO authenticated;
