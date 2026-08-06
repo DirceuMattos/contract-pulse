@@ -34,7 +34,7 @@ const statusBadgeClass: Record<string, string> = {
 export function SubprojectManagementPanel({ contractId }: SubprojectManagementPanelProps) {
   const { getSubprojectsByContract, deleteSubproject, getAllocationsBySubproject, deleteAllocation } = useSubprojects();
   const { hrPeople } = useHR();
-  const { resources } = useData();
+  const { resources, deleteResource } = useData();
   const { canModuleAction, canViewValues } = useAuth();
   const canCreateSquads = canModuleAction('SQUADS', 'can_create');
   const canEditSquads = canModuleAction('SQUADS', 'can_edit');
@@ -45,6 +45,7 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const [editingSp, setEditingSp] = useState<ContractSubproject | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [allocDialog, setAllocDialog] = useState<{ spId: string; type: AllocationType } | null>(null);
+  const [removingResource, setRemovingResource] = useState<{ id: string; nome: string } | null>(null);
   const [deletingAllocId, setDeletingAllocId] = useState<string | null>(null);
   const [editingAlloc, setEditingAlloc] = useState<{ alloc: SubprojectAllocation; name: string; typeLabel: string } | null>(null);
   const [expandedSubprojects, setExpandedSubprojects] = useState<Set<string>>(new Set());
@@ -52,6 +53,25 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
   const subprojects = getSubprojectsByContract(contractId);
   const hrMap = useMemo(() => new Map(hrPeople.map(p => [p.id, p])), [hrPeople]);
   const resourceMap = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources]);
+
+  // Pessoas vinculadas ao CONTRATO (resources clt/pj) que ainda não foram
+  // distribuídas em nenhum subprojeto. No modelo pessoa->contrato->subprojeto,
+  // isso é legítimo (subprojeto é derivação); mas sem exibi-las aqui, ficariam
+  // invisíveis/ingerenciáveis. Esta seção permite distribuí-las ou removê-las.
+  const naoDistribuidos = useMemo(() => {
+    const alocadosPersonIds = new Set<string>();
+    for (const sp of subprojects) {
+      for (const a of getAllocationsBySubproject(sp.id)) {
+        if (a.hrPersonId) alocadosPersonIds.add(a.hrPersonId);
+      }
+    }
+    return resources
+      .filter(r => r.contractId === contractId && (r.tipo === 'clt' || r.tipo === 'pj') && r.hrPersonId)
+      .filter(r => !alocadosPersonIds.has(r.hrPersonId!))
+      .map(r => ({ resource: r, person: hrMap.get(r.hrPersonId!) }))
+      .filter(x => x.person)
+      .sort((a, b) => (a.person!.nome || '').localeCompare(b.person!.nome || '', 'pt-BR'));
+  }, [resources, contractId, subprojects, getAllocationsBySubproject, hrMap]);
 
   // Subprojetos vêm expandidos por padrão (evita o clique extra no ">").
   // Só inicializa uma vez, sem sobrescrever colapsos manuais do usuário depois.
@@ -298,6 +318,34 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
         </div>
       )}
 
+      {naoDistribuidos.length > 0 && (
+        <Card className="mt-4 border-amber-300 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              Pessoas do contrato ainda não distribuídas em subprojetos ({naoDistribuidos.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Estão vinculadas ao contrato mas não a nenhum subprojeto. Para distribuir, use “+ Adicionar”
+              no subprojeto desejado. Ou remova o vínculo com o contrato.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {naoDistribuidos.map(({ resource, person }) => (
+              <div key={resource.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <span className="text-sm">{person!.nome}{person!.situacao !== 'ativo' ? ' (inativo)' : ''}</span>
+                <Button
+                  variant="ghost" size="sm" className="h-7 text-xs text-destructive"
+                  onClick={() => setRemovingResource({ id: resource.id, nome: person!.nome })}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Remover do contrato
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <SubprojectFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -340,6 +388,24 @@ export function SubprojectManagementPanel({ contractId }: SubprojectManagementPa
           itemTypeLabel={editingAlloc.typeLabel}
         />
       )}
+
+      <ConfirmDeleteDialog
+        open={!!removingResource}
+        onOpenChange={(open) => { if (!open) setRemovingResource(null); }}
+        onConfirm={async () => {
+          if (!removingResource) return;
+          try {
+            await deleteResource(removingResource.id);
+            toast.success('Vínculo removido do contrato');
+          } catch {
+            toast.error('Erro ao remover vínculo');
+          } finally {
+            setRemovingResource(null);
+          }
+        }}
+        title="Remover do contrato"
+        description={`Remover o vínculo de ${removingResource?.nome ?? ''} com este contrato? Esta ação não afeta o cadastro da pessoa no RH.`}
+      />
     </div>
   );
 }
