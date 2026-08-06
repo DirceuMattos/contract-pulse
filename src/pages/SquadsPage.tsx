@@ -188,8 +188,10 @@ function SquadsPageInner() {
     return hasSubprojects(contractFilter);
   }, [contractFilter, hasSubprojects]);
 
-  // Show management panel when a specific contract with subprojects is selected
-  const showSubprojectManagement = contractFilter !== 'all' && selectedContractHasSubprojects;
+  // Show management panel when a specific contract with subprojects is selected.
+  // Só na perspectiva 'project' — na visão por recurso o painel empurraria os
+  // cards de pessoas para baixo, forçando o usuário a rolar (problema P2).
+  const showSubprojectManagement = perspective === 'project' && contractFilter !== 'all' && selectedContractHasSubprojects;
 
   // --- Consolidation ---
 
