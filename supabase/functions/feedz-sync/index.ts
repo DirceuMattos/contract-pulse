@@ -42,6 +42,30 @@ function normalizeName(name: string): string {
     .replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim()
 }
 
+// P4: extrai só a parte YYYY-MM-DD de uma data (ignora timestamp/timezone).
+// Evita falsos "alterados" quando o Feedz manda "2023-08-29T00:00:00.000Z" e o
+// banco tem "2023-08-29".
+function normalizeDate(v: unknown): string | null {
+  if (!v) return null
+  const s = String(v).trim()
+  if (!s) return null
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : s
+}
+
+// P1: chave normalizada para casar cargos com pequenas diferenças de digitação
+// (espaços múltiplos, acentos, caixa). Ex.: "Desenvolvedor Full stack" casa com
+// "Desenvolvedor Fullstack" (após remover espaços não-essenciais e acentos).
+function normalizeCargoKey(label: string): string {
+  return label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/\s+/g, ' ').trim()
+}
+// Variante "colada" (sem espaços) para tolerar "Full stack" vs "Fullstack".
+function cargoKeyTight(label: string): string {
+  return normalizeCargoKey(label).replace(/\s+/g, '')
+}
+
+
 function normalizePhone(phone: string | null | undefined): string | null {
   if (!phone) return null
   const digits = phone.replace(/\D/g, '')
@@ -90,8 +114,9 @@ async function insertPendingReplacementIdempotent(db: SupabaseClient, row: Recor
 // ─── PAYLOAD HASH ────────────────────────────────────────────────────────────
 function computePayloadHash(data: Record<string, any>): string {
   const keys = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', 'data_desligamento', 'remuneracao_mensal']
+  const dateKeys = new Set(['data_admissao', 'data_desligamento'])
   const obj: Record<string, string> = {}
-  for (const k of keys) obj[k] = String(data[k] ?? '')
+  for (const k of keys) obj[k] = dateKeys.has(k) ? (normalizeDate(data[k]) ?? '') : String(data[k] ?? '')
   const str = JSON.stringify(obj)
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -322,7 +347,11 @@ Deno.serve(async (req) => {
     }
 
     const jobMap = new Map<string, any>()
-    for (const j of (existingJobs || [])) jobMap.set(j.label.toLowerCase(), j)
+    const jobMapTight = new Map<string, any>()
+    for (const j of (existingJobs || [])) {
+      jobMap.set(normalizeCargoKey(j.label), j)
+      jobMapTight.set(cargoKeyTight(j.label), j)
+    }
 
     const teamMap = new Map<string, any>()
     for (const t of (existingTeams || [])) teamMap.set(t.name.toLowerCase(), t)
@@ -362,7 +391,7 @@ Deno.serve(async (req) => {
       const feedzPhoneNorm = normalizePhone(feedzPhoneRaw)
       const feedzDept = person.department_data?.name || (typeof person.department === 'string' ? person.department : null)
       const feedzJob = person.job_description?.title || null
-      const feedzAdmission = person.admission_at || null
+      const feedzAdmission = normalizeDate(person.admission_at)
       const feedzStatus = normalizeFeedzStatus(person.status)
       let terminationDate = extractTerminationDate(person)
       const rawRemuneracao = person.remuneration ? parseFloat(person.remuneration) : null
@@ -405,18 +434,26 @@ Deno.serve(async (req) => {
       }
 
       // ─── RESOLVE CARGO ─────────────────────────────────────────────────
+      // cargoId candidato. Se não houver match, fica null AQUI, mas na gravação
+      // nunca sobrescreve um cargo já existente da pessoa (ver uso de cargoId).
       let cargoId: string | null = null
       if (feedzJob) {
         const alias = cargoAliasMap.get(feedzJob.toLowerCase())
         if (alias && alias.internal_id) {
           cargoId = alias.internal_id
         } else {
-          const existingJob = jobMap.get(feedzJob.toLowerCase())
+          // Match tolerante: normalizado (acentos/caixa/espaços) e "colado"
+          // (Full stack == Fullstack). Evita zerar cargo por diferença de grafia.
+          const existingJob = jobMap.get(normalizeCargoKey(feedzJob)) || jobMapTight.get(cargoKeyTight(feedzJob))
           if (existingJob) {
             cargoId = existingJob.id
           } else if (syncMode === 'permissive') {
             const { data: newJob } = await db.from('job_titles').insert({ label: feedzJob, is_active: true, origin: 'feedz' }).select().single()
-            if (newJob) { cargoId = newJob.id; jobMap.set(feedzJob.toLowerCase(), newJob) }
+            if (newJob) {
+              cargoId = newJob.id
+              jobMap.set(normalizeCargoKey(feedzJob), newJob)
+              jobMapTight.set(cargoKeyTight(feedzJob), newJob)
+            }
           }
         }
       }
@@ -504,9 +541,12 @@ Deno.serve(async (req) => {
         if (feedzStatus === 'ativo' && !terminationDate) {
           // ─── CASE C: UPDATE (lifecycle-safe) ─────────────────────────
           // Do NOT overwrite tipo_vinculo or remuneracao unless Feedz provides valid data
+          // P1: se o cargo do Feedz não casou (cargoId null) mas a pessoa já tem
+          // cargo, MANTÉM o atual — nunca zera para "-" por diferença de grafia.
+          const cargoIdToUse = cargoId ?? existing.cargo_id ?? null
           const dbPayload: Record<string, any> = {
             nome: feedzName, situacao: 'ativo',
-            cargo_id: cargoId, team_id: teamId,
+            cargo_id: cargoIdToUse, team_id: teamId,
             data_admissao: feedzAdmission || existing.data_admissao,
             email: feedzEmailRaw, celular: feedzPhoneRaw, phone_norm: feedzPhoneNorm,
             matricula,
@@ -538,9 +578,13 @@ Deno.serve(async (req) => {
           const fieldsChanged: { field: string; before: any; after: any }[] = []
           const snapshotBefore: Record<string, any> = {}
           const checkFields = ['nome', 'situacao', 'cargo_id', 'team_id', 'email', 'celular', 'data_admissao', ...(remuneracaoValid ? ['remuneracao_mensal'] : [])]
+          const dateFields = new Set(['data_admissao', 'data_desligamento'])
           for (const key of checkFields) {
             snapshotBefore[key] = existing[key]
-            if (String(existing[key] ?? '') !== String(dbPayload[key] ?? '')) {
+            // Datas comparadas por YYYY-MM-DD (ignora timestamp/timezone) — P4.
+            const a = dateFields.has(key) ? (normalizeDate(existing[key]) ?? '') : String(existing[key] ?? '')
+            const b = dateFields.has(key) ? (normalizeDate(dbPayload[key]) ?? '') : String(dbPayload[key] ?? '')
+            if (a !== b) {
               fieldsChanged.push({ field: key, before: existing[key], after: dbPayload[key] })
             }
           }
@@ -570,7 +614,7 @@ Deno.serve(async (req) => {
 
             if (fieldsChanged.some(f => f.field === 'cargo_id')) {
               const oldLabel = (existingJobs || []).find((j: any) => j.id === existing.cargo_id)?.label || 'Sem cargo'
-              const newLabel = feedzJob || 'Sem cargo'
+              const newLabel = (existingJobs || []).find((j: any) => j.id === cargoIdToUse)?.label || feedzJob || 'Sem cargo'
               await db.from('hr_people').update({ cargo_antigo: oldLabel }).eq('id', existing.id)
               await insertTimelineIdempotent(db, {
                 person_id: existing.id, event_date: new Date().toISOString().split('T')[0],
