@@ -485,6 +485,62 @@ function SquadsPageInner() {
     }
 
     const searchLower = searchQuery.toLowerCase().trim();
+
+    // Resources vinculados a contratos COM subprojetos mas que NÃO estão em
+    // nenhum subprojeto (órfãos). Como o fluxo de subprojetos não gera card para
+    // eles, cairiam no vão: têm resource (logo saem do loop de "não alocados"
+    // abaixo) mas não aparecem acima. Aqui entram como cards de recurso normais.
+    for (const contract of contracts) {
+      if (!hasSubprojects(contract.id)) continue;
+      if (clientFilter !== 'all' && contract.clientId !== clientFilter) continue;
+      if (contractFilter !== 'all' && contract.id !== contractFilter) continue;
+      const client = clients.find(cl => cl.id === contract.clientId);
+      if (!client) continue;
+
+      const allocatedIds = new Set<string>();
+      for (const sp of getSubprojectsByContract(contract.id)) {
+        for (const a of getAllocationsBySubproject(sp.id)) {
+          if (a.hrPersonId) allocatedIds.add(a.hrPersonId);
+          if (a.resourceId) allocatedIds.add(a.resourceId);
+        }
+      }
+
+      for (const r of resources) {
+        if (r.contractId !== contract.id) continue;
+        if (r.tipo !== 'clt' && r.tipo !== 'pj') continue;
+        if (!r.hrPersonId) continue;
+        if (allocatedIds.has(r.hrPersonId) || allocatedIds.has(r.id)) continue;
+
+        const person = hrPeople.find(p => p.id === r.hrPersonId);
+        if (!person || person.situacao !== 'ativo') continue;
+        if (teamFilter.length > 0 && (!person.teamId || !teamFilter.includes(person.teamId))) continue;
+
+        const cargo = person.cargoId ? (jobTitles.find(j => j.id === person.cargoId)?.label || 'Sem cargo') : 'Sem cargo';
+        const teamName = person.teamId ? (teams.find(t => t.id === person.teamId)?.name || 'Sem equipe') : 'Sem equipe';
+        if (searchLower && !person.nome.toLowerCase().includes(searchLower) && !cargo.toLowerCase().includes(searchLower) && !teamName.toLowerCase().includes(searchLower)) continue;
+
+        const key = `hr:${person.id}`;
+        if (!resourceMap.has(key)) {
+          resourceMap.set(key, { resourceKey: key, nome: person.nome, cargo, teamName, isVacant: false, totalDedicacao: 0, allocations: [] });
+        }
+        const entry = resourceMap.get(key)!;
+        entry.totalDedicacao += r.percentualDedicacao;
+        entry.allocations.push({
+          resourceId: r.id,
+          contractId: contract.id,
+          contractCodigo: contract.codigo,
+          contractNome: contract.nome,
+          clientName: client.razaoSocial,
+          healthStatus: 'healthy',
+          percentualDedicacao: r.percentualDedicacao,
+          hrPersonId: r.hrPersonId || null,
+          isSubprojectAllocation: false,
+          subprojectId: undefined,
+          subprojectName: undefined,
+        });
+      }
+    }
+
     for (const person of hrPeople) {
       if (person.situacao !== 'ativo') continue;
       if (globallyAllocatedHrPersonIds.has(person.id)) continue;
@@ -514,7 +570,7 @@ function SquadsPageInner() {
     }
 
     return Array.from(resourceMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [squadsData, perspective, hrPeople, globallyAllocatedHrPersonIds, jobTitles, teams, teamFilter, searchQuery]);
+  }, [squadsData, perspective, hrPeople, globallyAllocatedHrPersonIds, jobTitles, teams, teamFilter, searchQuery, contracts, clients, resources, hasSubprojects, getSubprojectsByContract, getAllocationsBySubproject, clientFilter, contractFilter]);
 
   // --- Filter options ---
 
