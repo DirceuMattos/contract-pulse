@@ -80,6 +80,9 @@ function ReportsPageInner() {
 
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  // Contratos cujo histórico completo está expandido (além dos 6 recentes).
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -146,9 +149,10 @@ function ReportsPageInner() {
     return reports.filter((r) => {
       if (yearFilter !== 'all' && String(r.year) !== yearFilter) return false;
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (monthFilter !== 'all' && String(r.month) !== monthFilter) return false;
       return true;
     });
-  }, [reports, yearFilter, statusFilter]);
+  }, [reports, yearFilter, statusFilter, monthFilter]);
 
   const years = useMemo(() => {
     const s = new Set(reports.map((r) => r.year));
@@ -171,6 +175,8 @@ function ReportsPageInner() {
         milvus: false,
         azure: false,
       };
+      // Ordem cronológica CRESCENTE (mais antigo → mais recente).
+      reps.sort((a, b) => (a.year - b.year) || (a.month - b.month));
       return { contractId, contract, client, reports: reps, integrations };
     });
     out.sort((a, b) => (a.contract?.nome ?? '').localeCompare(b.contract?.nome ?? ''));
@@ -285,6 +291,16 @@ function ReportsPageInner() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-[130px]">
+              <label className="text-xs text-muted-foreground">Mês</label>
+              <Select value={monthFilter} onValueChange={setMonthFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {MONTHS_SHORT.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="w-[160px]">
               <label className="text-xs text-muted-foreground">Status</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -387,8 +403,30 @@ function ReportsPageInner() {
 
                     {isOpen && (
                       <CardContent className="border-t pt-4">
+                        {(() => {
+                          const historyOpen = expandedHistory.has(group.contractId);
+                          // reps está em ordem crescente; os "6 recentes" são os 6 finais.
+                          const hiddenCount = Math.max(0, reps.length - 6);
+                          const visibleReps = historyOpen ? reps : reps.slice(-6);
+                          return (
+                        <>
+                        {hiddenCount > 0 && (
+                          <button
+                            onClick={() => setExpandedHistory((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(group.contractId)) next.delete(group.contractId);
+                              else next.add(group.contractId);
+                              return next;
+                            })}
+                            className="mb-3 text-xs text-primary hover:underline flex items-center gap-1"
+                          >
+                            {historyOpen
+                              ? 'Mostrar apenas os 6 mais recentes'
+                              : `Ver meses anteriores (${hiddenCount})`}
+                          </button>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {reps.map((report) => {
+                          {visibleReps.map((report) => {
                             const progress = report.totalSections > 0
                               ? Math.round((report.filledSections / report.totalSections) * 100)
                               : 0;
@@ -462,6 +500,9 @@ function ReportsPageInner() {
                             );
                           })}
                         </div>
+                        </>
+                          );
+                        })()}
                       </CardContent>
                     )}
                   </Card>
