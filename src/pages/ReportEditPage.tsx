@@ -518,11 +518,10 @@ export default function ReportEditPage() {
       const { data: prevSections } = await supabase
         .from('report_sections')
         .select('section_key, content')
-        .eq('report_id', prev.id)
-        .eq('source', 'manual');
+        .eq('report_id', prev.id);
 
       if (!prevSections || prevSections.length === 0) {
-        toast({ title: 'Relatório anterior não tem seções manuais', variant: 'destructive' });
+        toast({ title: 'Relatório anterior não tem seções', variant: 'destructive' });
         return;
       }
 

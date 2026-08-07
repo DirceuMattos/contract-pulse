@@ -210,7 +210,7 @@ function ReportsPageInner() {
 
       const { data: prevSections } = await supabase
         .from('report_sections')
-        .select('section_key, source')
+        .select('section_key, source, content')
         .eq('report_id', report.id);
       if (prevSections && prevSections.length > 0) {
         await supabase.from('report_sections').insert(
@@ -218,7 +218,7 @@ function ReportsPageInner() {
             report_id: newReport.id,
             section_key: s.section_key,
             source: s.source,
-            content: {} as any,
+            content: s.content ?? {},
           })) as any,
         );
       }
