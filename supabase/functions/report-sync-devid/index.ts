@@ -189,7 +189,11 @@ serve(async (req) => {
     try {
       const todosTickets: Array<Record<string, unknown>> = [];
       const nomesBusca = (milvusClientNames as string[] ?? []);
-      const MILVUS_TOKEN = await getVaultSecret(supabase, "MILVUS_TOKEN");
+      if (nomesBusca.length === 0) {
+        results.eficiencia_operacional_aviso = 'Configure os nomes de cliente do Milvus para sincronizar tickets.';
+        console.log('[MILVUS] Sem milvusClientNames configurados — pulando busca.');
+      }
+      const MILVUS_TOKEN = nomesBusca.length > 0 ? await getVaultSecret(supabase, "MILVUS_TOKEN") : "";
       const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
 
       for (const nomeCliente of nomesBusca) {
@@ -214,8 +218,25 @@ serve(async (req) => {
           if (!milvusRes.ok) { console.log(`[MILVUS] ${nomeCliente}: HTTP ${milvusRes.status}`); continue; }
 
           const milvusData = await milvusRes.json() as Record<string, unknown>;
-          const lista = (milvusData?.lista as Array<Record<string, unknown>>) ?? [];
-          console.log(`[MILVUS] ${nomeCliente}: ${lista.length} tickets`);
+          // A API Milvus pode retornar a lista em campos diferentes conforme o
+          // endpoint/versão. Tenta os nomes conhecidos antes de desistir.
+          const lista = (
+            (milvusData?.lista as unknown[]) ??
+            (milvusData?.dados as unknown[]) ??
+            (milvusData?.data as unknown[]) ??
+            (milvusData?.registros as unknown[]) ??
+            (milvusData?.chamados as unknown[]) ??
+            (Array.isArray(milvusData) ? milvusData as unknown[] : [])
+          ) as Array<Record<string, unknown>>;
+          // Diagnóstico: se veio vazio, registra as chaves do retorno para análise.
+          if (lista.length === 0) {
+            const chaves = milvusData && typeof milvusData === 'object' ? Object.keys(milvusData) : [];
+            console.log(`[MILVUS] ${nomeCliente}: 0 tickets. Chaves do retorno: ${JSON.stringify(chaves)}`);
+            if (!Array.isArray(results.milvus_diagnostico)) results.milvus_diagnostico = [];
+            (results.milvus_diagnostico as unknown[]).push({ cliente: nomeCliente, chavesRetorno: chaves });
+          } else {
+            console.log(`[MILVUS] ${nomeCliente}: ${lista.length} tickets`);
+          }
           todosTickets.push(...lista);
         } catch (e) {
           console.log(`[MILVUS] Erro ${nomeCliente}: ${(e as Error).message}`);

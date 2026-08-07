@@ -129,11 +129,30 @@ Deno.serve(async (req) => {
 
     const domain = (clientEmailDomain ?? '').toLowerCase().trim();
     const kws = firefliesKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
+
+    // Sem domínio E sem keywords: config insuficiente. Não traz nada (evita puxar
+    // reuniões de todos os clientes) e sinaliza para o usuário configurar.
+    if (!domain && kws.length === 0) {
+      return new Response(JSON.stringify({
+        ok: false, skipped: true, reason: 'config_incompleta',
+        message: 'Configure o domínio do cliente ou palavras-chave do Fireflies para sincronizar reuniões.',
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const filtered = transcripts.filter((t) => {
       const titleLc = (t.title ?? '').toLowerCase();
-      const titleMatch = kws.some((k) => titleLc.includes(k));
+      // Domínio do cliente é o filtro FORTE: algum participante @dominio-do-cliente.
       const domainMatch = domain && (t.participants ?? []).some((p) => p.toLowerCase().endsWith(`@${domain}`));
-      return titleMatch || domainMatch || (!domain && kws.length === 0);
+      // Título só conta como match se casar uma keyword ESPECÍFICA (>= 4 chars),
+      // evitando genéricos. Keywords curtas (ex.: siglas) exigem palavra inteira.
+      const titleMatch = kws.some((k) => {
+        if (k.length >= 4) return titleLc.includes(k);
+        return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(titleLc);
+      });
+      // Aceita reunião COM o cliente (domínio) OU cujo título casa uma keyword
+      // específica do cliente. O título genérico não basta porque as keywords são
+      // do cliente (ex.: "itaqua"), não termos genéricos ("daily", "alinhamento").
+      return domainMatch || titleMatch;
     });
 
     const linhas = filtered.map((t) => ({

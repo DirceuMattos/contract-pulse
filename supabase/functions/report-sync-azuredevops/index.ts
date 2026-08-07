@@ -38,6 +38,15 @@ serve(async (req) => {
     // Segurança: só perfis do módulo de Relatórios podem sincronizar.
     await requireAnyRole(req, supabase, REPORT_ROLES);
 
+    // Sem tags configuradas, o projeto Azure pode ser compartilhado entre clientes
+    // e traria itens de todos. Exige tag para não poluir o relatório.
+    if (!azureTags || (Array.isArray(azureTags) && azureTags.length === 0)) {
+      return new Response(JSON.stringify({
+        skipped: true, reason: 'config_incompleta',
+        message: 'Configure ao menos uma tag do Azure DevOps para filtrar os itens deste contrato.',
+      }), { status: 200, headers: { ...CORS, "Content-Type": "application/json" } });
+    }
+
     const { data: pat } = await supabase.rpc("get_vault_secret", { secret_name: "AZURE_DEVOPS_PAT" });
     const authHeader = "Basic " + btoa(":" + (pat as string));
 
@@ -97,6 +106,16 @@ serve(async (req) => {
         }
       }
     }
+
+    // Filtro de tag EXATA: o WIQL CONTAINS casa parcial ("ITAQUA" pegaria
+    // "ITAQUAQUECETUBA-X"). Mantém só work items cuja lista de tags contém alguma
+    // das tags configuradas de forma exata (case-insensitive).
+    const wantedTags = new Set((azureTags as string[]).map((t) => t.toLowerCase().trim()));
+    workItems = workItems.filter((wi) => {
+      const f = wi.fields as Record<string, unknown>;
+      const itemTags = ((f["System.Tags"] as string) ?? "").split(";").map((t) => t.trim().toLowerCase()).filter(Boolean);
+      return itemTags.some((t) => wantedTags.has(t));
+    });
 
     // Processar
     const tiposContagem: Record<string, number> = {};
