@@ -2292,6 +2292,50 @@ export type Database = {
           },
         ]
       }
+      report_external_files: {
+        Row: {
+          file_mime: string | null
+          file_name: string
+          file_size: number | null
+          id: string
+          report_id: string
+          storage_key: string
+          uploaded_at: string
+          uploaded_by: string | null
+          version: number
+        }
+        Insert: {
+          file_mime?: string | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          report_id: string
+          storage_key: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version?: number
+        }
+        Update: {
+          file_mime?: string | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          report_id?: string
+          storage_key?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_external_files_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_sections: {
         Row: {
           content: Json
