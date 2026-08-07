@@ -6,6 +6,7 @@ import {
   Calendar,
   MoreHorizontal,
   Copy,
+  Upload,
   Trash2,
   Eye,
   Settings as SettingsIcon,
@@ -83,6 +84,15 @@ function ReportsPageInner() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const canDelete = userRole === 'c-level' || userRole === 'superadmin';
+
+  // Ids de relatórios que têm arquivo externo importado (para sinalizar no card).
+  const { data: importedIds = new Set<string>() } = useQuery({
+    queryKey: ['report_external_ids'],
+    queryFn: async (): Promise<Set<string>> => {
+      const { data } = await supabase.from('report_external_files').select('report_id');
+      return new Set((data ?? []).map((r: { report_id: string }) => r.report_id));
+    },
+  });
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['monthly_reports'],
@@ -431,7 +441,12 @@ function ReportsPageInner() {
                                     </DropdownMenu>
                                   </div>
 
-                                  <div className="flex justify-end">
+                                  <div className="flex justify-end gap-1.5">
+                                    {importedIds.has(report.id) && (
+                                      <Badge variant="outline" className="border-amber-400 text-amber-600 gap-1">
+                                        <Upload className="w-3 h-3" /> Importado
+                                      </Badge>
+                                    )}
                                     <ReportStatusBadge status={report.status} />
                                   </div>
 

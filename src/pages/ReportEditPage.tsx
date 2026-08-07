@@ -22,6 +22,8 @@ import { useReportDevidSync } from '@/hooks/useReportDevidSync';
 import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { SectionEditor } from '@/components/reports/SectionEditor';
+import { ReportExternalImport } from '@/components/reports/ReportExternalImport';
+import { useReportExternalFiles } from '@/hooks/useReportExternalFiles';
 import { monthlyReportFromDb, reportSectionFromDb, reportTemplateConfigFromDb } from '@/lib/dbMappers';
 import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty, defaultsForSection } from '@/lib/reportSectionSchemas';
 import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus, ReportTemplateConfig } from '@/types';
@@ -50,6 +52,7 @@ export default function ReportEditPage() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const { isImported: isExternalImported, reload: reloadExternal } = useReportExternalFiles(reportId);
   const [activeSection, setActiveSection] = useState<ReportSectionKey | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -577,6 +580,12 @@ export default function ReportEditPage() {
   const isCLevel = userRole === 'c-level';
   const isLiderTribo = userRole === 'lider_tribo';
   const isProjProd = userRole === 'projetos_produtos';
+  const isAdministrativo = userRole === 'administrativo';
+  const isCoordSuporte = userRole === 'coordenacao_suporte';
+
+  // Import de fonte externa (problema 4).
+  const canImportExternal = isSuperAdmin || isCLevel || isLiderTribo || isProjProd || isAdministrativo || isCoordSuporte;
+  const canRevertExternal = isSuperAdmin || isCLevel || isLiderTribo;
 
   // Quem pode editar o conteúdo das seções por status
   const canEditContent = (() => {
@@ -623,10 +632,11 @@ export default function ReportEditPage() {
                 .map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing || isLocked}>
+          <Button variant="outline" onClick={() => handleSyncAll(false)} disabled={syncing || isLocked || isExternalImported}
+            title={isExternalImported ? 'Desativado: relatório importado de fonte externa' : undefined}>
             <RefreshCw className={cn('w-4 h-4 mr-2', syncing && 'animate-spin')} />Sincronizar Dados
           </Button>
-          {!isLocked && (
+          {!isLocked && !isExternalImported && (
             <Button variant="outline" onClick={handleCopyManualFromPrevious} disabled={copyingManual} title="Copiar seções manuais do relatório anterior">
               <ClipboardCopy className={cn('w-4 h-4 mr-2', copyingManual && 'animate-pulse')} />
               {copyingManual ? 'Copiando...' : 'Copiar mês anterior'}
@@ -638,6 +648,9 @@ export default function ReportEditPage() {
           <Button onClick={handleGeneratePPTX} disabled={generating}>
             <Download className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar PPTX'}
           </Button>
+          {!isExternalImported && reportId && (
+            <ReportExternalImport reportId={reportId} canManage={canImportExternal} canRevert={canRevertExternal} onChanged={reloadExternal} />
+          )}
           {canConfig && contract && (
             <Button variant="outline" size="icon" onClick={() => navigate(`/relatorios/config/${contract.id}`)} title="Configurar template">
               <SettingsIcon className="w-4 h-4" />
@@ -673,7 +686,13 @@ export default function ReportEditPage() {
         </div>
       )}
 
+      {/* Relatório importado de fonte externa: mostra o painel e oculta as seções */}
+      {isExternalImported && reportId && (
+        <ReportExternalImport reportId={reportId} canManage={canImportExternal} canRevert={canRevertExternal} onChanged={reloadExternal} />
+      )}
+
       {/* Two-column layout with independent scroll */}
+      {!isExternalImported && (
       <div ref={containerRef} className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-12rem)]">
         {/* Section menu — own scroll */}
         <Card
@@ -804,6 +823,7 @@ export default function ReportEditPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       <AlertDialog open={!!resyncKey} onOpenChange={(o) => !o && setResyncKey(null)}>
         <AlertDialogContent>
