@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Plus, Copy } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +48,9 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
   const [copyManual, setCopyManual] = useState(true);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
-  const activeContracts = contracts.filter((c) => c.status !== 'encerrado');
+  const activeContracts = contracts
+    .filter((c) => c.status !== 'encerrado')
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
   // Busca relatório anterior do mesmo contrato quando contrato ou mês/ano mudam
   useEffect(() => {
@@ -252,14 +255,13 @@ export function ReportCreateDialog({ triggerLabel = 'Novo Relatório' }: Props) 
         <div className="space-y-4">
           <div>
             <Label>Contrato</Label>
-            <Select value={contractId} onValueChange={setContractId}>
-              <SelectTrigger><SelectValue placeholder="Selecione um contrato" /></SelectTrigger>
-              <SelectContent>
-                {activeContracts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={contractId}
+              onValueChange={setContractId}
+              options={activeContracts.map((c) => ({ value: c.id, label: c.nome }))}
+              placeholder="Selecione um contrato"
+              searchPlaceholder="Buscar contrato..."
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -613,7 +613,7 @@ export default function ReportEditPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={async () => { await flushPendingSaves(); navigate('/relatorios'); }}>
+          <Button variant="ghost" size="icon" onClick={async () => { await flushPendingSaves(); navigate('/relatorios', { state: { openContractId: report?.contractId } }); }}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <ClientLogo nome={client?.nomeFantasia || client?.razaoSocial || '?'} logoUrl={contract?.logoUrl} fallbackLogoUrl={client?.logoUrl} size="lg" />

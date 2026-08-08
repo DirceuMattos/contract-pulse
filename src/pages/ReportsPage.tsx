@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -73,6 +73,7 @@ interface Integrations {
 
 function ReportsPageInner() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { contracts, getClient } = useData();
   const { userRole } = useAuth();
   const { toast } = useToast();
@@ -85,6 +86,19 @@ function ReportsPageInner() {
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Ao voltar de um relatório, reabre e rola até o contrato que estava sendo visto
+  // (em vez de cair na lista geral fechada).
+  useEffect(() => {
+    const openId = (location.state as { openContractId?: string } | null)?.openContractId;
+    if (!openId) return;
+    setExpanded((prev) => new Set(prev).add(openId));
+    // dá tempo de renderizar antes de rolar
+    const t = setTimeout(() => {
+      document.getElementById(`contract-group-${openId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [location.state]);
 
   const canDelete = userRole === 'c-level' || userRole === 'superadmin';
 
@@ -331,6 +345,7 @@ function ReportsPageInner() {
               return (
                 <motion.div
                   key={group.contractId}
+                  id={`contract-group-${group.contractId}`}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: gIdx * 0.02 }}
@@ -418,7 +433,7 @@ function ReportsPageInner() {
                               else next.add(group.contractId);
                               return next;
                             })}
-                            className="mb-3 text-xs text-primary hover:underline flex items-center gap-1"
+                            className="mb-3 text-sm font-medium text-red-600 hover:text-red-700 hover:underline flex items-center gap-1"
                           >
                             {historyOpen
                               ? 'Mostrar apenas os 6 mais recentes'
