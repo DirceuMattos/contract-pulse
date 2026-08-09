@@ -67,10 +67,13 @@ const sections: HelpSection[] = [
           <strong>Sub-Dedicados</strong>. Elas somam-se aos filtros acima, e não os substituem.
         </p>
         <Callout type="tip">
-          Para caçar cadastro incompleto, o atalho mais direto é o filtro <strong>Comitê Gestor</strong> com a opção{' '}
-          <strong>Sem indicação</strong>, que lista quem ainda não tem mês de comitê definido. Para os demais campos,
-          ordene a lista pela coluna correspondente: quem está sem cargo, sem local ou sem departamento aparece com{' '}
-          <strong>—</strong> e se agrupa no começo ou no fim da ordenação.
+          <strong>Para caçar cadastro incompleto</strong>, os filtros de Departamento, Cargo, Vínculo, Regime, Local de
+          Atuação e Projeto ganham a opção <strong>⚠ Sem valor</strong> (em Projeto, <strong>⚠ Sem projeto</strong>),
+          que isola exatamente quem está com aquele campo em branco. Ela é inteligente: <strong>só aparece quando
+          existe pelo menos um registro nessa condição</strong> — se o filtro não oferece a opção, é porque aquele
+          campo está 100% preenchido. Vale conferir depois de cada sincronização com o Feedz, que é quando costumam
+          entrar registros incompletos. Para o comitê, o equivalente é a opção <strong>Sem indicação</strong> no filtro
+          Comitê Gestor.
         </Callout>
         <p className="text-sm text-muted-foreground mb-3">
           Na tabela, clicar no cabeçalho ordena por <strong>Nome</strong>, <strong>Vínculo</strong>,{' '}

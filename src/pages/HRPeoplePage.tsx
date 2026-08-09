@@ -29,6 +29,12 @@ import { formatCurrency } from '@/lib/calculations';
 import { exportHRPeople } from '@/lib/importExport';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
+// v1 - filtro "Sem valor": sentinela usada nos selects de lista para isolar os
+// registros com o campo vazio. A opção só é oferecida quando existe ao menos um
+// registro nessa condição (ver camposComVazio).
+const SEM_VALOR = '__sem_valor__';
+const SEM_VALOR_LABEL = '⚠ Sem valor';
+
 function calcularTempoDeCasa(dataAdmissao: string, dataDesligamento?: string): { texto: string; meses: number } {
   const endDate = dataDesligamento ? new Date(dataDesligamento + 'T12:00:00') : new Date();
   const meses = differenceInMonths(endDate, new Date(dataAdmissao + 'T12:00:00'));
@@ -157,14 +163,31 @@ function HRPeoplePageInner() {
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
   }, [resources, contracts]);
 
+  // Quais campos hoje têm ao menos um registro sem informação. Só nesses casos a
+  // opção "⚠ Sem valor" entra na lista do filtro — se o cadastro está íntegro, ela
+  // nem aparece. Serve para caçar o que o sync (ou uma edição manual) deixou vazio.
+  const camposComVazio = useMemo(() => {
+    const alocados = new Set(resources.filter(r => r.hrPersonId).map(r => r.hrPersonId));
+    return {
+      team: hrPeople.some(p => !p.teamId),
+      cargo: hrPeople.some(p => !p.cargoId),
+      vinculo: hrPeople.some(p => !p.tipoVinculo),
+      regime: hrPeople.some(p => !p.regimeTrabalho),
+      localAtuacao: hrPeople.some(p => !p.localAtuacao),
+      projeto: hrPeople.some(p => !alocados.has(p.id)),
+    };
+  }, [hrPeople, resources]);
+
   const filtered = useMemo(() => {
     return hrPeople.filter(p => {
       const q = search.toLowerCase();
       const matchSearch = !q || p.nome.toLowerCase().includes(q) || (p.observacoes || '').toLowerCase().includes(q) || (p.matricula || '').toLowerCase().includes(q);
       const matchSituacao = filterSituacao === 'todos' || p.situacao === filterSituacao;
-      const matchTeam = !filterTeam || !p.teamId || p.teamId === filterTeam;
-      const matchCargo = !filterCargo || p.cargoId === filterCargo;
-      const matchVinculo = !filterVinculo || p.tipoVinculo === filterVinculo;
+      // Sem valor => só quem está com o campo vazio. Com valor => casa exato
+      // (quem está vazio NÃO passa mais em qualquer filtro, como acontecia antes).
+      const matchTeam = !filterTeam || (filterTeam === SEM_VALOR ? !p.teamId : p.teamId === filterTeam);
+      const matchCargo = !filterCargo || (filterCargo === SEM_VALOR ? !p.cargoId : p.cargoId === filterCargo);
+      const matchVinculo = !filterVinculo || (filterVinculo === SEM_VALOR ? !p.tipoVinculo : p.tipoVinculo === filterVinculo);
       const matchMesAdmissao = !filterMesAdmissao || (new Date(p.dataAdmissao + 'T12:00:00').getMonth() + 1).toString() === filterMesAdmissao;
       let matchComite = true;
       if (filterComite === '__com') matchComite = !!p.comiteGestor;
@@ -175,9 +198,11 @@ function HRPeoplePageInner() {
       const matchGuardiao = !filterGuardiao || !!p.isGuardiao;
       const matchEmAvaliacao = !filterEmAvaliacao || !!p.isEmAvaliacao;
       const matchSubocupado = !filterSubocupado || underutilizedIds.has(p.id);
-      const matchRegime = !filterRegime || p.regimeTrabalho === filterRegime;
-      const matchLocalAtuacao = !filterLocalAtuacao || p.localAtuacao === filterLocalAtuacao;
-      const matchProjeto = !filterProjeto || resources.some(r => r.hrPersonId === p.id && r.contractId === filterProjeto);
+      const matchRegime = !filterRegime || (filterRegime === SEM_VALOR ? !p.regimeTrabalho : p.regimeTrabalho === filterRegime);
+      const matchLocalAtuacao = !filterLocalAtuacao || (filterLocalAtuacao === SEM_VALOR ? !p.localAtuacao : p.localAtuacao === filterLocalAtuacao);
+      const matchProjeto = !filterProjeto || (filterProjeto === SEM_VALOR
+        ? !resources.some(r => r.hrPersonId === p.id)
+        : resources.some(r => r.hrPersonId === p.id && r.contractId === filterProjeto));
       return matchSearch && matchSituacao && matchTeam && matchCargo && matchVinculo && matchComite && matchMesAdmissao && matchBeneficio && matchTalento && matchGuardiao && matchEmAvaliacao && matchSubocupado && matchRegime && matchLocalAtuacao && matchProjeto;
     });
   }, [hrPeople, search, filterSituacao, filterTeam, filterCargo, filterVinculo, filterComite, filterMesAdmissao, filterBeneficio, filterTalento, filterGuardiao, filterEmAvaliacao, filterSubocupado, underutilizedIds, filterRegime, filterLocalAtuacao, filterProjeto, resources]);
@@ -432,6 +457,7 @@ function HRPeoplePageInner() {
                 onValueChange={v => setFilterTeam(v === 'all' ? '' : v)}
                 options={[
                   { value: 'all', label: 'Todos dept.' },
+                  ...(camposComVazio.team ? [{ value: SEM_VALOR, label: SEM_VALOR_LABEL }] : []),
                   ...activeTeams.map(t => ({ value: t.id, label: t.name })),
                 ]}
                 placeholder="Departamento"
@@ -444,6 +470,7 @@ function HRPeoplePageInner() {
                 <SelectTrigger><SelectValue placeholder="Vínculo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
+                  {camposComVazio.vinculo && <SelectItem value={SEM_VALOR}>{SEM_VALOR_LABEL}</SelectItem>}
                   <SelectItem value="clt">CLT</SelectItem>
                   <SelectItem value="pj">PJ</SelectItem>
                   <SelectItem value="cooperado">Cooperado</SelectItem>
@@ -458,6 +485,7 @@ function HRPeoplePageInner() {
                 <SelectTrigger><SelectValue placeholder="Regime" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
+                  {camposComVazio.regime && <SelectItem value={SEM_VALOR}>{SEM_VALOR_LABEL}</SelectItem>}
                   <SelectItem value="remoto">Remoto / Home Office</SelectItem>
                   <SelectItem value="hibrido">Híbrido</SelectItem>
                   <SelectItem value="presencial">Presencial</SelectItem>
@@ -471,6 +499,7 @@ function HRPeoplePageInner() {
                 onValueChange={v => setFilterCargo(v === 'all' ? '' : v)}
                 options={[
                   { value: 'all', label: 'Todos cargos' },
+                  ...(camposComVazio.cargo ? [{ value: SEM_VALOR, label: SEM_VALOR_LABEL }] : []),
                   ...activeJobTitles.map(jt => ({ value: jt.id, label: jt.label })),
                 ]}
                 placeholder="Cargo"
@@ -532,6 +561,7 @@ function HRPeoplePageInner() {
                 onValueChange={v => setFilterLocalAtuacao(v === 'all' ? '' : v)}
                 options={[
                   { value: 'all', label: 'Todos' },
+                  ...(camposComVazio.localAtuacao ? [{ value: SEM_VALOR, label: SEM_VALOR_LABEL }] : []),
                   ...localAtuacaoOptions.map(l => ({ value: l, label: l })),
                 ]}
                 placeholder="Todos"
@@ -545,6 +575,7 @@ function HRPeoplePageInner() {
                 onValueChange={v => setFilterProjeto(v === 'all' ? '' : v)}
                 options={[
                   { value: 'all', label: 'Todos' },
+                  ...(camposComVazio.projeto ? [{ value: SEM_VALOR, label: '⚠ Sem projeto' }] : []),
                   ...projetoOptions.map(p => ({ value: p.id, label: p.nome })),
                 ]}
                 placeholder="Todos"
