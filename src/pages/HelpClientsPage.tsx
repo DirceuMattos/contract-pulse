@@ -1,172 +1,225 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+// v2 - tutorial revisado e ampliado (agosto/2026)
+import { Building2 } from 'lucide-react';
+import { Callout, DataTable, HelpArticle, HelpSection, Steps } from '@/components/help/HelpArticle';
 
-const SECTIONS = [
-  { id: 'visao-geral', label: 'Visão Geral' },
-  { id: 'cards',       label: 'Lendo os Cards' },
-  { id: 'filtros',     label: 'Filtros e Busca' },
-  { id: 'criar',       label: 'Cadastrar Cliente' },
-  { id: 'editar',      label: 'Editar Cliente' },
-  { id: 'excluir',     label: 'Excluir Cliente' },
-  { id: 'perfis',      label: 'Perfis e Permissões' },
-  { id: 'duvidas',     label: 'Dúvidas Frequentes' },
+const sections: HelpSection[] = [
+  {
+    id: 'visao-geral',
+    label: 'Visão Geral',
+    title: 'O que é o módulo de Clientes',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O módulo <strong>Clientes</strong> é o cadastro central das organizações atendidas pela BNP. Ele existe antes
+          de tudo: todo contrato precisa estar vinculado a um cliente já cadastrado, e o logotipo, o segmento e os dados
+          de contato registrados aqui são reaproveitados em contratos, alertas e relatórios.
+        </p>
+        <p className="text-sm text-muted-foreground mb-3">
+          A tela mostra os clientes em cards, sempre em ordem alfabética pelo nome fantasia (ou pela razão social, quando
+          não houver nome fantasia).
+        </p>
+        <DataTable headers={['Segmento', 'Quando usar']} rows={[
+          ['Govtech / Governo', 'Prefeituras, secretarias, autarquias e demais órgãos públicos.'],
+          ['Iniciativa Privada', 'Empresas privadas, associações e entidades do terceiro setor.'],
+        ]} />
+        <Callout type="info">
+          O segmento do cliente não é o mesmo campo que o segmento do contrato. Um cliente Govtech pode ter contratos
+          classificados de outra forma — quem manda nos indicadores da carteira é o segmento do contrato.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'cards',
+    label: 'Lendo os cards',
+    title: 'Como ler um card de cliente',
+    content: (
+      <>
+        <DataTable headers={['Elemento', 'O que significa']} rows={[
+          ['Logotipo ou inicial', 'Logo enviado no cadastro. Sem logo, o sistema mostra a inicial do nome com uma cor gerada automaticamente.'],
+          ['Nome em destaque', 'Nome fantasia. Se o cliente não tiver nome fantasia, aparece a razão social.'],
+          ['CNPJ', 'Documento formatado, logo abaixo do nome.'],
+          ['Cidade e UF', 'Aparecem apenas se o endereço foi preenchido.'],
+          ['E-mail e telefone', 'Contatos principais cadastrados.'],
+          ['Etiqueta Govtech ou Privado', 'Segmento do cliente.'],
+          ['N contratos', 'Contagem apenas dos contratos ativos, ou seja, Em Operação e Em Implantação.'],
+          ['Botão de três pontos', 'Abre o menu com Ver detalhes, Editar e Excluir, conforme a sua permissão.'],
+        ]} />
+        <Callout type="tip">
+          O card inteiro é clicável e leva direto para a <strong>edição</strong> do cliente. Se você quer apenas
+          consultar, use o menu de três pontos e escolha <strong>Ver detalhes</strong> — assim não corre o risco de
+          alterar o cadastro sem querer. Para quem não tem permissão de edição, o card simplesmente não responde ao
+          clique.
+        </Callout>
+        <Callout type="warn">
+          O número de contratos no card conta só os ativos. Um cliente com apenas contratos encerrados aparece com{' '}
+          <strong>0 contratos</strong>, e ainda assim não poderá ser excluído.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'filtros',
+    label: 'Busca e filtros',
+    title: 'Encontrar um cliente',
+    content: (
+      <>
+        <DataTable headers={['Recurso', 'Como funciona']} rows={[
+          ['Buscar por nome, fantasia ou CNPJ', 'Busca conforme você digita, em qualquer parte do texto. Vale para razão social, nome fantasia e CNPJ.'],
+          ['Filtro de segmento', 'Opções Todos os segmentos, Govtech / Governo e Iniciativa Privada.'],
+          ['Contador de resultados', 'Logo abaixo dos filtros, indica quantos clientes atendem à busca atual.'],
+        ]} />
+        <Callout type="tip">
+          A busca por CNPJ compara o texto exatamente como ele foi salvo, <strong>com a pontuação</strong>. Digite os
+          números com pontos e barra (ou apenas um trecho, como 12.345) — só os dígitos, sem pontuação, não encontram
+          nada.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'criar',
+    label: 'Cadastrar',
+    title: 'Cadastrar um novo cliente',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Clique em <strong>Novo Cliente</strong>, no canto superior direito. O formulário é dividido em quatro blocos:
+          Identificação, Endereço, Contato e Informações Adicionais.
+        </p>
+        <Steps items={[
+          { title: 'Preencha a Identificação', body: 'Razão Social, CNPJ e Segmento são obrigatórios. Nome Fantasia, Inscrição Estadual e Site são opcionais, mas o nome fantasia é o que aparece em quase todas as telas.' },
+          { title: 'Envie o logotipo', body: 'No campo Logo do cliente, escolha uma imagem de até 2 MB. Ela aparece nos cards, nos contratos e nos relatórios gerados.' },
+          { title: 'Use o CEP para o endereço', body: 'Digite o CEP e o sistema busca automaticamente logradouro, bairro, cidade e UF. Depois complete Número e Complemento.' },
+          { title: 'Informe o Contato', body: 'Contato Principal e E-mail são obrigatórios. O telefone é opcional e formatado automaticamente.' },
+          { title: 'Classifique com Tags', body: 'Em Informações Adicionais, digite a tag e pressione Enter para adicioná-la. As tags ajudam a agrupar clientes por característica interna.' },
+          { title: 'Salve', body: 'Clique em Cadastrar Cliente. O cliente aparece imediatamente na listagem, já na posição alfabética correta.' },
+        ]} />
+        <Callout type="warn">
+          O CNPJ é a chave do cadastro e não pode se repetir. Antes de criar, busque pelo CNPJ para ter certeza de que o
+          cliente ainda não existe — cadastros duplicados dividem os contratos entre dois registros e distorcem a
+          carteira.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'editar',
+    label: 'Editar',
+    title: 'Editar um cliente existente',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Existem três caminhos para a mesma tela de edição: clicar no card, usar o menu de três pontos e escolher{' '}
+          <strong>Editar</strong>, ou abrir o detalhe do cliente e clicar em <strong>Editar</strong>.
+        </p>
+        <p className="text-sm text-muted-foreground mb-3">
+          Todos os campos podem ser alterados, inclusive o logotipo. Ao terminar, use <strong>Salvar Alterações</strong>.
+          As mudanças valem imediatamente para todas as telas que exibem o cliente.
+        </p>
+        <Callout type="info">
+          Alguns perfis abrem o formulário em modo somente leitura: os campos ficam bloqueados e, no lugar de Cancelar e
+          Salvar Alterações, aparece apenas o botão <strong>Fechar</strong>. Isso é esperado — a edição efetiva do
+          cadastro é restrita a C-Level, Administrativo e Superadmin. O perfil RH também consta na regra do
+          formulário, mas na prática não chega até ele, porque o módulo Clientes não faz parte do perfil.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'detalhe',
+    label: 'Detalhe do cliente',
+    title: 'A tela de detalhe e seus contratos',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A opção <strong>Ver detalhes</strong> abre uma página de consulta com duas abas.
+        </p>
+        <DataTable headers={['Aba', 'Conteúdo']} rows={[
+          ['Dados Cadastrais', 'Blocos de Identificação e Contato, mais Informações Adicionais quando houver tags ou observações. No rodapé aparecem as datas de criação e da última atualização.'],
+          ['Contratos', 'Lista todos os contratos do cliente, de qualquer status, com barra colorida de saúde, vigência e indicador de resultado. O número entre parênteses é a quantidade total.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mb-3">
+          Na aba de contratos, quem tem permissão de ver valores enxerga a margem percentual e a receita mensal; os
+          demais perfis veem apenas a etiqueta <strong>Saudável</strong>, <strong>Atenção</strong> ou{' '}
+          <strong>Crítico</strong>. Clicar em qualquer contrato abre o detalhe dele.
+        </p>
+        <Callout type="tip">
+          Esta aba é a forma mais rápida de responder à pergunta &quot;o que temos hoje com este cliente?&quot;, porque
+          inclui também contratos suspensos e encerrados, que não entram na contagem do card.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'excluir',
+    label: 'Excluir',
+    title: 'Excluir um cliente',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A exclusão fica no menu de três pontos do card, em <strong>Excluir</strong>, e pede uma confirmação antes de
+          concluir.
+        </p>
+        <Callout type="warn">
+          Um cliente que possui contratos vinculados não pode ser excluído — de qualquer status, inclusive encerrados. O
+          sistema recusa a operação e informa quantos contratos estão vinculados. Remova ou transfira esses contratos
+          antes de tentar novamente.
+        </Callout>
+        <Callout type="info">
+          Na maioria dos casos a exclusão não é a melhor saída. Encerrar os contratos e manter o cliente cadastrado
+          preserva o histórico e permite retomar o relacionamento sem recadastrar nada.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'permissoes',
+    label: 'Permissões',
+    title: 'Quem pode fazer o quê',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Ver o módulo e poder alterá-lo são coisas diferentes. A tabela abaixo resume o comportamento padrão de cada
+          perfil.
+        </p>
+        <DataTable headers={['Perfil', 'Consultar', 'Criar', 'Editar de fato', 'Excluir']} rows={[
+          ['Superadmin', 'Sim', 'Sim', 'Sim', 'Sim'],
+          ['C-Level', 'Sim', 'Sim', 'Sim', 'Sim'],
+          ['Administrativo', 'Sim', 'Sim', 'Sim', 'Sim'],
+          ['RH', 'Não, o módulo não faz parte do perfil', 'Não', 'Não', 'Não'],
+          ['Intermediário', 'Sim', 'Sim', 'Não, o formulário abre bloqueado', 'Sim'],
+          ['Demo', 'Sim', 'Sim', 'Não, o formulário abre bloqueado', 'Sim'],
+          ['Líder de Tribo, Coordenação de Suporte, Projetos e Produtos', 'Sim', 'Não', 'Não', 'Não'],
+          ['Comercial, Jurídico, Leitor', 'Sim', 'Não', 'Não', 'Não'],
+        ]} />
+        <Callout type="info">
+          Além do perfil, o administrador pode ligar e desligar cada ação por módulo na Gestão de Perfis. Por isso, dois
+          usuários do mesmo perfil podem ver botões diferentes.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'problemas',
+    label: 'Problemas comuns',
+    title: 'Problemas comuns e como resolver',
+    content: (
+      <DataTable headers={['Sintoma', 'Causa provável', 'Solução']} rows={[
+        ['Erro de CNPJ duplicado ao cadastrar', 'Já existe um cliente com esse CNPJ.', 'Busque pelo CNPJ na listagem; se for duplicidade real, use o cadastro existente em vez de criar outro.'],
+        ['Não vejo o botão Novo Cliente', 'Seu perfil não tem a ação de criação neste módulo.', 'Solicite o cadastro a um perfil com permissão ou peça o ajuste ao administrador.'],
+        ['Abri a edição mas os campos estão bloqueados', 'Seu perfil acessa o formulário em modo leitura; a edição é restrita a C-Level, Administrativo e Superadmin.', 'Clique em Fechar e solicite a alteração a um perfil autorizado.'],
+        ['Busquei o CNPJ e não achei o cliente', 'A busca compara o texto com a pontuação, como foi salvo.', 'Digite o CNPJ formatado (12.345.678/0001-00) ou apenas um trecho dele.'],
+        ['Cliquei no card e caí na tela de edição sem querer', 'O card inteiro é um atalho para a edição.', 'Use o menu de três pontos e a opção Ver detalhes quando quiser apenas consultar; para sair sem alterar, clique em Cancelar.'],
+        ['Não consigo excluir o cliente', 'Existem contratos vinculados a ele, mesmo encerrados.', 'Abra o módulo Contratos, filtre pelo cliente e remova ou transfira os contratos antes de excluir.'],
+        ['O card mostra 0 contratos, mas sei que existem', 'A contagem do card considera apenas contratos Em Operação e Em Implantação.', 'Abra Ver detalhes e vá até a aba Contratos, que lista todos os status.'],
+        ['O logotipo não aparece no contrato ou no relatório', 'O contrato tem logo próprio, que tem prioridade sobre o do cliente, ou o arquivo excedeu o limite de 2 MB.', 'Reenvie uma imagem menor no cadastro do cliente ou ajuste o logo diretamente no contrato.'],
+        ['O endereço não é preenchido ao digitar o CEP', 'O CEP está incompleto ou não foi localizado na consulta.', 'Confira os oito dígitos e, se necessário, preencha os campos de endereço manualmente.'],
+      ]} />
+    ),
+  },
 ];
 
-function Callout({ type, children }: { type: 'tip' | 'info' | 'warn'; children: React.ReactNode }) {
-  const s = { tip: 'bg-green-50 border-green-400 text-green-900', info: 'bg-blue-50 border-blue-400 text-blue-900', warn: 'bg-amber-50 border-amber-400 text-amber-900' };
-  const i = { tip: '💡', info: 'ℹ️', warn: '⚠️' };
-  return <div className={`flex gap-3 p-3 rounded-md border-l-4 text-sm my-3 ${s[type]}`}><span className="shrink-0">{i[type]}</span><p className="m-0 leading-relaxed">{children}</p></div>;
-}
-
-function Steps({ items }: { items: { title: string; body: string }[] }) {
-  return (
-    <div className="flex flex-col my-4">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-4 relative">
-          {i < items.length - 1 && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-border" />}
-          <div className="w-8 h-8 rounded-full border-2 border-primary text-primary text-xs font-bold flex items-center justify-center shrink-0 z-10 bg-background">{i + 1}</div>
-          <div className="pb-6 pt-1 flex-1"><p className="font-semibold text-sm text-foreground mb-1">{item.title}</p><p className="text-sm text-muted-foreground">{item.body}</p></div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div className="overflow-x-auto my-4 rounded-lg border border-border">
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-muted"><tr>{headers.map((h, i) => <th key={i} className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">{h}</th>)}</tr></thead>
-        <tbody>{rows.map((row, i) => <tr key={i} className={i % 2 === 1 ? 'bg-muted/30' : ''}>{row.map((cell, j) => <td key={j} className="px-3 py-2 text-muted-foreground border-b border-border last:border-b-0">{cell}</td>)}</tr>)}</tbody>
-      </table>
-    </div>
-  );
-}
-
-function SectionBlock({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return (
-    <div id={id} className="scroll-mt-20 mb-12">
-      <div className="flex items-center gap-3 mb-5 pb-3 border-b-2 border-primary/20"><h2 className="text-lg font-bold text-foreground">{title}</h2></div>
-      {children}
-    </div>
-  );
-}
-
 export default function HelpClientsPage() {
-  const navigate = useNavigate();
-  const [active, setActive] = useState('visao-geral');
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => { const v = entries.find(e => e.isIntersecting); if (v) setActive(v.target.id); },
-      { rootMargin: '-20% 0px -70% 0px' }
-    );
-    SECTIONS.forEach(s => { const el = document.getElementById(s.id); if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 p-4 border-b border-border shrink-0">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/ajuda')}><ArrowLeft className="w-4 h-4" /></Button>
-        <Building2 className="w-4 h-4 text-primary" />
-        <div><h1 className="text-base font-bold leading-tight">Clientes</h1><p className="text-xs text-muted-foreground">Como cadastrar e gerenciar clientes</p></div>
-      </div>
-      <div className="flex flex-1 overflow-hidden">
-        <nav className="hidden lg:flex flex-col w-52 shrink-0 border-r border-border overflow-y-auto p-3 gap-0.5">
-          {SECTIONS.map(s => (
-            <a key={s.id} href={`#${s.id}`} onClick={e => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-              className={`text-xs px-3 py-2 rounded-md transition-colors cursor-pointer ${active === s.id ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-              {s.label}
-            </a>
-          ))}
-        </nav>
-        <main className="flex-1 overflow-y-auto p-6 max-w-3xl">
-
-          <SectionBlock id="visao-geral" title="O que é o módulo de Clientes?">
-            <p className="text-sm text-muted-foreground mb-3">O módulo de Clientes é o cadastro central de todas as organizações com as quais a BNP mantém ou manteve relacionamento contratual. Cada cliente pode ter um ou mais contratos vinculados.</p>
-            <p className="text-sm text-muted-foreground mb-4">Os clientes são exibidos em cards ordenados alfabeticamente, com informações de contato, segmento e quantidade de contratos ativos.</p>
-            <DataTable headers={['Segmento', 'Descrição']} rows={[['Govtech', 'Órgãos públicos, prefeituras, secretarias e entidades governamentais.'], ['Privado', 'Empresas privadas, associações e entidades do terceiro setor.']]} />
-          </SectionBlock>
-
-          <SectionBlock id="cards" title="Lendo os Cards de Cliente">
-            <DataTable headers={['Elemento', 'O que significa']} rows={[
-              ['Logo / Inicial', 'Logotipo do cliente ou inicial do nome em cor gerada automaticamente.'],
-              ['Nome fantasia', 'Nome principal exibido no card. Se não houver nome fantasia, exibe a razão social.'],
-              ['CNPJ', 'Número do CNPJ formatado.'],
-              ['Cidade / Estado', 'Localização do cliente, quando cadastrada.'],
-              ['E-mail', 'E-mail principal de contato.'],
-              ['Telefone', 'Telefone principal de contato.'],
-              ['Badge Govtech / Privado', 'Indica o segmento do cliente.'],
-              ['N contratos', 'Quantidade de contratos ativos (Em Operação ou Em Implantação).'],
-            ]} />
-          </SectionBlock>
-
-          <SectionBlock id="filtros" title="Filtros e Busca">
-            <p className="text-sm text-muted-foreground mb-4">Use os filtros no topo da tela para localizar clientes rapidamente:</p>
-            <DataTable headers={['Filtro', 'Como usar']} rows={[
-              ['Campo de busca', 'Pesquisa por nome fantasia, razão social ou CNPJ em tempo real.'],
-              ['Segmento', 'Filtra por Govtech ou Privado.'],
-            ]} />
-            <Callout type="tip">A busca funciona por qualquer parte do nome — não é necessário digitar o nome completo.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="criar" title="Cadastrar um Novo Cliente">
-            <p className="text-sm text-muted-foreground mb-4">Clique em <strong>+ Novo Cliente</strong> no canto superior direito para abrir o formulário de cadastro.</p>
-            <Steps items={[
-              { title: 'Preencha a Razão Social e o CNPJ', body: 'Campos obrigatórios. O CNPJ deve ser único no sistema — não é possível cadastrar dois clientes com o mesmo CNPJ.' },
-              { title: 'Informe o Nome Fantasia (opcional)', body: 'Se preenchido, será exibido como nome principal nos cards e em todo o sistema.' },
-              { title: 'Selecione o segmento', body: 'Govtech para clientes do setor público, Privado para demais.' },
-              { title: 'Preencha os dados de contato', body: 'E-mail, telefone, endereço e cidade são opcionais mas ajudam na identificação e comunicação.' },
-              { title: 'Faça upload do logotipo (opcional)', body: 'Formatos aceitos: PNG, JPG. O logo aparecerá nos cards, relatórios e PPTX gerados.' },
-              { title: 'Salve', body: 'O cliente é cadastrado e aparece imediatamente na listagem em ordem alfabética.' },
-            ]} />
-            <Callout type="info">Somente perfis com permissão de criação (C-Level, Administrativo, Superadmin) visualizam o botão "+ Novo Cliente".</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="editar" title="Editar um Cliente">
-            <p className="text-sm text-muted-foreground mb-4">Para editar os dados de um cliente, clique no menu <strong>⋯</strong> no canto do card e selecione <strong>Editar</strong>, ou acesse a página de detalhe do cliente e clique em <strong>Editar</strong>.</p>
-            <p className="text-sm text-muted-foreground mb-4">Todos os campos do cadastro podem ser alterados, incluindo o logotipo. As alterações são refletidas imediatamente em todo o sistema — cards, contratos, relatórios e PPTX.</p>
-            <Callout type="warn">Acesso ao módulo não significa permissão de edição. Perfis sem a ação <strong>Editar</strong> em Clientes podem consultar os dados, mas não alteram o cadastro.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="excluir" title="Excluir um Cliente">
-            <p className="text-sm text-muted-foreground mb-4">Para excluir um cliente, clique no menu <strong>⋯</strong> e selecione <strong>Excluir</strong>. Uma confirmação será solicitada antes da exclusão.</p>
-            <Callout type="warn">Não é possível excluir um cliente que possui contratos vinculados. Remova ou encerre todos os contratos do cliente antes de excluí-lo. O sistema exibirá uma mensagem informando quantos contratos estão vinculados.</Callout>
-            <Callout type="info">A exclusão é permanente. Considere apenas encerrar os contratos e manter o cadastro do cliente para fins de histórico.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="perfis" title="Perfis e Permissões">
-            <DataTable headers={['Ação', 'C-Level / Admin / Superadmin', 'Líder de Tribo / Coord. Suporte / Proj. Produtos']} rows={[
-              ['Ver clientes',        '✔ Sim', '✔ Sim'],
-              ['Buscar e filtrar',    '✔ Sim', '✔ Sim'],
-              ['Cadastrar cliente',   '✔ Sim', '✖ Não'],
-              ['Editar cliente',      '✔ Sim', '✖ Não'],
-              ['Excluir cliente',     '✔ Sim', '✖ Não'],
-              ['Ver detalhe completo','✔ Sim', '✔ Sim'],
-            ]} />
-          </SectionBlock>
-
-          <SectionBlock id="duvidas" title="Dúvidas Frequentes">
-            {[
-              { q: 'Não consigo cadastrar um cliente — aparece erro de CNPJ duplicado', a: 'Já existe um cliente cadastrado com esse CNPJ. Use a busca para localizá-lo. Se for um cadastro duplicado, exclua o incorreto antes de criar um novo.' },
-              { q: 'O logotipo do cliente não aparece nos relatórios', a: 'Certifique-se de que o logo foi enviado no formato correto (PNG ou JPG) e que o contrato está vinculado ao cliente correto. O logo do contrato tem prioridade sobre o logo do cliente.' },
-              { q: 'Não vejo o botão "+ Novo Cliente"', a: 'Seu perfil não possui permissão de criação. Entre em contato com o administrador para verificar suas permissões.' },
-              { q: 'Consigo ver o cliente, mas não consigo editar', a: 'Isso é esperado quando seu perfil tem acesso ao módulo, mas não tem a ação "Editar" habilitada para Clientes. Apenas C-Level, RH, Administrativo e Superadmin devem alterar esse cadastro.' },
-              { q: 'Tentei excluir um cliente mas apareceu mensagem de erro', a: 'O cliente possui contratos vinculados. Acesse o módulo de Contratos, encerre ou remova os contratos desse cliente e tente excluí-lo novamente.' },
-              { q: 'Como altero o segmento de um cliente de Govtech para Privado?', a: 'Acesse a edição do cliente, localize o campo Segmento e altere para o valor desejado. Salve as alterações.' },
-            ].map((item, i) => (
-              <div key={i} className="mb-4 pb-4 border-b border-border last:border-0">
-                <h3 className="font-semibold text-sm text-foreground mb-1">{item.q}</h3>
-                <p className="text-sm text-muted-foreground">{item.a}</p>
-              </div>
-            ))}
-          </SectionBlock>
-
-        </main>
-      </div>
-    </div>
-  );
+  return <HelpArticle title="Clientes" description="Cadastro central de clientes, contatos e vínculo com contratos" icon={Building2} sections={sections} />;
 }

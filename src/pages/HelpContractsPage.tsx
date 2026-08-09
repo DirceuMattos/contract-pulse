@@ -1,223 +1,280 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+// v2 - tutorial revisado e ampliado (agosto/2026)
+import { FileText } from 'lucide-react';
+import { Callout, DataTable, HelpArticle, HelpSection, Steps } from '@/components/help/HelpArticle';
 
-const SECTIONS = [
-  { id: 'visao-geral',  label: 'Visão Geral' },
-  { id: 'cards',        label: 'Lendo os Cards' },
-  { id: 'saude',        label: 'Indicadores de Saúde' },
-  { id: 'filtros',      label: 'Filtros e Ordenação' },
-  { id: 'criar',        label: 'Criar Contrato' },
-  { id: 'editar',       label: 'Editar Contrato' },
-  { id: 'recursos',     label: 'Recursos do Contrato' },
-  { id: 'status',       label: 'Status do Contrato' },
-  { id: 'perfis',       label: 'Perfis e Permissões' },
-  { id: 'duvidas',      label: 'Dúvidas Frequentes' },
+const sections: HelpSection[] = [
+  {
+    id: 'visao-geral',
+    label: 'Visão Geral',
+    title: 'O que é o módulo de Contratos',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O módulo <strong>Contratos</strong> é o centro do BNPHub. É dele que saem a receita, o custo, a margem e a
+          saúde que alimentam o Dashboard, os Alertas, os Relatórios e o módulo de Squads. Todo contrato pertence a um
+          cliente já cadastrado e reúne vigência, reajuste, escopo, responsáveis, equipe alocada e documentos.
+        </p>
+        <DataTable headers={['Status operacional', 'Significado', 'Efeito prático']} rows={[
+          ['Em Implantação', 'Contrato assinado, em fase de montagem da operação.', 'Entra no Dashboard, gera alertas e conta como contrato ativo.'],
+          ['Em Operação', 'Contrato ativo e em execução normal.', 'Entra no Dashboard, gera alertas e conta como contrato ativo.'],
+          ['Suspenso', 'Execução temporariamente paralisada.', 'Sai do Dashboard e dos alertas; o card fica com fundo escurecido na listagem.'],
+          ['Encerrado', 'Contrato finalizado.', 'Sai do Dashboard e dos alertas, mas continua na listagem e no histórico do cliente.'],
+        ]} />
+        <Callout type="info">
+          Encerrar um contrato é apenas mudar o <strong>Status Operacional</strong> para Encerrado. Isso preserva todo o
+          histórico e é quase sempre preferível a excluir o registro.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'lista',
+    label: 'Lendo a lista',
+    title: 'Como ler cada linha da listagem',
+    content: (
+      <>
+        <DataTable headers={['Elemento', 'O que significa']} rows={[
+          ['Barra colorida à esquerda', 'Saúde financeira: verde para Saudável, amarelo para Atenção, vermelho para Crítico.'],
+          ['Logotipo', 'Logo do contrato; se não houver, o logo do cliente é usado.'],
+          ['Nome e código', 'Nome do contrato e, ao lado, a etiqueta com o código interno.'],
+          ['Etiquetas Encerrado ou Suspenso', 'Aparecem apenas nesses status e o card ganha fundo escurecido.'],
+          ['Triângulo de atenção', 'O contrato tem pelo menos um alerta ativo. Os detalhes ficam no módulo Alertas ou na tela do contrato.'],
+          ['Ícone de corrente partida', 'Contrato ativo sem vínculo Superlógica. Clicar nele abre a tela de conciliação.'],
+          ['Cliente, data de término e responsável', 'Informações de contexto na linha inferior; algumas ficam ocultas em telas menores.'],
+          ['Etiquetas de segmento e tipo', 'Gov, Privado ou Híbrido e Sistema, Infraestrutura ou Híbrido.'],
+          ['Bloco à direita', 'Para quem vê valores: margem percentual e resultado mensal em reais. Para os demais: apenas a etiqueta de saúde.'],
+          ['Botão de três pontos', 'Menu com Ver detalhes, Editar, Recursos e Excluir, conforme a permissão.'],
+        ]} />
+        <Callout type="warn">
+          Assim como em Clientes, <strong>o card inteiro é um atalho para a edição</strong> do contrato. Para apenas
+          consultar, use o menu de três pontos e escolha <strong>Ver detalhes</strong>.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'filtros',
+    label: 'Filtros e ordenação',
+    title: 'Filtrar e ordenar a carteira',
+    content: (
+      <>
+        <DataTable headers={['Recurso', 'Como funciona']} rows={[
+          ['Buscar por nome ou código', 'Pesquisa em tempo real no nome do contrato, no código e também no nome do cliente.'],
+          ['Ordenação', 'Quatro opções: Saúde (padrão, críticos primeiro), Valor mensal decrescente, Margem percentual decrescente e Margem percentual crescente.'],
+          ['Segmento', 'Todos, Govtech, Privado ou Híbrido.'],
+          ['Tipo', 'Todos, Sistema, Infraestrutura ou Híbrido.'],
+          ['Status operacional', 'Todos, Em Operação, Em Implantação, Suspenso ou Encerrado.'],
+          ['Saúde financeira', 'Botões Saudável, Atenção e Crítico. Aceitam seleção múltipla: é possível ver Atenção e Crítico ao mesmo tempo.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mb-3">
+          Os filtros aplicados viram etiquetas logo abaixo da barra. Cada etiqueta tem um <strong>x</strong> que remove
+          aquele filtro isoladamente — é assim que se limpa a seleção, filtro a filtro. O contador de resultados fica
+          logo em seguida.
+        </p>
+        <Callout type="tip">
+          A ordenação por <strong>Margem % ↑</strong> combinada com o filtro de saúde Crítico produz a lista de trabalho
+          mais útil para reunião de carteira: os piores contratos primeiro.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'exportar',
+    label: 'Exportar',
+    title: 'Exportar a carteira para planilha',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O botão <strong>Exportar</strong>, no topo da tela, oferece duas opções: <strong>Exportar XLSX</strong> e{' '}
+          <strong>Exportar CSV</strong>. A exportação respeita exatamente o que está na tela — filtros aplicados e ordem
+          escolhida.
+        </p>
+        <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1 mb-3">
+          <li>Identificação: nome do contrato e nome do cliente.</li>
+          <li>Datas: início, fim e data base de reajuste.</li>
+          <li>Financeiro: margem em reais e em percentual, receita bruta, receita líquida, percentual de impostos e custo total.</li>
+          <li>Equipe: quantidade de recursos CLT, PJ e Outros.</li>
+        </ul>
+        <Callout type="warn">
+          O botão só aparece para <strong>Superadmin</strong>, <strong>C-Level</strong> e <strong>Administrativo</strong>.
+          O arquivo contém valores financeiros de toda a carteira exportada — trate-o como documento confidencial.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'criar',
+    label: 'Criar e editar',
+    title: 'Criar ou editar um contrato',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Use <strong>Novo Contrato</strong> para criar. O formulário é organizado em seções que abrem e fecham:
+          Identificação, Vigência e Renovação, Reajuste, Receita, Escopo e Observações, e Responsáveis. Campos marcados
+          com asterisco são obrigatórios, e ao tentar salvar o sistema abre automaticamente a seção que ainda tem
+          pendência.
+        </p>
+        <Steps items={[
+          { title: 'Considere partir do documento', body: 'Ao criar um contrato aparece o bloco "Preencher a partir de documento (IA)". Envie o contrato em PDF, DOCX ou imagem, clique em "Analisar e preencher" e a IA sugere os campos. Tudo fica destacado para você revisar antes de salvar.' },
+          { title: 'Identificação', body: 'Código do Contrato, Nome do Contrato, Cliente, Tipo, Segmento e Status Operacional são obrigatórios. Aqui também ficam Unidade no cliente, Centro de Custo Interno, logo do contrato e a chave "Possui subprojetos / squads múltiplas?".' },
+          { title: 'Vigência e Renovação', body: 'Data de Início é obrigatória. A Data de Término também é, a menos que a Renovação Automática esteja ligada. Informe ainda a Periodicidade de Renovação e o Status de Renovação: Em Negociação, Renovado ou Sem Tratativa.' },
+          { title: 'Reajuste', body: 'Índice de Reajuste, Data Base de Reajuste e Alerta de Reajuste em dias antes são obrigatórios. Esse prazo em dias é o que faz o alerta de reajuste aparecer para este contrato específico.' },
+          { title: 'Receita', body: 'Escolha o Modelo de Receita entre Receita Recorrente Mensal (MRR) e Receita Média Mensal, calculada pelo total dividido pela duração. Informe a moeda, o valor correspondente ao modelo e o percentual de Impostos sobre Faturamento.' },
+          { title: 'Escopo e Responsáveis', body: 'O Objeto do Contrato é obrigatório. Escopo Operacional, SLAs e Riscos e Pendências alimentam relatórios e análises. Em Responsáveis, o Responsável Interno é obrigatório; preencher também P.O. / CS e Responsável Comercial evita o alerta de contatos incompletos.' },
+          { title: 'Salve', body: 'Use Criar Contrato ou, na edição, Salvar Alterações. Ao final o sistema abre a tela de detalhe do contrato.' },
+        ]} />
+        <Callout type="warn">
+          Ao ligar <strong>Possui subprojetos / squads múltiplas?</strong> em um contrato que já existia, o sistema
+          oferece migrar os recursos atuais para subprojetos. A partir daí, a gestão das pessoas passa a ser feita no
+          módulo Squads.
+        </Callout>
+        <Callout type="info">
+          Se o percentual de impostos ficar em branco, o contrato usa o percentual padrão definido em Configurações. É
+          por isso que dois contratos podem ter receitas líquidas diferentes com a mesma receita bruta.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'detalhe',
+    label: 'Detalhe do contrato',
+    title: 'A tela de detalhe e suas abas',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O detalhe abre com um cabeçalho de indicadores: <strong>Status de Saúde</strong> (com receita bruta, impostos,
+          receita líquida e custo, para quem vê valores), <strong>Vigência</strong> com dias restantes,{' '}
+          <strong>Próximo Reajuste</strong> e <strong>Última Atualização</strong> dos recursos. Logo abaixo aparecem os
+          alertas ativos do contrato, cada um com sua recomendação.
+        </p>
+        <DataTable headers={['Aba', 'O que traz']} rows={[
+          ['Resumo', 'Tendência de Margem, Distribuição de Custos por tipo de recurso e overhead, card de Recebíveis, card de Subprojetos e as tags do contrato.'],
+          ['Recursos', 'Equipe alocada com o total entre parênteses, além do bloco de Overhead Alocado.'],
+          ['Escopo', 'Objeto do Contrato, Escopo Operacional, SLAs e a lista de responsáveis.'],
+          ['Vigência', 'Datas, renovação e informações de reajuste.'],
+          ['Histórico', 'Linha do tempo de eventos do contrato. Só aparece para quem tem o submódulo Histórico liberado.'],
+          ['Documentos', 'Anexos do contrato. Só aparece para quem tem o submódulo Documentos liberado.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mb-3">
+          O card <strong>Recebíveis</strong>, na aba Resumo, mostra três situações: <strong>Em dia</strong>,{' '}
+          <strong>Atrasado</strong> com o valor e os dias de atraso, ou <strong>Sem vínculo</strong>. Neste último caso o
+          botão <strong>Vincular assinatura</strong> leva à conciliação com o Superlógica — enquanto isso não é feito, o
+          contrato não é acompanhado financeiramente.
+        </p>
+        <Callout type="tip">
+          Os botões <strong>Recursos</strong> e <strong>Editar</strong> ficam no canto superior direito desta tela e são
+          o caminho mais curto para agir sobre o contrato que você acabou de analisar.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'recursos',
+    label: 'Recursos e squads',
+    title: 'Recursos do contrato e ligação com Squads',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A tela <strong>Recursos do Contrato</strong> é onde o custo nasce. Ela abre com quatro cards —{' '}
+          <strong>Saúde</strong>, <strong>Receita Mensal</strong>, <strong>Custo Mensal Total</strong> e{' '}
+          <strong>Total de Recursos</strong> — seguidos da abertura de custo por CLT, PJ, Outros e Overhead.
+        </p>
+        <DataTable headers={['Tipo de recurso', 'Quando usar', 'Campos principais']} rows={[
+          ['RH - CLT', 'Colaborador com vínculo CLT.', 'Nome da pessoa vinda do RH Mestre, cargo, senioridade, salário bruto mensal e percentual de dedicação.'],
+          ['RH - PJ', 'Prestador pessoa jurídica.', 'Nome da pessoa, cargo, valor mensal contratado e percentual de dedicação.'],
+          ['Outros', 'Cloud, licenças, equipamentos, terceiros e consultorias.', 'Categoria, descrição, valor mensal e recorrência.'],
+        ]} />
+        <Steps items={[
+          { title: 'Adicione um recurso', body: 'Clique em "Adicionar Recurso", escolha o tipo e preencha os campos. Para CLT e PJ, a pessoa vem do cadastro de RH — isso mantém custo e cargo sempre atualizados.' },
+          { title: 'Ou reaproveite outro contrato', body: 'O botão "Importar de outro contrato" copia a estrutura de equipe de um contrato semelhante, poupando cadastro repetido.' },
+          { title: 'Organize a lista', body: 'Ordene por Custo mensal, Função/Cargo, Nome ou Tipo. Com mais de cinco recursos aparece também o campo "Buscar por nome...".' },
+          { title: 'Fique atento às etiquetas', body: '"RH" indica vínculo saudável com o cadastro mestre; "Legado" indica recurso ainda sem vínculo; "Link quebrado" e "Colaborador Inativo" indicam custo possivelmente desatualizado.' },
+          { title: 'Conserte os vínculos', body: 'No recurso marcado como Legado, use o botão de corrente para escolher a pessoa correspondente no RH Mestre e clicar em "Vincular".' },
+        ]} />
+        <Callout type="warn">
+          Quando o contrato usa subprojetos, aparece o aviso <strong>Este contrato usa alocação por subprojeto</strong>.
+          Nesse caso as pessoas não são editadas aqui: elas são consolidadas na linha{' '}
+          <strong>Recursos Humanos (via Subprojetos)</strong> e a gestão acontece no módulo Squads, pelos botões{' '}
+          <strong>Ir para Squads</strong> ou <strong>Ver nos Squads</strong>.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'overhead',
+    label: 'Overhead',
+    title: 'Rateio de overhead no custo do contrato',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Além dos recursos alocados, cada contrato absorve uma fatia dos custos centrais da BNP — administrativo,
+          infraestrutura, governança, indiretos e consultoria. Essa fatia aparece como{' '}
+          <strong>Overhead alocado</strong> na Distribuição de Custos e como card <strong>Overhead</strong> na tela de
+          Recursos, sempre com o percentual do rateio e o valor correspondente.
+        </p>
+        <p className="text-sm text-muted-foreground mb-3">
+          O cálculo é automático, feito a partir do pool de overhead central e do peso do contrato. O link{' '}
+          <strong>Ver rateio</strong> leva às Configurações, onde o pool é mantido.
+        </p>
+        <Callout type="warn">
+          Quando o overhead aparece como <strong>Indisponível</strong>, o contrato ficou de fora do rateio e o sistema
+          informa o motivo logo abaixo. Enquanto isso não é resolvido, o custo mostrado está subestimado e a margem,
+          otimista.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'permissoes',
+    label: 'Permissões',
+    title: 'Quem pode fazer o quê',
+    content: (
+      <>
+        <DataTable headers={['Perfil', 'Ver valores', 'Criar', 'Editar de fato', 'Gerenciar recursos', 'Excluir', 'Exportar']} rows={[
+          ['Superadmin', 'Sim', 'Sim', 'Sim', 'Sim', 'Sim', 'Sim'],
+          ['C-Level', 'Sim', 'Sim', 'Sim', 'Sim', 'Sim', 'Sim'],
+          ['Administrativo', 'Sim', 'Sim', 'Sim', 'Sim', 'Sim', 'Sim'],
+          ['Demo', 'Sim', 'Sim', 'Não, o formulário abre bloqueado', 'Sim', 'Sim', 'Não'],
+          ['Intermediário', 'Não', 'Sim', 'Não, o formulário abre bloqueado', 'Sim', 'Sim', 'Não'],
+          ['Líder de Tribo', 'Não', 'Não', 'Não, o formulário abre bloqueado', 'Edita alocações existentes, sem adicionar nem excluir', 'Não', 'Não'],
+          ['Coordenação de Suporte', 'Não', 'Não', 'Não, o formulário abre bloqueado', 'Edita alocações existentes, sem adicionar nem excluir', 'Não', 'Não'],
+          ['Projetos e Produtos', 'Não', 'Não', 'Não', 'Não', 'Não', 'Não'],
+          ['Comercial, Jurídico, Leitor', 'Não', 'Não', 'Não', 'Não', 'Não', 'Não'],
+        ]} />
+        <p className="text-sm text-muted-foreground mb-3">
+          Há ainda uma restrição adicional dentro dos valores: os custos de pessoas, ou seja, CLT e PJ, dependem da
+          permissão específica de custos de RH. Quem não a possui vê três traços no lugar do valor, mesmo enxergando os
+          demais números do contrato. Isso é proposital: permite que a liderança realoque pessoas sem acessar
+          remuneração.
+        </p>
+        <Callout type="info">
+          Cada ação pode ser ligada ou desligada por módulo na Gestão de Perfis. Se o seu acesso não bate com a tabela,
+          é provável que exista uma configuração específica para o seu usuário.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'problemas',
+    label: 'Problemas comuns',
+    title: 'Problemas comuns e como resolver',
+    content: (
+      <DataTable headers={['Sintoma', 'Causa provável', 'Solução']} rows={[
+        ['O contrato sumiu do Dashboard e dos Alertas', 'O status foi alterado para Suspenso ou Encerrado.', 'Abra o contrato e confira o campo Status Operacional na seção Identificação.'],
+        ['Abri a edição mas os campos estão bloqueados', 'A edição efetiva é restrita a C-Level, RH, Administrativo e Superadmin, mesmo que o botão apareça.', 'Clique em Fechar e solicite a alteração a um perfil autorizado.'],
+        ['Cliquei na linha e caí na edição sem querer', 'O card inteiro é atalho para a edição.', 'Use o menu de três pontos e escolha Ver detalhes; para sair sem alterar, clique em Cancelar.'],
+        ['A margem está pior do que eu esperava', 'O custo inclui a parcela de overhead central, além dos recursos alocados.', 'Confira a linha Overhead alocado na Distribuição de Custos para separar as duas parcelas.'],
+        ['Aparece um ícone de corrente partida no contrato', 'O contrato está ativo mas não tem assinatura vinculada no Superlógica.', 'Clique no ícone ou use "Vincular assinatura" no card Recebíveis para fazer a conciliação.'],
+        ['Adicionei uma pessoa no contrato e ela não aparece na lista', 'O contrato usa alocação por subprojeto, e nesse modo as pessoas são consolidadas em uma única linha.', 'Use "Ir para Squads" e gerencie a alocação pelo subprojeto correspondente.'],
+        ['O overhead aparece como Indisponível', 'O contrato ficou fora do rateio do pool central.', 'Leia o motivo exibido no card e ajuste o cadastro do contrato ou o pool em Configurações.'],
+        ['Vejo receita e margem, mas os custos de CLT e PJ aparecem como ---', 'Falta a permissão específica de custos de RH.', 'Continue a análise pelos totais; para ver remuneração, solicite a permissão ao administrador.'],
+        ['Não encontro o botão Exportar', 'A exportação é limitada a Superadmin, C-Level e Administrativo.', 'Peça o arquivo a um desses perfis.'],
+        ['Não consigo limpar todos os filtros de uma vez', 'A listagem de contratos remove filtros pelas etiquetas individuais.', 'Clique no x de cada etiqueta ativa e volte os seletores para Todos.'],
+      ]} />
+    ),
+  },
 ];
 
-function Callout({ type, children }: { type: 'tip' | 'info' | 'warn'; children: React.ReactNode }) {
-  const s = { tip: 'bg-green-50 border-green-400 text-green-900', info: 'bg-blue-50 border-blue-400 text-blue-900', warn: 'bg-amber-50 border-amber-400 text-amber-900' };
-  const i = { tip: '💡', info: 'ℹ️', warn: '⚠️' };
-  return <div className={`flex gap-3 p-3 rounded-md border-l-4 text-sm my-3 ${s[type]}`}><span className="shrink-0">{i[type]}</span><p className="m-0 leading-relaxed">{children}</p></div>;
-}
-
-function Steps({ items }: { items: { title: string; body: string }[] }) {
-  return (
-    <div className="flex flex-col my-4">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-4 relative">
-          {i < items.length - 1 && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-border" />}
-          <div className="w-8 h-8 rounded-full border-2 border-primary text-primary text-xs font-bold flex items-center justify-center shrink-0 z-10 bg-background">{i + 1}</div>
-          <div className="pb-6 pt-1 flex-1"><p className="font-semibold text-sm text-foreground mb-1">{item.title}</p><p className="text-sm text-muted-foreground">{item.body}</p></div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div className="overflow-x-auto my-4 rounded-lg border border-border">
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-muted"><tr>{headers.map((h, i) => <th key={i} className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">{h}</th>)}</tr></thead>
-        <tbody>{rows.map((row, i) => <tr key={i} className={i % 2 === 1 ? 'bg-muted/30' : ''}>{row.map((cell, j) => <td key={j} className="px-3 py-2 text-muted-foreground border-b border-border last:border-b-0">{cell}</td>)}</tr>)}</tbody>
-      </table>
-    </div>
-  );
-}
-
-function SectionBlock({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return (
-    <div id={id} className="scroll-mt-20 mb-12">
-      <div className="flex items-center gap-3 mb-5 pb-3 border-b-2 border-primary/20"><h2 className="text-lg font-bold text-foreground">{title}</h2></div>
-      {children}
-    </div>
-  );
-}
-
 export default function HelpContractsPage() {
-  const navigate = useNavigate();
-  const [active, setActive] = useState('visao-geral');
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => { const v = entries.find(e => e.isIntersecting); if (v) setActive(v.target.id); },
-      { rootMargin: '-20% 0px -70% 0px' }
-    );
-    SECTIONS.forEach(s => { const el = document.getElementById(s.id); if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 p-4 border-b border-border shrink-0">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/ajuda')}><ArrowLeft className="w-4 h-4" /></Button>
-        <FileText className="w-4 h-4 text-primary" />
-        <div><h1 className="text-base font-bold leading-tight">Contratos</h1><p className="text-xs text-muted-foreground">Como gerenciar contratos, recursos e saúde financeira</p></div>
-      </div>
-      <div className="flex flex-1 overflow-hidden">
-        <nav className="hidden lg:flex flex-col w-52 shrink-0 border-r border-border overflow-y-auto p-3 gap-0.5">
-          {SECTIONS.map(s => (
-            <a key={s.id} href={`#${s.id}`} onClick={e => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-              className={`text-xs px-3 py-2 rounded-md transition-colors cursor-pointer ${active === s.id ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-              {s.label}
-            </a>
-          ))}
-        </nav>
-        <main className="flex-1 overflow-y-auto p-6 max-w-3xl">
-
-          <SectionBlock id="visao-geral" title="O que é o módulo de Contratos?">
-            <p className="text-sm text-muted-foreground mb-3">O módulo de Contratos é o coração operacional do BNPHub. Reúne todos os contratos ativos, seu desempenho financeiro, composição de equipe, alertas e documentos associados.</p>
-            <p className="text-sm text-muted-foreground mb-4">Cada contrato está vinculado a um cliente e pode conter recursos humanos, subprojetos, histórico de reajustes e documentos. O sistema calcula automaticamente indicadores de saúde com base nos dados cadastrados.</p>
-            <DataTable headers={['Status', 'Significado']} rows={[
-              ['Em Operação',   'Contrato ativo em pleno funcionamento.'],
-              ['Em Implantação','Contrato em fase inicial de implementação.'],
-              ['Proposta',      'Proposta comercial em negociação.'],
-              ['Suspenso',      'Contrato temporariamente paralisado.'],
-              ['Encerrado',     'Contrato finalizado. Não aparece nas listagens padrão.'],
-            ]} />
-          </SectionBlock>
-
-          <SectionBlock id="cards" title="Lendo os Cards de Contrato">
-            <DataTable headers={['Elemento', 'O que significa']} rows={[
-              ['Logo / Cliente',        'Logotipo do cliente vinculado ao contrato.'],
-              ['Nome do contrato',      'Nome completo do contrato.'],
-              ['Código',                'Código interno de identificação do contrato.'],
-              ['Badge de status',       'Indica o status atual (Em Operação, Em Implantação, etc.).'],
-              ['Indicador de saúde',    '🟢 Saudável · 🟡 Atenção · 🔴 Crítico — calculado automaticamente.'],
-              ['Valor mensal',          'Receita mensal do contrato (visível apenas para perfis com acesso a valores).'],
-              ['Margem',                'Percentual de margem do contrato (visível apenas para perfis com acesso a valores).'],
-              ['Alertas',               'Ícones de alerta para vencimento próximo, reajuste pendente ou margem baixa.'],
-              ['Vigência',              'Datas de início e fim do contrato.'],
-            ]} />
-            <Callout type="info">Valores financeiros (receita, margem, custos) são visíveis apenas para C-Level, Administrativo e Superadmin.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="saude" title="Indicadores de Saúde do Contrato">
-            <p className="text-sm text-muted-foreground mb-4">O sistema calcula automaticamente a saúde de cada contrato com base em múltiplos critérios:</p>
-            <DataTable headers={['Indicador', 'Saudável 🟢', 'Atenção 🟡', 'Crítico 🔴']} rows={[
-              ['Margem', '≥ margem mínima configurada', 'Próximo da margem mínima', 'Abaixo da margem mínima'],
-              ['Vencimento', '> 90 dias', '30–90 dias', '< 30 dias'],
-              ['Recursos', 'Equipe completa', 'Algum recurso inativo', 'Recurso crítico inativo'],
-              ['Reajuste', 'Em dia', 'Reajuste próximo', 'Reajuste vencido'],
-            ]} />
-            <Callout type="tip">O filtro de saúde no topo da tela permite visualizar rapidamente todos os contratos críticos ou em atenção, facilitando a priorização de ações.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="filtros" title="Filtros e Ordenação">
-            <p className="text-sm text-muted-foreground mb-4">Use os filtros no topo da tela para navegar pelos contratos:</p>
-            <DataTable headers={['Filtro / Ordenação', 'Como usar']} rows={[
-              ['Busca',           'Pesquisa por nome do contrato, código ou nome do cliente em tempo real.'],
-              ['Segmento',        'Filtra por Govtech ou Privado.'],
-              ['Status',          'Filtra por status do contrato (Em Operação, Proposta, etc.).'],
-              ['Saúde',           'Filtra por indicador de saúde (Saudável, Atenção, Crítico). Múltipla seleção.'],
-              ['Alertas',         'Filtra contratos com alertas específicos (vencimento, reajuste, margem).'],
-              ['Ordenação',       'Ordena por Saúde (padrão), Valor Mensal (↓), Margem (↑ ou ↓).'],
-            ]} />
-            <Callout type="tip">Os filtros podem ser combinados. Um contador mostra quantos filtros estão ativos. Clique em "Limpar filtros" para redefinir tudo.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="criar" title="Criar um Novo Contrato">
-            <p className="text-sm text-muted-foreground mb-4">Clique em <strong>+ Novo Contrato</strong> para abrir o formulário.</p>
-            <Steps items={[
-              { title: 'Vincule ao cliente', body: 'Selecione o cliente na lista. Apenas clientes já cadastrados aparecem. Se o cliente não existir, cadastre-o primeiro no módulo de Clientes.' },
-              { title: 'Preencha o nome e código', body: 'O nome é o identificador principal do contrato. O código é o número ou referência interna (ex: "025/2026").' },
-              { title: 'Defina o status inicial', body: 'Geralmente "Em Implantação" para contratos novos ou "Proposta" para negociações em andamento.' },
-              { title: 'Informe os dados financeiros', body: 'Valor mensal, data de início, data de fim e índice de reajuste. Estes dados alimentam os indicadores de saúde e os alertas automáticos.' },
-              { title: 'Configure o segmento e tipo', body: 'Govtech ou Privado. Isso afeta os filtros e relatórios.' },
-              { title: 'Salve', body: 'O contrato é criado e aparece na listagem. Você pode adicionar recursos, documentos e subprojetos após a criação.' },
-            ]} />
-            <Callout type="info">Somente perfis com permissão de criação visualizam o botão "+ Novo Contrato".</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="editar" title="Editar um Contrato">
-            <p className="text-sm text-muted-foreground mb-3">Para editar um contrato, acesse a página de detalhe do contrato (clique no card) e clique em <strong>Editar</strong>. Também é possível clicar no menu <strong>⋯</strong> no card da listagem.</p>
-            <p className="text-sm text-muted-foreground mb-4">Os dados editáveis incluem: nome, código, status, valores financeiros, datas, segmento, logotipo e configurações de alerta.</p>
-            <Callout type="warn">Acesso ao módulo não significa permissão de edição. Perfis sem a ação <strong>Editar</strong> em Contratos podem consultar o contrato, mas não alteram cadastro, datas, status, valores ou configurações.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="recursos" title="Gerenciar Recursos do Contrato">
-            <p className="text-sm text-muted-foreground mb-4">Acesse a tela de <strong>Recursos</strong> pelo menu do contrato ou pelo botão "Ver recursos" nos cards de Squad. Aqui você gerencia a equipe alocada diretamente no contrato.</p>
-            <DataTable headers={['Tipo de recurso', 'Descrição']} rows={[
-              ['CLT',   'Colaborador contratado como CLT. Contabiliza no cálculo de dedicação do RH.'],
-              ['PJ',    'Colaborador contratado como Pessoa Jurídica. Também contabiliza na dedicação.'],
-              ['Outro', 'Licença de software, ferramenta, posição genérica ou recurso não-humano.'],
-            ]} />
-            <h3 className="font-semibold text-sm mb-2 mt-4">Adicionar recurso</h3>
-            <Steps items={[
-              { title: 'Clique em "+ Adicionar Recurso"', body: 'Na tela de recursos do contrato.' },
-              { title: 'Defina o tipo', body: 'CLT, PJ ou Outro.' },
-              { title: 'Preencha nome, cargo e dedicação', body: 'Para CLT e PJ, informe o percentual de dedicação (%). Para vincular a um colaborador do RH, selecione o nome na lista.' },
-              { title: 'Informe o local de atuação', body: 'BNP ou Cliente.' },
-              { title: 'Salve', body: 'O recurso aparece na equipe do contrato e no módulo de Squads.' },
-            ]} />
-            <Callout type="info">Recursos do tipo CLT/PJ vinculados a um colaborador do módulo de RH têm sua dedicação contabilizada automaticamente nos alertas de sub-dedicação.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="status" title="Status do Contrato">
-            <p className="text-sm text-muted-foreground mb-4">O status define onde o contrato aparece nos filtros e quais cálculos são aplicados:</p>
-            <DataTable headers={['Status', 'Aparece em Squads?', 'Gera alertas?', 'Aparece nos filtros padrão?']} rows={[
-              ['Em Operação',    '✔ Sim', '✔ Sim', '✔ Sim'],
-              ['Em Implantação', '✔ Sim', '✔ Sim', '✔ Sim'],
-              ['Proposta',       '✖ Não', '✖ Não', '✔ Sim'],
-              ['Suspenso',       '✖ Não', '✔ Sim', '✔ Sim'],
-              ['Encerrado',      '✖ Não', '✖ Não', '✖ Não (filtro manual)'],
-            ]} />
-            <Callout type="warn">Para encerrar um contrato, altere o status para "Encerrado". O contrato sai de todas as listagens padrão mas permanece no histórico e pode ser encontrado aplicando o filtro de status manualmente.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="perfis" title="Perfis e Permissões">
-            <DataTable headers={['Ação', 'C-Level / Admin / Superadmin', 'Líder de Tribo', 'Proj. Produtos / Coord. Suporte']} rows={[
-              ['Ver contratos',          '✔ Sim', '✔ Sim', '✔ Sim'],
-              ['Ver valores financeiros', '✔ Sim', '✖ Não', '✖ Não'],
-              ['Criar contrato',         '✔ Sim', '✖ Não', '✖ Não'],
-              ['Editar contrato',        '✔ Sim', '✖ Não', '✖ Não'],
-              ['Gerenciar recursos',     '✔ Sim', '✖ Não', '✖ Não'],
-              ['Excluir contrato',       '✔ Sim', '✖ Não', '✖ Não'],
-              ['Exportar dados',         '✔ Sim', '✖ Não', '✖ Não'],
-            ]} />
-          </SectionBlock>
-
-          <SectionBlock id="duvidas" title="Dúvidas Frequentes">
-            {[
-              { q: 'O contrato está com indicador vermelho mas parece estar em ordem', a: 'Verifique os alertas específicos no card — pode ser vencimento próximo, reajuste pendente ou recurso humano inativo na equipe. Clique no contrato para ver os detalhes do cálculo de saúde.' },
-              { q: 'Não consigo ver os valores financeiros do contrato', a: 'Valores financeiros são visíveis apenas para C-Level, Administrativo e Superadmin. Entre em contato com o administrador se precisar de acesso.' },
-              { q: 'Consigo ver o contrato, mas não consigo editar', a: 'Isso é esperado quando seu perfil tem acesso ao módulo, mas não tem a ação "Editar" habilitada para Contratos. Apenas C-Level, RH, Administrativo e Superadmin devem alterar esse cadastro.' },
-              { q: 'Quero buscar contratos de um cliente específico', a: 'No campo de busca, digite o nome do cliente. O sistema pesquisa por nome do contrato, código e nome do cliente simultaneamente.' },
-              { q: 'Como arquivar um contrato sem excluí-lo?', a: 'Altere o status para "Encerrado". O contrato sairá das listagens padrão mas ficará disponível no histórico através do filtro de status.' },
-              { q: 'Adicionei um recurso no contrato mas não aparece no módulo de Squads', a: 'O módulo de Squads exibe apenas contratos com status "Em Operação" ou "Em Implantação". Verifique se o status do contrato está correto.' },
-              { q: 'Como exportar a lista de contratos?', a: 'No topo da tela de contratos, clique no botão de exportação (ícone de planilha). Os dados são exportados em formato Excel com base nos filtros ativos.' },
-            ].map((item, i) => (
-              <div key={i} className="mb-4 pb-4 border-b border-border last:border-0">
-                <h3 className="font-semibold text-sm text-foreground mb-1">{item.q}</h3>
-                <p className="text-sm text-muted-foreground">{item.a}</p>
-              </div>
-            ))}
-          </SectionBlock>
-
-        </main>
-      </div>
-    </div>
-  );
+  return <HelpArticle title="Contratos" description="Cadastro, saúde financeira, recursos e integrações do contrato" icon={FileText} sections={sections} />;
 }

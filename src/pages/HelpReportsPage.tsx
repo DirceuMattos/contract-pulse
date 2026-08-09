@@ -1,270 +1,422 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+// v2 - reescrita didática completa (agosto/2026): seções conforme SECTION_META, integrações, import externo e merge manual.
+import { FileBarChart2 } from 'lucide-react';
+import { Callout, DataTable, HelpArticle, HelpSection, Steps } from '@/components/help/HelpArticle';
 
-const SECTIONS = [
-  { id: 'visao-geral',  label: 'Visão Geral' },
-  { id: 'perfis',       label: 'Perfis e Permissões' },
-  { id: 'criar',        label: '1. Criar Relatório' },
-  { id: 'editar',       label: '2. Editar Seções' },
-  { id: 'sincronizar',  label: '3. Sincronizar Dados' },
-  { id: 'status',       label: '4. Fluxo de Status' },
-  { id: 'pptx',         label: '5. Gerar PPTX' },
-  { id: 'secoes',       label: 'Seções — Referência' },
-  { id: 'semaforo',     label: 'Semáforo de Integrações' },
-  { id: 'duvidas',      label: 'Dúvidas Frequentes' },
+const sections: HelpSection[] = [
+  {
+    id: 'visao-geral',
+    label: 'Visão geral',
+    title: 'O que é o relatório mensal',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          É o documento que a BNP entrega ao cliente todo mês, contrato a contrato. O módulo existe para que esse
+          documento seja montado <strong>uma vez, de forma colaborativa</strong>, com parte do conteúdo vindo
+          automaticamente das ferramentas que a equipe já usa — e o resultado final saia em PowerPoint.
+        </p>
+        <p className="text-sm text-muted-foreground mb-3">O ciclo de um mês, em quatro passos:</p>
+        <Steps items={[
+          { title: 'Criar o relatório do mês', body: 'Escolhendo contrato, mês e ano. Opcionalmente já trazendo o conteúdo manual do mês anterior.' },
+          { title: 'Sincronizar os dados automáticos', body: 'Asana, Fireflies, Milvus e Azure DevOps preenchem as seções que dependem deles.' },
+          { title: 'Escrever a análise humana', body: 'As seções manuais — objetivo, painel executivo, oportunidades, indicadores — são o valor do relatório.' },
+          { title: 'Revisar, aprovar e gerar o PPTX', body: 'O status controla quem ainda pode editar; o PPTX é gerado no fim.' },
+        ]} />
+        <Callout type="info">
+          Existe um relatório por <strong>contrato + mês + ano</strong>. O sistema não deixa criar duplicado — se você
+          tentar, ele avisa e leva você ao relatório que já existe.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'listagem',
+    label: 'Tela de listagem',
+    title: 'Como a lista de relatórios está organizada',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Os relatórios ficam agrupados <strong>por contrato</strong>, em ordem alfabética, com os grupos fechados. Ao
+          abrir um grupo, os meses aparecem em <strong>ordem crescente</strong> (do mais antigo para o mais recente).
+        </p>
+        <DataTable headers={['Elemento', 'O que é']} rows={[
+          ['Semáforo de 4 bolinhas', 'Estado das integrações do contrato, na ordem Asana · Fireflies · Milvus · Azure DevOps. Verde = configurado, cinza = não configurado. Passe o mouse para ver qual é qual.'],
+          ['Ícone de engrenagem', 'Abre a configuração de template daquele contrato (só C-Level e Superadmin).'],
+          ['Cards de mês', 'Mostram Mês/Ano, a barra “Preenchimento” (seções com conteúdo ÷ total) e os badges.'],
+          ['Badge “Importado”', 'Aquele mês usa um arquivo externo em vez das seções do sistema.'],
+          ['Badge de status', 'Rascunho, Em Revisão, Aprovado ou Publicado.'],
+          ['“Ver meses anteriores (N)”', 'Link vermelho acima dos cards. Por padrão só os 6 meses mais recentes aparecem.'],
+          ['Menu ⋯ do card', 'Abrir, Duplicar e — para C-Level/Superadmin e apenas em Rascunho — Excluir.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mt-3">
+          Os filtros <strong>Ano</strong>, <strong>Mês</strong> e <strong>Status</strong> valem para todos os
+          contratos ao mesmo tempo. O filtro de Mês é útil no fechamento: coloque o mês corrente e veja de relance
+          quais contratos ainda estão em Rascunho.
+        </p>
+        <Callout type="tip">
+          Ao sair de um relatório pelo botão de voltar, a lista <strong>reabre o grupo daquele contrato e rola até
+          ele</strong>. Você não precisa procurar de novo.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'criar',
+    label: 'Criar relatório',
+    title: 'Criar, duplicar ou copiar do mês anterior',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Existem três formas de começar um mês, e elas <strong>não fazem a mesma coisa</strong>. Escolher errado é a
+          causa mais comum de “o relatório veio vazio” ou “veio com dado velho”.
+        </p>
+        <DataTable headers={['Caminho', 'Onde fica', 'O que ele traz']} rows={[
+          ['Novo Relatório', 'Botão no topo da listagem', 'Cria o mês escolhido com as seções configuradas para o contrato, vazias.'],
+          ['Novo Relatório + “Sim, copiar seções manuais”', 'Dentro do mesmo diálogo', 'Igual ao anterior, mas traz o texto das seções MANUAIS do mês anterior. Não traz dados sincronizados.'],
+          ['Duplicar', 'Menu ⋯ do card do mês', 'Cria o MÊS SEGUINTE ao card duplicado com TODAS as seções copiadas — manuais e sincronizadas.'],
+          ['Copiar mês anterior', 'Botão dentro do editor', 'Sobre um relatório já aberto, traz todas as seções não vazias do mês anterior.'],
+        ]} />
+        <Steps items={[
+          { title: 'Clique em “Novo Relatório”', body: 'No topo da tela de relatórios.' },
+          { title: 'Escolha o contrato', body: 'O campo tem busca por digitação e lista contratos não encerrados, em ordem alfabética.' },
+          { title: 'Escolha Mês e Ano', body: 'Já vêm preenchidos com o período atual.' },
+          { title: 'Decida sobre o mês anterior', body: 'Se houver conteúdo manual anterior, aparece uma caixa azul. “Sim, copiar seções manuais” vem marcado — é o padrão recomendado, pois glossário, objetivo e ambientes mudam pouco.' },
+          { title: 'Clique em Criar', body: 'O relatório nasce em Rascunho, o sistema já dispara Asana e Fireflies em segundo plano e abre o editor.' },
+        ]} />
+        <Callout type="warn">
+          Ao <strong>Duplicar</strong>, os números sincronizados do mês antigo vêm junto. É proposital (serve de base
+          comparativa), mas você <strong>precisa sincronizar</strong> depois, senão publica o mês novo com dados do mês
+          passado.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'editor',
+    label: 'O editor',
+    title: 'Como o editor funciona',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          À esquerda fica a lista numerada das seções; à direita, o formulário da seção selecionada. A divisória entre
+          as duas pode ser arrastada e a largura escolhida fica salva para as próximas vezes.
+        </p>
+        <DataTable headers={['Sinal na lista de seções', 'Significado']} rows={[
+          ['⬜', 'Seção vazia.'],
+          ['🟡', 'Seção parcialmente preenchida.'],
+          ['✅', 'Seção completa.'],
+          ['Badge “Manual”', 'O conteúdo é escrito por você.'],
+          ['Badge “Auto” + fonte (📋 Asana, 🔥 Fireflies, 🎫 Milvus, 🔷 Azure DevOps)', 'A seção é alimentada por integração — e ainda assim pode ser editada.'],
+        ]} />
+        <Callout type="warn">
+          <strong>Não existe botão “Salvar”.</strong> O editor salva sozinho cerca de 1 segundo depois que você para de
+          digitar; enquanto isso aparece “Salvando...” no topo. Antes de fechar a aba, confira que esse aviso sumiu.
+        </Callout>
+        <p className="text-sm text-muted-foreground mt-3 mb-2 font-semibold text-foreground">Ocultar um slide</p>
+        <p className="text-sm text-muted-foreground mb-3">
+          Toda seção (exceto a Capa) tem a chave <strong>“Ocultar slide na geração do PPT”</strong>. Use quando a
+          seção não se aplica àquele mês: ela continua no sistema, mas não vira slide.
+        </p>
+        <Callout type="info">
+          Ao abrir um relatório em <strong>Rascunho</strong> cuja última sincronização passou de 24 horas, o sistema
+          sincroniza sozinho, em silêncio. Se os números mudaram sem você pedir, foi isso.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'secoes',
+    label: 'As seções',
+    title: 'Referência das seções, na ordem do relatório',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A ordem abaixo é fixa e é a mesma do PPTX. As seções marcadas como configuráveis podem ser desligadas por
+          contrato (veja “Configurar template”).
+        </p>
+        <DataTable headers={['#', 'Seção', 'Origem']} rows={[
+          ['1', 'Capa', 'Automática (dados do contrato e do cliente)'],
+          ['2', 'Sumário', 'Manual — gerado na exportação a partir das seções ativas'],
+          ['3', 'Glossário de Termos', 'Manual'],
+          ['4', 'Objetivo', 'Manual'],
+          ['5', 'Indicadores do Relatório', 'Manual'],
+          ['6', 'Ambientes Implementados', 'Manual'],
+          ['7', 'Ambientes — Detalhamento', 'Manual'],
+          ['8', 'Histórico TR', 'Manual'],
+          ['9', 'Histórico TR — Aderência Global', 'Manual'],
+          ['10', 'Painel Executivo', 'Manual'],
+          ['11', 'Evolução e Inovação', 'Asana'],
+          ['12', 'Demonstrativo de Horas', 'Manual'],
+          ['13', 'Eficiência Operacional', 'Milvus (helpdesk)'],
+          ['14', 'Eficiência e Previsibilidade', 'Azure DevOps (e parte do Asana)'],
+          ['15', 'Desempenho da Aplicação', 'Manual'],
+          ['16', 'Engajamento do Usuário', 'Manual'],
+          ['17', 'Maturidade da Plataforma', 'Manual'],
+          ['18', 'Treinamentos / Reuniões', 'Fireflies'],
+          ['19', 'Oportunidades e Fatores de Atenção', 'Manual'],
+          ['20', 'Tarefas Priorizadas', 'Asana'],
+          ['21', 'Entregas', 'Asana'],
+        ]} />
+        <Callout type="tip">
+          As seções de <strong>Desempenho da Aplicação</strong> e <strong>Engajamento do Usuário</strong> aceitam
+          imagem colada com Ctrl+V. Elas ficam marcadas como “Temporário” — use imagens leves, pois são gravadas
+          dentro do próprio relatório.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'sincronizar',
+    label: 'Sincronizar',
+    title: 'O botão “Sincronizar Dados” e o que cada integração traz',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O botão dispara as integrações em paralelo e abre o painel <strong>“Resultado da Sincronização”</strong>, com
+          uma linha por fonte: ✅ sucesso, ⚠️ ignorado (configuração faltando) ou ❌ erro com a mensagem.
+        </p>
+        <DataTable headers={['Fonte', 'Alimenta', 'Precisa estar configurado', 'O que ela filtra']} rows={[
+          ['Asana', 'Entregas, Tarefas Priorizadas, Evolução e Inovação', 'IDs de projeto do Asana', 'Lê as colunas do quadro. Concluídas no mês viram Entregas; em andamento e planejadas viram Priorizadas.'],
+          ['Fireflies', 'Treinamentos / Reuniões', 'Domínio de e-mail do cliente OU palavras-chave', 'Só entram reuniões com participante do domínio do cliente ou com a palavra-chave no título. Palavras com menos de 4 letras exigem correspondência exata.'],
+          ['Milvus (helpdesk)', 'Eficiência Operacional', 'Nomes de cliente no Milvus', 'Chamados abertos no mês, por nome de cliente. Calcula total, tipos, % de SLA e bugs.'],
+          ['Azure DevOps', 'Eficiência e Previsibilidade', 'Nome do projeto E ao menos uma tag', 'Work items fechados no mês. A tag é conferida de forma exata, porque projetos são compartilhados entre clientes.'],
+        ]} />
+        <Callout type="warn">
+          Se uma integração não estiver configurada, ela <strong>não traz nada</strong> — e isso é proposital. Antes,
+          um filtro frouxo podia trazer reuniões e tarefas de outros clientes para dentro do relatório. Ver “Ignorado”
+          no painel significa “configure o contrato”, não “deu erro”.
+        </Callout>
+        <p className="text-sm text-muted-foreground mt-3 mb-2 font-semibold text-foreground">Re-sincronizar uma seção só</p>
+        <p className="text-sm text-muted-foreground mb-3">
+          Nas seções de Asana e Fireflies existe o botão <strong>“Re-sincronizar”</strong>, que atualiza apenas
+          aquela seção. Ele avisa que seu conteúdo manual será mantido e que podem surgir itens duplicados para você
+          revisar — é o comportamento esperado (veja a seção seguinte).
+        </p>
+        <Callout type="info">
+          Milvus voltando zerado mesmo com o cliente configurado? O sistema grava um diagnóstico técnico do retorno da
+          API. Acione o time técnico informando o contrato e o mês — não é preciso reconfigurar nada por conta própria.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'manual-vs-sync',
+    label: 'Manual x Sync',
+    title: 'Por que aparecem itens duplicados (e por que isso é bom)',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A regra de ouro do módulo: <strong>a sincronização nunca apaga nem altera o que você escreveu</strong>. Em
+          troca, quando a fonte traz uma versão do mesmo item, os dois aparecem lado a lado para você decidir.
+        </p>
+        <DataTable headers={['O que você vê', 'O que significa', 'O que fazer']} rows={[
+          ['Coluna “Origem” com badge Manual (verde)', 'A linha foi escrita ou editada por você. Está protegida de futuras sincronizações.', 'Nada — ela permanece.'],
+          ['Coluna “Origem” com badge Sync (azul)', 'A linha veio da integração. Será substituída na próxima sincronização.', 'Se quiser preservá-la, basta editar qualquer campo dela: ela vira Manual.'],
+          ['Aviso âmbar “Itens duplicados destacados”', 'A sincronização trouxe uma versão nova ao lado da sua.', 'Compare as duas linhas âmbar e remova a que não deve permanecer.'],
+          ['“seu valor: X · sync trouxe: Y” + botão “Adotar valor do sync”', 'Um número que você digitou diverge do número coletado.', 'Confira e, se o número da fonte estiver certo, clique em adotar.'],
+        ]} />
+        <Callout type="tip">
+          Apagar uma linha é sempre respeitado — inclusive linhas que vieram da integração. Se você removeu algo de
+          propósito, ele não volta “por teimosia” do sistema.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'template',
+    label: 'Configurar template',
+    title: 'Configuração por contrato',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Pela engrenagem (na listagem ou no editor) você chega à <strong>Configuração do Template</strong>, disponível
+          para <strong>C-Level</strong> e <strong>Superadmin</strong>. É aqui que se define o que cada contrato usa.
+        </p>
+        <p className="text-sm text-muted-foreground mb-2 font-semibold text-foreground">Seções ativas</p>
+        <p className="text-sm text-muted-foreground mb-3">
+          Marque só as seções que fazem sentido para aquele cliente. Desmarcar afeta os relatórios{' '}
+          <strong>criados dali em diante</strong> — meses já existentes não são alterados.
+        </p>
+        <p className="text-sm text-muted-foreground mb-2 font-semibold text-foreground">Integrações</p>
+        <DataTable headers={['Campo', 'Como preencher']} rows={[
+          ['IDs de Projetos no Asana (um por linha)', 'O número que aparece na URL do projeto, depois de /project/. Pode ter vários.'],
+          ['Domínio de e-mail do cliente', 'Só o domínio, sem @ — por exemplo prefeitura.sp.gov.br. É o filtro mais confiável do Fireflies.'],
+          ['Palavras-chave Fireflies', 'Separadas por vírgula. Servem para reuniões sem participante do cliente. Prefira palavras longas e específicas.'],
+          ['Clientes Milvus (um por linha)', 'O nome do cliente exatamente como está cadastrado no Milvus.'],
+          ['Azure DevOps — Nome do Projeto', 'O nome exato do projeto na organização bnpdesenvolvimento.'],
+          ['Azure DevOps — Tags de filtro', 'Ao menos uma tag é obrigatória. Sem tag, a integração não roda — projetos são compartilhados entre clientes e viria dado errado.'],
+        ]} />
+        <Callout type="warn">
+          O texto de ajuda do campo de tags do Azure ainda diz que é possível deixar vazio. <strong>Não é.</strong> Sem
+          tag, a sincronização retorna “ignorado”.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'import-externo',
+    label: 'Importar externo',
+    title: 'Quando o relatório do mês vem pronto de fora',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Alguns meses o relatório é produzido fora do BNPHub — um PPT montado pela equipe, um PDF exigido pelo
+          cliente. Nesse caso, use <strong>“Importar relatório”</strong> no topo do editor. O mês passa a ser
+          representado por esse arquivo.
+        </p>
+        <Steps items={[
+          { title: 'Abra o relatório do mês', body: 'Ele não precisa estar vazio.' },
+          { title: 'Clique em “Importar relatório”', body: 'Selecione o arquivo. Qualquer formato é aceito (PPT, PPTX, PDF, DOCX...).' },
+          { title: 'Confira o card âmbar', body: 'O relatório passa a exibir “Relatório importado de fonte externa” com a versão atual.' },
+        ]} />
+        <DataTable headers={['O que muda no mês importado', 'Detalhe']} rows={[
+          ['As seções somem da tela', 'Elas continuam gravadas, mas não são exibidas nem editadas.'],
+          ['“Sincronizar Dados” fica desabilitado', 'Com o aviso “Desativado: relatório importado de fonte externa”.'],
+          ['O card na listagem ganha o badge “Importado”', 'Para identificar de longe.'],
+          ['Só aquele mês é afetado', 'Meses anteriores e futuros seguem normais.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mt-3 mb-2 font-semibold text-foreground">Versões e reversão</p>
+        <p className="text-sm text-muted-foreground mb-3">
+          Cada envio cria uma <strong>nova versão</strong> (v1, v2, v3...), e todas ficam disponíveis para download —
+          nada é sobrescrito. Use <strong>“Enviar nova versão”</strong> quando o arquivo for corrigido.{' '}
+          <strong>“Remover importação”</strong> apaga todas as versões e devolve o mês ao modo normal, com seções e
+          sincronização de volta.
+        </p>
+        <DataTable headers={['Ação', 'Perfis']} rows={[
+          ['Importar, enviar nova versão, baixar', 'Superadmin, C-Level, Líder de Tribo, Projetos e Produtos, Administrativo, Coordenação de Suporte'],
+          ['Remover importação (reverter)', 'Superadmin, C-Level, Líder de Tribo'],
+        ]} />
+        <Callout type="info">
+          O botão “Gerar PPTX” continua funcionando num mês importado, mas ele gera a partir das seções guardadas no
+          sistema — não do arquivo que você enviou. Para entregar o arquivo importado, baixe-o pela lista de versões.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'status',
+    label: 'Fluxo de status',
+    title: 'Rascunho, Em Revisão, Aprovado e Publicado',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O status não é decorativo: ele <strong>controla quem ainda pode editar o conteúdo</strong>.
+        </p>
+        <DataTable headers={['Status', 'Quando usar', 'Quem pode editar o conteúdo']} rows={[
+          ['Rascunho', 'Em elaboração. É o estado inicial.', 'Superadmin, C-Level, Líder de Tribo, Projetos e Produtos'],
+          ['Em Revisão', 'Conteúdo pronto, aguardando conferência.', 'Superadmin, C-Level, Líder de Tribo'],
+          ['Aprovado', 'Validado internamente, pronto para o cliente.', 'Ninguém — o relatório fica travado'],
+          ['Publicado', 'Entregue ao cliente.', 'Ninguém — só o Superadmin altera o status'],
+        ]} />
+        <DataTable headers={['Perfil', 'Transições que pode fazer']} rows={[
+          ['Superadmin e C-Level', 'Qualquer status, em qualquer direção.'],
+          ['Líder de Tribo', 'Rascunho → Em Revisão e Em Revisão → Rascunho. Não aprova nem publica.'],
+          ['Demais perfis', 'Nenhuma — o seletor fica desabilitado.'],
+        ]} />
+        <Callout type="warn">
+          Passar para <strong>Aprovado</strong> trava a edição para todos. Se precisar corrigir algo depois, um C-Level
+          ou Superadmin precisa devolver o relatório para Rascunho.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'pptx',
+    label: 'Gerar PPTX',
+    title: 'Exportar a apresentação',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O botão <strong>“Gerar PPTX”</strong> monta a apresentação no próprio navegador e baixa o arquivo, com nome
+          no padrão <code className="text-xs">relatorio-nome-do-contrato-mes-ano.pptx</code>.
+        </p>
+        <DataTable headers={['Comportamento', 'Detalhe']} rows={[
+          ['Uma seção por slide', 'Na ordem da referência de seções, com Capa no início e slide de encerramento no fim.'],
+          ['Seções ocultadas não viram slide', 'A chave “Ocultar slide na geração do PPT” é respeitada.'],
+          ['Tabelas longas se dividem', 'Demonstrativo de Horas e Tarefas Priorizadas geram slides extras automaticamente.'],
+          ['Slides sem dados trazem aviso', 'Por exemplo: “Nenhuma entrega registrada para o período.”'],
+          ['Logo do cliente', 'Usa o logo do contrato e, na falta dele, o do cliente.'],
+          ['Rodapé de fonte', 'Slides sincronizados indicam a origem: Asana, Fireflies, Milvus ou Azure DevOps.'],
+        ]} />
+        <Callout type="tip">
+          Gere o PPTX <strong>depois</strong> de sincronizar e revisar. Como a geração é instantânea, o hábito
+          saudável é gerar uma prévia, ler os slides e voltar ao editor para ajustar o que ficou estranho.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'permissoes',
+    label: 'Permissões',
+    title: 'Quem acessa e quem faz o quê',
+    content: (
+      <>
+        <DataTable headers={['Ação', 'Perfis']} rows={[
+          ['Acessar o módulo', 'C-Level, Superadmin, Líder de Tribo, Administrativo, Coordenação de Suporte, Projetos e Produtos'],
+          ['Criar relatório e sincronizar', 'Os mesmos perfis com acesso ao módulo'],
+          ['Editar conteúdo', 'Depende do status — veja a tabela do fluxo de status'],
+          ['Aprovar e publicar', 'C-Level e Superadmin'],
+          ['Excluir relatório', 'C-Level e Superadmin, e somente em Rascunho'],
+          ['Configurar template do contrato', 'C-Level e Superadmin'],
+          ['Importar arquivo externo', 'Superadmin, C-Level, Líder de Tribo, Projetos e Produtos, Administrativo, Coordenação de Suporte'],
+          ['Remover importação', 'Superadmin, C-Level, Líder de Tribo'],
+        ]} />
+        <Callout type="warn">
+          Se o editor aceitar seu texto mas aparecer <strong>“Erro ao salvar”</strong>, é permissão no banco e não erro
+          de uso. Anote o perfil, o contrato e o mês e acione o time técnico — reescrever o texto não resolve.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'problemas',
+    label: 'Problemas comuns',
+    title: 'Perguntas frequentes e como resolver',
+    content: (
+      <DataTable headers={['Sintoma', 'Causa provável', 'Solução']} rows={[
+        ['“Relatório já existe” ao criar', 'Já há relatório para aquele contrato/mês/ano.', 'O sistema leva você ao existente. Use-o.'],
+        ['Duplicar não funcionou', 'O mês seguinte já tem relatório.', 'Abra o mês seguinte e use “Copiar mês anterior” dentro dele.'],
+        ['Seção sincronizada vazia', 'Integração não configurada para aquele contrato.', 'Abra a engrenagem e preencha os campos da integração.'],
+        ['Vieram reuniões de outro cliente', 'Palavra-chave genérica ou curta demais no Fireflies.', 'Prefira o domínio de e-mail do cliente e palavras-chave longas e específicas.'],
+        ['Azure DevOps não trouxe nada', 'Falta a tag de filtro, ou a tag não confere exatamente.', 'Preencha ao menos uma tag idêntica à usada nos work items.'],
+        ['Milvus zerado com cliente configurado', 'Divergência no retorno da API.', 'Acione o time técnico informando contrato e mês — há um diagnóstico gravado.'],
+        ['Item apareceu duas vezes', 'A sincronização trouxe a versão nova ao lado da sua.', 'Remova a linha que não deve permanecer (as duplicadas ficam em âmbar).'],
+        ['Não consigo editar nada', 'O relatório está Aprovado ou Publicado, ou seu perfil não edita nesse status.', 'Peça a um C-Level para devolver a Rascunho.'],
+        ['As seções sumiram da tela', 'O mês está marcado como importado de fonte externa.', 'Use “Remover importação” para voltar ao modo normal.'],
+        ['Um mês antigo não aparece', 'A lista mostra só os 6 meses mais recentes.', 'Clique em “Ver meses anteriores”.'],
+      ]} />
+    ),
+  },
+  {
+    id: 'boas-praticas',
+    label: 'Boas práticas',
+    title: 'Rotina de fechamento mensal',
+    content: (
+      <>
+        <Steps items={[
+          { title: 'Início do mês: crie os relatórios do período', body: 'Com “copiar seções manuais” marcado, para não reescrever glossário, objetivo e ambientes.' },
+          { title: 'Confira o semáforo de integrações', body: 'Bolinha cinza significa dado que não virá sozinho. Configure antes de começar a escrever.' },
+          { title: 'Sincronize e só depois escreva', body: 'Assim você analisa em cima dos números reais, e não reescreve texto que a sincronização vai contextualizar.' },
+          { title: 'Trate as duplicidades no mesmo dia', body: 'Deixar itens duplicados acumular torna a revisão final muito mais cara.' },
+          { title: 'Gere uma prévia do PPTX antes de mandar para revisão', body: 'Erros de formatação e seções vazias aparecem no slide, não na tela de edição.' },
+          { title: 'Mova o status conscientemente', body: 'Em Revisão para conferência; Aprovado só quando estiver pronto, porque trava a edição.' },
+        ]} />
+        <Callout type="tip">
+          O relatório é lido pelo cliente. As seções automáticas dizem <em>o que</em> foi feito; as manuais — Painel
+          Executivo, Oportunidades e Fatores de Atenção — dizem <em>o que isso significa</em>. É nelas que está o
+          valor percebido da entrega.
+        </Callout>
+      </>
+    ),
+  },
 ];
 
-function Callout({ type, children }: { type: 'tip' | 'info' | 'warn'; children: React.ReactNode }) {
-  const styles = { tip: 'bg-green-50 border-green-400 text-green-900', info: 'bg-blue-50 border-blue-400 text-blue-900', warn: 'bg-amber-50 border-amber-400 text-amber-900' };
-  const icons = { tip: '💡', info: 'ℹ️', warn: '⚠️' };
-  return (
-    <div className={`flex gap-3 p-3 rounded-md border-l-4 text-sm my-3 ${styles[type]}`}>
-      <span className="shrink-0">{icons[type]}</span>
-      <p className="m-0 leading-relaxed">{children}</p>
-    </div>
-  );
-}
-
-function Steps({ items }: { items: { title: string; body: string }[] }) {
-  return (
-    <div className="flex flex-col my-4">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-4 relative">
-          {i < items.length - 1 && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-border" />}
-          <div className="w-8 h-8 rounded-full border-2 border-primary text-primary text-xs font-bold flex items-center justify-center shrink-0 z-10 bg-background">{i + 1}</div>
-          <div className="pb-6 pt-1 flex-1">
-            <p className="font-semibold text-sm text-foreground mb-1">{item.title}</p>
-            <p className="text-sm text-muted-foreground">{item.body}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div className="overflow-x-auto my-4 rounded-lg border border-border">
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-muted">
-          <tr>{headers.map((h, i) => <th key={i} className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">{h}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className={i % 2 === 1 ? 'bg-muted/30' : ''}>
-              {row.map((cell, j) => <td key={j} className="px-3 py-2 text-muted-foreground border-b border-border">{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function SectionBlock({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return (
-    <div id={id} className="scroll-mt-20 mb-12">
-      <div className="flex items-center gap-3 mb-5 pb-3 border-b-2 border-primary/20">
-        <h2 className="text-lg font-bold text-foreground">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export default function HelpReportsPage() {
-  const navigate = useNavigate();
-  const [active, setActive] = useState('visao-geral');
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => { const v = entries.find(e => e.isIntersecting); if (v) setActive(v.target.id); },
-      { rootMargin: '-20% 0px -70% 0px' }
-    );
-    SECTIONS.forEach(s => { const el = document.getElementById(s.id); if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 p-4 border-b border-border shrink-0">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/ajuda')}><ArrowLeft className="w-4 h-4" /></Button>
-        <BookOpen className="w-4 h-4 text-primary" />
-        <div>
-          <h1 className="text-base font-bold leading-tight">Relatórios Mensais</h1>
-          <p className="text-xs text-muted-foreground">Guia do Usuário</p>
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        <nav className="hidden lg:flex flex-col w-52 shrink-0 border-r border-border overflow-y-auto p-3 gap-0.5">
-          {SECTIONS.map(s => (
-            <a key={s.id} href={`#${s.id}`}
-              onClick={e => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-              className={`text-xs px-3 py-2 rounded-md transition-colors cursor-pointer ${active === s.id ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-              {s.label}
-            </a>
-          ))}
-        </nav>
-
-        <main className="flex-1 overflow-y-auto p-6 max-w-3xl">
-
-          <SectionBlock id="visao-geral" title="O que são os Relatórios Mensais?">
-            <p className="text-sm text-muted-foreground mb-3">Os Relatórios Mensais consolidam as informações de cada contrato ao longo do mês — entregas, indicadores, squad, histórico de chamados, reuniões e muito mais.</p>
-            <p className="text-sm text-muted-foreground mb-4">Cada relatório é composto por <strong>seções</strong>. Algumas são preenchidas automaticamente pelas integrações, outras manualmente pela equipe.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-4 rounded-lg border border-border">
-                <p className="font-semibold text-sm mb-1">🤖 Seções automáticas</p>
-                <p className="text-xs text-muted-foreground">Preenchidas ao sincronizar: Entregas, Tarefas Priorizadas, Indicadores, Histórico TR, Demonstrativo de Horas e outras vindas das ferramentas integradas.</p>
-              </div>
-              <div className="p-4 rounded-lg border border-border">
-                <p className="font-semibold text-sm mb-1">✏️ Seções manuais</p>
-                <p className="text-xs text-muted-foreground">Preenchidas pela equipe: Capa, Sumário, Objetivo, Glossário, Ambientes, Oportunidades e Fatores de Atenção, entre outras.</p>
-              </div>
-            </div>
-          </SectionBlock>
-
-          <SectionBlock id="perfis" title="Perfis e Permissões">
-            <DataTable
-              headers={['Ação', 'Líder de Tribo', 'Projetos e Produtos', 'C-Level / Superadmin']}
-              rows={[
-                ['Ver relatórios','✔ Sim','✔ Sim','✔ Sim'],
-                ['Criar relatório','✔ Sim','✔ Sim','✔ Sim'],
-                ['Editar (Rascunho)','✔ Sim','✔ Sim','✔ Sim'],
-                ['Editar (Em Revisão)','✔ Sim','✖ Somente leitura','✔ Sim'],
-                ['Editar (Aprovado/Publicado)','✖ Bloqueado','✖ Bloqueado','⚠ Somente C-Level/Superadmin'],
-                ['Sincronizar dados','✔ Sim','✔ Sim','✔ Sim'],
-                ['Gerar PPTX','✔ Sim','✔ Sim','✔ Sim'],
-                ['Mover para Em Revisão','✔ Sim','✖ Não','✔ Sim'],
-                ['Aprovar / Publicar','✖ Não','✖ Não','✔ Sim'],
-              ]}
-            />
-            <Callout type="info">Alguns contratos, como SCEIC - Fomentos e SMAC, podem ter estruturas de relatório diferentes do padrão. Nesses casos, valide o modelo do relatório antes da publicação e registre ajustes necessários para o template específico.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="criar" title="1. Criar um Novo Relatório">
-            <p className="text-sm text-muted-foreground mb-4">Acesse <strong>Relatórios Mensais</strong> no menu lateral e clique em <strong>+ Novo Relatório</strong>.</p>
-            <Steps items={[
-              { title: 'Selecione o contrato', body: 'Escolha o contrato para o qual o relatório será gerado. Apenas contratos ativos aparecem na lista.' },
-              { title: 'Escolha o mês e o ano', body: 'Se já existir um relatório para esse período, o sistema redireciona automaticamente para o existente.' },
-              { title: 'Copiar do mês anterior (opcional)', body: 'Se existir um relatório anterior, o sistema pergunta se você deseja copiar as seções manuais. As seções automáticas sempre começam vazias.' },
-              { title: 'Clique em Criar', body: 'O relatório é criado como Rascunho e você é redirecionado para a tela de edição. A sincronização inicia em segundo plano.' },
-            ]} />
-            <Callout type="tip">Aproveite a opção de cópia — ela traz Objetivo, Glossário e outras seções fixas do mês anterior, economizando tempo.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="editar" title="2. Editar as Seções do Relatório">
-            <p className="text-sm text-muted-foreground mb-4">A tela de edição tem duas colunas: à esquerda a lista de seções com indicadores; à direita o editor da seção selecionada.</p>
-            <h3 className="font-semibold text-sm mb-2">Indicadores de preenchimento</h3>
-            <DataTable headers={['Ícone', 'Significado']} rows={[['⬜','Seção vazia — ainda não preenchida'],['🟡','Preenchimento parcial — alguns campos obrigatórios faltando'],['✅','Seção completa']]} />
-            <h3 className="font-semibold text-sm mb-2 mt-4">Salvamento automático</h3>
-            <p className="text-sm text-muted-foreground mb-3">Não existe botão "Salvar". Cada alteração é salva automaticamente após 800ms. O indicador <em>"Salvando dados..."</em> aparece no cabeçalho enquanto há alterações pendentes.</p>
-            <h3 className="font-semibold text-sm mb-2">Ocultar slide no PPTX</h3>
-            <p className="text-sm text-muted-foreground mb-3">Cada seção tem o toggle <strong>"Ocultar slide na geração do PPT"</strong>. Ative para excluir aquela seção do arquivo final.</p>
-            <h3 className="font-semibold text-sm mb-2">Copiar do mês anterior</h3>
-            <p className="text-sm text-muted-foreground mb-3">Use o botão <strong>Copiar mês anterior</strong> no cabeçalho para copiar seções manuais do relatório mais recente do mesmo contrato.</p>
-            <Callout type="info">Ao navegar entre seções, qualquer edição não salva é gravada imediatamente antes da troca.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="sincronizar" title="3. Sincronizar Dados das Integrações">
-            <p className="text-sm text-muted-foreground mb-4">Clique em <strong>🔄 Sincronizar Dados</strong>. Um painel mostra o resultado de cada integração:</p>
-            <DataTable headers={['Ícone', 'Significado']} rows={[['✅ Verde','Sincronizado com sucesso'],['❌ Vermelho','Falha — o motivo aparece abaixo do nome'],['⚠️ Amarelo','Ignorado — ex: nenhum projeto Asana configurado']]} />
-            <h3 className="font-semibold text-sm mb-2 mt-4">Integrações disponíveis</h3>
-            <ul className="space-y-2 mb-4">
-              {[['📋 Asana','Importa entregas concluídas no mês e tarefas priorizadas.'],['🎙️ Fireflies','Importa reuniões e transcrições filtradas por domínio ou palavras-chave.'],['🎫 Milvus','Importa tickets e demonstrativo de horas via MCP.'],['🔷 Azure DevOps','Importa work items e histórico de TR do projeto configurado.']].map(([t,d]) => (
-                <li key={t} className="flex gap-3 p-3 rounded-lg border border-border list-none">
-                  <div><p className="text-sm font-semibold">{t}</p><p className="text-xs text-muted-foreground">{d}</p></div>
-                </li>
-              ))}
-            </ul>
-            <Callout type="warn">Se uma integração aparecer com erro, verifique com o administrador se as configurações do contrato estão corretas.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="status" title="4. Fluxo de Status do Relatório">
-            <Steps items={[
-              { title: 'Rascunho — Estado inicial', body: 'Líderes de Tribo e Projetos e Produtos podem editar livremente e sincronizar dados.' },
-              { title: 'Em Revisão — Enviado para revisão', body: 'Líderes ainda editam. Projetos e Produtos passa a somente leitura. C-Level e Superadmin podem aprovar ou devolver para Rascunho.' },
-              { title: 'Aprovado — Ninguém pode editar', body: 'Apenas C-Level ou Superadmin podem publicar ou reabrir.' },
-              { title: 'Publicado — Relatório finalizado', body: 'Bloqueado para todos. Apenas o Superadmin pode alterar o status se necessário.' },
-            ]} />
-            <Callout type="info">Quando bloqueado, um aviso em destaque aparece na tela informando o motivo e quem pode reabrir.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="pptx" title="5. Gerar o PPTX">
-            <p className="text-sm text-muted-foreground mb-4">Clique em <strong>⬇ Gerar PPTX</strong> no cabeçalho. O download inicia automaticamente.</p>
-            <Steps items={[
-              { title: 'Revise os indicadores', body: 'Certifique-se de que as seções que devem entrar estão como ✅ ou 🟡. Seções com "Ocultar slide" ativo não entram.' },
-              { title: 'Clique em Gerar PPTX', body: 'O botão mostra "Gerando..." enquanto o arquivo é montado.' },
-              { title: 'Download automático', body: 'O arquivo é baixado com o nome do contrato e mês/ano. Abra no PowerPoint ou Google Slides para revisar.' },
-            ]} />
-            <Callout type="tip">O PPTX pode ser gerado em qualquer status — não é necessário que o relatório esteja Publicado.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="secoes" title="Seções do Relatório — Referência Completa">
-            <DataTable
-              headers={['Seção', 'Origem', 'Descrição']}
-              rows={[
-                ['Capa','Manual','Identificação: projeto, cliente, número do contrato, criado por, revisado por.'],
-                ['Sumário','Manual','Índice do relatório.'],
-                ['Glossário de Termos','Manual','Definição dos termos técnicos.'],
-                ['Objetivo','Manual','Objetivo geral do contrato e do relatório.'],
-                ['Indicadores do Relatório','Auto — Asana/Milvus','KPIs do período.'],
-                ['Ambientes Implementados','Manual','Lista dos ambientes em produção.'],
-                ['Ambientes — Detalhamento','Manual','Detalhes técnicos dos ambientes.'],
-                ['Histórico TR','Auto — Azure DevOps','Tickets e work items do período.'],
-                ['Histórico TR — Aderência','Auto — Azure DevOps','Métricas de aderência ao SLA.'],
-                ['Evolução e Inovação','Auto — Asana','Distribuição das entregas por categoria.'],
-                ['Demonstrativo de Horas','Auto — Milvus','Horas por tipo de atendimento.'],
-                ['Eficiência Operacional','Manual','Análise qualitativa da operação.'],
-                ['Eficiência e Previsibilidade','Auto — Asana','Lead time e frequência de deploy.'],
-                ['Desempenho da Aplicação','Manual','Uptime, incidentes e performance.'],
-                ['Engajamento do Usuário','Manual','Métricas de uso da plataforma.'],
-                ['Maturidade da Plataforma','Manual','Radar de maturidade técnica.'],
-                ['Treinamentos / Reuniões','Auto — Fireflies','Reuniões realizadas no período.'],
-                ['Oportunidades e Atenção','Manual','Pontos de melhoria e riscos identificados.'],
-                ['Tarefas Priorizadas','Auto — Asana','Backlog e tarefas em andamento.'],
-                ['Entregas','Auto — Asana','Tarefas concluídas no período.'],
-              ]}
-            />
-          </SectionBlock>
-
-          <SectionBlock id="semaforo" title="Semáforo de Integrações">
-            <p className="text-sm text-muted-foreground mb-4">Na listagem, cada contrato exibe quatro pontos coloridos. A ordem é: <strong>Asana · Fireflies · Milvus · Azure DevOps</strong>.</p>
-            <div className="space-y-3 mb-4">
-              {[
-                { dots: ['bg-green-500','bg-green-500','bg-green-500','bg-green-500'], label: 'Todas as integrações configuradas' },
-                { dots: ['bg-gray-300','bg-green-500','bg-green-500','bg-green-500'], label: 'Asana não configurado' },
-                { dots: ['bg-green-500','bg-gray-300','bg-green-500','bg-green-500'], label: 'Fireflies não configurado' },
-              ].map((row, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="flex gap-1.5">{row.dots.map((c, j) => <div key={j} className={`w-3 h-3 rounded-full ${c}`} />)}</div>
-                  <span className="text-sm text-muted-foreground">{row.label}</span>
-                </div>
-              ))}
-            </div>
-            <Callout type="warn">Um ponto cinza indica integração não configurada. Solicite ao administrador que configure os IDs na tela ⚙️ do contrato.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="duvidas" title="Dúvidas Frequentes">
-            {[
-              { q: 'O relatório foi criado mas as seções automáticas estão vazias', a: 'A sincronização acontece em segundo plano. Aguarde alguns segundos e clique em 🔄 Sincronizar Dados.' },
-              { q: 'Tentei sincronizar mas uma integração deu erro', a: 'Verifique o painel de resultados. O erro mostra o motivo exato. Repasse ao administrador.' },
-              { q: 'Não consigo mais editar o relatório', a: 'O relatório está em Aprovado ou Publicado. Solicite ao C-Level ou Superadmin que altere o status.' },
-              { q: 'Quero aproveitar o conteúdo do mês anterior', a: 'Ao criar, o sistema oferece a opção de cópia. Se já criado, use o botão Copiar mês anterior no cabeçalho.' },
-              { q: 'Criei o relatório no mês errado', a: 'Delete o relatório incorreto (só em Rascunho) e crie um novo para o mês correto.' },
-              { q: 'O PPTX gerou sem alguma seção', a: 'Verifique se o toggle "Ocultar slide" está ativado naquela seção. Desative-o e gere novamente.' },
-            ].map((item, i) => (
-              <div key={i} className="mb-4 pb-4 border-b border-border last:border-0">
-                <h3 className="font-semibold text-sm text-foreground mb-1">{item.q}</h3>
-                <p className="text-sm text-muted-foreground">{item.a}</p>
-              </div>
-            ))}
-          </SectionBlock>
-
-        </main>
-      </div>
-    </div>
+    <HelpArticle
+      title="Relatórios Mensais"
+      description="Criar, sincronizar, revisar e exportar o relatório mensal de cada contrato"
+      icon={FileBarChart2}
+      sections={sections}
+    />
   );
 }

@@ -1,308 +1,350 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+// v2 - reescrita didática completa (agosto/2026): fluxos reais da tela, rótulos exatos, permissões e erros comuns.
+import { Users } from 'lucide-react';
+import { Callout, DataTable, HelpArticle, HelpSection, Steps } from '@/components/help/HelpArticle';
 
-const SECTIONS = [
-  { id: 'visao-geral',    label: 'Visão Geral' },
-  { id: 'cards',          label: 'Lendo os Cards' },
-  { id: 'filtros',        label: 'Filtros e Busca' },
-  { id: 'editar-alloc',   label: 'Editar Alocação' },
-  { id: 'realocar-rh',    label: 'Realocar RH' },
-  { id: 'subprojetos',    label: '⭐ Subprojetos' },
-  { id: 'criar-sp',       label: 'Criar Subprojeto' },
-  { id: 'alocar-sp',      label: 'Alocar em Subprojeto' },
-  { id: 'editar-sp',      label: 'Editar / Remover' },
-  { id: 'duvidas',        label: 'Dúvidas Frequentes' },
+const sections: HelpSection[] = [
+  {
+    id: 'visao-geral',
+    label: 'Visão geral',
+    title: 'O que é o módulo Squads',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Squads é a tela que responde a uma pergunta simples: <strong>quem está trabalhando em qual contrato, e
+          quanto do tempo dessa pessoa vai para lá</strong>. Ela não cadastra pessoas (isso é o módulo RH) e não
+          cadastra contratos (isso é o módulo Contratos). Ela faz a ligação entre os dois.
+        </p>
+        <p className="text-sm text-muted-foreground mb-3">
+          Toda alocação tem uma <strong>dedicação em percentual</strong>. Uma pessoa 100% em um contrato equivale a
+          1,00 FTE. Se ela estiver 50% em dois contratos, são 0,50 FTE em cada — e o total continua sendo uma pessoa.
+          É assim que o sistema calcula custo por contrato e saúde financeira.
+        </p>
+        <DataTable headers={['Conceito', 'O que significa na prática']} rows={[
+          ['Alocação', 'O vínculo entre uma pessoa do RH e um contrato (ou um subprojeto), com um percentual de dedicação.'],
+          ['Dedicação (%)', 'Quanto do tempo da pessoa vai para aquele contrato. Vai de 1% a 100% por alocação.'],
+          ['FTE', 'Equivalente a uma pessoa em tempo integral. 100% = 1,00 FTE; 50% = 0,50 FTE.'],
+          ['Subprojeto', 'Uma frente de trabalho dentro do mesmo contrato (ex.: PROAC Direto e PROAC Indireto). É opcional.'],
+          ['Equipe', 'Agrupamento do cargo da pessoa (Desenvolvimento, Dados, Suporte...). Vem do RH, não é escolhido aqui.'],
+        ]} />
+        <Callout type="info">
+          Só aparecem na tela contratos com status <strong>Em Operação</strong> ou <strong>Em Implantação</strong>.
+          Contratos suspensos ou encerrados ficam fora — se um contrato sumiu da lista, confira o status dele no
+          módulo Contratos antes de suspeitar de erro.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'duas-visoes',
+    label: 'As duas visões',
+    title: 'Por Projeto e Por Recurso: quando usar cada uma',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O primeiro filtro da tela é <strong>Visão</strong>, e ele muda completamente o que você vê. Escolher a visão
+          certa economiza a maior parte do trabalho.
+        </p>
+        <DataTable headers={['Visão', 'Cada card é...', 'Use quando quiser']} rows={[
+          ['Por Projeto (padrão)', 'Um contrato ou um subprojeto', 'Ver a composição de uma squad: quem está no contrato, por equipe, com FTE total.'],
+          ['Por Recurso', 'Uma pessoa', 'Ver a vida de uma pessoa: em quantos projetos ela está, se está sobrecarregada ou ociosa.'],
+        ]} />
+        <Callout type="tip">
+          Regra prática: <strong>alocar, mover e retirar pessoas é feito na visão Por Recurso.</strong> A visão Por
+          Projeto é de leitura e diagnóstico. A exceção é o painel de Subprojetos, que só aparece na visão Por Projeto.
+        </Callout>
+        <p className="text-sm text-muted-foreground mt-3">
+          Na visão Por Projeto ainda existe o filtro <strong>Modo</strong>: <strong>Compacto</strong> mostra apenas as
+          barras por equipe (o percentual é a fatia de <em>pessoas</em>); <strong>Detalhado</strong> abre a lista
+          nominal de cada equipe (e o percentual passa a ser a fatia de <em>FTE</em>).
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'filtros',
+    label: 'Filtros e leitura',
+    title: 'Filtros, KPIs e como ler os cards',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          A barra de filtros tem <strong>Visão</strong>, <strong>Cliente</strong>, <strong>Contrato</strong>,{' '}
+          <strong>Buscar</strong> e <strong>Modo</strong>. Abaixo dela ficam os chips de equipe, que podem ser
+          combinados (clique em vários) e limpos pelo chip <strong>✕ Limpar</strong>.
+        </p>
+        <Callout type="info">
+          Ao trocar o <strong>Cliente</strong>, o filtro de <strong>Contrato</strong> volta para “Todos”
+          automaticamente. É esperado — evita ficar com um contrato de outro cliente selecionado.
+        </Callout>
+        <p className="text-sm text-muted-foreground mt-4 mb-2 font-semibold text-foreground">Os quatro indicadores do topo</p>
+        <DataTable headers={['Indicador', 'O que conta']} rows={[
+          ['Contratos', 'Quantos contratos distintos aparecem no resultado atual.'],
+          ['FTE Total', 'Soma das dedicações, em equivalentes de pessoa integral.'],
+          ['RH Alocados', 'Quantas linhas de alocação existem — quem está em dois contratos conta duas vezes.'],
+          ['Squads / Pessoas Únicas', 'Muda com a visão: número de cards de projeto, ou número de pessoas distintas.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mt-4 mb-2 font-semibold text-foreground">Sinais visuais nos cards</p>
+        <DataTable headers={['Sinal', 'O que quer dizer', 'O que fazer']} rows={[
+          ['Fundo âmbar + faixa “⚠️ N substituição(ões) pendente(s)”', 'Alguém alocado nesse contrato foi desligado no RH e a vaga continua aberta.', 'Substituir a pessoa ou remover a pendência (veja a seção Substituições).'],
+          ['Badge “Colaborador Inativo”', 'A pessoa está como inativa no RH, mas a alocação continua existindo.', 'Atualizar a situação no RH ou retirar a alocação.'],
+          ['Badge “Sub-Dedicado NN%”', 'A soma das dedicações da pessoa está abaixo do limite configurado (padrão 50%).', 'Verificar se falta registrar alguma alocação.'],
+          ['Badge “>100%” / “Sobrecarregado”', 'A soma das dedicações passou de 100%.', 'O sistema não bloqueia — revise os percentuais.'],
+          ['Ícone de alerta ao lado do nome', 'A alocação aponta para uma pessoa que não existe mais no RH Mestre (vínculo quebrado).', 'Refazer a alocação com a pessoa correta.'],
+          ['Badge Saudável / Atenção / Crítico', 'Saúde financeira do contrato — vem do módulo Contratos, não do Squads.', 'Analisar no contrato, não aqui.'],
+        ]} />
+        <Callout type="tip">
+          Nome, cargo e equipe exibidos aqui vêm sempre do <strong>RH Mestre</strong>. Se um cargo aparece errado no
+          Squads, a correção é no cadastro da pessoa no RH — não adianta mexer na alocação.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'alocar',
+    label: 'Alocar pessoa',
+    title: 'Alocar uma pessoa a um contrato',
+    content: (
+      <>
+        <Steps items={[
+          { title: 'Mude para a visão Por Recurso', body: 'No filtro “Visão”, clique em “Por Recurso”. Cada card passa a ser uma pessoa.' },
+          { title: 'Encontre a pessoa', body: 'Use o campo “Buscar” (aceita nome, cargo ou cliente). Quem ainda não tem nenhuma alocação aparece com a caixa tracejada “Sem alocação em squads”.' },
+          { title: 'Clique no botão + do card', body: 'Fica no canto superior direito do card da pessoa (dica: “Adicionar a outro projeto”). Abre a janela “Adicionar a Projeto”.' },
+          { title: 'Escolha Contrato e, se houver, Subprojeto', body: 'O campo “Subprojeto” só fica habilitado quando o contrato usa subprojetos; nesse caso ele é obrigatório. Se o contrato não usa, o campo mostra “Não se aplica”.' },
+          { title: 'Informe a Dedicação (%)', body: 'Vem 100 por padrão. Aceita de 1 a 100. Se a pessoa divide o tempo, coloque a fatia real deste contrato.' },
+          { title: 'Clique em Incluir e depois em Adicionar', body: '“Incluir” joga o item na lista “Projetos selecionados”. Você pode repetir para vários projetos e salvar tudo de uma vez em “Adicionar Selecionados”.' },
+        ]} />
+        <Callout type="tip">
+          Para alocar a mesma pessoa em <strong>vários contratos</strong>, não feche a janela: preencha, clique
+          “Incluir”, troque o contrato, “Incluir” de novo. Só então salve. O sistema recusa incluir o mesmo projeto
+          duas vezes (“Este colaborador já foi incluído para este projeto nesta seleção”).
+        </Callout>
+        <Callout type="warn">
+          A soma das dedicações <strong>não é bloqueada</strong>. Dá para deixar alguém em 150% sem o sistema impedir —
+          ele apenas marca “Sobrecarregado”. A conferência é humana.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'mover',
+    label: 'Mover e retirar',
+    title: 'Alterar dedicação, mover de projeto ou retirar alguém',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Tudo isso acontece no mesmo lugar: visão <strong>Por Recurso</strong> → ícone de <strong>lápis</strong> na
+          linha da alocação → janela <strong>“Editar Alocação”</strong>.
+        </p>
+        <DataTable headers={['Objetivo', 'O que fazer na janela']} rows={[
+          ['Só mudar o percentual', 'Altere “Dedicação (%)”, deixe “Mover para outro projeto” em “Manter no mesmo contrato” e clique em Salvar.'],
+          ['Mover para outro contrato', 'Escolha o contrato em “Mover para outro projeto”. Se ele usar subprojetos, o campo “Subprojeto de destino” aparece e é obrigatório. O botão passa a se chamar “Mover e Salvar”.'],
+          ['Tirar a pessoa do projeto', 'Clique em “Retirar do Projeto” (botão vermelho, à esquerda).'],
+        ]} />
+        <Callout type="warn">
+          <strong>“Retirar do Projeto” não pede confirmação.</strong> O clique já executa. Confira o nome e o projeto
+          antes de clicar.
+        </Callout>
+        <Callout type="warn">
+          Se você mover alguém para um contrato que <strong>não usa subprojetos</strong> a partir de uma alocação que
+          estava em subprojeto, o sistema remove a alocação de origem e avisa: <em>“Adicione o recurso manualmente no
+          contrato de destino”</em>. Ele não cria o vínculo no destino sozinho — você precisa fazer isso com o botão +.
+        </Callout>
+        <p className="text-sm text-muted-foreground mt-3">
+          <strong>Para mover entre dois subprojetos do mesmo contrato</strong>, esta janela não serve (ela só lista
+          outros contratos). Faça pelo botão <strong>+</strong> do card da pessoa: adicione o subprojeto de destino e
+          depois retire a alocação antiga.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'subprojetos',
+    label: 'Subprojetos',
+    title: 'Quando e como usar subprojetos',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Use subprojetos quando <strong>um mesmo contrato atende frentes distintas com equipes separadas</strong> —
+          por exemplo PROAC Direto e PROAC Indireto. Sem isso, todo mundo fica num balde único e você perde a visão de
+          custo por frente.
+        </p>
+        <Steps items={[
+          { title: 'Ligue os subprojetos no contrato', body: 'Isso não é feito aqui: vá em Contratos → editar o contrato → chave “Possui subprojetos / squads múltiplas?”. Confirme em “Entendi, ativar subprojetos”.' },
+          { title: 'Volte ao Squads e selecione o contrato', body: 'O painel “Subprojetos” só aparece quando você escolhe um contrato específico no filtro (não funciona com “Todos”) e está na visão Por Projeto.' },
+          { title: 'Crie o subprojeto', body: 'Botão “Adicionar Subprojeto”. Preencha Nome (obrigatório), Descrição (opcional) e Status.' },
+          { title: 'Distribua as pessoas', body: 'Em cada subprojeto há duas listas: “Pessoas” e “Recursos”. Clique em “Adicionar” na lista correta e escolha quem entra, com a dedicação.' },
+        ]} />
+        <DataTable headers={['Status do subprojeto', 'Efeito']} rows={[
+          ['Ativo', 'Aparece normalmente na grade e nas listas de seleção.'],
+          ['Suspenso', 'Continua aparecendo na grade — usado para frentes temporariamente paradas.'],
+          ['Encerrado', 'Some da grade de cards e deixa de ser oferecido ao alocar. O histórico permanece.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mt-3 mb-2 font-semibold text-foreground">Pessoas x Recursos</p>
+        <DataTable headers={['Lista', 'O que entra ali']} rows={[
+          ['Pessoas', 'Colaboradores ativos do RH Mestre. É o caso normal.'],
+          ['Recursos', 'Itens que não são pessoas do RH (licenças, terceiros, serviços) já cadastrados na aba Recursos do contrato como tipo “outro”. Pedem o campo “Valor mensal (R$)”.'],
+        ]} />
+        <Callout type="warn">
+          Excluir um subprojeto <strong>apaga todas as alocações dentro dele</strong>. A confirmação avisa isso. As
+          pessoas não são afetadas no RH, mas o vínculo com aquela frente se perde.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'nao-distribuidos',
+    label: 'Não distribuídos',
+    title: 'A caixa âmbar “Pessoas do contrato ainda não distribuídas em subprojetos”',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          É o alerta mais importante do painel de Subprojetos — e o que mais gera dúvida. Ele lista pessoas que{' '}
+          <strong>estão vinculadas ao contrato mas não a nenhuma frente dele</strong>. Elas contam no custo do
+          contrato, mas ninguém sabe em qual frente estão trabalhando.
+        </p>
+        <p className="text-sm text-muted-foreground mb-3">Como isso acontece, normalmente:</p>
+        <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1 mb-3">
+          <li>a pessoa foi alocada ao contrato <em>antes</em> de os subprojetos existirem;</li>
+          <li>o contrato passou a usar subprojetos depois e a distribuição ainda não foi feita;</li>
+          <li>alguém foi adicionado pela tela de Recursos do contrato, sem passar pelo Squads.</li>
+        </ul>
+        <DataTable headers={['Situação real', 'Ação correta']} rows={[
+          ['A pessoa trabalha numa frente específica', 'Clique em “Adicionar” dentro do subprojeto certo e inclua a pessoa. Ela sai da caixa âmbar.'],
+          ['A pessoa não deveria estar mais no contrato', 'Use “Remover do contrato” na própria linha. Isso não mexe no cadastro dela no RH.'],
+          ['A pessoa atende o contrato inteiro, sem frente definida', 'Isso é legítimo. Mas hoje o sistema mantém o aviso; combine internamente uma frente “Geral” se quiser zerar a lista.'],
+        ]} />
+        <Callout type="warn">
+          Atenção ao distribuir: adicionar a pessoa a um subprojeto <strong>não remove</strong> o vínculo antigo direto
+          com o contrato. Ela sai da caixa âmbar, mas as duas fontes de dedicação passam a somar nos cálculos. Se ela
+          era 100% no contrato e você a colocou 100% no subprojeto, ela vai aparecer como sobrecarregada. Ajuste ou
+          remova o vínculo antigo.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'substituicoes',
+    label: 'Substituições',
+    title: 'Quando alguém é desligado e a vaga fica aberta',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          Ao desligar uma pessoa no RH, o sistema cria automaticamente uma <strong>pendência de substituição</strong>{' '}
+          para cada alocação dela. É por isso que o card do contrato fica âmbar com a faixa “⚠️ N substituição(ões)
+          pendente(s)” — o trabalho continua, mas não há mais ninguém alocado.
+        </p>
+        <Steps items={[
+          { title: 'Vá para a visão Por Recurso', body: 'Localize a pessoa com o badge “Substituição Pendente”.' },
+          { title: 'Escolha o caminho', body: '“Substituir” abre a janela para indicar quem assume; “Remover” encerra a pendência sem repor, deixando a alocação vaga.' },
+          { title: 'Ao substituir, confira o percentual', body: 'A janela mostra as alocações a herdar com a opção “Manter mesmo percentual”. Desmarque se o substituto entrar com dedicação diferente.' },
+        ]} />
+        <Callout type="info">
+          Os botões “Substituir” e “Remover” só aparecem para os perfis <strong>C-Level</strong>,{' '}
+          <strong>Líder de Tribo</strong> e <strong>Superadmin</strong>. Se você não os vê, a pendência existe mas
+          precisa ser tratada por esses perfis.
+        </Callout>
+        <p className="text-sm text-muted-foreground mt-3">
+          A pendência também alimenta o módulo de <strong>Vagas</strong>, onde é possível abrir a requisição de
+          reposição em um clique. Veja o tutorial “Vagas e Skills”.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'exportar',
+    label: 'Exportar',
+    title: 'Levar os dados para uma planilha',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O botão <strong>Exportar</strong>, no topo da página, gera <strong>CSV</strong> ou <strong>XLSX</strong>{' '}
+          com o que estiver na tela — os filtros aplicados valem para a exportação.
+        </p>
+        <DataTable headers={['Coluna', 'Conteúdo']} rows={[
+          ['Cliente / Contrato', 'Identificação do projeto.'],
+          ['Subprojeto', 'Preenchida apenas nas linhas que vêm de um subprojeto.'],
+          ['Equipe', 'Equipe da pessoa, conforme o RH.'],
+          ['Nome RH / Cargo-Função', 'Dados do cadastro mestre.'],
+          ['Dedicação (%) / FTE', 'A alocação e seu equivalente em pessoa integral.'],
+        ]} />
+        <Callout type="tip">
+          Quer o retrato completo da empresa? Deixe Cliente e Contrato em “Todos”, limpe os chips de equipe e exporte.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'permissoes',
+    label: 'Permissões',
+    title: 'Quem pode fazer o quê',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O acesso ao módulo é liberado em <strong>Gestão de Perfis</strong>, e cada ação tem sua própria permissão.
+        </p>
+        <DataTable headers={['Ação', 'Permissão necessária']} rows={[
+          ['Abrir a tela e consultar', 'Acesso ao módulo Squads no perfil.'],
+          ['Criar subprojeto', 'Permissão “Criar” em Squads.'],
+          ['Editar subprojeto ou alocação', 'Permissão “Editar” em Squads.'],
+          ['Excluir subprojeto ou alocação', 'Permissão “Excluir” em Squads.'],
+          ['Adicionar pessoa a projeto/subprojeto', 'Permissão “Alocar” em Squads.'],
+          ['Ver e editar “Valor mensal (R$)” dos recursos', 'Permissão “Ver valores”.'],
+          ['Substituir colaborador / remover pendência', 'Perfil C-Level, Líder de Tribo ou Superadmin.'],
+        ]} />
+        <Callout type="warn">
+          Se um botão aparece para você mas a ação falha com “Erro ao salvar subprojeto”, “Erro ao alocar item” ou o
+          subprojeto some da tela sem motivo, o caso é de <strong>permissão no banco</strong>, e não de erro de uso.
+          Isso é conhecido e ocorre com alguns perfis. Registre com o time técnico informando seu perfil e a ação
+          exata — não insista repetindo a operação.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'problemas',
+    label: 'Problemas comuns',
+    title: 'Perguntas frequentes e como resolver',
+    content: (
+      <DataTable headers={['Sintoma', 'Causa provável', 'Solução']} rows={[
+        ['O contrato não aparece na lista', 'Status diferente de Em Operação / Em Implantação.', 'Confira o status no módulo Contratos.'],
+        ['O painel de Subprojetos não aparece', 'Filtro de Contrato em “Todos”, visão “Por Recurso”, ou contrato sem subprojetos ativados.', 'Selecione um contrato específico, use a visão Por Projeto e ative subprojetos no contrato.'],
+        ['A pessoa não aparece na lista ao alocar', 'Só entram pessoas com situação “ativo” no RH, e quem já está naquele subprojeto é omitido.', 'Verifique a situação da pessoa no RH.'],
+        ['Cargo ou equipe errados no card', 'O dado vem do RH Mestre.', 'Corrija o cadastro da pessoa em Recursos Humanos.'],
+        ['Ícone de alerta “pessoa não encontrada no RH Mestre”', 'A alocação aponta para um cadastro que foi removido.', 'Retire a alocação e refaça com a pessoa correta.'],
+        ['Pessoa marcada como sobrecarregada sem motivo', 'Vínculo antigo com o contrato somando com a alocação nova de subprojeto.', 'Remova o vínculo direto antigo (caixa âmbar “não distribuídas”).'],
+        ['Card de subprojeto vazio ocupando espaço', 'Subprojeto sem ninguém alocado ainda aparece.', 'Aloque alguém ou mude o status para Encerrado.'],
+        ['Sumiu gente ao filtrar por equipe', 'Os chips de equipe são cumulativos e ficam ativos entre buscas.', 'Clique em “✕ Limpar”.'],
+      ]} />
+    ),
+  },
+  {
+    id: 'boas-praticas',
+    label: 'Boas práticas',
+    title: 'Rotina recomendada',
+    content: (
+      <>
+        <Steps items={[
+          { title: 'Toda semana: zere as faixas âmbar', body: 'Substituições pendentes e pessoas não distribuídas são dívidas de cadastro — quanto mais tempo ficam, mais o custo por contrato fica errado.' },
+          { title: 'Toda semana: revise sobrecarregados e sub-dedicados', body: 'Na visão Por Recurso, os dois badges apontam alocações que provavelmente não refletem a realidade.' },
+          { title: 'Ao desligar alguém: trate a pendência no mesmo dia', body: 'Substituir ou remover. Deixar aberto distorce o FTE do contrato.' },
+          { title: 'Ao ativar subprojetos: distribua tudo antes de seguir', body: 'Ativar e não distribuir é o cenário que mais gera número errado no relatório mensal.' },
+          { title: 'Antes de fechar o mês: exporte e confira', body: 'A exportação é a forma mais rápida de bater a lista com o que a operação sabe de cor.' },
+        ]} />
+        <Callout type="tip">
+          Uma pessoa alocada direto no contrato, sem subprojeto, <strong>não é um erro</strong> quando o contrato não
+          usa subprojetos. O alerta só vale para contratos que ativaram frentes.
+        </Callout>
+      </>
+    ),
+  },
 ];
 
-function Callout({ type, children }: { type: 'tip' | 'info' | 'warn' | 'alert'; children: React.ReactNode }) {
-  const styles = {
-    tip:   'bg-green-50  border-green-400  text-green-900',
-    info:  'bg-blue-50   border-blue-400   text-blue-900',
-    warn:  'bg-amber-50  border-amber-400  text-amber-900',
-    alert: 'bg-purple-50 border-purple-400 text-purple-900',
-  };
-  const icons = { tip: '💡', info: 'ℹ️', warn: '⚠️', alert: '⭐' };
-  return (
-    <div className={`flex gap-3 p-3 rounded-md border-l-4 text-sm my-3 ${styles[type]}`}>
-      <span className="shrink-0">{icons[type]}</span>
-      <p className="m-0 leading-relaxed">{children}</p>
-    </div>
-  );
-}
-
-function Steps({ items }: { items: { title: string; body: string }[] }) {
-  return (
-    <div className="flex flex-col my-4">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-4 relative">
-          {i < items.length - 1 && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-border" />}
-          <div className="w-8 h-8 rounded-full border-2 border-primary text-primary text-xs font-bold flex items-center justify-center shrink-0 z-10 bg-background">{i + 1}</div>
-          <div className="pb-6 pt-1 flex-1">
-            <p className="font-semibold text-sm text-foreground mb-1">{item.title}</p>
-            <p className="text-sm text-muted-foreground">{item.body}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div className="overflow-x-auto my-4 rounded-lg border border-border">
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-muted">
-          <tr>{headers.map((h, i) => <th key={i} className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">{h}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className={i % 2 === 1 ? 'bg-muted/30' : ''}>
-              {row.map((cell, j) => <td key={j} className="px-3 py-2 text-muted-foreground border-b border-border last:border-b-0">{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function SectionBlock({ id, title, highlight, children }: { id: string; title: string; highlight?: boolean; children: React.ReactNode }) {
-  return (
-    <div id={id} className="scroll-mt-20 mb-12">
-      <div className={`flex items-center gap-3 mb-5 pb-3 border-b-2 ${highlight ? 'border-purple-400' : 'border-primary/20'}`}>
-        <h2 className={`text-lg font-bold ${highlight ? 'text-purple-700' : 'text-foreground'}`}>{title}</h2>
-        {highlight && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">Importante</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export default function HelpSquadsPage() {
-  const navigate = useNavigate();
-  const [active, setActive] = useState('visao-geral');
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => { const v = entries.find(e => e.isIntersecting); if (v) setActive(v.target.id); },
-      { rootMargin: '-20% 0px -70% 0px' }
-    );
-    SECTIONS.forEach(s => { const el = document.getElementById(s.id); if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 p-4 border-b border-border shrink-0">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/ajuda')}><ArrowLeft className="w-4 h-4" /></Button>
-        <Users className="w-4 h-4 text-primary" />
-        <div>
-          <h1 className="text-base font-bold leading-tight">Squads</h1>
-          <p className="text-xs text-muted-foreground">Como atualizar e gerenciar equipes e subprojetos</p>
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        <nav className="hidden lg:flex flex-col w-52 shrink-0 border-r border-border overflow-y-auto p-3 gap-0.5">
-          {SECTIONS.map(s => (
-            <a key={s.id} href={`#${s.id}`}
-              onClick={e => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-              className={`text-xs px-3 py-2 rounded-md transition-colors cursor-pointer ${
-                s.id === 'subprojetos' || s.id === 'criar-sp' || s.id === 'alocar-sp' || s.id === 'editar-sp'
-                  ? active === s.id ? 'bg-purple-100 text-purple-700 font-semibold' : 'text-purple-600 hover:bg-purple-50'
-                  : active === s.id ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}>
-              {s.label}
-            </a>
-          ))}
-        </nav>
-
-        <main className="flex-1 overflow-y-auto p-6 max-w-3xl">
-
-          <SectionBlock id="visao-geral" title="O que é o módulo de Squads?">
-            <p className="text-sm text-muted-foreground mb-3">O módulo de Squads exibe a composição das equipes alocadas em cada contrato ativo — quem está no projeto, com qual cargo, percentual de dedicação e local de atuação.</p>
-            <p className="text-sm text-muted-foreground mb-4">Contratos que possuem <strong>subprojetos</strong> são exibidos de forma diferente: cada subprojeto gera um card separado com a sua própria equipe, permitindo visualizar a composição por frente de trabalho.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-              <div className="p-4 rounded-lg border border-border">
-                <p className="font-semibold text-sm mb-1">📋 Contrato simples</p>
-                <p className="text-xs text-muted-foreground">Um card por contrato. Mostra todos os recursos alocados diretamente no contrato, agrupados por equipe.</p>
-              </div>
-              <div className="p-4 rounded-lg border border-purple-200 bg-purple-50">
-                <p className="font-semibold text-sm mb-1 text-purple-700">🔀 Contrato com subprojetos</p>
-                <p className="text-xs text-purple-700">Um card por subprojeto. Cada frente de trabalho tem sua própria equipe e alocações independentes.</p>
-              </div>
-            </div>
-            <Callout type="info">O módulo exibe apenas contratos com status <strong>Em Operação</strong> ou <strong>Em Implantação</strong>.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="cards" title="Lendo os Cards de Squad">
-            <p className="text-sm text-muted-foreground mb-4">Cada card representa um contrato ou subprojeto e mostra as informações da equipe alocada.</p>
-            <DataTable
-              headers={['Elemento', 'O que significa']}
-              rows={[
-                ['Nome do contrato / subprojeto', 'Identificação principal do card. Subprojetos mostram o nome do contrato seguido de "→ Nome do Subprojeto".'],
-                ['Tag Subprojeto', 'Badge roxo que identifica cards de subprojeto dentro de um contrato maior.'],
-                ['Cor da borda esquerda', 'Verde = operação normal · Vermelho = há recurso humano inativo no squad.'],
-                ['FTE Total', 'Soma das dedicações de todos os membros (ex: 2,5 FTE = equivale a 2,5 pessoas em tempo integral).'],
-                ['Nome · Cargo · Dedicação', 'Cada linha representa um membro do squad com seu cargo e percentual de alocação.'],
-                ['Local de atuação', 'BNP (presencial na BNP) ou Cliente (atuando no cliente).'],
-                ['Ver contrato / Ver recursos', 'Atalhos para as páginas de detalhe do contrato.'],
-              ]}
-            />
-            <Callout type="warn">Cards com borda vermelha indicam que há um recurso humano inativo no squad. Acesse o contrato e regularize a situação para remover o alerta.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="filtros" title="Filtros e Busca">
-            <p className="text-sm text-muted-foreground mb-4">Use os filtros no topo da tela para encontrar squads específicos:</p>
-            <DataTable
-              headers={['Filtro', 'Como usar']}
-              rows={[
-                ['Busca por nome', 'Digite o nome de uma pessoa, cargo ou cliente para filtrar os cards em tempo real.'],
-                ['Cliente', 'Filtra todos os contratos de um cliente específico.'],
-                ['Contrato', 'Filtra para exibir apenas um contrato. Quando selecionado, habilita o painel de gerenciamento de subprojetos (se aplicável).'],
-                ['Equipe', 'Filtra membros por equipe interna (ex: Desenvolvimento, Suporte).'],
-              ]}
-            />
-            <Callout type="tip">Para gerenciar subprojetos de um contrato, selecione-o no filtro <strong>Contrato</strong>. O painel de subprojetos aparece automaticamente à direita dos cards.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="editar-alloc" title="Editar Alocação de um Membro">
-            <p className="text-sm text-muted-foreground mb-4">Para alterar o cargo, dedicação ou local de atuação de um membro do squad em um contrato simples (sem subprojetos):</p>
-            <Steps items={[
-              { title: 'Localize o card do contrato', body: 'Use o filtro de cliente ou contrato para encontrar o squad desejado.' },
-              { title: 'Clique no ícone de edição do membro', body: 'No card, ao lado do nome de cada membro, clique no ícone de lápis (✏️) para abrir o diálogo de edição.' },
-              { title: 'Ajuste os dados', body: 'Altere o cargo no contrato, o percentual de dedicação (%) e o local de atuação (BNP ou Cliente).' },
-              { title: 'Salve', body: 'Clique em Salvar. A alteração é refletida imediatamente no card.' },
-            ]} />
-            <Callout type="info">Alterações de dedicação afetam o cálculo de FTE Total do card e os alertas de sub-dedicação no módulo de RH.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="realocar-rh" title="Realocar RH entre Projetos">
-            <p className="text-sm text-muted-foreground mb-4">A realocação de pessoas fica na visão <strong>Por Recurso</strong>. Essa visão mostra cada colaborador e todos os projetos onde ele está alocado.</p>
-            <Steps items={[
-              { title: 'Mude para Por Recurso', body: 'No filtro Visão, selecione "Por Recurso". Os cards passam a ser agrupados por pessoa, e não por projeto.' },
-              { title: 'Use o botão + no card da pessoa', body: 'O botão abre o fluxo "Adicionar a Projeto" para alocar o RH em outro contrato ou subprojeto, inclusive quando ele já está alocado em outro projeto.' },
-              { title: 'Edite uma alocação existente', body: 'Use o ícone de lápis em uma linha de projeto para alterar dedicação, mover para outro projeto ou retirar a pessoa daquele projeto.' },
-              { title: 'Substitua quando houver pendência', body: 'Quando o RH está inativo e existe substituição pendente, o botão "Substituir" aparece na linha da alocação.' },
-            ]} />
-            <Callout type="warn">Líder de Tribo e SuperAdmin usam esse fluxo para realocar RHs sem editar o cadastro mestre do RH e sem acessar valores financeiros. Para o Líder de Tribo, o perfil precisa ter a ação <strong>Alocar</strong> liberada no módulo <strong>Squads</strong>.</Callout>
-          </SectionBlock>
-
-          {/* ── SUBPROJETOS — SEÇÃO DESTACADA ── */}
-          <SectionBlock id="subprojetos" title="⭐ Squads em Subprojetos — Como Funciona" highlight>
-            <p className="text-sm text-muted-foreground mb-3">Subprojetos são <strong>frentes de trabalho independentes</strong> dentro de um contrato. Quando um contrato tem subprojetos configurados, cada subprojeto recebe seu próprio card de squad com equipe e alocações separadas.</p>
-            <p className="text-sm text-muted-foreground mb-4">Isso é especialmente útil para contratos com múltiplas entregas paralelas, times distintos ou fases diferentes — como um contrato de desenvolvimento que tem equipes separadas para frontend, backend e suporte.</p>
-
-            <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-4 mb-4">
-              <p className="font-semibold text-sm text-purple-800 mb-3">Exemplo prático — Contrato SCEIC:</p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-purple-700">
-                  <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                  <span>SCEIC → <strong>Subprojeto: SMAC</strong> — Squad: 3 devs, 1 analista</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-purple-700">
-                  <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                  <span>SCEIC → <strong>Subprojeto: SMCEC</strong> — Squad: 2 devs, 1 PO</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-purple-700">
-                  <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                  <span>SCEIC → <strong>Subprojeto: Fase Pro</strong> — Squad: 1 dev, 1 analista</span>
-                </div>
-              </div>
-            </div>
-
-            <DataTable
-              headers={['Característica', 'Contrato simples', 'Contrato com subprojetos']}
-              rows={[
-                ['Visualização', '1 card por contrato', '1 card por subprojeto'],
-                ['Alocações', 'Vinculadas ao contrato', 'Vinculadas ao subprojeto'],
-                ['Gerenciamento', 'Via tela Contratos → Recursos', 'Via painel de subprojetos em Squads'],
-                ['FTE', 'Soma de todos os recursos do contrato', 'Soma dos recursos do subprojeto'],
-                ['Dedicação no RH', 'Computada em recursos do contrato', 'Computada em alocações do subprojeto'],
-              ]}
-            />
-            <Callout type="alert">A dedicação de membros alocados em subprojetos é contabilizada separadamente dos recursos diretos do contrato. Um mesmo profissional pode estar alocado em múltiplos subprojetos — a soma total não deve ultrapassar 100%.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="criar-sp" title="Criar um Subprojeto" highlight>
-            <p className="text-sm text-muted-foreground mb-4">Para criar um novo subprojeto em um contrato, siga os passos abaixo. É necessário ter perfil com permissão de edição.</p>
-            <Steps items={[
-              { title: 'Selecione o contrato no filtro', body: 'No topo da tela, use o filtro "Contrato" e selecione o contrato desejado. O painel de gerenciamento de subprojetos aparece automaticamente à direita.' },
-              { title: 'Clique em "+ Novo Subprojeto"', body: 'No painel de subprojetos, clique no botão para abrir o formulário de criação.' },
-              { title: 'Preencha o nome e status', body: 'Informe o nome do subprojeto (ex: "SMAC", "Fase Pro", "Módulo de Editais"). Escolha o status inicial: Ativo, Concluído ou Suspenso.' },
-              { title: 'Adicione uma descrição (opcional)', body: 'Uma breve descrição ajuda a identificar o escopo do subprojeto.' },
-              { title: 'Salve', body: 'O subprojeto é criado e aparece imediatamente no painel. Um novo card de squad será exibido assim que a primeira alocação for adicionada.' },
-            ]} />
-            <Callout type="warn">Subprojetos só aparecem como cards na tela de Squads quando têm pelo menos um membro alocado. Um subprojeto vazio não gera card.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="alocar-sp" title="Alocar Membros em um Subprojeto" highlight>
-            <p className="text-sm text-muted-foreground mb-3">Há dois tipos de alocação em subprojetos: <strong>Recursos Humanos</strong> (colaboradores CLT ou PJ) e <strong>Recursos</strong> (licenças, ferramentas, posições genéricas).</p>
-            <Callout type="alert">Alocações em subprojetos são independentes das alocações diretas no contrato. Um colaborador pode estar no squad do subprojeto sem estar listado como recurso direto do contrato — e vice-versa. Ambas as formas contam para o cálculo de dedicação no módulo de RH.</Callout>
-
-            <h3 className="font-semibold text-sm mb-2 mt-4">Alocar um colaborador (RH)</h3>
-            <Steps items={[
-              { title: 'Abra o painel do subprojeto', body: 'Selecione o contrato no filtro e localize o subprojeto no painel lateral.' },
-              { title: 'Clique em "+ RH" no subprojeto desejado', body: 'O botão abre o diálogo de alocação de pessoa. Apenas colaboradores ativos aparecem na lista.' },
-              { title: 'Selecione o colaborador', body: 'Escolha o nome do colaborador. Colaboradores já alocados naquele subprojeto não aparecem na lista.' },
-              { title: 'Defina o percentual de dedicação', body: 'Informe o percentual de dedicação (ex: 100%, 50%, 25%). Este valor é somado às demais alocações do colaborador para cálculo de sub-dedicação.' },
-              { title: 'Salve', body: 'O colaborador aparece no card do subprojeto com o percentual informado.' },
-            ]} />
-
-            <h3 className="font-semibold text-sm mb-2 mt-4">Alocar um recurso (não-RH)</h3>
-            <p className="text-sm text-muted-foreground mb-3">Use o botão <strong>"+ Recurso"</strong> no subprojeto para alocar posições genéricas, licenças ou recursos do tipo "outro" vinculados ao contrato.</p>
-            <Callout type="info">Recursos do tipo CLT/PJ já vinculados a um colaborador (RH) não aparecem na lista de recursos — eles devem ser alocados pelo fluxo de RH acima.</Callout>
-            <Callout type="warn">Se o botão de alocação não aparecer para um perfil autorizado, revise em Gestão de Perfis se o módulo <strong>Squads</strong> está habilitado e se a ação <strong>Alocar</strong> está ativa para esse perfil.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="editar-sp" title="Editar, Reordenar e Remover em Subprojetos" highlight>
-            <h3 className="font-semibold text-sm mb-2">Editar dados do subprojeto</h3>
-            <p className="text-sm text-muted-foreground mb-3">No painel do subprojeto, clique no ícone de lápis (✏️) ao lado do nome para editar o nome, descrição ou status do subprojeto.</p>
-            <DataTable
-              headers={['Status', 'Significado']}
-              rows={[
-                ['Ativo',     'Subprojeto em andamento. Aparece nos cards de Squads e nos cálculos de dedicação.'],
-                ['Concluído', 'Trabalho finalizado. Ainda aparece no painel mas pode ser ocultado dos cards.'],
-                ['Suspenso',  'Temporariamente pausado. Mantém a equipe alocada mas indica interrupção.'],
-              ]}
-            />
-
-            <h3 className="font-semibold text-sm mb-2 mt-4">Editar alocação de um membro no subprojeto</h3>
-            <Steps items={[
-              { title: 'Expanda o subprojeto no painel', body: 'Clique no nome do subprojeto para expandir a lista de alocações.' },
-              { title: 'Clique no ícone de edição da alocação', body: 'Ao lado de cada membro, clique no lápis para alterar o percentual de dedicação.' },
-              { title: 'Salve', body: 'A alteração é refletida imediatamente no card e no cálculo de FTE.' },
-            ]} />
-
-            <h3 className="font-semibold text-sm mb-2 mt-4">Remover membro de um subprojeto</h3>
-            <p className="text-sm text-muted-foreground mb-3">Clique no ícone de lixeira (🗑️) ao lado da alocação para remover o membro do subprojeto. A remoção é permanente e o percentual de dedicação desse membro será reduzido proporcionalmente.</p>
-
-            <h3 className="font-semibold text-sm mb-2 mt-4">Excluir um subprojeto</h3>
-            <p className="text-sm text-muted-foreground mb-3">No painel, clique no ícone de lixeira ao lado do nome do subprojeto. Uma confirmação será solicitada.</p>
-            <Callout type="warn">Excluir um subprojeto remove também todas as alocações vinculadas a ele. Essa ação não pode ser desfeita. Certifique-se de que nenhum colaborador depende exclusivamente desse subprojeto para seu cálculo de dedicação.</Callout>
-          </SectionBlock>
-
-          <SectionBlock id="duvidas" title="Dúvidas Frequentes">
-            {[
-              { q: 'Criei um subprojeto mas não aparece card na tela de Squads', a: 'Subprojetos só geram cards quando têm pelo menos um membro alocado. Adicione a primeira alocação e o card aparecerá.' },
-              { q: 'Um colaborador está com alerta de baixa dedicação mesmo alocado em subprojeto', a: 'Verifique se a alocação no subprojeto foi feita corretamente pelo painel de subprojetos. Alocações adicionadas via "Recursos" do contrato (não via subprojeto) podem não contabilizar corretamente no cálculo de dedicação.' },
-              { q: 'Posso alocar o mesmo colaborador em múltiplos subprojetos?', a: 'Sim. Um colaborador pode estar em vários subprojetos com percentuais diferentes. A soma de todas as alocações (incluindo contratos diretos) não deve ultrapassar 100%.' },
-              { q: 'O botão + para adicionar o RH em outro projeto não aparece', a: 'Confirme se você está na visão "Por Recurso" e se seu perfil tem a ação "Alocar" habilitada no módulo Squads. O fluxo de alocação não exige permissão para editar o cadastro mestre do RH.' },
-              { q: 'O card de um subprojeto está vermelho', a: 'Há um recurso humano inativo naquele subprojeto. Acesse o painel de subprojetos, localize o membro inativo e remova a alocação ou regularize a situação no módulo de RH.' },
-              { q: 'Não vejo o painel de subprojetos na tela', a: 'O painel só aparece quando um contrato específico está selecionado no filtro "Contrato" e esse contrato tem subprojetos configurados. Selecione o contrato no filtro do topo.' },
-              { q: 'Quero mover um membro de um subprojeto para outro', a: 'Não é possível mover diretamente. Remova a alocação do subprojeto de origem e adicione-a no subprojeto de destino com o novo percentual.' },
-            ].map((item, i) => (
-              <div key={i} className="mb-4 pb-4 border-b border-border last:border-0">
-                <h3 className="font-semibold text-sm text-foreground mb-1">{item.q}</h3>
-                <p className="text-sm text-muted-foreground">{item.a}</p>
-              </div>
-            ))}
-          </SectionBlock>
-
-        </main>
-      </div>
-    </div>
+    <HelpArticle
+      title="Squads"
+      description="Alocação de pessoas por contrato, subprojetos e dedicação"
+      icon={Users}
+      sections={sections}
+    />
   );
 }
