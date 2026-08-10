@@ -182,6 +182,10 @@ export default function HelpPage() {
             <p className="text-muted-foreground max-w-xl">
               Guias práticos para usar o BNPHub com segurança. Comece pelo módulo que você usa no dia a dia.
             </p>
+            <p className="text-sm text-muted-foreground max-w-xl mt-2">
+              Dentro de cada tutorial, o botão <span className="font-medium text-foreground">Baixar HTML</span> gera um
+              arquivo pronto para publicar em plataforma interna ou salvar em PDF.
+            </p>
             <p className="text-xs text-muted-foreground mt-3">{TUTORIALS.length} tutoriais disponíveis</p>
           </div>
         </div>
