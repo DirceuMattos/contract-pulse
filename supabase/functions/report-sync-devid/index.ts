@@ -1,4 +1,5 @@
-// v3 - merge-preserva-manual: eficiencia_operacional + treinamentos_reunioes
+// v4 - milvus paginado + dedupe + classificacao sem acento;
+//      bloco Fireflies REMOVIDO (dono unico da secao: report-sync-fireflies)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAnyRole, AuthError } from "../_shared/auth.ts";
@@ -10,8 +11,17 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEVID_URL      = "https://ca-devid-app.azurewebsites.net/mcp";
-const FIREFLIES_URL  = "https://api.fireflies.ai/mcp";
+const DEVID_URL = "https://ca-devid-app.azurewebsites.net/mcp";
+
+// ── Constantes Milvus (espelham support-costs-sync/index.ts) ──
+// A API do Milvus NÃO aceita `total_registros`; ela pagina com `page`/`per_page`
+// e o `per_page` é limitado a 50 no servidor. Pedir 1000 fazia a API devolver
+// só a primeira página (truncamento silencioso da contagem de chamados).
+const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
+const MILVUS_PAGE_SIZE = 50;
+// Teto de segurança: 200 páginas x 50 = 10k chamados/cliente. Impede laço infinito
+// caso a API pare de sinalizar o fim da paginação.
+const MILVUS_MAX_PAGES = 200;
 
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
   const { data, error } = await supabase.rpc('get_vault_secret', { secret_name: name });
@@ -25,47 +35,8 @@ async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: s
 }
 
 // ── merge-preserva-manual (espelho de src/lib/reportMergeManual.ts) ──
-// Manter em sincronia. Aqui deriveSyncKey usa gid quando existe, senão
-// descricao+data (reuniões do Fireflies não têm gid).
-function deriveSyncKey(item: Record<string, unknown>): string {
-  const gid = item.gid ?? item.id ?? item.task_id;
-  if (gid != null && String(gid).trim() !== "") return `gid:${String(gid)}`;
-  const desc = (item.descricao ?? item.tarefa ?? item.nome ?? "") as string;
-  const data = (item.data ?? "") as string;
-  return `nome:${desc.trim().toLowerCase()}|${data}`;
-}
-
-function mergeLinhas(
-  currentContent: Record<string, unknown> | null | undefined,
-  incoming: Record<string, unknown>[],
-): Record<string, unknown>[] {
-  const cur = (currentContent?.linhas ?? []) as any[];
-  const manualItems = cur
-    .filter((it) => it?.origem === "manual")
-    .map((it) => ({ ...it, origem: "manual", syncKey: it.syncKey ?? deriveSyncKey(it) }));
-  const seen = new Set<string>();
-  const syncItems: any[] = [];
-  for (const it of incoming) {
-    const k = deriveSyncKey(it);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    syncItems.push({ ...it, origem: "sync", syncKey: k });
-  }
-  const norm = (it: any) => String(it.descricao ?? it.tarefa ?? it.nome ?? "").trim().toLowerCase();
-  const order: string[] = [];
-  const byName = new Map<string, any[]>();
-  const push = (it: any) => { const n = norm(it); if (!byName.has(n)) { byName.set(n, []); order.push(n); } byName.get(n)!.push(it); };
-  manualItems.forEach(push);
-  syncItems.forEach(push);
-  const result: any[] = [];
-  for (const n of order) {
-    const g = byName.get(n)!;
-    g.sort((a, b) => (a.origem === "manual" ? -1 : 1) - (b.origem === "manual" ? -1 : 1));
-    result.push(...g);
-  }
-  return result;
-}
-
+// Escalar: se o usuário tocou (_manualFields inclui `field`), preserva o valor
+// dele e grava o coletado em `field__sync`. Senão, atualiza direto.
 function mergeScalar(
   currentContent: Record<string, unknown> | null | undefined,
   field: string,
@@ -76,6 +47,165 @@ function mergeScalar(
     return { [field]: currentContent?.[field], [`${field}__sync`]: incomingValue };
   }
   return { [field]: incomingValue };
+}
+
+// ── Helpers Milvus (copiados de support-costs-sync para não criar módulo
+//    compartilhado — Deno deploy de edge function é por pasta) ──
+
+function firstString(record: Record<string, unknown>, keys: string[], fallback = ""): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return fallback;
+}
+
+// A lista de chamados vem em campos diferentes conforme endpoint/versão da API.
+function getRowsFromMilvusPayload(payload: unknown): Record<string, unknown>[] {
+  if (!payload || typeof payload !== "object") return [];
+  if (Array.isArray(payload)) {
+    return (payload as unknown[]).filter(
+      (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item),
+    );
+  }
+  const obj = payload as Record<string, unknown>;
+  for (const key of ["lista", "data", "dados", "rows", "items", "records", "registros", "tickets", "chamados"]) {
+    const value = obj[key];
+    if (Array.isArray(value)) {
+      return value.filter(
+        (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      );
+    }
+  }
+  return [];
+}
+
+// Chave estável do chamado: usada para deduplicar. Sem isto, um mesmo chamado
+// contava 2x quando dois nomes de cliente configurados casam parcialmente com o
+// mesmo registro (a busca do Milvus é por substring do nome do cliente).
+function getStableRowKey(row: Record<string, unknown>, fallback: string): string {
+  return firstString(row, ["id", "codigo", "ticket", "ticket_id", "chamado", "numero", "protocolo"], fallback);
+}
+
+// Total informado pela API (meta.paginate.total). Serve para detectar coleta parcial.
+function getMilvusMetaTotal(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  const meta = obj.meta as Record<string, unknown> | undefined;
+  const paginate = (meta?.paginate ?? obj.paginate) as Record<string, unknown> | undefined;
+  for (const value of [paginate?.total, meta?.total, obj.total, obj.total_registros]) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/[^\d]/g, ""));
+      if (Number.isFinite(parsed) && value.trim() !== "") return parsed;
+    }
+  }
+  return null;
+}
+
+// NFD + remoção de diacríticos: a API devolve "Requisição"/"Dúvida" com acento,
+// mas as chaves de `porTipo` são sem acento. Sem normalizar, quase tudo caía no
+// fallback "duvida" e `intercorrencias` ficava zerado.
+function normalizeText(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function parseDateOnly(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const brMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (brMatch) {
+    const dia = Number(brMatch[1]);
+    const mes = Number(brMatch[2]);
+    const ano = Number(brMatch[3]);
+    // Formato brasileiro (dd/mm/aaaa) é o padrão do Milvus; se o 1º campo > 12
+    // não há ambiguidade, senão assume dd/mm.
+    if (dia > 12 && mes <= 12) return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
+}
+
+function getTicketCreationDate(row: Record<string, unknown>): string | null {
+  return parseDateOnly(
+    firstString(row, [
+      "data_hora_criacao",
+      "data_criacao",
+      "data_abertura",
+      "data_hora_abertura",
+      "data",
+      "date",
+      "created_at",
+      "dia",
+    ], ""),
+  );
+}
+
+// Busca UMA página do Milvus.
+async function fetchMilvusPage(
+  token: string,
+  filtroBody: Record<string, unknown>,
+  page: number,
+): Promise<unknown> {
+  const res = await fetch(MILVUS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      page,
+      per_page: MILVUS_PAGE_SIZE,
+      order_by: "codigo",
+      descending: true,
+      filtro_body: filtroBody,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Milvus retornou ${res.status}: ${body.slice(0, 300)}`);
+  }
+  return await res.json();
+}
+
+// Laço de paginação real: avança até a página vir incompleta (< per_page),
+// até bater o total informado pela API ou até o teto de segurança.
+async function fetchMilvusAllPages(
+  token: string,
+  filtroBody: Record<string, unknown>,
+): Promise<{ rows: Record<string, unknown>[]; metaTotal: number | null; pages: number; truncated: boolean }> {
+  const rows: Record<string, unknown>[] = [];
+  let metaTotal: number | null = null;
+  let pages = 0;
+  let truncated = false;
+
+  for (let page = 1; page <= MILVUS_MAX_PAGES; page++) {
+    const payload = await fetchMilvusPage(token, filtroBody, page);
+    const pageRows = getRowsFromMilvusPayload(payload);
+    pages = page;
+    if (metaTotal === null) metaTotal = getMilvusMetaTotal(payload);
+    rows.push(...pageRows);
+
+    if (pageRows.length < MILVUS_PAGE_SIZE) break;
+    if (metaTotal !== null && rows.length >= metaTotal) break;
+    if (page === MILVUS_MAX_PAGES) truncated = true;
+  }
+
+  return { rows, metaTotal, pages, truncated };
 }
 
 async function callMcp(url: string, token: string, tool: string, params: Record<string, unknown>): Promise<unknown> {
@@ -180,98 +310,127 @@ serve(async (req) => {
 
     const periodoInicio = `${year}-${String(month).padStart(2, "0")}-01`;
     const ultimoDia = new Date(year, month, 0).getDate();
-    const periodoFim = `${year}-${String(month).padStart(2, "0")}-${ultimoDia}`;
+    const periodoFim = `${year}-${String(month).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
 
     const now = new Date().toISOString();
     const results: Record<string, unknown> = {};
 
+    // Erros/avisos do Milvus acumulados para refletir no retorno e no log
+    // (antes o erro por cliente era engolido com `continue` e o log dizia success).
+    const milvusErros: string[] = [];
+    const milvusAvisos: string[] = [];
+
     // ── 1. Tickets do Milvus ─────────────────────────────────────────────────
     try {
-      const todosTickets: Array<Record<string, unknown>> = [];
       const nomesBusca = (milvusClientNames as string[] ?? []);
       if (nomesBusca.length === 0) {
         results.eficiencia_operacional_aviso = 'Configure os nomes de cliente do Milvus para sincronizar tickets.';
+        milvusAvisos.push('Nenhum nome de cliente do Milvus configurado.');
         console.log('[MILVUS] Sem milvusClientNames configurados — pulando busca.');
       }
       const MILVUS_TOKEN = nomesBusca.length > 0 ? await getVaultSecret(supabase, "MILVUS_TOKEN") : "";
-      const MILVUS_URL = "https://apiintegracao.milvus.com.br/api/chamado/listagem";
+
+      // Dedupe por chave estável do chamado: o mesmo registro pode voltar em mais
+      // de uma busca quando dois nomes configurados casam parcialmente com ele.
+      const ticketsPorChave = new Map<string, Record<string, unknown>>();
+      const porCliente: Array<Record<string, unknown>> = [];
 
       for (const nomeCliente of nomesBusca) {
         try {
-          const milvusRes = await fetch(MILVUS_URL, {
-            method: "POST",
-            headers: {
-              "Authorization": MILVUS_TOKEN,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              total_registros: 1000,
-              filtro_body: {
-                cliente: nomeCliente,
-                data_hora_criacao_inicial: `${periodoInicio} 00:00:00`,
-                data_hora_criacao_final: `${periodoFim} 23:59:59`,
-                status: "Todos",
-              },
-            }),
+          const { rows, metaTotal, pages, truncated } = await fetchMilvusAllPages(MILVUS_TOKEN, {
+            cliente: nomeCliente,
+            data_hora_criacao_inicial: `${periodoInicio} 00:00:00`,
+            data_hora_criacao_final: `${periodoFim} 23:59:59`,
+            status: "Todos",
           });
 
-          if (!milvusRes.ok) { console.log(`[MILVUS] ${nomeCliente}: HTTP ${milvusRes.status}`); continue; }
-
-          const milvusData = await milvusRes.json() as Record<string, unknown>;
-          // A API Milvus pode retornar a lista em campos diferentes conforme o
-          // endpoint/versão. Tenta os nomes conhecidos antes de desistir.
-          const lista = (
-            (milvusData?.lista as unknown[]) ??
-            (milvusData?.dados as unknown[]) ??
-            (milvusData?.data as unknown[]) ??
-            (milvusData?.registros as unknown[]) ??
-            (milvusData?.chamados as unknown[]) ??
-            (Array.isArray(milvusData) ? milvusData as unknown[] : [])
-          ) as Array<Record<string, unknown>>;
-          // Diagnóstico: se veio vazio, registra as chaves do retorno para análise.
-          if (lista.length === 0) {
-            const chaves = milvusData && typeof milvusData === 'object' ? Object.keys(milvusData) : [];
-            console.log(`[MILVUS] ${nomeCliente}: 0 tickets. Chaves do retorno: ${JSON.stringify(chaves)}`);
+          if (rows.length === 0) {
+            console.log(`[MILVUS] ${nomeCliente}: 0 tickets (páginas lidas: ${pages}).`);
             if (!Array.isArray(results.milvus_diagnostico)) results.milvus_diagnostico = [];
-            (results.milvus_diagnostico as unknown[]).push({ cliente: nomeCliente, chavesRetorno: chaves });
+            (results.milvus_diagnostico as unknown[]).push({ cliente: nomeCliente, rows: 0, metaTotal, pages });
           } else {
-            console.log(`[MILVUS] ${nomeCliente}: ${lista.length} tickets`);
+            console.log(`[MILVUS] ${nomeCliente}: ${rows.length} tickets em ${pages} página(s) (meta total: ${metaTotal ?? 'n/d'})`);
           }
-          todosTickets.push(...lista);
+
+          // Divergência entre o total informado pela API e o coletado = coleta parcial.
+          if (metaTotal !== null && metaTotal !== rows.length) {
+            milvusAvisos.push(
+              `${nomeCliente}: API informou ${metaTotal} chamados, coletados ${rows.length}.`,
+            );
+          }
+          if (truncated) {
+            milvusAvisos.push(`${nomeCliente}: teto de ${MILVUS_MAX_PAGES} páginas atingido — resultado pode estar truncado.`);
+          }
+
+          for (const row of rows) {
+            const key = getStableRowKey(row, `${nomeCliente}-${ticketsPorChave.size}`);
+            ticketsPorChave.set(key, row);
+          }
+
+          porCliente.push({ cliente: nomeCliente, coletados: rows.length, metaTotal, paginas: pages });
         } catch (e) {
-          console.log(`[MILVUS] Erro ${nomeCliente}: ${(e as Error).message}`);
+          const msg = `${nomeCliente}: ${(e as Error).message}`;
+          console.log(`[MILVUS] Erro ${msg}`);
+          milvusErros.push(msg);
         }
       }
 
-      const tickets = todosTickets;
+      const ticketsBrutos = Array.from(ticketsPorChave.values());
+
+      // Re-filtro no cliente por data de criação dentro do mês do relatório:
+      // não confiar apenas no filtro da API (que já falhou com `total_registros`).
+      // Chamado sem data reconhecível é mantido (não descartar dado por falta de campo).
+      let semDataReconhecida = 0;
+      const tickets = ticketsBrutos.filter((t) => {
+        const data = getTicketCreationDate(t);
+        if (!data) { semDataReconhecida++; return true; }
+        return data >= periodoInicio && data <= periodoFim;
+      });
+      const foraDoPeriodo = ticketsBrutos.length - tickets.length;
+      if (foraDoPeriodo > 0) {
+        milvusAvisos.push(`${foraDoPeriodo} chamado(s) descartado(s) por data de criação fora de ${periodoInicio}..${periodoFim}.`);
+      }
+      if (semDataReconhecida > 0) {
+        console.log(`[MILVUS] ${semDataReconhecida} chamado(s) sem data de criação reconhecível — mantidos na contagem.`);
+      }
+
       const totalTickets = tickets.length;
       const porTipo: Record<string, number> = { incidente: 0, problema: 0, requisicao: 0, melhoria: 0, duvida: 0 };
+      const tiposChave = Object.keys(porTipo);
 
       for (const t of tickets) {
-        const tipo = ((t.tipo ?? t.type ?? t.ticket_type ?? "duvida") as string).toLowerCase();
-        if (porTipo[tipo] !== undefined) porTipo[tipo]++;
-        else porTipo["duvida"]++;
+        // Normaliza acentos/caixa antes de comparar: "Requisição" → "requisicao".
+        const tipo = normalizeText(t.tipo ?? t.type ?? t.ticket_type ?? t.tipo_chamado ?? "duvida");
+        // Aceita valores compostos ("Requisição de Serviço") via substring.
+        const chave = tiposChave.find((k) => tipo === k || tipo.includes(k));
+        porTipo[chave ?? "duvida"]++;
       }
 
       const dentroSla = tickets.filter((t) =>
         t.within_sla === true || t.sla_status === "ok" ||
-        (t.sla as Record<string, unknown>)?.status_sla_solucao === "Em conformidade"
+        normalizeText((t.sla as Record<string, unknown>)?.status_sla_solucao) === "em conformidade"
       ).length;
 
       const slaPercentual = totalTickets > 0 ? Math.round((dentroSla / totalTickets) * 100) : 100;
       const bugs = tickets.filter((t) =>
-        ((t.tipo ?? t.type ?? t.ticket_type ?? "") as string).toLowerCase().includes("bug") ||
-        ((t.assunto ?? t.subject ?? t.title ?? "") as string).toLowerCase().includes("bug")
+        normalizeText(t.tipo ?? t.type ?? t.ticket_type ?? "").includes("bug") ||
+        normalizeText(t.assunto ?? t.subject ?? t.title ?? "").includes("bug")
       ).length;
+
+      const statusMilvus = slaPercentual >= 95 ? "alta" : slaPercentual >= 80 ? "adequado" : slaPercentual >= 60 ? "atencao" : "critico";
 
       results.milvus = {
         tickets: totalTickets,
+        brutos: ticketsBrutos.length,
         por_tipo: porTipo,
         sla_percentual: slaPercentual,
         bugs,
         crises: 0,
         intercorrencias: porTipo.incidente,
-        status: slaPercentual >= 95 ? "alta" : slaPercentual >= 80 ? "adequado" : slaPercentual >= 60 ? "atencao" : "critico",
+        status: statusMilvus,
+        por_cliente: porCliente,
+        avisos: milvusAvisos,
+        erros: milvusErros,
       };
 
       const { data: efoAtual } = await supabase
@@ -288,7 +447,7 @@ serve(async (req) => {
         ...mergeScalar(efoContent, "crises", 0),
         ...mergeScalar(efoContent, "intercorrencias", porTipo.incidente),
         ...mergeScalar(efoContent, "sla", `${slaPercentual}%`),
-        ...mergeScalar(efoContent, "status", results.milvus.status),
+        ...mergeScalar(efoContent, "status", statusMilvus),
       };
       await supabase.from("report_sections").upsert({
         report_id:   reportId,
@@ -301,6 +460,7 @@ serve(async (req) => {
     } catch (e) {
       console.error("[DEVID] Erro Milvus:", (e as Error).message);
       results.milvus_error = (e as Error).message;
+      milvusErros.push((e as Error).message);
     }
 
     // ── 2. Relatório de horas do Milvus ───────────────────────────────────────
@@ -334,117 +494,29 @@ serve(async (req) => {
       results.discord_error = (e as Error).message;
     }
 
-    // ── 4. Reuniões do Fireflies via MCP ──────────────────────────────────────
-    try {
-      const firefliesToken = await getVaultSecret(supabase, "FIREFLIES_TOKEN");
+    // NOTA: a seção `treinamentos_reunioes` tem um ÚNICO dono — a função
+    // `report-sync-fireflies`. O bloco que existia aqui era uma duplicata
+    // desatualizada, rodava em paralelo e sobrescrevia (last-writer-wins) o
+    // resultado corretamente filtrado. Foi removido de propósito.
 
-      const ffResult = await callMcp(FIREFLIES_URL, firefliesToken, "fireflies_get_transcripts", {
-        fromDate: `${year}-${String(month).padStart(2, "0")}-01`,
-        toDate:   `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`,
-        format:   "json",
-        limit:    50,
-      }) as Record<string, unknown>;
-
-      // Extrair array de transcrições do resultado MCP
-      const rawContent = (ffResult as Record<string, unknown>)?.content;
-      let transcripts: Array<Record<string, unknown>> = [];
-
-      if (Array.isArray(rawContent)) {
-        // Resultado MCP pode vir como array de content blocks
-        for (const block of rawContent) {
-          if ((block as Record<string, unknown>).type === "text") {
-            try {
-              const parsed = JSON.parse((block as Record<string, unknown>).text as string);
-              if (Array.isArray(parsed)) transcripts = parsed;
-              else if (parsed.transcripts) transcripts = parsed.transcripts;
-            } catch { continue; }
-          }
-        }
-      } else if (Array.isArray(ffResult)) {
-        transcripts = ffResult as Array<Record<string, unknown>>;
-      }
-
-      console.log(`[FIREFLIES] Total reuniões no período: ${transcripts.length}`);
-
-      // Filtragem por domínio do cliente OU por palavras-chave no título
-      const domain = (clientEmailDomain ?? "").toLowerCase().trim();
-      const kws = ((firefliesKeywords ?? []) as string[]).map((k: string) => k.toLowerCase().trim()).filter(Boolean);
-
-      const filtered = transcripts.filter((t) => {
-        const titleLc = ((t.title ?? "") as string).toLowerCase();
-        const titleMatch = kws.length > 0 && kws.some((k) => titleLc.includes(k));
-        const participants = (t.participants ?? t.meetingAttendees ?? []) as Array<string | Record<string, unknown>>;
-        const emails = participants.map((p) =>
-          typeof p === "string" ? p : ((p as Record<string, unknown>).email as string ?? "")
-        );
-        const domainMatch = domain && emails.some((e) => e.toLowerCase().endsWith(`@${domain}`));
-        if (!domain && kws.length === 0) return true;
-        return titleMatch || domainMatch;
-      });
-
-      console.log(`[FIREFLIES] Reuniões filtradas para o contrato: ${filtered.length}`);
-
-      if (filtered.length > 0) {
-
-        console.log(`[FIREFLIES] Amostra date field: ${JSON.stringify(filtered[0].date)} | dateString: ${JSON.stringify((filtered[0] as Record<string, unknown>).dateString)}`);
-
-      }
-
-      // Monta linhas no formato esperado pela seção treinamentos_reunioes
-      const linhas = filtered.map((t) => ({
-        tipo:     "Reunião",
-        data:     new Date((t as Record<string, unknown>).dateString as string ?? t.date as string).toISOString().slice(0, 10),
-        descricao: (t.title as string) + (
-          (t.summary as Record<string, unknown>)?.short_summary
-            ? ` — ${(t.summary as Record<string, unknown>).short_summary}`
-            : ""
-        ),
-      }));
-
-      results.fireflies = { total: transcripts.length, filtradas: filtered.length };
-
-      // Salva seção treinamentos_reunioes preservando itens manuais.
-      const { data: trAtual } = await supabase
-        .from("report_sections").select("content")
-        .eq("report_id", reportId).eq("section_key", "treinamentos_reunioes").maybeSingle();
-      const trContent = (trAtual?.content ?? {}) as Record<string, unknown>;
-      const trMerged = {
-        ...trContent,
-        linhas: mergeLinhas(trContent, linhas),
-        // rodape é escalar tocável: preserva se o usuário editou.
-        ...mergeScalar(trContent, "rodape", "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores."),
-      };
-      await supabase.from("report_sections").upsert({
-        report_id:   reportId,
-        section_key: "treinamentos_reunioes",
-        content:     trMerged,
-        source:    "fireflies",
-        synced_at: now,
-      }, { onConflict: "report_id,section_key" });
-
-      await supabase.from("report_sync_logs").insert({
-        report_id:       reportId,
-        source:          "fireflies",
-        status:          "success",
-        records_fetched: filtered.length,
-        synced_at:       now,
-      });
-
-    } catch (e) {
-      console.error("[FIREFLIES] Erro:", (e as Error).message);
-      results.fireflies_error = (e as Error).message;
-    }
-
-    // Log geral
+    // Log geral: reflete erros/avisos acumulados em vez de gravar success cego.
+    const temProblema = milvusErros.length > 0 || milvusAvisos.length > 0;
+    const mensagens = [...milvusErros, ...milvusAvisos];
     await supabase.from("report_sync_logs").insert({
       report_id:       reportId,
       source:          "devid",
-      status:          "success",
-      records_fetched: (results.milvus as Record<string, unknown>)?.tickets as number ?? 0,
+      status:          temProblema ? "partial" : "success",
+      records_fetched: ((results.milvus as Record<string, unknown> | undefined)?.tickets as number) ?? 0,
+      error_message:   temProblema ? mensagens.join("; ").slice(0, 1000) : null,
+      synced_at:       now,
     });
 
-    return new Response(JSON.stringify({ success: true, ...results }),
-      { headers: { ...CORS, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({
+      success: milvusErros.length === 0,
+      milvus_avisos: milvusAvisos,
+      milvus_erros: milvusErros,
+      ...results,
+    }), { headers: { ...CORS, "Content-Type": "application/json" } });
 
   } catch (error) {
     const status = error instanceof AuthError ? error.status : 500;

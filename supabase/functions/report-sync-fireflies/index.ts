@@ -1,4 +1,5 @@
-// v2 - merge-preserva-manual: treinamentos_reunioes (nao apaga itens/rodape manuais)
+// v3 - dono unico da secao treinamentos_reunioes; filtro dominio E palavra-chave
+//      (merge-preserva-manual mantido: nao apaga itens/rodape manuais)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireAnyRole, AuthError } from '../_shared/auth.ts';
 
@@ -124,35 +125,58 @@ Deno.serve(async (req) => {
       throw new Error(`Fireflies ${resp.status}: ${text.slice(0, 300)}`);
     }
     const json = await resp.json();
-    const transcripts: Array<{ title: string; date: number; participants?: string[]; summary?: { short_summary?: string } }> =
-      json?.data?.transcripts ?? [];
+    const transcripts: Array<{
+      title: string;
+      date: number;
+      participants?: Array<string | { email?: string }>;
+      summary?: { short_summary?: string };
+    }> = json?.data?.transcripts ?? [];
 
     const domain = (clientEmailDomain ?? '').toLowerCase().trim();
     const kws = firefliesKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
 
-    // Sem domínio E sem keywords: config insuficiente. Não traz nada (evita puxar
-    // reuniões de todos os clientes) e sinaliza para o usuário configurar.
-    if (!domain && kws.length === 0) {
+    // DECISÃO DO CLIENTE: a regra passou a ser domínio E palavra-chave (antes era OU).
+    // Portanto AMBOS são obrigatórios na configuração: faltando qualquer um, o
+    // filtro não teria como ser aplicado e traria reuniões de outros contratos.
+    if (!domain || kws.length === 0) {
+      const faltando = [!domain ? 'domínio de e-mail do cliente' : null, kws.length === 0 ? 'palavras-chave' : null]
+        .filter(Boolean)
+        .join(' e ');
+      const msg =
+        `Configuração incompleta: falta ${faltando}. ` +
+        'A regra agora exige domínio E palavras-chave (ambos obrigatórios): a reunião só entra se tiver ' +
+        'participante do domínio do cliente E o título casar uma das palavras-chave.';
+      const nowSkip = new Date().toISOString();
+      if (reportId) {
+        await supabase.from('report_sync_logs').insert({
+          report_id: reportId, source: 'fireflies', status: 'skipped',
+          records_fetched: 0, error_message: msg, synced_at: nowSkip,
+        });
+      }
       return new Response(JSON.stringify({
-        ok: false, skipped: true, reason: 'config_incompleta',
-        message: 'Configure o domínio do cliente ou palavras-chave do Fireflies para sincronizar reuniões.',
+        ok: false, skipped: true, count: 0, reason: 'config_incompleta', message: msg,
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const filtered = transcripts.filter((t) => {
       const titleLc = (t.title ?? '').toLowerCase();
-      // Domínio do cliente é o filtro FORTE: algum participante @dominio-do-cliente.
-      const domainMatch = domain && (t.participants ?? []).some((p) => p.toLowerCase().endsWith(`@${domain}`));
-      // Título só conta como match se casar uma keyword ESPECÍFICA (>= 4 chars),
-      // evitando genéricos. Keywords curtas (ex.: siglas) exigem palavra inteira.
+      // Domínio do cliente: algum participante @dominio-do-cliente. `participants`
+      // pode vir como lista de e-mails ou de objetos { email }, conforme o gateway.
+      const emails = ((t.participants ?? []) as Array<string | { email?: string }>).map((p) =>
+        typeof p === 'string' ? p : (p?.email ?? ''),
+      );
+      const domainMatch = emails.some((e) => String(e).toLowerCase().endsWith(`@${domain}`));
+      // Título casa uma keyword ESPECÍFICA (>= 4 chars) por substring.
+      // Keywords curtas (ex.: siglas) exigem palavra inteira para não casar dentro
+      // de outra palavra (ex.: "ti" dentro de "atividade").
       const titleMatch = kws.some((k) => {
         if (k.length >= 4) return titleLc.includes(k);
         return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(titleLc);
       });
-      // Aceita reunião COM o cliente (domínio) OU cujo título casa uma keyword
-      // específica do cliente. O título genérico não basta porque as keywords são
-      // do cliente (ex.: "itaqua"), não termos genéricos ("daily", "alinhamento").
-      return domainMatch || titleMatch;
+      // E (não OU): só entra a reunião que é COM o cliente (domínio) E cujo título
+      // é do assunto configurado. Só domínio trazia reuniões internas/off-topic com
+      // o cliente; só título trazia reuniões de outros contratos com nome parecido.
+      return domainMatch && titleMatch;
     });
 
     const linhas = filtered.map((t) => ({
@@ -173,16 +197,42 @@ Deno.serve(async (req) => {
       linhas: mergeLinhas(trContent, linhas),
       ...mergeScalar(trContent, 'rodape', (trContent.rodape as string) ?? ''),
     };
-    await supabase.from('report_sections')
-      .update({ content: trMerged, synced_at: now, source: 'fireflies', updated_at: now })
-      .eq('report_id', reportId).eq('section_key', 'treinamentos_reunioes');
+    // upsert (não update): se a linha da seção ainda não existe, o update antigo
+    // afetava 0 linhas e o sync "passava" sem gravar nada, silenciosamente.
+    const { data: upserted, error: upsertError } = await supabase
+      .from('report_sections')
+      .upsert(
+        {
+          report_id: reportId,
+          section_key: 'treinamentos_reunioes',
+          content: trMerged,
+          source: 'fireflies',
+          synced_at: now,
+          updated_at: now,
+        },
+        { onConflict: 'report_id,section_key' },
+      )
+      .select('report_id');
+
+    const gravou = !upsertError && Array.isArray(upserted) && upserted.length > 0;
+
+    if (!gravou) {
+      const msg = upsertError?.message ?? 'Nenhuma linha gravada em report_sections (treinamentos_reunioes).';
+      await supabase.from('report_sync_logs').insert({
+        report_id: reportId, source: 'fireflies', status: 'error',
+        records_fetched: 0, error_message: msg, synced_at: now,
+      });
+      return new Response(JSON.stringify({ ok: false, count: 0, error: msg }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     await supabase.from('report_sync_logs').insert({
       report_id: reportId, source: 'fireflies', status: 'success',
       records_fetched: filtered.length, synced_at: now,
     });
 
-    return new Response(JSON.stringify({ ok: true, count: filtered.length }), {
+    return new Response(JSON.stringify({ ok: true, count: filtered.length, total: transcripts.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {

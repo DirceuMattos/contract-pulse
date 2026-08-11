@@ -95,9 +95,26 @@ const SECTION_EM_ANDAMENTO_NAMES = ["em andamento", "in progress", "fazendo", "d
 const SECTION_PLANEJADO_NAMES = ["planejado", "planejadas", "planned", "a fazer", "to do", "todo", "next", "próximo"];
 const SECTION_BACKLOG_NAMES = ["backlog", "pendente", "pendentes", "fila"];
 
+// Normaliza acentos/caixa: o quadro do cliente escreve "Concluído", "CONCLUIDO",
+// "Concluidas"... e a comparação crua deixava passar seção para a categoria errada.
+function normalizeSectionName(name: string): string {
+  return (name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Deny-list: "Não concluído" contém "concluido" e caía em Entregas. Qualquer
+// seção negada ("não ...") deixa de casar como concluído.
+function isSecaoNegada(name: string): boolean {
+  return /(^|\s)nao(\s|$)/.test(normalizeSectionName(name));
+}
+
 function matchesSection(name: string, patterns: string[]): boolean {
-  const lower = name.toLowerCase().trim();
-  return patterns.some((p) => lower.includes(p));
+  const lower = normalizeSectionName(name);
+  return patterns.some((p) => lower.includes(normalizeSectionName(p)));
 }
 
 function getCustomFieldValue(task: Record<string, unknown>, gid: string): string | null {
@@ -148,6 +165,47 @@ async function fetchTasksBySection(
   );
 }
 
+// Nome do projeto e workspace_gid. O workspace é obrigatório para o endpoint de
+// busca (`/workspaces/{gid}/tasks/search`) e não vem de outro lugar confiável.
+async function getProjectMeta(
+  token: string,
+  projectId: string,
+): Promise<{ name: string; workspaceGid: string | null }> {
+  const res = await fetch(`https://app.asana.com/api/1.0/projects/${projectId}?opt_fields=name,workspace.gid`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    console.error(`[ASANA] Não foi possível ler metadados do projeto ${projectId}: HTTP ${res.status}`);
+    return { name: projectId, workspaceGid: null };
+  }
+  const json = (await res.json()) as { data?: Record<string, unknown> };
+  const data = json.data ?? {};
+  return {
+    name: (data.name as string) ?? projectId,
+    workspaceGid: ((data.workspace as Record<string, unknown> | undefined)?.gid as string) ?? null,
+  };
+}
+
+// Carimba cada tarefa com a origem (projeto + coluna do quadro). Quando a tarefa
+// está em vários projetos, `memberships` dá o par projeto/seção exato; o par do
+// laço serve de fallback.
+function anotarOrigem(
+  tasks: Array<Record<string, unknown>>,
+  projetoNome: string,
+  colunaNome: string,
+  sectionGid: string,
+): Array<Record<string, unknown>> {
+  return tasks.map((t) => {
+    const memberships = (t.memberships as Array<Record<string, unknown>> | undefined) ?? [];
+    const m = memberships.find(
+      (mb) => ((mb.section as Record<string, unknown> | undefined)?.gid as string) === sectionGid,
+    );
+    const projeto = ((m?.project as Record<string, unknown> | undefined)?.name as string) ?? projetoNome;
+    const coluna = ((m?.section as Record<string, unknown> | undefined)?.name as string) ?? colunaNome;
+    return { ...t, __projeto: projeto, __coluna: coluna };
+  });
+}
+
 async function getVaultSecret(supabase: ReturnType<typeof createClient>, name: string): Promise<string> {
   const { data, error } = await supabase.rpc("get_vault_secret", { secret_name: name });
   if (error || !data) throw new Error(`Secret '${name}' não encontrado no Vault`);
@@ -160,7 +218,11 @@ serve(async (req) => {
   try {
     // Suporta asanaProjectIds (array) com fallback para asanaProjectId (legado)
     const body = await req.json();
-    const { reportId, month, year } = body;
+    // sectionKey: o front envia no re-sync individual de uma seção. Quando presente,
+    // só aquela seção é gravada (as demais nem são tocadas).
+    const { reportId, month, year, sectionKey } = body as {
+      reportId?: string; month?: number; year?: number; sectionKey?: string;
+    };
     const asanaProjectIds: string[] = body.asanaProjectIds?.length
       ? body.asanaProjectIds
       : body.asanaProjectId
@@ -181,8 +243,14 @@ serve(async (req) => {
 
     const asanaToken = await getVaultSecret(supabase, "ASANA_TOKEN");
 
+    // Só grava a seção pedida quando o front manda `sectionKey` (re-sync individual).
+    const deveGravar = (key: string) => !sectionKey || sectionKey === key;
+
+    // memberships.project.name / section.gid: necessários para identificar de qual
+    // projeto e de qual coluna do quadro cada tarefa veio.
     const optFields =
-      "name,completed,completed_at,due_on,assignee.name,custom_fields,permalink_url,memberships.section.name";
+      "name,completed,completed_at,due_on,assignee.name,custom_fields,permalink_url," +
+      "memberships.section.name,memberships.section.gid,memberships.project.name";
 
     const periodoInicio = new Date(Date.UTC(year, month - 1, 1));
     const periodoFim = new Date(Date.UTC(year, month, 0, 23, 59, 59));
@@ -194,10 +262,18 @@ serve(async (req) => {
     const allBacklog: Array<Record<string, unknown>> = [];
     const projectsSynced: string[] = [];
     const projectErrors: string[] = [];
+    // Colunas do quadro que não casaram com nenhuma categoria conhecida.
+    // DECISÃO DO CLIENTE: as tarefas NÃO são descartadas (seguem para Priorizadas),
+    // mas a lista é devolvida e gravada para o front avisar quem configurou o quadro.
+    const colunasNaoReconhecidas = new Map<string, { projeto: string; coluna: string; qtd: number }>();
+    let workspaceGid: string | null = null;
 
     for (const projectId of asanaProjectIds) {
       try {
         console.log(`[ASANA] Buscando seções do projeto ${projectId}...`);
+        const projectMeta = await getProjectMeta(asanaToken, projectId);
+        if (!workspaceGid) workspaceGid = projectMeta.workspaceGid;
+        const projetoNome = projectMeta.name;
         const sections = await getProjectSections(asanaToken, projectId);
 
         if (sections.length === 0) {
@@ -212,9 +288,11 @@ serve(async (req) => {
 
         for (const section of sections) {
           const name = section.name;
-          const tasks = await fetchTasksBySection(asanaToken, section.gid, optFields);
+          const rawTasks = await fetchTasksBySection(asanaToken, section.gid, optFields);
+          const tasks = anotarOrigem(rawTasks, projetoNome, name, section.gid);
 
-          if (matchesSection(name, SECTION_CONCLUIDO_NAMES)) {
+          // "Não concluído"/"Não iniciado" NÃO podem cair em concluído (deny-list).
+          if (!isSecaoNegada(name) && matchesSection(name, SECTION_CONCLUIDO_NAMES)) {
             allConcluidas.push(...tasks);
           } else if (matchesSection(name, SECTION_EM_ANDAMENTO_NAMES)) {
             allEmAndamento.push(...tasks);
@@ -223,9 +301,14 @@ serve(async (req) => {
           } else if (matchesSection(name, SECTION_BACKLOG_NAMES)) {
             allBacklog.push(...tasks);
           } else {
-            // Seção não reconhecida — incluir em planejadas como fallback
+            // Seção não reconhecida — mantém em planejadas (vai para Priorizadas)
+            // e registra o aviso para o usuário renomear a coluna ou revisar o quadro.
             console.log(`[ASANA] Seção não reconhecida: "${name}" (${section.gid}) — incluída em planejadas`);
             allPlanejadas.push(...tasks);
+            const chave = `${projetoNome}||${name}`;
+            const atual = colunasNaoReconhecidas.get(chave);
+            if (atual) atual.qtd += tasks.length;
+            else colunasNaoReconhecidas.set(chave, { projeto: projetoNome, coluna: name, qtd: tasks.length });
           }
         }
         projectsSynced.push(projectId);
@@ -250,6 +333,9 @@ serve(async (req) => {
       assignee: ((t.assignee as Record<string, unknown> | null)?.name as string) ?? "",
       link: (t.permalink_url as string) ?? "",
       completed_at: t.completed_at as string,
+      // Origem: permite auditar de qual quadro/coluna a entrega veio.
+      projeto: (t.__projeto as string) ?? "",
+      coluna: (t.__coluna as string) ?? "",
     }));
 
     // Tarefas priorizadas
@@ -260,6 +346,10 @@ serve(async (req) => {
       categoria: getCustomFieldValue(t, FIELD_TAG_PRODUTO) ?? getCustomFieldValue(t, FIELD_TIPO) ?? "Outros",
       assignee: ((t.assignee as Record<string, unknown> | null)?.name as string) ?? "",
       link: (t.permalink_url as string) ?? "",
+      // Origem: em Priorizadas caem também as colunas não reconhecidas, então
+      // saber projeto/coluna é o que permite identificar item vindo de fora.
+      projeto: (t.__projeto as string) ?? "",
+      coluna: (t.__coluna as string) ?? "",
     }));
 
     // Métricas evolução e inovação
@@ -305,8 +395,24 @@ serve(async (req) => {
       "Dezembro",
     ];
     const historico: Record<string, { total: number; contagem: Record<string, number> }> = {};
+    const historicoErros: string[] = [];
 
-    for (let offset = 1; offset <= 3; offset++) {
+    // Nunca buscar sem projetos (a busca sem filtro traria o workspace inteiro).
+    // Sem workspace_gid a URL do search é inválida — antes chamávamos
+    // `/tasks/search` (sem `/workspaces/{gid}`), que retorna erro e o histórico
+    // vinha sempre vazio, silenciosamente (o `if (!res.ok) continue`).
+    const podeBuscarHistorico = asanaProjectIds.length > 0 && Boolean(workspaceGid);
+    if (!podeBuscarHistorico) {
+      historicoErros.push(
+        asanaProjectIds.length === 0
+          ? "Nenhum projeto configurado — histórico não buscado."
+          : "workspace_gid não encontrado nos projetos configurados — histórico não buscado.",
+      );
+    }
+
+    const projectIdSet = new Set(asanaProjectIds.map((id) => String(id)));
+
+    for (let offset = 1; podeBuscarHistorico && offset <= 3; offset++) {
       try {
         const d = new Date(Date.UTC(year, month - 1 - offset, 1));
         const inicioMes = new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1)).toISOString();
@@ -318,18 +424,29 @@ serve(async (req) => {
           completed: "true",
           "completed_at.after": inicioMes,
           "completed_at.before": fimMes,
-          opt_fields: "gid,custom_fields",
+          opt_fields: "gid,custom_fields,projects.gid",
           limit: "100",
         });
 
-        const res = await fetch(`https://app.asana.com/api/1.0/tasks/search?${params}`, {
-          headers: { Authorization: `Bearer ${asanaToken}`, Accept: "application/json" },
-        });
+        const res = await fetch(
+          `https://app.asana.com/api/1.0/workspaces/${workspaceGid}/tasks/search?${params}`,
+          { headers: { Authorization: `Bearer ${asanaToken}`, Accept: "application/json" } },
+        );
 
-        if (!res.ok) continue;
+        if (!res.ok) {
+          const corpo = await res.text();
+          historicoErros.push(`${nomeMes}: HTTP ${res.status} ${corpo.slice(0, 200)}`);
+          continue;
+        }
 
         const data = (await res.json()) as { data: Array<Record<string, unknown>> };
-        const tasks = data.data ?? [];
+        // Re-filtro por projeto no cliente: `projects.any` é filtro do servidor e
+        // não deve ser a única garantia de que a tarefa é do contrato.
+        const tasks = (data.data ?? []).filter((t) => {
+          const projs = t.projects as Array<Record<string, unknown>> | undefined;
+          if (!Array.isArray(projs)) return true; // API não devolveu o campo: não descarta
+          return projs.some((p) => projectIdSet.has(String(p.gid)));
+        });
 
         const contagem: Record<string, number> = {
           "Novas Funcionalidades": 0,
@@ -343,7 +460,9 @@ serve(async (req) => {
           contagem[key]++;
         }
         historico[nomeMes] = { total: tasks.length, contagem };
-      } catch {
+      } catch (err) {
+        // Não engolir: o histórico vazio precisa ter causa visível no retorno/log.
+        historicoErros.push(`offset ${offset}: ${(err as Error).message}`);
         continue;
       }
     }
@@ -368,74 +487,86 @@ serve(async (req) => {
 
     // Salvar seções
     const now = new Date().toISOString();
+    const avisoColunas = Array.from(colunasNaoReconhecidas.values());
 
     // ── PILOTO merge-preserva-manual: seção "entregas" ──
     // Lê o content atual, mescla listas (preserva itens manuais) e escalar `total`.
-    const { data: entregaAtual } = await supabase
-      .from("report_sections")
-      .select("content")
-      .eq("report_id", reportId)
-      .eq("section_key", "entregas")
-      .maybeSingle();
-    const entregaContent = (entregaAtual?.content ?? {}) as Record<string, unknown>;
+    if (deveGravar("entregas")) {
+      const { data: entregaAtual } = await supabase
+        .from("report_sections")
+        .select("content")
+        .eq("report_id", reportId)
+        .eq("section_key", "entregas")
+        .maybeSingle();
+      const entregaContent = (entregaAtual?.content ?? {}) as Record<string, unknown>;
 
-    // Normaliza itens do Asana para os nomes de campo do editor (tarefa/url).
-    const entregasIncoming = tarefasEntregas.map((t) => ({
-      gid: t.gid,
-      tarefa: t.nome,
-      status: t.status,
-      categoria: t.categoria,
-      assignee: t.assignee,
-      url: t.link,
-      completed_at: t.completed_at,
-    }));
+      // Normaliza itens do Asana para os nomes de campo do editor (tarefa/url).
+      const entregasIncoming = tarefasEntregas.map((t) => ({
+        gid: t.gid,
+        tarefa: t.nome,
+        status: t.status,
+        categoria: t.categoria,
+        assignee: t.assignee,
+        url: t.link,
+        completed_at: t.completed_at,
+        projeto: t.projeto,
+        coluna: t.coluna,
+      }));
 
-    const entregasMerged = {
-      ...entregaContent,
-      linhas: mergeLinhas(entregaContent, entregasIncoming),
-      tarefas: undefined, // consolida no formato `linhas`
-      ...mergeScalar(entregaContent, "total", totalEntregas),
-    };
+      const entregasMerged = {
+        ...entregaContent,
+        linhas: mergeLinhas(entregaContent, entregasIncoming),
+        tarefas: undefined, // consolida no formato `linhas`
+        ...mergeScalar(entregaContent, "total", totalEntregas),
+      };
 
-    await supabase
-      .from("report_sections")
-      .upsert(
-        { report_id: reportId, section_key: "entregas", content: entregasMerged, source: "asana", synced_at: now },
-        { onConflict: "report_id,section_key" },
-      );
+      await supabase
+        .from("report_sections")
+        .upsert(
+          { report_id: reportId, section_key: "entregas", content: entregasMerged, source: "asana", synced_at: now },
+          { onConflict: "report_id,section_key" },
+        );
+    }
 
     // ── PILOTO merge-preserva-manual: seção "priorizadas" (mesmo padrão de entregas) ──
-    const { data: priorizadaAtual } = await supabase
-      .from("report_sections")
-      .select("content")
-      .eq("report_id", reportId)
-      .eq("section_key", "priorizadas")
-      .maybeSingle();
-    const priorizadaContent = (priorizadaAtual?.content ?? {}) as Record<string, unknown>;
+    if (deveGravar("priorizadas")) {
+      const { data: priorizadaAtual } = await supabase
+        .from("report_sections")
+        .select("content")
+        .eq("report_id", reportId)
+        .eq("section_key", "priorizadas")
+        .maybeSingle();
+      const priorizadaContent = (priorizadaAtual?.content ?? {}) as Record<string, unknown>;
 
-    const priorizadasIncoming = tarefasPriorizadas.map((t) => ({
-      gid: t.gid,
-      tarefa: t.nome,
-      status: t.status,
-      categoria: t.categoria,
-      assignee: t.assignee,
-      url: t.link,
-    }));
+      const priorizadasIncoming = tarefasPriorizadas.map((t) => ({
+        gid: t.gid,
+        tarefa: t.nome,
+        status: t.status,
+        categoria: t.categoria,
+        assignee: t.assignee,
+        url: t.link,
+        projeto: t.projeto,
+        coluna: t.coluna,
+      }));
 
-    const priorizadasMerged = {
-      ...priorizadaContent,
-      linhas: mergeLinhas(priorizadaContent, priorizadasIncoming),
-      tarefas: undefined,
-      ...mergeScalar(priorizadaContent, "total", tarefasPriorizadas.length),
-      ...mergeScalar(priorizadaContent, "total_backlog", allBacklog.length),
-    };
+      const priorizadasMerged = {
+        ...priorizadaContent,
+        linhas: mergeLinhas(priorizadaContent, priorizadasIncoming),
+        tarefas: undefined,
+        // Aviso de colunas não reconhecidas: chave própria (prefixo `_`) para o
+        // front exibir sem confundir com campo editável do usuário.
+        _avisoColunas: avisoColunas,
+        ...mergeScalar(priorizadaContent, "total", tarefasPriorizadas.length),
+        ...mergeScalar(priorizadaContent, "total_backlog", allBacklog.length),
+      };
 
-    await supabase
-      .from("report_sections")
-      .upsert(
-        { report_id: reportId, section_key: "priorizadas", content: priorizadasMerged, source: "asana", synced_at: now },
-        { onConflict: "report_id,section_key" },
-      );
+      await supabase
+        .from("report_sections")
+        .upsert(
+          { report_id: reportId, section_key: "priorizadas", content: priorizadasMerged, source: "asana", synced_at: now },
+          { onConflict: "report_id,section_key" },
+        );
+    }
 
     // ── Fase 2 merge-preserva-manual: seções de escalar ──
     // Lê o content atual e preserva os campos que o usuário tocou (_manualFields),
@@ -453,8 +584,18 @@ serve(async (req) => {
       contagem_por_tag: contagemPorTag,
       total_entregas: totalEntregas,
       historico_mensal: historico,
+      historico_erros: historicoErros,
       projetos_sincronizados: projectsSynced,
       projetos_com_erro: projectErrors,
+      colunas_nao_reconhecidas: avisoColunas,
+      // Itens que compõem a contagem, com a origem (projeto/coluna) de cada um.
+      itens: tarefasEntregas.map((t) => ({
+        gid: t.gid,
+        tarefa: t.nome,
+        categoria: t.categoria,
+        projeto: t.projeto,
+        coluna: t.coluna,
+      })),
       // Escalares que o usuário pode ter tocado: preserva o dele, guarda o sync ao lado.
       ...mergeScalar(evoContent, "percentual_inovacao", percentualInovacao),
       ...mergeScalar(evoContent, "status", statusInovacao),
@@ -478,26 +619,31 @@ serve(async (req) => {
     ];
 
     for (const secao of secoes) {
+      if (!deveGravar(secao.section_key)) continue;
       await supabase.from("report_sections").upsert(secao, { onConflict: "report_id,section_key" });
     }
 
+    const problemas = [...projectErrors, ...historicoErros];
     await supabase.from("report_sync_logs").insert({
       report_id: reportId,
       source: "asana",
-      status: projectErrors.length === 0 ? "success" : "partial",
+      status: problemas.length === 0 ? "success" : "partial",
       records_fetched: totalEntregas + tarefasPriorizadas.length,
-      error_message: projectErrors.length > 0 ? projectErrors.join("; ") : null,
+      error_message: problemas.length > 0 ? problemas.join("; ").slice(0, 1000) : null,
     });
 
     return new Response(
       JSON.stringify({
         success: true,
+        section_key: sectionKey ?? null,
         entregas: totalEntregas,
         priorizadas: tarefasPriorizadas.length,
         backlog: allBacklog.length,
         inovacao: percentualInovacao,
         projetos_sincronizados: projectsSynced,
         projetos_com_erro: projectErrors,
+        colunas_nao_reconhecidas: avisoColunas,
+        historico_erros: historicoErros,
       }),
       { headers: { ...CORS, "Content-Type": "application/json" } },
     );

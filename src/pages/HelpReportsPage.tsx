@@ -43,7 +43,7 @@ const sections: HelpSection[] = [
           ['Ícone de engrenagem', 'Abre a configuração de template daquele contrato (só C-Level e Superadmin).'],
           ['Cards de mês', 'Mostram Mês/Ano, a barra “Preenchimento” (seções com conteúdo ÷ total) e os badges.'],
           ['Badge “Importado”', 'Aquele mês usa um arquivo externo em vez das seções do sistema.'],
-          ['Badge de status', 'Rascunho, Em Revisão, Aprovado ou Publicado.'],
+          ['Badge de status', 'Rascunho, Em Revisão ou Liberado.'],
           ['“Ver meses anteriores (N)”', 'Link vermelho acima dos cards. Por padrão só os 6 meses mais recentes aparecem.'],
           ['Menu ⋯ do card', 'Abrir, Duplicar e — para C-Level/Superadmin e apenas em Rascunho — Excluir.'],
         ]} />
@@ -145,7 +145,7 @@ const sections: HelpSection[] = [
           ['9', 'Histórico TR — Aderência Global', 'Manual'],
           ['10', 'Painel Executivo', 'Manual'],
           ['11', 'Evolução e Inovação', 'Asana'],
-          ['12', 'Demonstrativo de Horas', 'Manual'],
+          ['12', 'Equipe do Projeto', 'Manual'],
           ['13', 'Eficiência Operacional', 'Milvus (helpdesk)'],
           ['14', 'Eficiência e Previsibilidade', 'Azure DevOps (e parte do Asana)'],
           ['15', 'Desempenho da Aplicação', 'Manual'],
@@ -295,7 +295,7 @@ const sections: HelpSection[] = [
   {
     id: 'status',
     label: 'Fluxo de status',
-    title: 'Rascunho, Em Revisão, Aprovado e Publicado',
+    title: 'Rascunho, Em Revisão e Liberado',
     content: (
       <>
         <p className="text-sm text-muted-foreground mb-3">
@@ -304,17 +304,25 @@ const sections: HelpSection[] = [
         <DataTable headers={['Status', 'Quando usar', 'Quem pode editar o conteúdo']} rows={[
           ['Rascunho', 'Em elaboração. É o estado inicial.', 'Superadmin, C-Level, Líder de Tribo, Projetos e Produtos'],
           ['Em Revisão', 'Conteúdo pronto, aguardando conferência.', 'Superadmin, C-Level, Líder de Tribo'],
-          ['Aprovado', 'Validado internamente, pronto para o cliente.', 'Ninguém — o relatório fica travado'],
-          ['Publicado', 'Entregue ao cliente.', 'Ninguém — só o Superadmin altera o status'],
+          ['Liberado', 'Validado e pronto para entrega ao cliente.', 'Ninguém — o relatório fica travado'],
         ]} />
         <DataTable headers={['Perfil', 'Transições que pode fazer']} rows={[
-          ['Superadmin e C-Level', 'Qualquer status, em qualquer direção.'],
-          ['Líder de Tribo', 'Rascunho → Em Revisão e Em Revisão → Rascunho. Não aprova nem publica.'],
+          ['Superadmin, C-Level e Líder de Tribo', 'Qualquer status, em qualquer direção — inclusive reabrir um relatório já liberado.'],
           ['Demais perfis', 'Nenhuma — o seletor fica desabilitado.'],
         ]} />
+        <p className="text-sm text-muted-foreground mb-3 font-semibold text-foreground">Avisos automáticos</p>
+        <DataTable headers={['Ao mover para', 'Quem é avisado']} rows={[
+          ['Em Revisão', 'Líder de Tribo, Administrativo e Projetos e Produtos — para conferir o conteúdo.'],
+          ['Liberado', 'Líder de Tribo, Administrativo e Projetos e Produtos — para providenciar a entrega.'],
+        ]} />
+        <p className="text-sm text-muted-foreground mb-3">
+          O aviso chega de duas formas: no sino de notificações e como uma faixa no topo das telas, visível para
+          Superadmin, Líder de Tribo, Projetos e Produtos e Administrativo. Clicar em{' '}
+          <strong>Abrir relatório</strong> leva direto ao mês em questão e dispensa o aviso.
+        </p>
         <Callout type="warn">
-          Passar para <strong>Aprovado</strong> trava a edição para todos. Se precisar corrigir algo depois, um C-Level
-          ou Superadmin precisa devolver o relatório para Rascunho.
+          Passar para <strong>Liberado</strong> trava a edição para todos. Para corrigir algo depois, um C-Level,
+          Líder de Tribo ou Superadmin precisa devolver o relatório para Em Revisão.
         </Callout>
       </>
     ),
@@ -332,7 +340,7 @@ const sections: HelpSection[] = [
         <DataTable headers={['Comportamento', 'Detalhe']} rows={[
           ['Uma seção por slide', 'Na ordem da referência de seções, com Capa no início e slide de encerramento no fim.'],
           ['Seções ocultadas não viram slide', 'A chave “Ocultar slide na geração do PPT” é respeitada.'],
-          ['Tabelas longas se dividem', 'Demonstrativo de Horas e Tarefas Priorizadas geram slides extras automaticamente.'],
+          ['Tabelas longas se dividem', 'As tabelas longas — Treinamentos, Entregas, Tarefas Priorizadas e Equipe do Projeto — geram slides extras automaticamente.'],
           ['Slides sem dados trazem aviso', 'Por exemplo: “Nenhuma entrega registrada para o período.”'],
           ['Logo do cliente', 'Usa o logo do contrato e, na falta dele, o do cliente.'],
           ['Rodapé de fonte', 'Slides sincronizados indicam a origem: Asana, Fireflies, Milvus ou Azure DevOps.'],
@@ -380,7 +388,7 @@ const sections: HelpSection[] = [
         ['Azure DevOps não trouxe nada', 'Falta a tag de filtro, ou a tag não confere exatamente.', 'Preencha ao menos uma tag idêntica à usada nos work items.'],
         ['Milvus zerado com cliente configurado', 'Divergência no retorno da API.', 'Acione o time técnico informando contrato e mês — há um diagnóstico gravado.'],
         ['Item apareceu duas vezes', 'A sincronização trouxe a versão nova ao lado da sua.', 'Remova a linha que não deve permanecer (as duplicadas ficam em âmbar).'],
-        ['Não consigo editar nada', 'O relatório está Aprovado ou Publicado, ou seu perfil não edita nesse status.', 'Peça a um C-Level para devolver a Rascunho.'],
+        ['Não consigo editar nada', 'O relatório está Liberado, ou seu perfil não edita no status atual.', 'Peça a um C-Level, Líder de Tribo ou Superadmin para devolvê-lo a Em Revisão.'],
         ['As seções sumiram da tela', 'O mês está marcado como importado de fonte externa.', 'Use “Remover importação” para voltar ao modo normal.'],
         ['Um mês antigo não aparece', 'A lista mostra só os 6 meses mais recentes.', 'Clique em “Ver meses anteriores”.'],
       ]} />
@@ -398,7 +406,7 @@ const sections: HelpSection[] = [
           { title: 'Sincronize e só depois escreva', body: 'Assim você analisa em cima dos números reais, e não reescreve texto que a sincronização vai contextualizar.' },
           { title: 'Trate as duplicidades no mesmo dia', body: 'Deixar itens duplicados acumular torna a revisão final muito mais cara.' },
           { title: 'Gere uma prévia do PPTX antes de mandar para revisão', body: 'Erros de formatação e seções vazias aparecem no slide, não na tela de edição.' },
-          { title: 'Mova o status conscientemente', body: 'Em Revisão para conferência; Aprovado só quando estiver pronto, porque trava a edição.' },
+          { title: 'Mova o status conscientemente', body: 'Em Revisão avisa quem confere; Liberado avisa quem entrega e trava a edição. Só libere quando estiver pronto.' },
         ]} />
         <Callout type="tip">
           O relatório é lido pelo cliente. As seções automáticas dizem <em>o que</em> foi feito; as manuais — Painel

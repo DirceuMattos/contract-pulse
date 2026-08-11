@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,19 @@ import type { ReportTemplateConfig } from '@/types';
 export default function ReportTemplateConfigPage() {
   const { contractId } = useParams<{ contractId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Voltar deve devolver o usuário à tela de onde ele veio (o relatório em edição,
+  // por exemplo), e não sempre à lista. Sem estado — acesso por URL direta ou F5 —
+  // cai na lista já com o contrato aberto.
+  const origem = (location.state as { from?: string; openContractId?: string } | null) ?? null;
+  const voltar = () => {
+    if (origem?.from) {
+      navigate(origem.from, origem.openContractId ? { state: { openContractId: origem.openContractId } } : undefined);
+      return;
+    }
+    navigate('/relatorios', { state: { openContractId: contractId } });
+  };
   const { userRole } = useAuth();
   const { contracts, getClient } = useData();
   const { toast } = useToast();
@@ -93,7 +106,7 @@ export default function ReportTemplateConfigPage() {
   return (
     <div className="p-6 space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/relatorios')}><ArrowLeft className="w-4 h-4" /></Button>
+        <Button variant="ghost" size="icon" onClick={voltar}><ArrowLeft className="w-4 h-4" /></Button>
         <div>
           <h1 className="text-xl font-bold">Configuração do Template</h1>
           <p className="text-sm text-muted-foreground">{contract?.nome} · {client?.nomeFantasia || client?.razaoSocial}</p>

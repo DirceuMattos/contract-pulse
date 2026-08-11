@@ -54,7 +54,7 @@ import { ClientLogo } from '@/components/clients/ClientLogo';
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge';
 import { ReportCreateDialog } from '@/components/reports/ReportCreateDialog';
 import { monthlyReportFromDb } from '@/lib/dbMappers';
-import { isSectionEmpty } from '@/lib/reportSectionSchemas';
+import { isSectionEmpty, STATUS_LABELS, STATUS_ORDER } from '@/lib/reportSectionSchemas';
 import type { MonthlyReport } from '@/types';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -321,10 +321,9 @@ function ReportsPageInner() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="draft">Rascunho</SelectItem>
-                  <SelectItem value="review">Em Revisão</SelectItem>
-                  <SelectItem value="approved">Aprovado</SelectItem>
-                  <SelectItem value="published">Publicado</SelectItem>
+                  {STATUS_ORDER.map((s) => (
+                    <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -401,7 +400,7 @@ function ReportsPageInner() {
                               className={`h-8 w-8 ${settingsColor(integrations)}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/relatorios/config/${contract.id}`);
+                                navigate(`/relatorios/config/${contract.id}`, { state: { from: '/relatorios', openContractId: contract.id } });
                               }}
                             >
                               <SettingsIcon className="w-4 h-4" />

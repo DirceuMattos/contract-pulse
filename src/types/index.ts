@@ -595,7 +595,9 @@ export interface ContractSimulation {
 // ============================================
 // Monthly Reports Module
 // ============================================
-export type ReportStatus = 'draft' | 'review' | 'approved' | 'published';
+// 'published' e apresentado ao usuario como "Liberado". O valor no banco foi mantido
+// para nao quebrar historico; o status 'approved' foi descontinuado em 08/2026.
+export type ReportStatus = 'draft' | 'review' | 'published';
 
 export type ReportSectionKey =
   | 'capa' | 'sumario' | 'glossario' | 'objetivo' | 'indicadores'

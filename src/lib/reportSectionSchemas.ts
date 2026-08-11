@@ -23,7 +23,7 @@ export const SECTION_META: SectionMeta[] = [
   { key: 'historico_tr_aderencia',     label: 'Histórico TR — Aderência Global',         source: 'manual',    configurable: true,  configFlag: 'showHistoricoTrAderencia' },
   { key: 'painel_executivo',           label: 'Painel Executivo',                        source: 'manual',    configurable: false },
   { key: 'evolucao_inovacao',          label: 'Evolução e Inovação',                     source: 'asana',     configurable: true,  configFlag: 'showEvolucaoInovacao' },
-  { key: 'demonstrativo_horas',        label: 'Demonstrativo de Horas',                  source: 'manual',    configurable: true,  configFlag: 'showDemonstrativoHoras' },
+  { key: 'demonstrativo_horas',        label: 'Equipe do Projeto',                  source: 'manual',    configurable: true,  configFlag: 'showDemonstrativoHoras' },
   { key: 'eficiencia_operacional',     label: 'Eficiência Operacional',                  source: 'milvus',    configurable: true,  configFlag: 'showEficienciaOperacional' },
   { key: 'eficiencia_previsibilidade', label: 'Eficiência e Previsibilidade',            source: 'azuredevops', configurable: true,  configFlag: 'showEficienciaPrevisibilidade' },
   { key: 'desempenho_aplicacao',       label: 'Desempenho da Aplicação',                 source: 'manual',    configurable: true,  configFlag: 'showDesempenhoAplicacao' },
@@ -43,9 +43,11 @@ export const SECTION_META_BY_KEY: Record<ReportSectionKey, SectionMeta> = Object
 export const STATUS_LABELS = {
   draft: 'Rascunho',
   review: 'Em Revisão',
-  approved: 'Aprovado',
-  published: 'Publicado',
+  published: 'Liberado',
 } as const;
+
+// Ordem canônica do fluxo, usada nos seletores e filtros.
+export const STATUS_ORDER = ['draft', 'review', 'published'] as const;
 
 export const PAINEL_STATUSES = ['Alta Performance', 'Adequado', 'Atenção', 'Crítico'] as const;
 export type PainelStatus = typeof PAINEL_STATUSES[number];

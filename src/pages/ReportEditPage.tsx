@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useData } from '@/contexts/DataContext';
+import { useHR } from '@/contexts/HRContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -25,18 +26,19 @@ import { SectionEditor } from '@/components/reports/SectionEditor';
 import { ReportExternalImport } from '@/components/reports/ReportExternalImport';
 import { useReportExternalFiles } from '@/hooks/useReportExternalFiles';
 import { monthlyReportFromDb, reportSectionFromDb, reportTemplateConfigFromDb } from '@/lib/dbMappers';
-import { SECTION_META, SECTION_META_BY_KEY, isSectionComplete, isSectionEmpty, defaultsForSection } from '@/lib/reportSectionSchemas';
+import { SECTION_META, SECTION_META_BY_KEY, STATUS_LABELS, STATUS_ORDER, isSectionComplete, isSectionEmpty, defaultsForSection } from '@/lib/reportSectionSchemas';
+import { notifyRelatorioEmRevisao, notifyRelatorioLiberado } from '@/lib/notifyRelatorios';
 import type { MonthlyReport, ReportSection, ReportSectionKey, ReportStatus, ReportTemplateConfig } from '@/types';
 import { generatePptx } from '@/lib/generatePptx';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-const STATUS_OPTIONS: { value: ReportStatus; label: string }[] = [
-  { value: 'draft', label: 'Rascunho' },
-  { value: 'review', label: 'Em Revisão' },
-  { value: 'approved', label: 'Aprovado' },
-  { value: 'published', label: 'Publicado' },
-];
+const MESES_EXT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const STATUS_OPTIONS: { value: ReportStatus; label: string }[] = STATUS_ORDER.map((value) => ({
+  value,
+  label: STATUS_LABELS[value],
+}));
 
 function sectionStatusIcon(content: Record<string, unknown>, key: ReportSectionKey): string {
   if (isSectionEmpty(content)) return '⬜';
@@ -48,6 +50,7 @@ export default function ReportEditPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
   const { contracts, getClient, getResourcesByContract } = useData();
+  const { hrPeople } = useHR();
   const { userRole } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -178,16 +181,31 @@ export default function ReportEditPage() {
   const contract = report ? contracts.find((c) => c.id === report.contractId) : undefined;
   const client = contract ? getClient(contract.clientId) : undefined;
 
+  // Equipe do Projeto: colaborador inativo no RH só entra se o desligamento tiver
+  // ocorrido DENTRO do mês do relatório — ele trabalhou parte do período e precisa
+  // constar. Desligado em meses anteriores fica de fora.
   const squadMembers = useMemo(() => {
-    if (!contract?.id) return [];
+    if (!contract?.id || !report) return [];
+    const pessoaPorId = new Map(hrPeople.map((p) => [p.id, p]));
+    const desligadoNoMes = (data?: string) => {
+      if (!data) return false;
+      const d = new Date(`${data}T12:00:00`);
+      return d.getFullYear() === report.year && d.getMonth() + 1 === report.month;
+    };
     return getResourcesByContract(contract.id)
       .filter((r) => r.tipo === 'clt' || r.tipo === 'pj')
+      .filter((r) => {
+        const pessoa = r.hrPersonId ? pessoaPorId.get(r.hrPersonId) : undefined;
+        if (!pessoa) return true; // sem vínculo com o RH: mantém, para não sumir dado legado
+        if (pessoa.situacao !== 'inativo') return true;
+        return desligadoNoMes(pessoa.dataDesligamento);
+      })
       .map((r) => ({
         nome: r.nome,
         funcao: r.cargo || '',
         dedicacao: r.percentualDedicacao ? `${r.percentualDedicacao}%` : '',
       }));
-  }, [contract?.id, getResourcesByContract]);
+  }, [contract?.id, getResourcesByContract, hrPeople, report]);
 
   const { data: templateConfig } = useQuery({
     queryKey: ['report_template_config', contract?.id],
@@ -443,11 +461,22 @@ export default function ReportEditPage() {
     }
     queryClient.invalidateQueries({ queryKey: ['monthly_report', reportId] });
     queryClient.invalidateQueries({ queryKey: ['monthly_reports'] });
-    const STATUS_LABELS: Record<string, string> = { draft: 'Rascunho', review: 'Em Revisão', approved: 'Aprovado', published: 'Publicado' };
     toast({
       title: 'Status atualizado',
       description: `${STATUS_LABELS[prev]} → ${STATUS_LABELS[next]}`,
     });
+
+    // Avisa os perfis responsaveis pela conferencia e pela entrega. Nao bloqueia a
+    // mudanca de status: se a notificacao falhar, o relatorio ja mudou de estado.
+    const ref = {
+      id: report.id,
+      contrato: contract?.nome ?? 'Contrato',
+      cliente: client?.nomeFantasia || client?.razaoSocial,
+      periodo: `${MESES_EXT[report.month - 1]}/${report.year}`,
+      criadoPor: report.createdBy,
+    };
+    if (next === 'review') void notifyRelatorioEmRevisao(ref);
+    if (next === 'published') void notifyRelatorioLiberado(ref);
   };
 
   const handleGeneratePPTX = async () => {
@@ -591,19 +620,15 @@ export default function ReportEditPage() {
   const canEditContent = (() => {
     if (report.status === 'draft') return isSuperAdmin || isCLevel || isLiderTribo || isProjProd;
     if (report.status === 'review') return isSuperAdmin || isCLevel || isLiderTribo;
-    return false; // approved e published: ninguém edita
+    return false; // liberado: ninguem edita ate ser reaberto
   })();
 
   // Quais opções de status cada perfil pode selecionar
+  // C-Level, Superadmin e Lider de Tribo percorrem o fluxo inteiro, inclusive
+  // reabrindo um relatorio ja liberado (decisao do PO em 08/2026).
   const allowedStatusTransitions = (() => {
-    if (isSuperAdmin) return ['draft', 'review', 'approved', 'published']; // superadmin vê tudo
-    if (isCLevel) return ['draft', 'review', 'approved', 'published'];
-    if (isLiderTribo) {
-      if (report.status === 'draft') return ['draft', 'review']; // pode enviar para revisão
-      if (report.status === 'review') return ['draft', 'review']; // pode voltar para rascunho
-      return [report.status]; // approved/published: não pode mudar
-    }
-    return [report.status]; // demais perfis: não podem mudar status
+    if (isSuperAdmin || isCLevel || isLiderTribo) return [...STATUS_ORDER];
+    return [report.status]; // demais perfis: acompanham, nao movimentam
   })();
 
   const isLocked = !canEditContent;
@@ -652,7 +677,7 @@ export default function ReportEditPage() {
             <ReportExternalImport reportId={reportId} canManage={canImportExternal} canRevert={canRevertExternal} onChanged={reloadExternal} />
           )}
           {canConfig && contract && (
-            <Button variant="outline" size="icon" onClick={() => navigate(`/relatorios/config/${contract.id}`)} title="Configurar template">
+            <Button variant="outline" size="icon" onClick={() => navigate(`/relatorios/config/${contract.id}`, { state: { from: `/relatorios/${report.id}` } })} title="Configurar template">
               <SettingsIcon className="w-4 h-4" />
             </Button>
           )}
@@ -704,6 +729,8 @@ export default function ReportEditPage() {
               {sortedSections.map((s) => {
                 const meta = SECTION_META_BY_KEY[s.sectionKey];
                 const active = s.sectionKey === activeSection;
+                // Seção marcada para não virar slide: fica esmaecida e ganha o ícone de olho cortado.
+                const oculta = Boolean((s.content as Record<string, unknown> | null)?.__hidden);
                 return (
                   <button
                     key={s.id}
@@ -711,9 +738,11 @@ export default function ReportEditPage() {
                       await flushPendingSaves();
                       setActiveSection(s.sectionKey);
                     }}
+                    title={oculta ? 'Esta seção não será incluída no PPT' : undefined}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2',
                       active ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
+                      oculta && !active && 'opacity-60',
                     )}
                   >
                     <span>{sectionStatusIcon(s.content, s.sectionKey)}</span>
@@ -730,6 +759,9 @@ export default function ReportEditPage() {
                         </span>
                       )}
                     </span>
+                    {oculta && (
+                      <EyeOff className="w-3.5 h-3.5 text-amber-600 shrink-0" aria-label="Oculta no PPT" />
+                    )}
                     <Badge variant="outline" className={cn('text-[10px] uppercase', s.source !== 'manual' && 'border-blue-400 text-blue-600')}>
                       {s.source === 'manual' ? 'Manual' : 'Auto'}
                     </Badge>
@@ -769,9 +801,7 @@ export default function ReportEditPage() {
                     <div>
                       <span className="font-medium">Relatório bloqueado para edição.</span>
                       {report.status === 'published'
-                        ? ' Este relatório foi publicado. Apenas o superadmin pode alterar o status.'
-                        : report.status === 'approved'
-                        ? ' Este relatório está aprovado. Apenas c-level ou superadmin podem reabri-lo.'
+                        ? ' Este relatório está liberado. Para corrigi-lo, um C-Level, Líder de Tribo ou Superadmin precisa devolvê-lo para Em Revisão.'
                         : ' Seu perfil não tem permissão para editar neste status.'}
                     </div>
                   </div>

@@ -734,6 +734,10 @@ interface TaskRow {
   completed_at?: string;
   origem: Origem;
   syncKey: string;
+  // Carimbo de origem no Asana — permite identificar itens que vieram de outro
+  // projeto ou de uma coluna não mapeada do quadro.
+  projeto?: string;
+  coluna?: string;
 }
 
 function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
@@ -754,6 +758,8 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
       completed_at: t.completed_at ?? undefined,
       origem: (t.origem as Origem) ?? 'sync',
       syncKey,
+      projeto: t.projeto ?? undefined,
+      coluna: t.coluna ?? undefined,
     };
   });
 
@@ -800,8 +806,30 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
   const totalSync = content.total__sync;
   const totalTocado = isManualField(content, 'total') && totalSync !== undefined && totalSync !== totalUser;
 
+  // Colunas do quadro do Asana que a sincronização não reconheceu. Os itens delas
+  // continuam entrando aqui (decisão do PO), mas o usuário precisa saber de onde vieram.
+  const avisoColunas = (content._avisoColunas ?? []) as { projeto?: string; coluna?: string; qtd?: number }[];
+
   return (
     <div className="space-y-3">
+      {avisoColunas.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-2 text-xs space-y-1">
+          <p className="font-medium m-0">⚠️ Colunas do Asana não reconhecidas</p>
+          <p className="m-0">
+            Os itens abaixo entraram nesta seção porque a coluna de origem não corresponde a
+            Concluído, Em andamento, Planejado ou Backlog. Confira se deveriam estar aqui — e,
+            se for o caso, renomeie a coluna no Asana.
+          </p>
+          <ul className="list-disc pl-4 m-0">
+            {avisoColunas.map((a, i) => (
+              <li key={`${a.projeto}-${a.coluna}-${i}`}>
+                {a.projeto ? `${a.projeto} · ` : ''}<strong>{a.coluna}</strong>
+                {typeof a.qtd === 'number' ? ` — ${a.qtd} item(ns)` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {dupNames.size > 0 && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-2 text-xs flex gap-2 items-start">
           <span className="font-medium">⚠️ Itens duplicados destacados.</span>
@@ -867,11 +895,12 @@ function TaskTableEditor({ content, onChange, readOnly }: EditorProps) {
 }
 
 // ============================================
-// Demonstrativo de Horas
+// Equipe do Projeto (antigo Demonstrativo de Horas)
+// As colunas Unidade e Quantidade foram removidas em 08/2026: a seção passou a
+// apresentar apenas a composição da equipe, sem apuração de horas.
 // ============================================
 function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorProps) {
-  const linhas: { recurso: string; funcao: string; unidade: string; quantidade: number }[] = content.linhas ?? [];
-  const total = linhas.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
+  const linhas: { recurso: string; funcao: string }[] = content.linhas ?? [];
   const update = (i: number, patch: Partial<typeof linhas[0]>) => {
     const next = [...linhas];
     next[i] = { ...next[i], ...patch };
@@ -881,10 +910,8 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
   useEffect(() => {
     if (linhas.length === 0 && meta?.squadMembers && (meta.squadMembers as any[]).length > 0) {
       const novasLinhas = (meta.squadMembers as any[]).map((m: any) => ({
-        recurso:    m.nome ?? m.name ?? '',
-        funcao:     m.funcao ?? m.role ?? '',
-        unidade:    'horas',
-        quantidade: 0,
+        recurso: m.nome ?? m.name ?? '',
+        funcao:  m.funcao ?? m.role ?? '',
       }));
       onChange({ ...content, linhas: novasLinhas });
     }
@@ -902,8 +929,6 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
             <tr>
               <th className="p-2 text-left">Recurso</th>
               <th className="p-2 text-left">Função</th>
-              <th className="p-2 text-left w-28">Unidade</th>
-              <th className="p-2 text-left w-28">Quantidade</th>
               <th className="p-2 w-10"></th>
             </tr>
           </thead>
@@ -912,23 +937,16 @@ function DemonstrativoHorasEditor({ content, onChange, readOnly, meta }: EditorP
               <tr key={i} className="border-t">
                 <td className="p-1"><Input value={l.recurso} onChange={(e) => update(i, { recurso: e.target.value })} disabled={readOnly} /></td>
                 <td className="p-1"><Input value={l.funcao ?? ''} onChange={(e) => update(i, { funcao: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input value={l.unidade} onChange={(e) => update(i, { unidade: e.target.value })} disabled={readOnly} /></td>
-                <td className="p-1"><Input type="number" value={l.quantidade ?? 0} onChange={(e) => update(i, { quantidade: Number(e.target.value) })} disabled={readOnly} /></td>
                 <td className="p-1">
                   {!readOnly && <Button variant="ghost" size="icon" onClick={() => onChange({ ...content, linhas: linhas.filter((_, idx) => idx !== i) })}><Trash2 className="w-4 h-4" /></Button>}
                 </td>
               </tr>
             ))}
-            <tr className="bg-muted font-semibold">
-              <td colSpan={3} className="p-2 text-right">Total</td>
-              <td className="p-2">{total}</td>
-              <td />
-            </tr>
           </tbody>
         </table>
       </div>
       {!readOnly && (
-        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', funcao: '', unidade: 'horas', quantidade: 0 }] })}>
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...content, linhas: [...linhas, { recurso: '', funcao: '' }] })}>
           <Plus className="w-4 h-4 mr-2" />Adicionar linha
         </Button>
       )}

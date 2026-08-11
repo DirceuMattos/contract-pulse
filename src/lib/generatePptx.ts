@@ -1,7 +1,12 @@
-// v5 - remove dedicacao + add observacoes historico tr
+// v6 - paginacao de tabelas + valign top + sumario dinamico
 import pptxgen from "pptxgenjs";
 import logoBnpUrl from "@/assets/logo-bnp-final.png";
 import logoBnpBlackUrl from "@/assets/logo-bnp-final-black.png";
+import { SECTION_META } from "@/lib/reportSectionSchemas";
+
+type Slide = pptxgen.Slide;
+type TableRow = pptxgen.TableRow;
+type TableCell = pptxgen.TableCell;
 
 let logoBnp: string = "";
 let logoBnpBlack: string = "";
@@ -34,7 +39,51 @@ function normalizeStatus(raw: string): string {
     .replace("altaperformance", "alta");
 }
 
-function sourceFooter(slide: any, source: string) {
+// ── Geometria do slide (LAYOUT_16x9 = 10" x 5.625") ───────────────
+// header: 0 → 0.65 | corpo: 0.72 → 5.0 | rodapé de fonte: 5.05
+const BODY_TOP = 0.72;
+const BODY_BOTTOM = 4.95;
+const TABLE_X = 0.4;
+
+/** Nº aproximado de caracteres que cabem em uma linha de `widthIn` polegadas. */
+function charsPerLine(widthIn: number, fontSize: number): number {
+  const charWidth = (fontSize * 0.52) / 72; // largura média de caractere (pt → pol)
+  return Math.max(4, Math.floor(Math.max(widthIn, 0.15) / charWidth));
+}
+
+/** Altura de uma linha de texto, em polegadas (entrelinha 1.25). */
+function lineHeightIn(fontSize: number): number {
+  return (fontSize * 1.25) / 72;
+}
+
+/** Altura estimada de um texto corrido dentro de uma caixa de `widthIn` polegadas. */
+function estimateTextHeight(text: string, widthIn: number, fontSize: number, padIn = 0.08): number {
+  const cpl = charsPerLine(widthIn, fontSize);
+  const lines = String(text ?? "")
+    .split("\n")
+    .reduce((acc, par) => acc + Math.max(1, Math.ceil(par.length / cpl)), 0);
+  return lines * lineHeightIn(fontSize) + padIn;
+}
+
+/** Maior fonte entre `min` e `base` em que o texto cabe na altura disponível. */
+function fitFontSize(text: string, widthIn: number, heightIn: number, base: number, min: number): number {
+  for (let fs = base; fs > min; fs--) {
+    if (estimateTextHeight(text, widthIn, fs) <= heightIn) return fs;
+  }
+  return min;
+}
+
+/** Reduz a fonte e, se ainda assim não couber, trunca o texto para caber na caixa. */
+function fitText(text: string, widthIn: number, heightIn: number, base: number, min: number): { text: string; fontSize: number } {
+  const original = String(text ?? "");
+  const fontSize = fitFontSize(original, widthIn, heightIn, base, min);
+  if (estimateTextHeight(original, widthIn, fontSize) <= heightIn) return { text: original, fontSize };
+  const maxLines = Math.max(1, Math.floor((heightIn - 0.08) / lineHeightIn(fontSize)));
+  const maxChars = Math.max(20, maxLines * charsPerLine(widthIn, fontSize) - 3);
+  return { text: original.slice(0, maxChars).trimEnd() + "…", fontSize };
+}
+
+function sourceFooter(slide: Slide, source: string) {
   const labels: Record<string, string> = {
     asana: 'Fonte: Asana',
     fireflies: 'Fonte: Fireflies',
@@ -49,26 +98,153 @@ function sourceFooter(slide: any, source: string) {
   });
 }
 
-function headerBar(slide: any, titulo: string) {
+function headerBar(slide: Slide, titulo: string) {
   slide.addShape("rect", { x: 0, y: 0, w: 10, h: 0.65, fill: { color: AZUL_ESCURO }, line: { color: AZUL_ESCURO } });
   slide.addText(titulo, { x: 0.35, y: 0, w: 7.5, h: 0.65, fontSize: 16, bold: true, color: BRANCO, valign: "middle", margin: 0 });
   slide.addImage({ data: logoBnp, x: 8.5, y: 0.02, w: 1.35, h: 0.62 });
 }
 
-function statusBadge(slide: any, x: number, y: number, w: number, status: string) {
+function statusBadge(slide: Slide, x: number, y: number, w: number, status: string) {
   const s = STATUS_CORES[normalizeStatus(status)] ?? STATUS_CORES.adequado;
   slide.addShape("roundRect", { x, y, w, h: 0.34, fill: { color: s.cor }, line: { color: s.cor }, rectRadius: 0.05 });
   slide.addText(s.label, { x, y, w, h: 0.34, fontSize: 11, bold: true, color: BRANCO, align: "center", valign: "middle", margin: 0 });
 }
 
-function kpiCard(slide: any, x: number, y: number, w: number, h: number, label: string, valor: string, cor?: string) {
+function kpiCard(slide: Slide, x: number, y: number, w: number, h: number, label: string, valor: string, cor?: string) {
   slide.addShape("roundRect", { x, y, w, h, fill: { color: CINZA_CLARO }, shadow: { type: "outer", color: "000000", blur: 4, offset: 1, angle: 45, opacity: 0.10 }, rectRadius: 0.08, line: { color: "E0E7EF", width: 0.5 } });
   slide.addText(label, { x: x+0.1, y: y+0.1, w: w-0.2, h: 0.3, fontSize: 9, color: "666666", align: "center", valign: "middle", margin: 0 });
   slide.addText(valor, { x: x+0.1, y: y+0.38, w: w-0.2, h: h-0.5, fontSize: 22, bold: true, color: cor ?? AZUL_ESCURO, align: "center", valign: "middle", margin: 0 });
 }
 
-function emptyMsg(slide: any, msg: string) {
-  slide.addText(msg, { x: 0.5, y: 2.5, w: 9, h: 0.5, fontSize: 13, color: "999999", align: "center" });
+function emptyMsg(slide: Slide, msg: string) {
+  slide.addText(msg, { x: 0.5, y: 2.5, w: 9, h: 0.5, fontSize: 13, color: "999999", align: "center", valign: "top" });
+}
+
+// ── Paginação de tabelas ──────────────────────────────────────────
+interface PaginatedTableOptions {
+  /** Larguras das colunas, em polegadas. */
+  colW: number[];
+  /** y da tabela na primeira página. */
+  firstY: number;
+  /** y da tabela nas páginas seguintes. */
+  contY?: number;
+  fontSize?: number;
+  minRowH?: number;
+  /** Subtítulo (ex.: mês/ano) repetido nas páginas de continuação. */
+  subtitle?: string;
+  /** Fonte de dados (rodapé) repetida nas páginas de continuação. */
+  source?: string;
+  /** Espaço reservado no fim da ÚLTIMA página para elementos de rodapé. */
+  lastPageReserve?: number;
+  valign?: "top" | "middle";
+}
+
+function cellOf(cell: TableCell | string): TableCell {
+  return typeof cell === "string" ? { text: cell } : cell;
+}
+
+function cellPlainText(cell: TableCell | string): string {
+  const c = cellOf(cell);
+  if (typeof c.text === "string") return c.text;
+  if (Array.isArray(c.text)) return c.text.map(cellPlainText).join(" ");
+  return "";
+}
+
+/** Altura estimada de uma linha da tabela, a partir do conteúdo de cada célula. */
+function estimateRowHeight(row: TableRow, colW: number[], fontSize: number, minRowH: number): number {
+  let altura = minRowH;
+  let col = 0;
+  for (const raw of row) {
+    const cell = cellOf(raw);
+    const span = Math.max(1, cell.options?.colspan ?? 1);
+    const largura = colW.slice(col, col + span).reduce((a, b) => a + b, 0) - 0.16; // padding lateral
+    const fs = cell.options?.fontSize ?? fontSize;
+    altura = Math.max(altura, estimateTextHeight(cellPlainText(cell), largura, fs, 0.14));
+    col += span;
+  }
+  return altura;
+}
+
+/**
+ * Desenha uma tabela quebrando-a em quantas páginas forem necessárias.
+ * A altura de cada linha é estimada pelo conteúdo (não é fixa), de modo que
+ * células com texto longo não estouram o limite inferior do slide.
+ * Páginas seguintes repetem o cabeçalho e usam o título com sufixo "(cont.)".
+ * Devolve o último slide usado, para o chamador posicionar rodapés nele.
+ */
+function addPaginatedTable(
+  pres: pptxgen,
+  firstSlide: Slide,
+  titulo: string,
+  header: TableRow,
+  rows: TableRow[],
+  opts: PaginatedTableOptions,
+): Slide {
+  const fontSize = opts.fontSize ?? 9;
+  const minRowH = opts.minRowH ?? 0.3;
+  const bottomY = BODY_BOTTOM;
+  const contY = opts.contY ?? 1.1;
+  const reserve = opts.lastPageReserve ?? 0;
+  const totalW = opts.colW.reduce((a, b) => a + b, 0);
+
+  const headerH = estimateRowHeight(header, opts.colW, fontSize, minRowH);
+  const heights = rows.map((r) => estimateRowHeight(r, opts.colW, fontSize, minRowH));
+
+  // 1) quebra gulosa respeitando o limite inferior de cada página
+  const pages: number[][] = [];
+  let atual: number[] = [];
+  let usado = 0;
+  let limite = bottomY - opts.firstY - headerH;
+  rows.forEach((_, i) => {
+    if (atual.length > 0 && usado + heights[i] > limite) {
+      pages.push(atual);
+      atual = [];
+      usado = 0;
+      limite = bottomY - contY - headerH;
+    }
+    atual.push(i);
+    usado += heights[i];
+  });
+  if (atual.length > 0 || pages.length === 0) pages.push(atual);
+
+  // 2) reserva de rodapé na última página (bolha "Total", "Backlog: N itens", …)
+  if (reserve > 0) {
+    const ultima = pages.length - 1;
+    const inicioY = ultima === 0 ? opts.firstY : contY;
+    const consumido = pages[ultima].reduce((acc, i) => acc + heights[i], 0);
+    if (pages[ultima].length > 1 && inicioY + headerH + consumido > bottomY - reserve) {
+      const movida = pages[ultima].pop();
+      if (movida !== undefined) pages.push([movida]);
+    }
+  }
+
+  // 3) desenho
+  let slide = firstSlide;
+  pages.forEach((idxs, pi) => {
+    if (pi > 0) {
+      slide = pres.addSlide();
+      slide.background = { color: BRANCO };
+      headerBar(slide, `${titulo} (cont.)`);
+      if (opts.subtitle) {
+        slide.addText(opts.subtitle, { x: 0.5, y: BODY_TOP, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
+      }
+      if (opts.source) sourceFooter(slide, opts.source);
+    }
+    const y = pi === 0 ? opts.firstY : contY;
+    const rowH = [headerH, ...idxs.map((i) => heights[i])];
+    slide.addTable([header, ...idxs.map((i) => rows[i])], {
+      x: TABLE_X, y, w: totalW, colW: opts.colW, fontSize,
+      border: { pt: 0.5, color: "D0DCE8" },
+      rowH, align: "left", valign: opts.valign ?? "top", autoPage: false,
+    });
+  });
+
+  return slide;
+}
+
+/** Cabeçalho padrão de tabela (fundo azul, texto branco). */
+function tableHeader(...labels: string[]): TableRow {
+  return labels.map((text) => ({ text, options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }));
 }
 
 function isHidden(content: Record<string, unknown>): boolean {
@@ -117,12 +293,21 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     if (clientLogo) {
       s.addImage({ data: clientLogo, x: 2.5, y: 0.25, w: 2.5, h: 0.7, sizing: { type: "contain", w: 2.5, h: 0.7 } });
     }
-    s.addText("Relatório Mensal de Atividades", { x: 0.4, y: 1.8, w: 5.5, h: 0.8, fontSize: 26, bold: true, color: AZUL_ESCURO });
+    s.addText("Relatório Mensal de Atividades", { x: 0.4, y: 1.8, w: 5.5, h: 0.8, fontSize: 26, bold: true, color: AZUL_ESCURO, valign: "top" });
     const capa = sections["capa"] ?? {};
-    s.addText(mesAno, { x: 0.4, y: 3.0, w: 5.5, h: 0.35, fontSize: 14, bold: true, color: CINZA_TEXTO });
-    s.addText(`Projeto: ${(capa.projeto as string) || nomeContrato}`, { x: 0.4, y: 3.4, w: 5.5, h: 0.28, fontSize: 11, color: CINZA_TEXTO });
-    s.addText((capa.cliente as string) || nomeCliente, { x: 0.4, y: 3.7, w: 5.5, h: 0.28, fontSize: 11, color: CINZA_TEXTO });
-    s.addText(`Contrato: ${(capa.numeroContrato as string) || numeroContrato}`, { x: 0.4, y: 4.0, w: 5.5, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO });
+    s.addText(mesAno, { x: 0.4, y: 3.0, w: 5.5, h: 0.35, fontSize: 14, bold: true, color: CINZA_TEXTO, valign: "top" });
+    s.addText(`Projeto: ${(capa.projeto as string) || nomeContrato}`, { x: 0.4, y: 3.4, w: 5.5, h: 0.28, fontSize: 11, color: CINZA_TEXTO, valign: "top" });
+    s.addText((capa.cliente as string) || nomeCliente, { x: 0.4, y: 3.7, w: 5.5, h: 0.28, fontSize: 11, color: CINZA_TEXTO, valign: "top" });
+    s.addText(`Contrato: ${(capa.numeroContrato as string) || numeroContrato}`, { x: 0.4, y: 4.0, w: 5.5, h: 0.28, fontSize: 11, bold: true, color: AZUL_ESCURO, valign: "top" });
+    // Elaborador / revisor — só entram quando preenchidos no editor da Capa
+    const responsaveis: string[] = [];
+    const criadoPor = (capa.criadoPor as string) ?? "";
+    const revisadoPor = (capa.revisadoPor as string) ?? "";
+    if (criadoPor.trim()) responsaveis.push(`Elaborado por: ${criadoPor.trim()}`);
+    if (revisadoPor.trim()) responsaveis.push(`Revisado por: ${revisadoPor.trim()}`);
+    responsaveis.forEach((linha, i) => {
+      s.addText(linha, { x: 0.4, y: 4.4 + i * 0.3, w: 5.5, h: 0.28, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
+    });
   }
 
   // ── SLIDE 2: SUMÁRIO ───────────────────────────────────────────
@@ -130,32 +315,25 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     const s = pres.addSlide();
     s.background = { color: BRANCO };
     headerBar(s, "Sumário");
-    const sumItems = [
-      "Objetivo do relatório",
-      "Glossário de Termos Técnicos",
-      "Indicadores deste Relatório",
-      "Ambientes Implementados",
-      "Histórico evolutivo do Termo de Referência",
-      "Histórico TR — Aderência Global",
-      "Painel executivo",
-      "Evolução e Inovação",
-      "Demonstrativo de Horas",
-      "Eficiência Operacional",
-      "Eficiência e Previsibilidade",
-      "Desempenho da Aplicação",
-      "Engajamento e Experiência do Usuário",
-      "Maturidade e Gestão da Plataforma",
-      "Treinamentos / Reuniões",
-      "Oportunidades e Fatores de Atenção",
-      "Tarefas Priorizadas",
-      "Evolução e Inovação / Entregas",
-    ];
+    // Gerado a partir do SECTION_META, refletindo apenas as seções que serão
+    // realmente renderizadas (capa e sumário fora; ocultas fora).
+    const sumItems = SECTION_META
+      .filter((m) => m.key !== "capa" && m.key !== "sumario")
+      .filter((m) => !isHidden(sections[m.key] ?? {}))
+      .map((m) => m.label);
+
+    const sumTop = 0.82;
     const mid = Math.ceil(sumItems.length / 2);
-    sumItems.slice(0, mid).forEach((item, i) => {
-      s.addText(`${i + 1}.  ${item}`, { x: 0.5, y: 0.82 + i * 0.35, w: 4.6, h: 0.32, fontSize: 11, color: AZUL_MEDIO });
-    });
-    sumItems.slice(mid).forEach((item, i) => {
-      s.addText(`${mid + i + 1}.  ${item}`, { x: 5.3, y: 0.82 + i * 0.35, w: 4.6, h: 0.32, fontSize: 11, color: AZUL_MEDIO });
+    const passo = mid > 0 ? Math.min(0.35, (BODY_BOTTOM - sumTop) / mid) : 0.35;
+    const fsSum = passo >= 0.32 ? 11 : passo >= 0.26 ? 10 : 9;
+    const alturaItem = Math.min(passo, 0.32);
+    sumItems.forEach((item, i) => {
+      const col = i < mid ? 0 : 1;
+      const linha = i < mid ? i : i - mid;
+      s.addText(`${i + 1}.  ${item}`, {
+        x: col === 0 ? 0.5 : 5.3, y: sumTop + linha * passo, w: 4.6, h: alturaItem,
+        fontSize: fsSum, color: AZUL_MEDIO, valign: "top",
+      });
     });
   }
 
@@ -164,21 +342,30 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
     const sec = sections["glossario"] ?? {};
     const termos = (sec.termos as Array<{ termo: string; definicao: string }>) ?? [];
     if (!isHidden(sec)) {
-      const s = pres.addSlide();
+      let s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Glossário dos termos técnicos");
-      s.addText("Para facilitar a compreensão das informações apresentadas neste relatório, reunimos abaixo os principais termos técnicos utilizados.", { x: 0.4, y: 0.72, w: 9.2, h: 0.4, fontSize: 10, color: CINZA_TEXTO, wrap: true });
+      s.addText("Para facilitar a compreensão das informações apresentadas neste relatório, reunimos abaixo os principais termos técnicos utilizados.", { x: 0.4, y: BODY_TOP, w: 9.2, h: 0.4, fontSize: 10, color: CINZA_TEXTO, wrap: true, valign: "top" });
       if (termos.length === 0) {
         emptyMsg(s, "Nenhum termo cadastrado. Adicione termos na tela de edição.");
       } else {
       s.addShape("rect", { x: 0.4, y: 1.2, w: 9.2, h: 0.28, fill: { color: AZUL_MEDIO }, line: { color: AZUL_MEDIO } });
       s.addText("Termos utilizados", { x: 0.5, y: 1.2, w: 9, h: 0.28, fontSize: 10, bold: true, color: BRANCO, valign: "middle" });
       let yPos = 1.55;
-      termos.slice(0, 8).forEach((t) => {
-        s.addText(`${t.termo}:`, { x: 0.4, y: yPos, w: 9.2, h: 0.18, fontSize: 9, bold: true, color: CINZA_TEXTO });
-        s.addText(t.definicao, { x: 0.4, y: yPos + 0.18, w: 9.2, h: 0.28, fontSize: 9, color: CINZA_TEXTO, wrap: true });
-        s.addShape("line", { x: 0.4, y: yPos + 0.48, w: 9.2, h: 0, line: { color: "E0E7EF", width: 0.5 } });
-        yPos += 0.52;
+      termos.forEach((t) => {
+        const hTermo = estimateTextHeight(`${t.termo}:`, 9.2, 9, 0.02);
+        const hDef = estimateTextHeight(t.definicao ?? "", 9.2, 9, 0.04);
+        const bloco = hTermo + hDef + 0.1;
+        if (yPos + bloco > BODY_BOTTOM) {
+          s = pres.addSlide();
+          s.background = { color: BRANCO };
+          headerBar(s, "Glossário dos termos técnicos (cont.)");
+          yPos = BODY_TOP + 0.06;
+        }
+        s.addText(`${t.termo}:`, { x: 0.4, y: yPos, w: 9.2, h: hTermo, fontSize: 9, bold: true, color: CINZA_TEXTO, valign: "top" });
+        s.addText(t.definicao ?? "", { x: 0.4, y: yPos + hTermo, w: 9.2, h: hDef, fontSize: 9, color: CINZA_TEXTO, wrap: true, valign: "top" });
+        s.addShape("line", { x: 0.4, y: yPos + hTermo + hDef + 0.04, w: 9.2, h: 0, line: { color: "E0E7EF", width: 0.5 } });
+        yPos += bloco;
       });
       } // end else termos
     }
@@ -191,9 +378,23 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Objetivo do relatório");
-      s.addText((sec.texto as string) ?? "Apresentar as principais entregas, indicadores e oportunidades identificadas no período de referência, evidenciando a evolução do contrato e o engajamento das partes envolvidas.", { x: 0.5, y: 1.0, w: 9, h: 1.2, fontSize: 13, color: CINZA_TEXTO, wrap: true });
-      s.addText("O documento consolida informações sobre a evolução da plataforma, o engajamento dos usuários, a eficiência operacional e desempenho da aplicação, bem como os principais indicadores, entregas realizadas, prioridades do próximo período e pontos de atenção estratégicos.", { x: 0.5, y: 2.5, w: 9, h: 1.2, fontSize: 13, color: CINZA_TEXTO, wrap: true });
-      s.addText("Transparência  ●  Monitoramento do Projeto  ●  Tomada de Decisão", { x: 1.0, y: 4.2, w: 8, h: 0.5, fontSize: 13, bold: true, color: AZUL_MEDIO, align: "center" });
+      const par1 = (sec.texto as string) ?? "Apresentar as principais entregas, indicadores e oportunidades identificadas no período de referência, evidenciando a evolução do contrato e o engajamento das partes envolvidas.";
+      const par2 = (sec.texto_complementar as string) ?? "O documento consolida informações sobre a evolução da plataforma, o engajamento dos usuários, a eficiência operacional e desempenho da aplicação, bem como os principais indicadores, entregas realizadas, prioridades do próximo período e pontos de atenção estratégicos.";
+      const objTop = 1.0;
+      const objBottom = 4.05; // acima da faixa "Transparência ● …" (y 4.2)
+      const espaco = 0.22;
+      // A textarea do editor aceita textos longos: reduz a fonte até os dois
+      // parágrafos caberem entre o título e a faixa de destaque.
+      let fsObj = 13;
+      for (; fsObj > 9; fsObj--) {
+        const total = estimateTextHeight(par1, 9, fsObj) + estimateTextHeight(par2, 9, fsObj) + espaco;
+        if (objTop + total <= objBottom) break;
+      }
+      const h1 = estimateTextHeight(par1, 9, fsObj);
+      const h2 = estimateTextHeight(par2, 9, fsObj);
+      s.addText(par1, { x: 0.5, y: objTop, w: 9, h: h1, fontSize: fsObj, color: CINZA_TEXTO, wrap: true, valign: "top" });
+      s.addText(par2, { x: 0.5, y: objTop + h1 + espaco, w: 9, h: h2, fontSize: fsObj, color: CINZA_TEXTO, wrap: true, valign: "top" });
+      s.addText("Transparência  ●  Monitoramento do Projeto  ●  Tomada de Decisão", { x: 1.0, y: 4.2, w: 8, h: 0.5, fontSize: 13, bold: true, color: AZUL_MEDIO, align: "center", valign: "middle" });
     }
   }
 
@@ -204,7 +405,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Indicadores deste relatório");
-      s.addText("Os indicadores apresentados neste relatório utilizam um modelo de avaliação por faixas (termômetro), permitindo uma leitura rápida do nível de saúde, desempenho e maturidade do projeto.", { x: 0.4, y: 0.72, w: 9.2, h: 0.45, fontSize: 10, color: CINZA_TEXTO, italic: true, wrap: true });
+      s.addText("Os indicadores apresentados neste relatório utilizam um modelo de avaliação por faixas (termômetro), permitindo uma leitura rápida do nível de saúde, desempenho e maturidade do projeto.", { x: 0.4, y: BODY_TOP, w: 9.2, h: 0.45, fontSize: 10, color: CINZA_TEXTO, italic: true, wrap: true, valign: "top" });
 
       // Cards de indicadores (2x2 + 1)
       // 5 cards em coluna única à esquerda (w=5.5), legenda à direita (x=6.1)
@@ -218,8 +419,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       inds.forEach((ind, i) => {
         const y = 1.25 + i * 0.72;
         s.addShape("roundRect", { x: 0.4, y, w: 5.5, h: 0.65, fill: { color: AZUL_CLARO }, line: { color: AZUL_MEDIO, width: 0.5 }, rectRadius: 0.06 });
-        s.addText(ind.label, { x: 0.55, y: y+0.04, w: 5.2, h: 0.22, fontSize: 10, bold: true, color: AZUL_ESCURO });
-        s.addText(ind.desc, { x: 0.55, y: y+0.27, w: 5.2, h: 0.34, fontSize: 8, color: CINZA_TEXTO, wrap: true });
+        s.addText(ind.label, { x: 0.55, y: y+0.04, w: 5.2, h: 0.22, fontSize: 10, bold: true, color: AZUL_ESCURO, valign: "top" });
+        const descFit = fitText(ind.desc, 5.2, 0.34, 8, 6);
+        s.addText(descFit.text, { x: 0.55, y: y+0.27, w: 5.2, h: 0.34, fontSize: descFit.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
       });
 
       // Legenda status — coluna direita
@@ -269,14 +471,14 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         const cor = COR_AMB[amb.status] ?? COR_AMB.ativo;
         s.addShape("roundRect", { x, y: 0.85, w: 4.5, h: 4.35, fill: { color: BRANCO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.12, shadow: { type: "outer", color: "000000", blur: 6, offset: 2, angle: 45, opacity: 0.08 } });
         s.addShape("rect", { x, y: 0.85, w: 4.5, h: 0.1, fill: { color: cor }, line: { color: cor } });
-        s.addText(amb.nome, { x: x+0.2, y: 1.02, w: 3.5, h: 0.4, fontSize: 13, bold: true, color: CINZA_TEXTO });
+        s.addText(amb.nome, { x: x+0.2, y: 1.02, w: 3.5, h: 0.4, fontSize: 13, bold: true, color: CINZA_TEXTO, valign: "top" });
         // Badge status
         s.addShape("roundRect", { x: x+0.2, y: 1.48, w: 1.2, h: 0.3, fill: { color: cor, transparency: 85 }, line: { color: cor, width: 0.5 }, rectRadius: 0.04 });
         s.addText(`✅ ${amb.status.charAt(0).toUpperCase() + amb.status.slice(1)}`, { x: x+0.2, y: 1.48, w: 1.2, h: 0.3, fontSize: 9, color: cor, align: "center", valign: "middle" });
         // Itens
         amb.itens.slice(0, 6).forEach((item, ii) => {
           s.addShape("ellipse", { x: x+0.2, y: 1.95 + ii * 0.45, w: 0.15, h: 0.15, fill: { color: cor }, line: { color: cor } });
-          s.addText(item, { x: x+0.42, y: 1.92 + ii * 0.45, w: 3.85, h: 0.4, fontSize: 10, color: CINZA_TEXTO, wrap: true });
+          s.addText(item, { x: x+0.42, y: 1.92 + ii * 0.45, w: 3.85, h: 0.4, fontSize: 10, color: CINZA_TEXTO, wrap: true, valign: "top" });
         });
       });
       } // end else ambientes
@@ -307,17 +509,18 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
   // ── SLIDE 8: HISTÓRICO TR ──────────────────────────────────────
   {
     const sec = sections["historico_tr"] ?? {};
-    type Linha = { descricao: string; status: string; entregue?: boolean };
+    type Linha = { descricao: string; status: string; entregue?: boolean; observacoes?: string };
     const linhas = ((sec.linhas as Linha[]) ?? []).map(l => ({
       descricao: l.descricao ?? "",
       status: l.status ?? (l.entregue === true ? "sim" : "não"),
+      observacoes: l.observacoes ?? "",
     })).filter(l => l.descricao.trim());
 
     if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Histórico evolutivo do Termo de Referência");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 7, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 7, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
 
       const total = linhas.length;
       const sim   = linhas.filter(l => l.status === "sim").length;
@@ -335,18 +538,17 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       // Legenda contadores
       s.addText(`✓ ${sim}  ◑ ${parc}  ✗ ${nao}`, { x: 0.5, y: 1.02, w: 5, h: 0.25, fontSize: 9, color: "666666" });
 
-      const tableData = [
-        [{ text: "MACROENTREGA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "OBSERVAÇÕES", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-        ...linhas.map(l => [
-          l.descricao,
-          {
-            text: l.status === "sim" ? "✓ Sim" : l.status === "parcialmente" ? "◑ Parcial" : "✗ Não",
-            options: { bold: true, color: COR_STATUS_TR[l.status] ?? "333333" }
-          },
-          (l as any).observacoes ?? "",
-        ]),
-      ];
-      s.addTable(tableData as any, { x: 0.4, y: 1.32, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.36, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
+      const rowsTr: TableRow[] = linhas.map(l => [
+        { text: l.descricao },
+        {
+          text: l.status === "sim" ? "✓ Sim" : l.status === "parcialmente" ? "◑ Parcial" : "✗ Não",
+          options: { bold: true, color: COR_STATUS_TR[l.status] ?? "333333" }
+        },
+        { text: l.observacoes },
+      ]);
+      addPaginatedTable(pres, s, "Histórico evolutivo do Termo de Referência", tableHeader("MACROENTREGA", "STATUS", "OBSERVAÇÕES"), rowsTr, {
+        colW: [5.0, 1.4, 2.8], firstY: 1.32, contY: 1.1, fontSize: 10, minRowH: 0.36, subtitle: mesAno,
+      });
       } // end else histórico TR
     }
   }
@@ -358,7 +560,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Histórico evolutivo do Termo de Referência");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
 
       if (!sec.percentual_global && !sec.analise) {
         emptyMsg(s, "Preencha os dados de aderência global na tela de edição.");
@@ -388,8 +590,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
 
       // Análise
       if (sec.analise) {
-        s.addShape("roundRect", { x: 0.4, y: 3.45, w: 9.2, h: 1.65, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
-        s.addText(sec.analise as string, { x: 0.55, y: 3.55, w: 8.9, h: 1.45, fontSize: 10, color: CINZA_TEXTO, wrap: true, valign: "top" });
+        s.addShape("roundRect", { x: 0.4, y: 3.45, w: 9.2, h: 1.5, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.08 });
+        const anaAder = fitText(sec.analise as string, 8.9, 1.3, 10, 7);
+        s.addText(anaAder.text, { x: 0.55, y: 3.55, w: 8.9, h: 1.3, fontSize: anaAder.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
       } // end else aderência
     }
@@ -402,7 +605,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Painel Executivo");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       const cards = [
         { key: "historicoTr",              label: "Histórico do TR" },
         { key: "evolucaoInovacao",          label: "Evolução e Inovação" },
@@ -420,7 +623,8 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         statusBadge(s, x+0.25, y+0.85, 2.35, status);
       });
       if (sec.observacoes) {
-        s.addText(sec.observacoes as string, { x: 0.4, y: 4.65, w: 9.2, h: 0.4, fontSize: 9, color: "888888", italic: true });
+        const obsPainel = fitText(sec.observacoes as string, 9.2, 0.36, 9, 7);
+        s.addText(obsPainel.text, { x: 0.4, y: 4.6, w: 9.2, h: 0.36, fontSize: obsPainel.fontSize, color: "888888", italic: true, wrap: true, valign: "top" });
       }
     }
   }
@@ -434,7 +638,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Evolução e Inovação");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       sourceFooter(s, 'asana');
 
       // Gráfico histórico de barras por mês (usa historico_mensal se disponível, senão tags do mês atual)
@@ -530,51 +734,37 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       // Painel direito — análise
       s.addShape("roundRect", { x: 4.85, y: 1.05, w: 4.75, h: 3.9, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
       const totalEvo = Number(sec.total_entregas ?? 0);
-      s.addText(`Total de entregas: ${totalEvo}`, { x: 5.0, y: 1.15, w: 4.4, h: 0.3, fontSize: 11, color: CINZA_TEXTO });
-      s.addText(`% Inovação: ${pctEvo}%`, { x: 5.0, y: 1.5, w: 4.4, h: 0.3, fontSize: 13, bold: true, color: AZUL_ESCURO });
+      s.addText(`Total de entregas: ${totalEvo}`, { x: 5.0, y: 1.15, w: 4.4, h: 0.3, fontSize: 11, color: CINZA_TEXTO, valign: "top" });
+      s.addText(`% Inovação: ${pctEvo}%`, { x: 5.0, y: 1.5, w: 4.4, h: 0.3, fontSize: 13, bold: true, color: AZUL_ESCURO, valign: "top" });
       if (sec.analise) {
-        s.addText(sec.analise as string, { x: 5.0, y: 1.95, w: 4.4, h: 2.85, fontSize: 10, color: CINZA_TEXTO, wrap: true, valign: "top" });
+        // O card cinza termina em y=4.95: reduz a fonte e trunca para não vazar.
+        const anaEvo = fitText(sec.analise as string, 4.4, 2.85, 10, 7);
+        s.addText(anaEvo.text, { x: 5.0, y: 1.95, w: 4.4, h: 2.85, fontSize: anaEvo.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
     }
   }
 
-  // ── SLIDE 12: DEMONSTRATIVO DE HORAS ────────────────────────────
+  // ── SLIDE 12: EQUIPE DO PROJETO ─────────────────────────────────
   {
     const sec = sections["demonstrativo_horas"] ?? {};
-    const linhasDemo = (sec.linhas as Array<{ recurso: string; funcao?: string; dedicacao?: string; unidade: string; quantidade: number }>) ?? [];
+    const linhasDemo = (sec.linhas as Array<{ recurso: string; funcao?: string }>) ?? [];
     if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
-      headerBar(s, "Demonstrativo de Horas");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-      const total = linhasDemo.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
-      const tableData = [
-        [{ text: "RECURSO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "FUNÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "UNIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "QTD", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-        ...linhasDemo.map(l => [l.recurso ?? "", l.funcao ?? "", l.unidade ?? "horas", String(l.quantidade ?? 0)]),
-        [{ text: "TOTAL", options: { bold: true, fill: { color: AZUL_CLARO } } }, "", "", "", { text: String(total), options: { bold: true, fill: { color: AZUL_CLARO } } }],
-      ];
-      if (sec.legenda) {
-        tableData.push([{ text: sec.legenda as string, options: { color: "888888", colspan: 5, fontSize: 8 } as any }, "", "", "", ""]);
-      }
-      const maxLinhasPorSlide = 12;
-      const chunks: typeof tableData[] = [];
-      for (let ci = 1; ci < tableData.length - 1; ci += maxLinhasPorSlide) {
-        chunks.push([tableData[0], ...tableData.slice(ci, ci + maxLinhasPorSlide)]);
-      }
-      if (chunks.length === 0) chunks.push(tableData);
-      else chunks[chunks.length - 1].push(tableData[tableData.length - 1]); // linha TOTAL na última página
-      chunks.forEach((chunk, ci) => {
-        const slideData = ci === 0 ? chunk : [tableData[0], ...chunk.slice(1)];
-        if (ci > 0) {
-          const sExtra = pres.addSlide();
-          sExtra.background = { color: BRANCO };
-          headerBar(sExtra, "Demonstrativo de Horas (cont.)");
-          sExtra.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-          sExtra.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [3.5, 2.8, 1.5, 1.4], align: "left", valign: "middle" });
-        } else {
-          s.addTable(slideData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.32, colW: [3.5, 2.8, 1.5, 1.4], align: "left", valign: "middle" });
+      headerBar(s, "Equipe do Projeto");
+      s.addText(mesAno, { x: 0.5, y: BODY_TOP, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
+      if (linhasDemo.length === 0) {
+        emptyMsg(s, "Nenhum recurso cadastrado. Preencha na tela de edição.");
+      } else {
+        const colWEquipe = [4.6, 4.6];
+        const rowsEquipe: TableRow[] = linhasDemo.map(l => [{ text: l.recurso ?? "" }, { text: l.funcao ?? "" }]);
+        if (sec.legenda) {
+          rowsEquipe.push([{ text: sec.legenda as string, options: { color: "888888", colspan: 2, fontSize: 8 } }]);
         }
-      });
+        addPaginatedTable(pres, s, "Equipe do Projeto", tableHeader("RECURSO", "FUNÇÃO"), rowsEquipe, {
+          colW: colWEquipe, firstY: 1.1, contY: 1.1, fontSize: 9, minRowH: 0.32, subtitle: mesAno, valign: "middle",
+        });
+      }
     }
   }
 
@@ -586,7 +776,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.background = { color: BRANCO };
       headerBar(s, "Eficiência Operacional");
       sourceFooter(s, 'milvus');
-      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
       kpiCard(s, 0.5, 1.6, 1.3, 1.0, "SLA", String(sec.sla ?? "—"), "1E8A3E");
       kpiCard(s, 1.9, 1.6, 1.3, 1.0, "Tickets", String(sec.tickets ?? "—"), AZUL_ESCURO);
@@ -602,20 +792,20 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         });
       }
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 2.6, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, rectRadius: 0.1 });
-      s.addText("Análise – Eficiência Operacional", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, margin: 0 });
-      s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.55, w: 5.6, h: 2.0, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
+      s.addText("Análise – Eficiência Operacional", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, margin: 0, valign: "top" });
+      const anaOper = fitText((sec.analise as string) || "Análise a ser preenchida.", 5.6, 2.0, 10, 7);
+      s.addText(anaOper.text, { x: 3.75, y: 1.55, w: 5.6, h: 2.0, fontSize: anaOper.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
     }
   }
 
   // ── SLIDE 14: EFICIÊNCIA E PREVISIBILIDADE ──────────────────────
   {
     const sec = sections["eficiencia_previsibilidade"] ?? {};
-    const temDados = sec.frequencia_deploy || sec.frequenciaDeploy || sec.lead_time || sec.leadTime || sec.demandas;
     if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Eficiência e Previsibilidade");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
       if (!sec.frequencia_deploy && !sec.frequenciaDeploy && !sec.lead_time && !sec.leadTime && !sec.demandas) {
         emptyMsg(s, "Dados serão preenchidos via Azure DevOps. Configure na tela de edição.");
@@ -634,8 +824,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       });
       if (sec.analise) {
         s.addShape("roundRect", { x: 5.4, y: 1.05, w: 4.1, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: "E0E7EF", width: 0.5 }, rectRadius: 0.1 });
-        s.addText("Análise", { x: 5.55, y: 1.15, w: 3.8, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO });
-        s.addText(sec.analise as string, { x: 5.55, y: 1.6, w: 3.8, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
+        s.addText("Análise", { x: 5.55, y: 1.15, w: 3.8, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, valign: "top" });
+        const anaPrev = fitText(sec.analise as string, 3.8, 3.4, 10, 7);
+        s.addText(anaPrev.text, { x: 5.55, y: 1.6, w: 3.8, h: 3.4, fontSize: anaPrev.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
     }
   }
@@ -647,21 +838,13 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Desempenho da Aplicação");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
 
       const statusRaw = normalizeStatus((sec.status as string) ?? "adequado");
       statusBadge(s, 0.5, 1.1, 2.8, statusRaw);
 
-      // Gauge usando arcos
-      const gx = 0.5; const gy = 1.6; const gw = 2.8;
-      // Arcos do gauge (semiciclo dividido em 4)
-      const arcos = [
-        { path: "M 0.5,2.4 A 1.2,1.2 0 0 1 0.85,1.55", cor: "C81E1E" },
-      ];
-      // Simplificado: 4 retângulos curvados representando os arcos
-      // Gauge semicírculo usando SVG embutido como imagem
-      // Gera SVG do gauge e converte para base64
       // Gauge velocímetro — paths fixos pré-calculados (cx=150,cy=150,r=110,sweep=1)
+      const gx = 0.5; const gy = 1.6; const gw = 2.8;
       // Arco 180°→360° pelo topo (270°=y40). Ponteiro aponta para status ativo.
       const needlePoints: Record<string, [number,number]> = {
         critico:  [66.6,  116.3],
@@ -689,20 +872,20 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
 
       // Análise
       s.addShape("roundRect", { x: 3.6, y: 1.05, w: 5.9, h: 4.1, fill: { color: CINZA_CLARO }, line: { color: CINZA_CLARO, width: 0 }, rectRadius: 0.1 });
-      s.addText("Análise – Desempenho da Aplicação", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO });
-      s.addText((sec.analise as string) || "Análise a ser preenchida.", { x: 3.75, y: 1.6, w: 5.6, h: 3.2, fontSize: 10, color: CINZA_TEXTO, valign: "top" });
+      s.addText("Análise – Desempenho da Aplicação", { x: 3.75, y: 1.15, w: 5.6, h: 0.35, fontSize: 11, bold: true, color: AZUL_ESCURO, valign: "top" });
+      const anaDesemp = fitText((sec.analise as string) || "Análise a ser preenchida.", 5.6, 3.4, 10, 7);
+      s.addText(anaDesemp.text, { x: 3.75, y: 1.6, w: 5.6, h: 3.4, fontSize: anaDesemp.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
     }
   }
 
   // ── SLIDE 16: ENGAJAMENTO DO USUÁRIO ────────────────────────────
   {
     const sec = sections["engajamento_usuario"] ?? {};
-    const temEngDados = sec.usuariosCadastrados || sec.usuariosUnicos || sec.sessoes || sec.status;
     if (!isHidden(sec)) {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Engajamento e Experiência do Usuário");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       statusBadge(s, 0.5, 1.1, 2.8, (sec.status as string) ?? "adequado");
       const kpisEng = [
         { label: "Usuários Cad.", val: String(sec.usuariosCadastrados ?? "—") },
@@ -717,7 +900,8 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
         kpiCard(s, 0.4 + col * 1.65, 1.6 + row * 1.2, 1.45, 1.0, k.label, k.val, AZUL_MEDIO);
       });
       if (sec.analise) {
-        s.addText(sec.analise as string, { x: 0.5, y: 4.1, w: 9, h: 0.8, fontSize: 10, color: CINZA_TEXTO, wrap: true });
+        const anaEng = fitText(sec.analise as string, 9, 0.85, 10, 7);
+        s.addText(anaEng.text, { x: 0.5, y: 4.1, w: 9, h: 0.85, fontSize: anaEng.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
     }
   }
@@ -730,7 +914,7 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Maturidade e Gestão da Plataforma");
-      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.72, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       if (metricas.length === 0 && !sec.analise) {
         emptyMsg(s, "Preencha as métricas de maturidade na tela de edição.");
       }
@@ -740,7 +924,9 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       });
       if (sec.analise) {
         const yBase = metricas.length > 0 ? 1.1 + Math.ceil(metricas.length / 4) * 1.2 + 0.2 : 1.1;
-        s.addText(sec.analise as string, { x: 0.5, y: yBase, w: 9, h: 1.5, fontSize: 10, color: CINZA_TEXTO, wrap: true });
+        const alturaAna = Math.max(0.4, BODY_BOTTOM - yBase);
+        const anaMat = fitText(sec.analise as string, 9, alturaAna, 10, 7);
+        s.addText(anaMat.text, { x: 0.5, y: yBase, w: 9, h: alturaAna, fontSize: anaMat.fontSize, color: CINZA_TEXTO, wrap: true, valign: "top" });
       }
     }
   }
@@ -753,22 +939,30 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.background = { color: BRANCO };
       headerBar(s, "Treinamentos / Reuniões");
       sourceFooter(s, 'fireflies');
-      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       const reunioes = ((sec.linhas ?? sec.reunioes) as Array<{ tipo: string; data: string; horario?: string; descricao: string }>) ?? [];
+      const rodapeTreino = (sec.rodape as string) ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.";
+      let slideTreino = s;
       if (reunioes.length > 0) {
-        const tableData = [
-          [{ text: "TIPO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DATA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "DESCRIÇÃO DA ATIVIDADE", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-          ...reunioes.map(r => {
-            const desc = (r.descricao ?? "");
-            const descTruncada = desc.length > 280 ? desc.substring(0, 280) + "..." : desc;
-            return [r.tipo ?? "", `${r.data ?? ""}${r.horario ? " " + r.horario : ""}`, descTruncada];
-          }),
-        ];
-        s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 9, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.65, colW: [1.6, 1.3, 6.3], align: "left", valign: "top" });
+        // Tabela densa: fonte 8 e descrição limitada, com paginação por altura real.
+        const rowsTreino: TableRow[] = reunioes.map(r => {
+          const desc = r.descricao ?? "";
+          const descTruncada = desc.length > 240 ? desc.substring(0, 240).trimEnd() + "…" : desc;
+          return [
+            { text: r.tipo ?? "" },
+            { text: `${r.data ?? ""}${r.horario ? " " + r.horario : ""}` },
+            { text: descTruncada },
+          ];
+        });
+        const paginado = addPaginatedTable(pres, s, "Treinamentos / Reuniões", tableHeader("TIPO", "DATA", "DESCRIÇÃO DA ATIVIDADE"), rowsTreino, {
+          colW: [1.6, 1.3, 6.3], firstY: 1.1, contY: 1.1, fontSize: 8, minRowH: 0.32,
+          subtitle: mesAno, source: 'fireflies', lastPageReserve: 0.45,
+        });
+        slideTreino = paginado;
       } else {
         emptyMsg(s, "Nenhuma reunião registrada para o período.");
       }
-      s.addText((sec.rodape as string) ?? "Além das reuniões e treinamentos realizados, a equipe da BNP presta apoio consultivo contínuo aos gestores.", { x: 0.4, y: 4.6, w: 9.2, h: 0.4, fontSize: 9, bold: true, color: CINZA_TEXTO, italic: true });
+      slideTreino.addText(rodapeTreino, { x: 0.4, y: 4.55, w: 9.2, h: 0.4, fontSize: 9, bold: true, color: CINZA_TEXTO, italic: true, wrap: true, valign: "top" });
     }
   }
 
@@ -779,14 +973,13 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Oportunidades e Fatores de Atenção");
-      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
       const itens = (sec.linhas as Array<{ descricao: string; tipo: string }>) ?? [];
       if (itens.length > 0) {
-        const tableData = [
-          [{ text: "DESCRIÇÃO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "TIPO", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-          ...itens.map(it => [it.descricao ?? "", it.tipo ?? ""]),
-        ];
-        s.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 11, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.55, colW: [7.0, 2.2], align: "left", valign: "middle" });
+        const rowsOport: TableRow[] = itens.map(it => [{ text: it.descricao ?? "" }, { text: it.tipo ?? "" }]);
+        addPaginatedTable(pres, s, "Oportunidades e Fatores de Atenção", tableHeader("DESCRIÇÃO", "TIPO"), rowsOport, {
+          colW: [7.0, 2.2], firstY: 1.1, contY: 1.1, fontSize: 11, minRowH: 0.45, subtitle: mesAno,
+        });
       } else {
         emptyMsg(s, "Nenhum item registrado para o período.");
       }
@@ -802,27 +995,21 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       s.background = { color: BRANCO };
       headerBar(s, "Tarefas Priorizadas");
       sourceFooter(s, 'asana');
-      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-      s.addText("Tarefas em andamento e planejadas para o próximo período.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
+      s.addText("Tarefas em andamento e planejadas para o próximo período.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true, valign: "top" });
       if (tarefasPrio.length === 0) {
         emptyMsg(s, "Nenhuma tarefa priorizada. Sincronize com o Asana.");
       } else {
-        const header = [{ text: "TAREFAS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "CATEGORIA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }];
-        const rows = tarefasPrio.map(t => [t.nome ?? t.tarefa ?? "", t.status ?? "", t.categoria ?? ""]);
-        const maxRows = 9;
-        for (let pi = 0; pi < Math.ceil(rows.length / maxRows); pi++) {
-          const chunk = rows.slice(pi * maxRows, (pi + 1) * maxRows);
-          const tableData = [header, ...chunk];
-          if (pi === 0) {
-            s.addTable(tableData as any, { x: 0.4, y: 1.55, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
-            if (sec.total_backlog) s.addText(`Backlog: ${sec.total_backlog} itens`, { x: 0.4, y: 4.75, w: 4, h: 0.3, fontSize: 10, color: "888888", italic: true });
-          } else {
-            const sP = pres.addSlide();
-            sP.background = { color: BRANCO };
-            headerBar(sP, "Tarefas Priorizadas (cont.)");
-            sP.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-            sP.addTable(tableData as any, { x: 0.4, y: 1.1, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.38, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
-          }
+        const rowsPrio: TableRow[] = tarefasPrio.map(t => [
+          { text: t.nome ?? t.tarefa ?? "" }, { text: t.status ?? "" }, { text: t.categoria ?? "" },
+        ]);
+        const paginado = addPaginatedTable(pres, s, "Tarefas Priorizadas", tableHeader("TAREFAS", "STATUS", "CATEGORIA"), rowsPrio, {
+          colW: [5.0, 1.4, 2.8], firstY: 1.55, contY: 1.1, fontSize: 10, minRowH: 0.38,
+          subtitle: mesAno, source: 'asana', lastPageReserve: sec.total_backlog ? 0.42 : 0,
+        });
+        // Backlog só na última página
+        if (sec.total_backlog) {
+          paginado.addText(`Backlog: ${sec.total_backlog} itens`, { x: 0.4, y: 4.62, w: 4, h: 0.3, fontSize: 10, color: "888888", italic: true, valign: "top" });
         }
       }
     }
@@ -835,17 +1022,21 @@ export async function generatePptx(input: GeneratePptxInput): Promise<void> {
       const s = pres.addSlide();
       s.background = { color: BRANCO };
       headerBar(s, "Evolução e Inovação / Entregas");
-      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555" });
-      s.addText("Tarefas desenvolvidas pelo time durante o período. Todas registradas no Asana.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true });
+      sourceFooter(s, 'asana');
+      s.addText(mesAno, { x: 0.5, y: 0.75, w: 9, h: 0.28, fontSize: 11, bold: true, color: "555555", valign: "top" });
+      s.addText("Tarefas desenvolvidas pelo time durante o período. Todas registradas no Asana.", { x: 0.5, y: 1.05, w: 9, h: 0.4, fontSize: 11, color: "555555", italic: true, valign: "top" });
       const tarefas = ((sec.tarefas ?? sec.linhas) as Array<{ nome?: string; tarefa?: string; status: string; categoria: string }>) ?? [];
       if (tarefas.length > 0) {
-        const tableData = [
-          [{ text: "TAREFAS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "STATUS", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }, { text: "CATEGORIA", options: { bold: true, color: BRANCO, fill: { color: AZUL_MEDIO } } }],
-          ...tarefas.map(t => [t.nome ?? t.tarefa ?? "", t.status ?? "Concluído", t.categoria ?? ""]),
-        ];
-        s.addTable(tableData as any, { x: 0.4, y: 1.55, w: 9.2, fontSize: 10, border: { pt: 0.5, color: "D0DCE8" }, rowH: 0.42, colW: [5.0, 1.4, 2.8], align: "left", valign: "middle" });
-        s.addShape("ellipse", { x: 8.8, y: 4.8, w: 0.85, h: 0.85, fill: { color: AZUL_MEDIO }, line: { color: AZUL_MEDIO } });
-        s.addText(`Total\n${tarefas.length}`, { x: 8.8, y: 4.8, w: 0.85, h: 0.85, fontSize: 9, bold: true, color: BRANCO, align: "center", valign: "middle", margin: 0 });
+        const rowsEntregas: TableRow[] = tarefas.map(t => [
+          { text: t.nome ?? t.tarefa ?? "" }, { text: t.status ?? "Concluído" }, { text: t.categoria ?? "" },
+        ]);
+        const paginado = addPaginatedTable(pres, s, "Evolução e Inovação / Entregas", tableHeader("TAREFAS", "STATUS", "CATEGORIA"), rowsEntregas, {
+          colW: [5.0, 1.4, 2.8], firstY: 1.55, contY: 1.1, fontSize: 10, minRowH: 0.38,
+          subtitle: mesAno, source: 'asana', lastPageReserve: 0.72,
+        });
+        // Bolha "Total N" só na última página
+        paginado.addShape("ellipse", { x: 8.95, y: 4.32, w: 0.65, h: 0.65, fill: { color: AZUL_MEDIO }, line: { color: AZUL_MEDIO } });
+        paginado.addText(`Total\n${tarefas.length}`, { x: 8.95, y: 4.32, w: 0.65, h: 0.65, fontSize: 8, bold: true, color: BRANCO, align: "center", valign: "middle", margin: 0 });
       } else {
         emptyMsg(s, "Nenhuma entrega registrada para o período.");
       }

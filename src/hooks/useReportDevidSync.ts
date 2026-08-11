@@ -25,9 +25,13 @@ export function useReportDevidSync() {
 
       if (error) throw error;
 
+      // O Fireflies deixou de ser sincronizado aqui (passou a ter um único dono,
+      // a função report-sync-fireflies). Este toast agora reporta só o Milvus.
+      const avisos: string[] = [...(data?.milvus_avisos ?? []), ...(data?.milvus_erros ?? [])];
       toast({
-        title: 'Milvus e Fireflies sincronizados!',
-        description: `${data.milvus?.tickets ?? 0} tickets e ${data.fireflies?.reunioes ?? 0} reuniões importados.`,
+        title: avisos.length > 0 ? 'Milvus sincronizado com ressalvas' : 'Milvus sincronizado!',
+        description: `${data?.milvus?.tickets ?? 0} chamado(s) importado(s).${avisos.length > 0 ? ` ${avisos.slice(0, 2).join(' · ')}` : ''}`,
+        variant: avisos.length > 0 ? 'destructive' : undefined,
       });
 
       // Sync Azure DevOps — independente do resultado anterior

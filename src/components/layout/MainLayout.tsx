@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, TrendingDown, X } from 'lucide-react';
+import { AlertTriangle, FileBarChart2, TrendingDown, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccessLogs } from '@/contexts/AccessLogContext';
 import { Sidebar } from './Sidebar';
@@ -13,6 +13,8 @@ import { MODULE_CATALOG } from '@/types/moduleAccess';
 import { supabase } from '@/integrations/supabase/client';
 import { useUnderutilized } from '@/hooks/useUnderutilized';
 import { useData } from '@/contexts/DataContext';
+import { useNotificationContext } from '@/contexts/NotificationContext';
+import { REPORT_NOTIFICATION_TYPES } from '@/lib/notifyRelatorios';
 
 
 export function MainLayout() {
@@ -36,6 +38,14 @@ export function MainLayout() {
   const underutilizedThreshold = settings?.thresholdSubocupacao ?? 50;
 
   const canSeeBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte' || userRole === 'projetos_produtos';
+  // Avisos de relatório no topo das telas: só para quem acompanha o fluxo de revisão
+  // e liberação. Alimenta-se das notificações não lidas do próprio usuário.
+  const canSeeReportBanner = userRole === 'superadmin' || userRole === 'lider_tribo' || userRole === 'projetos_produtos' || userRole === 'administrativo';
+  const { dbNotifications, markDbAsRead } = useNotificationContext();
+  const reportNotices = canSeeReportBanner
+    ? dbNotifications.filter((n) => !n.lida && (REPORT_NOTIFICATION_TYPES as readonly string[]).includes(n.tipo))
+    : [];
+  const reportNotice = reportNotices[0];
   const canSeeUnderutilizedBanner = userRole === 'c-level' || userRole === 'lider_tribo' || userRole === 'coordenacao_suporte' || userRole === 'projetos_produtos' || userRole === 'rh';
 
   useEffect(() => {
@@ -168,6 +178,29 @@ export function MainLayout() {
                 aria-label="Fechar"
               >
                 <X className="w-4 h-4 text-orange-400" />
+              </button>
+            </div>
+          </div>
+        )}
+        {reportNotice && (
+          <div className="bg-sky-500/15 border-b border-sky-500/30 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm text-sky-500 font-medium flex items-center gap-2">
+              <FileBarChart2 className="w-4 h-4 shrink-0" />
+              {reportNotice.titulo}
+              {reportNotice.mensagem && <span className="font-normal opacity-90">— {reportNotice.mensagem}</span>}
+              {reportNotices.length > 1 && (
+                <span className="font-normal opacity-75">(+{reportNotices.length - 1})</span>
+              )}
+            </span>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => { markDbAsRead(reportNotice.id); if (reportNotice.link) navigate(reportNotice.link); }}
+                className="text-xs text-sky-500 underline hover:text-sky-400"
+              >
+                Abrir relatório
+              </button>
+              <button onClick={() => markDbAsRead(reportNotice.id)} aria-label="Fechar">
+                <X className="w-4 h-4 text-sky-500" />
               </button>
             </div>
           </div>
