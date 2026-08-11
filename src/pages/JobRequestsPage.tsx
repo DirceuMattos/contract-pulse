@@ -1,9 +1,13 @@
-// v6 - Vagas: subtela "Nao repostas / Contratacoes avulsas" + reposto por
-import { useState } from 'react';
-import { Briefcase, Check, Copy, Gift, MapPin, Pencil, Plane, Plus, Trash2, UserMinus } from 'lucide-react';
+// v7 - Vagas: busca unificada (vagas + reposicoes) e novos metadados no card
+import { useMemo, useState } from 'react';
+import {
+  AlertTriangle, Briefcase, Check, Copy, FileSignature, Gift, Laptop, MapPin, Pencil, Plane,
+  Plus, Search, Target, Trash2, UserMinus, Wallet, X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -17,9 +21,10 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useJobRequests, type JobRequest, type JobRequestFillSource, type JobRequestStatus,
-  STATUS_META, STATUS_FLOW,
+  STATUS_META, STATUS_FLOW, PRAZO_META, MOTIVO_META, REGIME_META,
 } from '@/hooks/useJobRequests';
-import { usePendingReplacementsForVaga } from '@/hooks/usePendingReplacementsForVaga';
+import { usePendingReplacementsForVaga, type ReplacementForVaga } from '@/hooks/usePendingReplacementsForVaga';
+import { formatCurrency } from '@/lib/calculations';
 import { JobRequestDialog } from '@/components/jobrequests/JobRequestDialog';
 import { NaoReporDialog } from '@/components/jobrequests/NaoReporDialog';
 import { notifyVagaAberta, notifyVagaStatus } from '@/lib/notifyVagas';
@@ -58,6 +63,23 @@ type SkillSnapshot = {
   tipo?: unknown;
 };
 
+// Busca sem acentos e sem diferenciar maiúsculas/minúsculas ("Joao" acha "João").
+function normalizeSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+// Todos os termos digitados precisam aparecer em algum dos campos considerados.
+function matchesTerms(terms: string[], fields: (string | null | undefined)[]): boolean {
+  if (terms.length === 0) return true;
+  const haystack = normalizeSearch(fields.filter(Boolean).join(' '));
+  return terms.every((term) => haystack.includes(term));
+}
+
 function StatusBadge({ status }: { status: JobRequestStatus }) {
   const meta = STATUS_META[status];
   return (
@@ -90,7 +112,7 @@ function getRequestSkills(request: JobRequest, tipo: 'hard' | 'soft') {
 export default function JobRequestsPage() {
   const { canEdit, userRole, user } = useAuth();
   const { requests, loading, error, reload } = useJobRequests();
-  const { items: reposicoes, reload: reloadReposicoes } = usePendingReplacementsForVaga();
+  const { items: reposicoes, error: reposicoesError, reload: reloadReposicoes } = usePendingReplacementsForVaga();
   const [filter, setFilter] = useState<JobRequestStatus | 'todos'>('todos');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<JobRequest | null>(null);
@@ -99,7 +121,10 @@ export default function JobRequestsPage() {
   const [deleting, setDeleting] = useState<JobRequest | null>(null);
   const [fillingRequest, setFillingRequest] = useState<JobRequest | null>(null);
   const [fillSource, setFillSource] = useState<JobRequestFillSource>('bnp');
+  const [search, setSearch] = useState('');
   const canDeleteJobRequests = userRole === 'superadmin' || userRole === 'rh' || userRole === 'administrativo';
+  const canViewValorPrevisto = userRole === 'c-level' || userRole === 'administrativo'
+    || userRole === 'rh' || userRole === 'superadmin';
 
   const openNew = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (r: JobRequest) => { setEditing(r); setDialogOpen(true); };
@@ -138,12 +163,12 @@ export default function JobRequestsPage() {
     reload(); reloadReposicoes();
   };
 
-  const [naoReporRep, setNaoReporRep] = useState<import('@/hooks/usePendingReplacementsForVaga').ReplacementForVaga | null>(null);
+  const [naoReporRep, setNaoReporRep] = useState<ReplacementForVaga | null>(null);
 
   // Confirma "não repor". Se foi preenchida por alguém, cria uma job_request
   // já como 'preenchida' (registro histórico: ex-colab -> vaga -> quem assumiu).
   const confirmarNaoRepor = async (
-    rep: import('@/hooks/usePendingReplacementsForVaga').ReplacementForVaga,
+    rep: ReplacementForVaga,
     preenchidaPor: string | null,
   ) => {
     if (preenchidaPor) {
@@ -154,6 +179,7 @@ export default function JobRequestsPage() {
         job_title_id: rep.cargoId,
         nivel: rep.nivel,
         quantidade: 1,
+        motivo_abertura: 'reposicao',
         status: 'preenchida',
         pending_replacement_id: rep.id,
         contract_id: rep.contract_id,
@@ -254,13 +280,42 @@ export default function JobRequestsPage() {
       .flatMap((r) => r.allIds),
   );
   const activeRequests = requests.filter((r) => !r.pending_replacement_id || !removedReplacementIds.has(r.pending_replacement_id));
-  const filtered = (filter === 'todos' ? activeRequests : activeRequests.filter((r) => r.status === filter))
+
+  // Busca única: atende "já abrimos vaga para esse cargo?" e "essa pessoa já
+  // tem reposição?" — filtra vagas, reposições pendentes e não repostas juntas.
+  const searchTerms = useMemo(() => {
+    const normalized = normalizeSearch(search);
+    return normalized ? normalized.split(' ') : [];
+  }, [search]);
+  const isSearching = searchTerms.length > 0;
+
+  const searchedRequests = activeRequests.filter((r) => matchesTerms(searchTerms, [
+    r.titulo, r.jobTitleLabel, r.nivel, r.area_atuacao, r.descricao, r.solicitanteNome,
+  ]));
+
+  const matchesReposicao = (rep: ReplacementForVaga, linked?: JobRequest) => matchesTerms(searchTerms, [
+    rep.pessoaNome, rep.cargoLabel, rep.nivel, rep.preenchidoPor,
+    linked?.titulo, linked?.jobTitleLabel, linked?.descricao,
+  ]);
+
+  const findLinkedRequest = (rep: ReplacementForVaga) => requests.find(
+    (request) => request.pending_replacement_id && rep.allIds.includes(request.pending_replacement_id),
+  );
+
+  const reposicoesPendentes = reposicoes
+    .filter((r) => r.status === 'pending' && !r.jaTemVaga)
+    .filter((r) => matchesReposicao(r));
+  const reposicoesNaoRepostas = reposicoes
+    .filter((r) => r.status === 'removed')
+    .filter((r) => matchesReposicao(r, findLinkedRequest(r)));
+
+  const filtered = (filter === 'todos' ? searchedRequests : searchedRequests.filter((r) => r.status === filter))
     .sort((a, b) => {
       const byStatus = CARD_STATUS_ORDER[a.status] - CARD_STATUS_ORDER[b.status];
       if (byStatus !== 0) return byStatus;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  const countBy = (s: JobRequestStatus | 'todos') => s === 'todos' ? activeRequests.length : activeRequests.filter((r) => r.status === s).length;
+  const countBy = (s: JobRequestStatus | 'todos') => s === 'todos' ? searchedRequests.length : searchedRequests.filter((r) => r.status === s).length;
 
   return (
     <div className="space-y-6">
@@ -274,31 +329,61 @@ export default function JobRequestsPage() {
         )}
       />
 
-      {/* Filtro por status */}
-      <div className="flex flex-wrap gap-2">
-        {STATUS_ORDER.map((s) => {
-          const active = filter === s;
-          const label = s === 'todos' ? 'Todas' : STATUS_META[s].label;
-          return (
-            <button key={s} type="button" onClick={() => setFilter(s)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
-              {label} <span className="opacity-70">({countBy(s)})</span>
-            </button>
-          );
-        })}
+      {/* Busca unificada + filtro por status */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {STATUS_ORDER.map((s) => {
+            const active = filter === s;
+            const label = s === 'todos' ? 'Todas' : STATUS_META[s].label;
+            return (
+              <button key={s} type="button" onClick={() => setFilter(s)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
+                {label} <span className="opacity-70">({countBy(s)})</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative w-full lg:w-[26rem]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por cargo, função ou nome da pessoa..."
+            className="pl-9 pr-9"
+          />
+          {isSearching && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              title="Limpar busca"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
+              onClick={() => setSearch('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && <Card><CardContent className="p-4 text-sm text-destructive">Erro ao carregar: {error}</CardContent></Card>}
 
+      {/* Falha ao carregar reposições: mostrar em vez de exibir lista vazia */}
+      {reposicoesError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {reposicoesError}
+        </div>
+      )}
+
       {/* Reposições pendentes (desligamentos sem vaga aberta) */}
-      {canEdit && reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).length > 0 && (
+      {canEdit && reposicoesPendentes.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
             <UserMinus className="h-4 w-4" />
-            Reposições pendentes ({reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).length})
+            Reposições pendentes ({reposicoesPendentes.length})
           </div>
           <div className="flex flex-wrap gap-2">
-            {reposicoes.filter((r) => r.status === 'pending' && !r.jaTemVaga).map((rep) => (
+            {reposicoesPendentes.map((rep) => (
               <div key={rep.id} className="flex min-w-0 items-center gap-2 rounded-md border bg-background p-2.5 text-sm" style={{ flex: '1 1 28rem' }}>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{rep.pessoaNome}</p>
@@ -319,15 +404,15 @@ export default function JobRequestsPage() {
       )}
 
       {/* Não repostas / Contratações avulsas (reversível) */}
-      {canEdit && reposicoes.filter((r) => r.status === 'removed').length > 0 && (
+      {canEdit && reposicoesNaoRepostas.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
             <UserMinus className="h-4 w-4" />
-            Não repostas / Contratações avulsas ({reposicoes.filter((r) => r.status === 'removed').length})
+            Não repostas / Contratações avulsas ({reposicoesNaoRepostas.length})
           </div>
           <div className="flex flex-wrap gap-2">
-            {reposicoes.filter((r) => r.status === 'removed').map((rep) => {
-              const linkedRequest = requests.find((request) => request.pending_replacement_id && rep.allIds.includes(request.pending_replacement_id));
+            {reposicoesNaoRepostas.map((rep) => {
+              const linkedRequest = findLinkedRequest(rep);
               return (
                 <div key={rep.id} className="flex min-w-0 items-center gap-2 rounded-md border bg-background p-2.5 text-sm opacity-90" style={{ flex: '1 1 28rem' }}>
                   <div className="flex-1 min-w-0">
@@ -368,11 +453,15 @@ export default function JobRequestsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title={filter === 'todos' ? 'Nenhuma vaga cadastrada' : 'Nenhuma vaga neste status'}
-          description={filter === 'todos' ? 'Abra uma requisição de vaga para iniciar um processo de contratação.' : 'Ajuste o filtro para ver outras vagas.'}
-          actionLabel={filter === 'todos' && canEdit ? 'Nova vaga' : undefined}
-          onAction={filter === 'todos' && canEdit ? openNew : undefined}
-          actionIcon={Plus}
+          title={isSearching
+            ? 'Nenhuma vaga encontrada para esta busca'
+            : filter === 'todos' ? 'Nenhuma vaga cadastrada' : 'Nenhuma vaga neste status'}
+          description={isSearching
+            ? 'Tente outro cargo, função ou nome, ou limpe a busca para ver todas as vagas.'
+            : filter === 'todos' ? 'Abra uma requisição de vaga para iniciar um processo de contratação.' : 'Ajuste o filtro para ver outras vagas.'}
+          actionLabel={isSearching ? 'Limpar busca' : filter === 'todos' && canEdit ? 'Nova vaga' : undefined}
+          onAction={isSearching ? () => setSearch('') : filter === 'todos' && canEdit ? openNew : undefined}
+          actionIcon={isSearching ? X : Plus}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -462,6 +551,45 @@ export default function JobRequestsPage() {
                     {r.anos_experiencia != null && <span>{r.anos_experiencia} ano(s) de exp.</span>}
                     <span>Aberta em {new Date(r.created_at).toLocaleDateString('pt-BR')}</span>
                     {r.solicitanteNome && <span>Solicitada por {r.solicitanteNome}</span>}
+                    {r.prazo_contratacao === 'urgente' && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                        {PRAZO_META.urgente}
+                      </Badge>
+                    )}
+                    {r.motivo_abertura && MOTIVO_META[r.motivo_abertura] && (
+                      <Badge variant="outline" className="gap-1 max-w-full">
+                        <UserMinus className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{MOTIVO_META[r.motivo_abertura]}</span>
+                      </Badge>
+                    )}
+                    {r.regime_contratacao && REGIME_META[r.regime_contratacao] && (
+                      <Badge variant="outline" className="gap-1">
+                        <FileSignature className="h-3 w-3" />
+                        {REGIME_META[r.regime_contratacao]}
+                      </Badge>
+                    )}
+                    {r.area_atuacao && (
+                      <Badge variant="outline" className="gap-1 max-w-full">
+                        <Target className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{r.area_atuacao}</span>
+                      </Badge>
+                    )}
+                    {canViewValorPrevisto && r.valor_previsto != null && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Wallet className="h-3 w-3" />
+                        {formatCurrency(r.valor_previsto)}
+                      </Badge>
+                    )}
+                    {r.equipamento_bnp === true && (
+                      <Badge variant="outline" className="gap-1">
+                        <Laptop className="h-3 w-3" />
+                        Equipamento BNP
+                      </Badge>
+                    )}
                     {r.status === 'preenchida' && r.origem_preenchimento && (
                       <Badge variant="outline">
                         Preenchida: {FILL_SOURCE_LABELS[r.origem_preenchimento]}

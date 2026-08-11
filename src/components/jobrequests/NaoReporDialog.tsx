@@ -1,39 +1,73 @@
-// v1 - dialogo "Nao repor": pergunta se foi preenchida e por quem
-import { useState, useEffect } from 'react';
+// v2 - dialogo "Nao repor": escolha explicita entre vaga extinta e reposicao interna
+import { useState, useEffect, useMemo } from 'react';
+import { Check, UserCheck, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useHR } from '@/contexts/HRContext';
+import { useData } from '@/contexts/DataContext';
 import type { ReplacementForVaga } from '@/hooks/usePendingReplacementsForVaga';
+
+type Desfecho = 'extinta' | 'reposta_interna';
+
+const DESFECHO_OPCOES: { value: Desfecho; label: string; hint: string; icon: typeof XCircle }[] = [
+  {
+    value: 'extinta',
+    label: 'Vaga extinta',
+    hint: 'A posição deixou de existir e não será reposta.',
+    icon: XCircle,
+  },
+  {
+    value: 'reposta_interna',
+    label: 'Reposta por alguém de dentro',
+    hint: 'Outra pessoa da equipe assumiu as atividades.',
+    icon: UserCheck,
+  },
+];
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   rep: ReplacementForVaga | null;
-  // onConfirm recebe o id da pessoa que preencheu (ou null se apenas "não repor")
+  // onConfirm recebe o id da pessoa que assumiu (ou null quando a vaga foi extinta)
   onConfirm: (rep: ReplacementForVaga, preenchidaPor: string | null) => void;
 }
 
 export function NaoReporDialog({ open, onOpenChange, rep, onConfirm }: Props) {
   const { hrPeople } = useHR();
-  const [jaPreenchida, setJaPreenchida] = useState(false);
+  const { jobTitles } = useData();
+  const [desfecho, setDesfecho] = useState<Desfecho | null>(null);
   const [pessoaId, setPessoaId] = useState<string>('');
 
   useEffect(() => {
-    if (open) { setJaPreenchida(false); setPessoaId(''); }
+    if (open) { setDesfecho(null); setPessoaId(''); }
   }, [open]);
+
+  // Remanejamento interno raramente respeita o cargo: lista todos os ativos,
+  // por nome, com o cargo ao lado para ajudar a escolher.
+  const opcoesPessoas = useMemo<SearchableSelectOption[]>(() => {
+    const cargoPorId = new Map(jobTitles.map((jt) => [jt.id, jt.label]));
+    return hrPeople
+      .filter((p) => p.situacao === 'ativo')
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+      .map((p) => {
+        const cargo = p.cargoId ? cargoPorId.get(p.cargoId) : undefined;
+        return {
+          value: p.id,
+          label: cargo ? `${p.nome} — ${cargo}` : p.nome,
+          searchText: [cargo, p.nivel].filter(Boolean).join(' '),
+        };
+      });
+  }, [hrPeople, jobTitles]);
 
   if (!rep) return null;
 
-  // Colabs ativos do mesmo cargo da vaga (candidatos a terem preenchido).
-  const candidatos = hrPeople.filter(
-    (p) => p.situacao === 'ativo' && rep.cargoId && p.cargoId === rep.cargoId,
-  );
+  const podeConfirmar = desfecho === 'extinta' || (desfecho === 'reposta_interna' && pessoaId !== '');
 
   const confirmar = () => {
-    onConfirm(rep, jaPreenchida && pessoaId ? pessoaId : null);
+    if (!podeConfirmar) return;
+    onConfirm(rep, desfecho === 'reposta_interna' ? pessoaId : null);
     onOpenChange(false);
   };
 
@@ -48,35 +82,59 @@ export function NaoReporDialog({ open, onOpenChange, rep, onConfirm }: Props) {
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="flex items-center gap-2">
-            <Switch id="ja-preenchida" checked={jaPreenchida} onCheckedChange={setJaPreenchida} />
-            <Label htmlFor="ja-preenchida">Esta vaga já foi preenchida</Label>
+          <div className="space-y-2">
+            <Label>O que aconteceu com esta posição?</Label>
+            <div className="grid gap-2">
+              {DESFECHO_OPCOES.map((opcao) => {
+                const ativo = desfecho === opcao.value;
+                const Icone = opcao.icon;
+                return (
+                  <button
+                    key={opcao.value}
+                    type="button"
+                    aria-pressed={ativo}
+                    onClick={() => {
+                      setDesfecho(opcao.value);
+                      if (opcao.value === 'extinta') setPessoaId('');
+                    }}
+                    className={`flex items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors ${
+                      ativo ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <Icone className={`mt-0.5 h-4 w-4 shrink-0 ${ativo ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-sm font-medium ${ativo ? 'text-primary' : ''}`}>{opcao.label}</span>
+                      <span className="block text-xs text-muted-foreground">{opcao.hint}</span>
+                    </span>
+                    {ativo && <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {jaPreenchida && (
+          {desfecho === 'reposta_interna' && (
             <div className="space-y-1.5">
-              <Label>Preenchida por</Label>
-              <Select value={pessoaId} onValueChange={setPessoaId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={candidatos.length ? 'Selecione o colaborador…' : 'Nenhum colab ativo neste cargo'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {candidatos.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {rep.cargoId && candidatos.length === 0 && (
-                <p className="text-xs text-muted-foreground">Não há colaboradores ativos neste cargo para selecionar.</p>
-              )}
+              <Label>Quem assumiu?</Label>
+              <SearchableSelect
+                value={pessoaId}
+                onValueChange={setPessoaId}
+                options={opcoesPessoas}
+                placeholder={opcoesPessoas.length ? 'Selecione o colaborador…' : 'Nenhum colaborador ativo'}
+                searchPlaceholder="Buscar por nome ou cargo…"
+                emptyMessage="Nenhum colaborador encontrado."
+              />
+              <p className="text-xs text-muted-foreground">
+                Todos os colaboradores ativos, independentemente do cargo.
+              </p>
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirmar}>
-            {jaPreenchida ? 'Registrar e não repor' : 'Marcar como não repor'}
+          <Button onClick={confirmar} disabled={!podeConfirmar}>
+            {desfecho === 'reposta_interna' ? 'Registrar quem assumiu' : 'Confirmar vaga extinta'}
           </Button>
         </DialogFooter>
       </DialogContent>

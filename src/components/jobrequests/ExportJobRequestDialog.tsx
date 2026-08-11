@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import type { JobRequest } from '@/hooks/useJobRequests';
+import { REGIME_META, type JobRequest } from '@/hooks/useJobRequests';
 
 const MODALIDADE_LABELS: Record<NonNullable<JobRequest['modalidade_trabalho']>, string> = {
   remoto: 'Home office',
@@ -47,8 +47,14 @@ function montarTexto(vaga: JobRequest): string {
     linhas.push('📋 Sobre a vaga', vaga.descricao, '');
   }
 
+  // Nunca inclua valor previsto, prazo de contratação ou motivo da abertura:
+  // são dados internos da requisição, não do anúncio.
   const detalhes: string[] = [];
   if (vaga.jobTitleLabel) detalhes.push(`Função: ${vaga.jobTitleLabel}`);
+  if (vaga.area_atuacao) detalhes.push(`Área de atuação: ${vaga.area_atuacao}`);
+  if (vaga.regime_contratacao) {
+    detalhes.push(`Regime de contratação: ${REGIME_META[vaga.regime_contratacao] ?? vaga.regime_contratacao}`);
+  }
   if (vaga.anos_experiencia != null) detalhes.push(`Experiência mínima: ${vaga.anos_experiencia} ano(s)`);
   if (vaga.quantidade > 1) detalhes.push(`Quantidade de vagas: ${vaga.quantidade}`);
   if (vaga.modalidade_trabalho) detalhes.push(`Modalidade: ${MODALIDADE_LABELS[vaga.modalidade_trabalho]}`);
@@ -56,6 +62,10 @@ function montarTexto(vaga: JobRequest): string {
     detalhes.push(`Presença no cliente: ${vaga.dias_presenca_cliente || 'dias a combinar'}`);
   }
   if (vaga.viagens_requeridas) detalhes.push('Disponibilidade para viagens: sim');
+  if (vaga.formacao_requerida) {
+    detalhes.push(`Formação acadêmica: ${vaga.formacao_detalhe || 'exigida'}`);
+  }
+  if (vaga.equipamento_bnp) detalhes.push('Equipamento de trabalho: fornecido pela BNP');
   if (detalhes.length) {
     linhas.push('📌 Detalhes da oportunidade', detalhes.map((item) => `• ${item}`).join('\n'), '');
   }
@@ -68,8 +78,12 @@ function montarTexto(vaga: JobRequest): string {
     linhas.push('🤝 Soft skills', soft.map((skill) => `• ${skill}`).join('\n'), '');
   }
 
+  if (vaga.diferenciais) {
+    linhas.push('✨ Diferenciais desejáveis', vaga.diferenciais, '');
+  }
+
   if (vaga.beneficios) {
-    linhas.push('🎁 Benefícios', vaga.beneficios, '');
+    linhas.push('🎁 O que oferecemos', vaga.beneficios, '');
   }
 
   if (vaga.observacoes) {

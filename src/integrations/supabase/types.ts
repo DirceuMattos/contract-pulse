@@ -1546,6 +1546,15 @@ export type Database = {
       }
       job_requests: {
         Row: {
+          area_atuacao: string | null
+          diferenciais: string | null
+          equipamento_bnp: boolean | null
+          formacao_detalhe: string | null
+          formacao_requerida: boolean
+          motivo_abertura: string | null
+          prazo_contratacao: string | null
+          regime_contratacao: string | null
+          valor_previsto: number | null
           anos_experiencia: number | null
           beneficios: string | null
           contract_id: string | null
@@ -1575,6 +1584,15 @@ export type Database = {
           viagens_requeridas: boolean
         }
         Insert: {
+          area_atuacao?: string | null
+          diferenciais?: string | null
+          equipamento_bnp?: boolean | null
+          formacao_detalhe?: string | null
+          formacao_requerida?: boolean
+          motivo_abertura?: string | null
+          prazo_contratacao?: string | null
+          regime_contratacao?: string | null
+          valor_previsto?: number | null
           anos_experiencia?: number | null
           beneficios?: string | null
           contract_id?: string | null
@@ -1604,6 +1622,15 @@ export type Database = {
           viagens_requeridas?: boolean
         }
         Update: {
+          area_atuacao?: string | null
+          diferenciais?: string | null
+          equipamento_bnp?: boolean | null
+          formacao_detalhe?: string | null
+          formacao_requerida?: boolean
+          motivo_abertura?: string | null
+          prazo_contratacao?: string | null
+          regime_contratacao?: string | null
+          valor_previsto?: number | null
           anos_experiencia?: number | null
           beneficios?: string | null
           contract_id?: string | null
@@ -2092,28 +2119,31 @@ export type Database = {
       }
       pending_replacements: {
         Row: {
+          subproject_allocation_id: string | null
           contract_id: string
           created_at: string | null
           hr_person_id: string
           id: string
           resolved_at: string | null
           resolved_by: string | null
-          resource_id: string
+          resource_id: string | null
           status: string
           updated_at: string | null
         }
         Insert: {
+          subproject_allocation_id?: string | null
           contract_id: string
           created_at?: string | null
           hr_person_id: string
           id?: string
           resolved_at?: string | null
           resolved_by?: string | null
-          resource_id: string
+          resource_id?: string | null
           status?: string
           updated_at?: string | null
         }
         Update: {
+          subproject_allocation_id?: string | null
           contract_id?: string
           created_at?: string | null
           hr_person_id?: string

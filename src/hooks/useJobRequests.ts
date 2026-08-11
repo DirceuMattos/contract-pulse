@@ -26,6 +26,16 @@ export interface JobRequest {
   dias_presenca_cliente: string | null;
   viagens_requeridas: boolean;
   beneficios: string | null;
+  // Aprimoramentos de 08/2026
+  prazo_contratacao: 'planejado' | 'urgente' | null;
+  motivo_abertura: 'reposicao' | 'nova_funcao' | 'aumento_quadro' | null;
+  valor_previsto: number | null;
+  formacao_requerida: boolean;
+  formacao_detalhe: string | null;
+  area_atuacao: string | null;
+  regime_contratacao: 'clt' | 'pj' | 'cooperado' | 'socio' | 'estagio' | null;
+  diferenciais: string | null;
+  equipamento_bnp: boolean | null;
   status: JobRequestStatus;
   origem_preenchimento: JobRequestFillSource | null;
   pending_replacement_id: string | null;
@@ -42,6 +52,27 @@ export interface JobRequest {
 
 type JobRequestRow = JobRequest & {
   job_titles?: { label: string | null } | null;
+};
+
+// Rótulos dos campos novos, em um só lugar — usados no formulário, no card e no
+// texto de publicação da vaga.
+export const PRAZO_META: Record<string, string> = {
+  planejado: 'Planejado',
+  urgente: 'Urgente',
+};
+
+export const MOTIVO_META: Record<string, string> = {
+  reposicao: 'Reposição',
+  nova_funcao: 'Nova função',
+  aumento_quadro: 'Aumento de quadro ou novo projeto',
+};
+
+export const REGIME_META: Record<string, string> = {
+  clt: 'CLT',
+  pj: 'PJ',
+  cooperado: 'Cooperado',
+  socio: 'Sócio',
+  estagio: 'Estagiário',
 };
 
 export const STATUS_META: Record<JobRequestStatus, { label: string; color: string }> = {

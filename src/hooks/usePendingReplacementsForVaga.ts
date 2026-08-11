@@ -1,4 +1,6 @@
-// v2 - reposicoes enriquecidas + dedup por pessoa
+// v3 - reposicoes enriquecidas + dedup por pessoa + erro exposto
+// Antes, uma falha de permissao na consulta resultava em lista vazia sem qualquer
+// aviso, o que fazia "nao tenho acesso" parecer "nao existe reposicao".
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,14 +22,23 @@ export interface ReplacementForVaga {
 export function usePendingReplacementsForVaga() {
   const [items, setItems] = useState<ReplacementForVaga[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     // pending (a decidir) + removed (marcadas como "não repor", reversíveis)
-    const { data: reps } = await supabase
+    const { data: reps, error: repsError } = await supabase
       .from('pending_replacements')
       .select('id, hr_person_id, contract_id, resource_id, status, hr_people(nome, cargo_id, nivel, job_titles(label))')
       .in('status', ['pending', 'removed']);
+
+    if (repsError) {
+      setError('Não foi possível carregar as reposições pendentes. Verifique com o administrador se o seu perfil tem acesso.');
+      setItems([]);
+      setLoading(false);
+      return;
+    }
 
     const { data: vagas } = await supabase
       .from('job_requests')
@@ -81,5 +92,5 @@ export function usePendingReplacementsForVaga() {
 
   useEffect(() => { load(); }, [load]);
 
-  return { items, loading, reload: load };
+  return { items, loading, error, reload: load };
 }

@@ -228,25 +228,20 @@ export default function HRPersonDetailPage() {
     // Quando a pessoa passa de ativo → inativo, registrar pending_replacements
     // para cada resource vinculado e disparar notificação crítica.
     if (person.situacao === 'ativo' && data.situacao === 'inativo') {
+      // As pendências de reposição são criadas pelo gatilho do banco
+      // (create_pending_replacements_on_termination), que cobre alocações diretas
+      // E alocações de subprojeto. Inserir aqui de novo violava o índice único e
+      // gerava erro 23505 silencioso — mantemos apenas o alerta ao usuário.
       const linked = resources.filter(r => r.hrPersonId === person.id);
-      if (linked.length > 0) {
-        await Promise.all(
-          linked.map(r =>
-            supabase.from('pending_replacements').insert({
-              hr_person_id: person.id,
-              resource_id: r.id,
-              contract_id: r.contractId,
-              status: 'pending',
-            })
-          )
-        );
+      const totalVinculos = linked.length + subprojectAllocations.filter(a => a.hrPersonId === person.id).length;
+      if (totalVinculos > 0) {
         const brokenLinkAlert: SystemAlert = {
           id: `hr-links-quebrados-${person.id}`,
           contractId: '',
           type: 'hr-links-quebrados',
           severity: 'critico',
           title: `Substituição necessária: ${person.nome}`,
-          description: `${person.nome} foi desligado e possui ${linked.length} alocação(ões) ativa(s) em contratos que precisam ser revisadas.`,
+          description: `${person.nome} foi desligado e possui ${totalVinculos} alocação(ões) ativa(s) em contratos que precisam ser revisadas.`,
           recommendation: 'Revise as alocações deste RH e defina substitutos para os contratos afetados.',
           createdAt: new Date().toISOString(),
         };
@@ -291,22 +286,12 @@ export default function HRPersonDetailPage() {
     }
     setDesligamentoLoading(true);
     try {
-      // Apply replacements before termination
-      for (const alloc of alocacoes) {
-        const replacementId = replacements[alloc.id];
-        if (replacementId) {
-          const replacementPerson = activeHrPeople.find(p => p.id === replacementId);
-          if (replacementPerson) {
-            await updateResource(alloc.id, {
-              hrPersonId: replacementPerson.id,
-              nome: replacementPerson.nome,
-              tipo: replacementPerson.tipoVinculo === 'clt' ? 'clt' : 'pj',
-            });
-          }
-        }
-        // If no replacement chosen, resource stays linked to this person -> becomes "Vago"
-      }
-
+      // ORDEM IMPORTA: primeiro marcamos a pessoa como inativa, para que o gatilho
+      // do banco registre a pendência de reposição de TODAS as alocações dela.
+      // Antes o código reatribuía os recursos primeiro — quando havia substituto
+      // para todas as alocações, o gatilho não encontrava nada e a vaga nunca era
+      // aberta. Agora a pendência é sempre registrada e, logo abaixo, aquelas que
+      // já têm substituto são fechadas como resolvidas.
       await updatePerson(person.id, {
         situacao: 'inativo',
         dataDesligamento: desligamentoData,
@@ -314,6 +299,25 @@ export default function HRPersonDetailPage() {
         motivoDesligamento: desligamentoMotivo,
         observacoesDesligamento: desligamentoObs || undefined,
       });
+
+      for (const alloc of alocacoes) {
+        const replacementId = replacements[alloc.id];
+        if (!replacementId) continue; // sem substituto: a alocação fica vaga e a pendência permanece
+        const replacementPerson = activeHrPeople.find(p => p.id === replacementId);
+        if (!replacementPerson) continue;
+        await updateResource(alloc.id, {
+          hrPersonId: replacementPerson.id,
+          nome: replacementPerson.nome,
+          tipo: replacementPerson.tipoVinculo === 'clt' ? 'clt' : 'pj',
+        });
+        // Substituto definido no ato do desligamento: a reposição já nasce resolvida.
+        await supabase
+          .from('pending_replacements')
+          .update({ status: 'replaced', resolved_at: new Date().toISOString() })
+          .eq('hr_person_id', person.id)
+          .eq('resource_id', alloc.id)
+          .eq('status', 'pending');
+      }
       await addTimelineEvent({
         personId: person.id,
         eventDate: desligamentoData,
