@@ -1546,117 +1546,117 @@ export type Database = {
       }
       job_requests: {
         Row: {
-          area_atuacao: string | null
-          diferenciais: string | null
-          equipamento_bnp: boolean | null
-          formacao_detalhe: string | null
-          formacao_requerida: boolean
-          motivo_abertura: string | null
-          prazo_contratacao: string | null
-          regime_contratacao: string | null
-          valor_previsto: number | null
           anos_experiencia: number | null
+          area_atuacao: string | null
           beneficios: string | null
           contract_id: string | null
           created_at: string
           descricao: string | null
           dias_presenca_cliente: string | null
+          diferenciais: string | null
+          equipamento_bnp: boolean | null
+          formacao_detalhe: string | null
+          formacao_requerida: boolean
           id: string
           job_skill_profile_id: string | null
           job_title_id: string | null
           modalidade_trabalho: string | null
+          motivo_abertura: string | null
           nivel: string | null
           observacoes: string | null
           origem_preenchimento:
             | Database["public"]["Enums"]["job_request_fill_source"]
             | null
           pending_replacement_id: string | null
+          prazo_contratacao: string | null
           preenchida_em: string | null
           preenchida_por_hr_person_id: string | null
           presenca_cliente_requerida: boolean
           quantidade: number
+          regime_contratacao: string | null
           skills_avulsas: Json | null
           solicitante_id: string | null
           solicitante_nome: string | null
           status: Database["public"]["Enums"]["job_request_status"]
           titulo: string
           updated_at: string
+          valor_previsto: number | null
           viagens_requeridas: boolean
         }
         Insert: {
-          area_atuacao?: string | null
-          diferenciais?: string | null
-          equipamento_bnp?: boolean | null
-          formacao_detalhe?: string | null
-          formacao_requerida?: boolean
-          motivo_abertura?: string | null
-          prazo_contratacao?: string | null
-          regime_contratacao?: string | null
-          valor_previsto?: number | null
           anos_experiencia?: number | null
+          area_atuacao?: string | null
           beneficios?: string | null
           contract_id?: string | null
           created_at?: string
           descricao?: string | null
           dias_presenca_cliente?: string | null
+          diferenciais?: string | null
+          equipamento_bnp?: boolean | null
+          formacao_detalhe?: string | null
+          formacao_requerida?: boolean
           id?: string
           job_skill_profile_id?: string | null
           job_title_id?: string | null
           modalidade_trabalho?: string | null
+          motivo_abertura?: string | null
           nivel?: string | null
           observacoes?: string | null
           origem_preenchimento?:
             | Database["public"]["Enums"]["job_request_fill_source"]
             | null
           pending_replacement_id?: string | null
+          prazo_contratacao?: string | null
           preenchida_em?: string | null
           preenchida_por_hr_person_id?: string | null
           presenca_cliente_requerida?: boolean
           quantidade?: number
+          regime_contratacao?: string | null
           skills_avulsas?: Json | null
           solicitante_id?: string | null
           solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo: string
           updated_at?: string
+          valor_previsto?: number | null
           viagens_requeridas?: boolean
         }
         Update: {
-          area_atuacao?: string | null
-          diferenciais?: string | null
-          equipamento_bnp?: boolean | null
-          formacao_detalhe?: string | null
-          formacao_requerida?: boolean
-          motivo_abertura?: string | null
-          prazo_contratacao?: string | null
-          regime_contratacao?: string | null
-          valor_previsto?: number | null
           anos_experiencia?: number | null
+          area_atuacao?: string | null
           beneficios?: string | null
           contract_id?: string | null
           created_at?: string
           descricao?: string | null
           dias_presenca_cliente?: string | null
+          diferenciais?: string | null
+          equipamento_bnp?: boolean | null
+          formacao_detalhe?: string | null
+          formacao_requerida?: boolean
           id?: string
           job_skill_profile_id?: string | null
           job_title_id?: string | null
           modalidade_trabalho?: string | null
+          motivo_abertura?: string | null
           nivel?: string | null
           observacoes?: string | null
           origem_preenchimento?:
             | Database["public"]["Enums"]["job_request_fill_source"]
             | null
           pending_replacement_id?: string | null
+          prazo_contratacao?: string | null
           preenchida_em?: string | null
           preenchida_por_hr_person_id?: string | null
           presenca_cliente_requerida?: boolean
           quantidade?: number
+          regime_contratacao?: string | null
           skills_avulsas?: Json | null
           solicitante_id?: string | null
           solicitante_nome?: string | null
           status?: Database["public"]["Enums"]["job_request_status"]
           titulo?: string
           updated_at?: string
+          valor_previsto?: number | null
           viagens_requeridas?: boolean
         }
         Relationships: [
@@ -2119,7 +2119,6 @@ export type Database = {
       }
       pending_replacements: {
         Row: {
-          subproject_allocation_id: string | null
           contract_id: string
           created_at: string | null
           hr_person_id: string
@@ -2128,10 +2127,10 @@ export type Database = {
           resolved_by: string | null
           resource_id: string | null
           status: string
+          subproject_allocation_id: string | null
           updated_at: string | null
         }
         Insert: {
-          subproject_allocation_id?: string | null
           contract_id: string
           created_at?: string | null
           hr_person_id: string
@@ -2140,18 +2139,19 @@ export type Database = {
           resolved_by?: string | null
           resource_id?: string | null
           status?: string
+          subproject_allocation_id?: string | null
           updated_at?: string | null
         }
         Update: {
-          subproject_allocation_id?: string | null
           contract_id?: string
           created_at?: string | null
           hr_person_id?: string
           id?: string
           resolved_at?: string | null
           resolved_by?: string | null
-          resource_id?: string
+          resource_id?: string | null
           status?: string
+          subproject_allocation_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2167,6 +2167,13 @@ export type Database = {
             columns: ["resource_id"]
             isOneToOne: false
             referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_replacements_subproject_allocation_id_fkey"
+            columns: ["subproject_allocation_id"]
+            isOneToOne: false
+            referencedRelation: "subproject_allocations"
             referencedColumns: ["id"]
           },
         ]
