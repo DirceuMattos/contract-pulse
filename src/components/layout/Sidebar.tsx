@@ -95,7 +95,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/rh', label: 'Recursos Humanos', icon: UsersRound, moduleKey: 'HR' },
       { path: '/squads', label: 'Squads', icon: LayoutGrid, moduleKey: 'SQUADS' },
-      { path: '#', label: 'Controle de Equipamentos', icon: Laptop, comingSoon: true },
+      { path: '/equipamentos', label: 'Controle de Equipamentos', icon: Laptop, moduleKey: 'EQUIPMENT' },
       {
         path: '/requisicao-vagas',
         label: 'Requisição de Vagas',

@@ -29,6 +29,7 @@ INSERT INTO public.role_module_permissions
   (role, module_key, can_access, can_edit, can_create, can_delete, can_export, can_view_values, can_view_hr_costs, can_allocate)
 VALUES
   ('superadmin',          'EQUIPMENT', true, true, true, true, true, true, false, false),
+  ('c-level',             'EQUIPMENT', true, true, true, true, true, true, false, false),
   ('administrativo',      'EQUIPMENT', true, true, true, true, true, true, false, false),
   ('coordenacao_suporte', 'EQUIPMENT', true, true, true, true, true, true, false, false),
   ('rh',                  'EQUIPMENT', true, true, true, false, true, true, false, false)
@@ -45,6 +46,7 @@ INSERT INTO public.role_module_permissions
   (role, module_key, can_access, can_edit, can_create, can_delete, can_export, can_view_values, can_view_hr_costs, can_allocate)
 VALUES
   ('superadmin',          'EQUIPMENT_REQUESTS', true, true,  true, true,  true,  true,  false, false),
+  ('c-level',             'EQUIPMENT_REQUESTS', true, true,  true, true,  true,  true,  false, false),
   ('administrativo',      'EQUIPMENT_REQUESTS', true, true,  true, true,  true,  true,  false, false),
   ('coordenacao_suporte', 'EQUIPMENT_REQUESTS', true, true,  true, true,  true,  true,  false, false),
   ('rh',                  'EQUIPMENT_REQUESTS', true, true,  true, false, true,  true,  false, false),
