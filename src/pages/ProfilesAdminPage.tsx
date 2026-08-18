@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Loader2, Settings2 } from 'lucide-react';
+import { CopyPlus, Loader2, Plus, Settings2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types';
@@ -20,6 +20,8 @@ import {
   getDefaultModuleActionPermissions,
 } from '@/types/modulePermissions';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { CopyPermissionsDialog } from '@/components/profiles/CopyPermissionsDialog';
+import { CreateProfileDialog } from '@/components/profiles/CreateProfileDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +64,7 @@ const roleColors: Record<UserRole, string> = {
   'superadmin': 'bg-purple-500/10 text-purple-700 border-purple-500/20',
   'coordenacao_suporte': 'bg-teal-500/10 text-teal-700 border-teal-500/20',
   'projetos_produtos': 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20',
+  'head': 'bg-rose-500/10 text-rose-700 border-rose-500/20',
 };
 
 const roleLabels: Record<UserRole, string> = {
@@ -77,6 +80,7 @@ const roleLabels: Record<UserRole, string> = {
   'superadmin': 'Super Admin',
   'coordenacao_suporte': 'Coordenação Suporte',
   'projetos_produtos': 'Projetos-Produtos',
+  'head': 'Head de Área',
 };
 
 const ROLE_ORDER: UserRole[] = [
@@ -90,6 +94,7 @@ const ROLE_ORDER: UserRole[] = [
   'rh',
   'juridico',
   'comercial',
+  'head',
   'demo',
   'leitor',
 ];
@@ -100,13 +105,14 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'SQUADS', 'HR', 'CALCULATOR', 'HISTORY', 'DOCUMENTS', 'RESOURCES', 'IMPORT_EXPORT', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'SQUADS', 'CALCULATOR'],
   lider_tribo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS'],
-  coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
+  coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
   projetos_produtos: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   juridico: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
-  rh: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS'],
-  administrativo: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS'],
+  rh: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
+  head: ['EQUIPMENT_REQUESTS'],
+  administrativo: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
   intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'IMPORT_EXPORT', 'HR', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
-  superadmin: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS'],
+  superadmin: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
 };
 
 function defaultModulesFor(role: UserRole): ModuleKey[] {
@@ -124,12 +130,15 @@ interface RoleProfileRow extends ActionFlags {
   label: string;
   modules: ModuleKey[];
   moduleActions: ModuleActionPermissions;
+  active?: boolean;
+  is_system?: boolean;
 }
 
 const MODULE_GROUPS: { title: string; keys: ModuleKey[] }[] = [
   { title: 'Geral', keys: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS'] },
   { title: 'Clientes e Contratos', keys: ['CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'RECEIVABLES', 'CALCULATOR', 'REPORTS', 'SUPPORT_COSTS'] },
   { title: 'Recursos e Pessoas', keys: ['HR', 'SQUADS', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'] },
+  { title: 'Equipamentos', keys: ['EQUIPMENT', 'EQUIPMENT_REQUESTS'] },
   { title: 'Setup', keys: ['SETTINGS', 'USERS_ADMIN', 'IMPORT_EXPORT', 'PROFILES_ADMIN', 'ACCESS_LOGS'] },
   { title: 'IA', keys: ['AI', 'AI_LOGS'] },
 ];
@@ -140,6 +149,10 @@ export default function ProfilesAdminPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [editing, setEditing] = useState<RoleProfileRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [togglingRole, setTogglingRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -190,13 +203,15 @@ export default function ProfilesAdminPage() {
             can_view_values: !!r.can_view_values,
             can_view_hr_costs: !!r.can_view_hr_costs,
             can_allocate: !!r.can_allocate,
+            active: r.active !== false,
+            is_system: !!r.is_system,
           };
         }
         setProfiles(map);
       }
       setLoadingData(false);
     })();
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, reloadKey]);
 
   if (loading) {
     return (
@@ -348,6 +363,32 @@ export default function ProfilesAdminPage() {
     return userIds.length;
   }
 
+  async function toggleProfileActive(role: UserRole, next: boolean) {
+    setTogglingRole(role);
+    try {
+      const { data, error } = await (supabase as any).rpc('set_profile_active', {
+        _role: role,
+        _active: next,
+      });
+      if (error) throw error;
+      const affected = typeof data === 'number' ? data : 0;
+      setProfiles((prev) => ({
+        ...prev,
+        [role]: { ...buildRowFor(role), active: next },
+      }));
+      toast.success(
+        next
+          ? `Perfil reativado${affected ? ` — ${affected} usuário${affected === 1 ? '' : 's'} recupera${affected === 1 ? '' : 'm'} acesso` : ''}`
+          : `Perfil inativado${affected ? ` — ${affected} usuário${affected === 1 ? '' : 's'} perde${affected === 1 ? '' : 'm'} acesso` : ''}`,
+      );
+      setReloadKey((k) => k + 1);
+    } catch (e: any) {
+      toast.error(e.message || String(e));
+    } finally {
+      setTogglingRole(null);
+    }
+  }
+
   async function handleSave() {
     if (!editing) return;
     setSaving(true);
@@ -420,10 +461,22 @@ export default function ProfilesAdminPage() {
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        <PageHeader
-          title="Gestão de Perfis"
-          description="Configure módulos e permissões por perfil de usuário."
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <PageHeader
+            title="Gestão de Perfis"
+            description="Configure módulos e permissões por perfil de usuário."
+          />
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setCopyOpen(true)}>
+              <CopyPlus className="h-4 w-4 mr-2" />
+              Copiar direitos
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo perfil
+            </Button>
+          </div>
+        </div>
 
         {loadingData ? (
           <div className="flex items-center justify-center h-40">
@@ -436,7 +489,7 @@ export default function ProfilesAdminPage() {
               return (
                 <Card
                   key={role}
-                  className="flex flex-col cursor-pointer hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={`flex flex-col cursor-pointer hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${row.active === false ? 'opacity-60 border-dashed' : ''}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => openEdit(role)}
@@ -462,16 +515,58 @@ export default function ProfilesAdminPage() {
                       módulo{row.modules.length === 1 ? '' : 's'} habilitado
                       {row.modules.length === 1 ? '' : 's'}
                     </p>
-                    <Button variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); openEdit(role); }} className="w-full">
-                      <Settings2 className="h-4 w-4 mr-2" />
-                      Configurar
-                    </Button>
+                    <div className="space-y-3">
+                      <div
+                        className="flex items-center justify-between gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <span className="text-xs text-muted-foreground">
+                          {row.is_system
+                            ? 'Perfil estrutural'
+                            : row.active === false ? 'Inativo' : 'Ativo'}
+                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <Switch
+                                aria-label={`Ativar ou inativar ${roleLabels[role]}`}
+                                checked={row.active !== false}
+                                disabled={!!row.is_system || togglingRole === role}
+                                onCheckedChange={(v) => toggleProfileActive(role, !!v)}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {row.is_system
+                              ? 'Perfil estrutural: não pode ser inativado'
+                              : 'Perfil inativo some do seletor de usuários e perde acesso aos módulos'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); openEdit(role); }} className="w-full">
+                        <Settings2 className="h-4 w-4 mr-2" />
+                        Configurar
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );
             })}
           </div>
         )}
+
+        <CopyPermissionsDialog
+          open={copyOpen}
+          onClose={() => setCopyOpen(false)}
+          profiles={ROLE_ORDER.map((r) => ({ role: r, label: roleLabels[r] }))}
+          onCopied={() => setReloadKey((k) => k + 1)}
+        />
+
+        <CreateProfileDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          profiles={ROLE_ORDER.map((r) => ({ role: r, label: roleLabels[r] }))}
+        />
 
         <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
           <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">

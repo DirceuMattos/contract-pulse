@@ -8,6 +8,7 @@ export const MODULE_KEYS = [
   'RECEIVABLES', 'REPORTS', 'SUPPORT_COSTS',
   'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS',
   'PROFILES_ADMIN',
+  'EQUIPMENT', 'EQUIPMENT_REQUESTS',
 ] as const;
 
 export type ModuleKey = typeof MODULE_KEYS[number];
@@ -49,6 +50,11 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'TRANSPORT', label: 'Adm Transportes', description: 'Administração de transportes', routes: ['/transportes'], roleRestrictions: [] },
   { key: 'JOB_REQUESTS', label: 'Requisição de Vagas', description: 'Abertura e acompanhamento de vagas', routes: ['/requisicao-vagas'], roleRestrictions: [] },
   { key: 'JOB_SKILLS', label: 'Skills de Vagas', description: 'Catálogo de skills para vagas', routes: ['/skills-vagas'], roleRestrictions: [] },
+  // c-level entra em roleRestrictions para ser *habilitável* pela tela de perfis,
+  // mas fica desligado por padrão: a §6 do PRD não o lista, embora a §2 fale de
+  // "acesso total". Divergência do PRD — resolver com um clique quando decidido.
+  { key: 'EQUIPMENT', label: 'Controle de Equipamentos', description: 'Inventário de equipamentos, cessões e devoluções', routes: ['/equipamentos'], roleRestrictions: ['superadmin', 'c-level', 'administrativo', 'coordenacao_suporte', 'rh'] },
+  { key: 'EQUIPMENT_REQUESTS', label: 'Requisição de Equipamentos', description: 'Solicitação e acompanhamento de equipamentos', routes: ['/equipamentos/requisicoes'], isSubmodule: true, parentModule: 'EQUIPMENT', roleRestrictions: ['superadmin', 'c-level', 'administrativo', 'coordenacao_suporte', 'rh', 'lider_tribo', 'head'] },
 ];
 
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
@@ -56,14 +62,16 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   leitor: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
   demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'SETTINGS', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'SQUADS', 'CALCULATOR'],
-  lider_tribo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS'],
-  coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
+  lider_tribo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT_REQUESTS'],
+  coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
+  // Head de Área: enxerga exclusivamente a requisição de equipamentos.
+  head: ['EQUIPMENT_REQUESTS'],
   projetos_produtos: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   juridico: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
-  rh: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS'],
-  administrativo: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS'],
+  rh: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
+  administrativo: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
   intermediario: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'ALERTS', 'SQUADS', 'CALCULATOR', 'HR', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
-  superadmin: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS'],
+  superadmin: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
 };
 
 export function getDefaultModuleAccess(role: UserRole): Record<ModuleKey, boolean> {
@@ -99,6 +107,8 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   if (pathname === '/usuarios') return 'USERS_ADMIN';
   if (pathname.startsWith('/configuracoes')) return 'SETTINGS';
   if (pathname === '/importar-exportar') return 'IMPORT_EXPORT';
+  if (pathname.startsWith('/equipamentos/requisicoes')) return 'EQUIPMENT_REQUESTS';
+  if (pathname.startsWith('/equipamentos')) return 'EQUIPMENT';
   if (pathname.startsWith('/rh')) return 'HR';
   if (pathname.startsWith('/receivables')) return 'RECEIVABLES';
   if (pathname.startsWith('/relatorios')) return 'REPORTS';

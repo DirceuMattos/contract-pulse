@@ -72,6 +72,7 @@ const roleLabels: Record<UserRole, string> = {
   'superadmin': 'Super Admin',
   'coordenacao_suporte': 'Coordenação Suporte',
   'projetos_produtos': 'Projetos-Produtos',
+  'head': 'Head de Área',
 };
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -87,6 +88,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   'superadmin': ShieldCheck,
   'coordenacao_suporte': Shield,
   'projetos_produtos': Shield,
+  'head': Briefcase,
 };
 
 const roleColors: Record<UserRole, string> = {
@@ -102,6 +104,7 @@ const roleColors: Record<UserRole, string> = {
   'superadmin': 'bg-purple-500/10 text-purple-700 border-purple-500/20',
   'coordenacao_suporte': 'bg-teal-500/10 text-teal-700 border-teal-500/20',
   'projetos_produtos': 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20',
+  'head': 'bg-rose-500/10 text-rose-700 border-rose-500/20',
 };
 
 function UsersPageInner() {

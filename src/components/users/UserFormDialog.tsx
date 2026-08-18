@@ -90,6 +90,7 @@ const roleLabels: Record<UserRole, string> = {
   'superadmin': 'Super Admin',
   'coordenacao_suporte': 'Coordenação Suporte',
   'projetos_produtos': 'Projetos-Produtos',
+  'head': 'Head de Área',
 };
 
 const roleDescriptions: Record<UserRole, string> = {
@@ -105,6 +106,7 @@ const roleDescriptions: Record<UserRole, string> = {
   'superadmin': 'Acesso total irrestrito a todos os módulos do sistema',
   'coordenacao_suporte': 'Mesmos direitos do Líder de Tribo',
   'projetos_produtos': 'Mesmos direitos do Líder de Tribo, sem edição em Squads e RH',
+  'head': 'Gestor de área: acessa exclusivamente a requisição de equipamentos',
 };
 
 export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogProps) {
