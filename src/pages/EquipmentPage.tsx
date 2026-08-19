@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEquipment } from '@/hooks/useEquipment';
+import { useEquipmentReturns } from '@/hooks/useEquipmentReturns';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +15,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { EquipmentFormDialog } from '@/components/equipment/EquipmentFormDialog';
 import { EquipmentMovementDialog } from '@/components/equipment/EquipmentMovementDialog';
+import { EquipmentReturnsTab } from '@/components/equipment/EquipmentReturnsTab';
 import {
   EquipmentItem, EQUIPMENT_STATUSES, EQUIPMENT_TYPES,
   STATUS_LABELS, STATUS_COLORS, TYPE_LABELS, TERMINAL_STATUSES,
@@ -36,6 +39,12 @@ export default function EquipmentPage() {
     items, companies, suppliers, people, loading,
     createItem, updateItem, registerMovement, softDelete, loadMovements,
   } = useEquipment();
+
+  // I10 Fase 4 — devoluções abertas por desligamento
+  const {
+    pendings, countAbertas, countAtrasadas, diasAlerta,
+    loading: loadingReturns, resolve: resolveReturn, uploadEvidence, evidenceUrl,
+  } = useEquipmentReturns();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -110,13 +119,20 @@ export default function EquipmentPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
           {[
             { label: 'Ativos', value: resumo.total },
             { label: 'Em estoque', value: resumo.estoque },
             { label: 'Cedidos', value: resumo.cedidos },
             { label: 'Em manutenção', value: resumo.manutencao },
             { label: 'Com inativos', value: resumo.inativos, alerta: resumo.inativos > 0 },
+            {
+              label: countAtrasadas > 0
+                ? `Devoluções pendentes (${countAtrasadas} acima de ${diasAlerta}d)`
+                : 'Devoluções pendentes',
+              value: countAbertas,
+              alerta: countAtrasadas > 0,
+            },
             { label: 'No grupo', value: resumo.grupo },
           ].map((c) => (
             <Card key={c.label} className={c.alerta ? 'border-red-500/40' : undefined}>
@@ -128,6 +144,15 @@ export default function EquipmentPage() {
           ))}
         </div>
 
+        <Tabs defaultValue="inventario">
+          <TabsList>
+            <TabsTrigger value="inventario">Inventário</TabsTrigger>
+            <TabsTrigger value="devolucoes">
+              Devoluções Pendentes{countAbertas > 0 ? ` (${countAbertas})` : ''}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="inventario" className="space-y-4 mt-4">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -303,6 +328,21 @@ export default function EquipmentPage() {
             </Table>
           </div>
         )}
+
+          </TabsContent>
+
+          <TabsContent value="devolucoes" className="mt-4">
+            <EquipmentReturnsTab
+              pendings={pendings}
+              loading={loadingReturns}
+              diasAlerta={diasAlerta}
+              canEdit={canEdit}
+              onResolve={resolveReturn}
+              uploadEvidence={uploadEvidence}
+              evidenceUrl={evidenceUrl}
+            />
+          </TabsContent>
+        </Tabs>
 
         <EquipmentFormDialog
           open={formOpen}
