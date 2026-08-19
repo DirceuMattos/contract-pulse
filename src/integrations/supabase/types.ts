@@ -781,6 +781,303 @@ export type Database = {
           },
         ]
       }
+      equipment_hostname_history: {
+        Row: {
+          changed_by: string | null
+          equipment_item_id: string
+          hostname: string
+          id: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          equipment_item_id: string
+          hostname: string
+          id?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          equipment_item_id?: string
+          hostname?: string
+          id?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_hostname_history_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_hostname_history_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_items: {
+        Row: {
+          asset_tag: string | null
+          cpu_model: string | null
+          created_at: string
+          created_by: string | null
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          equipment_type: Database["public"]["Enums"]["equipment_type"]
+          holder_company_id: string | null
+          holder_person_id: string | null
+          holder_type: Database["public"]["Enums"]["equipment_holder_type"]
+          hostname: string | null
+          id: string
+          invoice_number: string | null
+          location: string | null
+          manufacturer: string | null
+          model: string | null
+          notes: string | null
+          ownership: Database["public"]["Enums"]["equipment_ownership"]
+          photo_url: string | null
+          purchase_date: string | null
+          purchase_value: number | null
+          ram_gb: number | null
+          rental_end: string | null
+          rental_monthly_value: number | null
+          rental_start: string | null
+          serial_number: string | null
+          status: Database["public"]["Enums"]["equipment_status"]
+          storage_gb: number | null
+          storage_type: string | null
+          supplier_id: string | null
+          updated_at: string
+          updated_by: string | null
+          warranty_end: string | null
+        }
+        Insert: {
+          asset_tag?: string | null
+          cpu_model?: string | null
+          created_at?: string
+          created_by?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          equipment_type?: Database["public"]["Enums"]["equipment_type"]
+          holder_company_id?: string | null
+          holder_person_id?: string | null
+          holder_type?: Database["public"]["Enums"]["equipment_holder_type"]
+          hostname?: string | null
+          id?: string
+          invoice_number?: string | null
+          location?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          ownership?: Database["public"]["Enums"]["equipment_ownership"]
+          photo_url?: string | null
+          purchase_date?: string | null
+          purchase_value?: number | null
+          ram_gb?: number | null
+          rental_end?: string | null
+          rental_monthly_value?: number | null
+          rental_start?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          storage_gb?: number | null
+          storage_type?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          warranty_end?: string | null
+        }
+        Update: {
+          asset_tag?: string | null
+          cpu_model?: string | null
+          created_at?: string
+          created_by?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          equipment_type?: Database["public"]["Enums"]["equipment_type"]
+          holder_company_id?: string | null
+          holder_person_id?: string | null
+          holder_type?: Database["public"]["Enums"]["equipment_holder_type"]
+          hostname?: string | null
+          id?: string
+          invoice_number?: string | null
+          location?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          ownership?: Database["public"]["Enums"]["equipment_ownership"]
+          photo_url?: string | null
+          purchase_date?: string | null
+          purchase_value?: number | null
+          ram_gb?: number | null
+          rental_end?: string | null
+          rental_monthly_value?: number | null
+          rental_start?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          storage_gb?: number | null
+          storage_type?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          warranty_end?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_items_holder_company_id_fkey"
+            columns: ["holder_company_id"]
+            isOneToOne: false
+            referencedRelation: "group_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_holder_person_id_fkey"
+            columns: ["holder_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_movements: {
+        Row: {
+          authorized_by: string | null
+          equipment_item_id: string
+          evidence_url: string | null
+          exception_justification: string | null
+          from_holder_company_id: string | null
+          from_holder_person_id: string | null
+          from_holder_type:
+            | Database["public"]["Enums"]["equipment_holder_type"]
+            | null
+          from_status: Database["public"]["Enums"]["equipment_status"] | null
+          id: string
+          occurred_at: string
+          reason: string | null
+          registered_at: string
+          registered_by: string | null
+          to_holder_company_id: string | null
+          to_holder_person_id: string | null
+          to_holder_type: Database["public"]["Enums"]["equipment_holder_type"]
+          to_status: Database["public"]["Enums"]["equipment_status"]
+        }
+        Insert: {
+          authorized_by?: string | null
+          equipment_item_id: string
+          evidence_url?: string | null
+          exception_justification?: string | null
+          from_holder_company_id?: string | null
+          from_holder_person_id?: string | null
+          from_holder_type?:
+            | Database["public"]["Enums"]["equipment_holder_type"]
+            | null
+          from_status?: Database["public"]["Enums"]["equipment_status"] | null
+          id?: string
+          occurred_at?: string
+          reason?: string | null
+          registered_at?: string
+          registered_by?: string | null
+          to_holder_company_id?: string | null
+          to_holder_person_id?: string | null
+          to_holder_type: Database["public"]["Enums"]["equipment_holder_type"]
+          to_status: Database["public"]["Enums"]["equipment_status"]
+        }
+        Update: {
+          authorized_by?: string | null
+          equipment_item_id?: string
+          evidence_url?: string | null
+          exception_justification?: string | null
+          from_holder_company_id?: string | null
+          from_holder_person_id?: string | null
+          from_holder_type?:
+            | Database["public"]["Enums"]["equipment_holder_type"]
+            | null
+          from_status?: Database["public"]["Enums"]["equipment_status"] | null
+          id?: string
+          occurred_at?: string
+          reason?: string | null
+          registered_at?: string
+          registered_by?: string | null
+          to_holder_company_id?: string | null
+          to_holder_person_id?: string | null
+          to_holder_type?: Database["public"]["Enums"]["equipment_holder_type"]
+          to_status?: Database["public"]["Enums"]["equipment_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_movements_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_movements_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_movements_to_holder_company_id_fkey"
+            columns: ["to_holder_company_id"]
+            isOneToOne: false
+            referencedRelation: "group_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_movements_to_holder_person_id_fkey"
+            columns: ["to_holder_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_suppliers: {
+        Row: {
+          active: boolean
+          cnpj: string | null
+          contact: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          cnpj?: string | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          cnpj?: string | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       feedz_alias_mappings: {
         Row: {
           alias_type: string
@@ -1131,6 +1428,30 @@ export type Database = {
           started_at?: string
           status?: string
           sync_mode?: string
+        }
+        Relationships: []
+      }
+      group_companies: {
+        Row: {
+          active: boolean
+          cnpj: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          cnpj?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          cnpj?: string | null
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -2693,6 +3014,7 @@ export type Database = {
       }
       role_profiles: {
         Row: {
+          active: boolean
           can_allocate: boolean | null
           can_create: boolean | null
           can_delete: boolean | null
@@ -2700,7 +3022,9 @@ export type Database = {
           can_export: boolean | null
           can_view_hr_costs: boolean | null
           can_view_values: boolean | null
+          description: string | null
           id: string
+          is_system: boolean
           label: string
           modules: Json
           role: string
@@ -2708,6 +3032,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          active?: boolean
           can_allocate?: boolean | null
           can_create?: boolean | null
           can_delete?: boolean | null
@@ -2715,7 +3040,9 @@ export type Database = {
           can_export?: boolean | null
           can_view_hr_costs?: boolean | null
           can_view_values?: boolean | null
+          description?: string | null
           id?: string
+          is_system?: boolean
           label: string
           modules?: Json
           role: string
@@ -2723,6 +3050,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          active?: boolean
           can_allocate?: boolean | null
           can_create?: boolean | null
           can_delete?: boolean | null
@@ -2730,7 +3058,9 @@ export type Database = {
           can_export?: boolean | null
           can_view_hr_costs?: boolean | null
           can_view_values?: boolean | null
+          description?: string | null
           id?: string
+          is_system?: boolean
           label?: string
           modules?: Json
           role?: string
@@ -3809,9 +4139,94 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      equipment_items_view: {
+        Row: {
+          alerta_colaborador_inativo: boolean | null
+          alerta_fora_da_bnp: boolean | null
+          asset_tag: string | null
+          cpu_model: string | null
+          created_at: string | null
+          created_by: string | null
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          equipment_type: Database["public"]["Enums"]["equipment_type"] | null
+          holder_company_id: string | null
+          holder_company_name: string | null
+          holder_person_id: string | null
+          holder_person_name: string | null
+          holder_person_situacao: string | null
+          holder_type:
+            | Database["public"]["Enums"]["equipment_holder_type"]
+            | null
+          hostname: string | null
+          id: string | null
+          invoice_number: string | null
+          location: string | null
+          manufacturer: string | null
+          model: string | null
+          notes: string | null
+          ownership: Database["public"]["Enums"]["equipment_ownership"] | null
+          photo_url: string | null
+          purchase_date: string | null
+          purchase_value: number | null
+          ram_gb: number | null
+          rental_end: string | null
+          rental_monthly_value: number | null
+          rental_start: string | null
+          serial_number: string | null
+          status: Database["public"]["Enums"]["equipment_status"] | null
+          storage_gb: number | null
+          storage_type: string | null
+          supplier_id: string | null
+          supplier_name: string | null
+          ultima_movimentacao: string | null
+          updated_at: string | null
+          updated_by: string | null
+          warranty_end: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_items_holder_company_id_fkey"
+            columns: ["holder_company_id"]
+            isOneToOne: false
+            referencedRelation: "group_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_holder_person_id_fkey"
+            columns: ["holder_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      can_act_on_contract_module: {
+        Args: { _action: string; _module_key: string }
+        Returns: boolean
+      }
+      can_act_on_equipment: { Args: { _action: string }; Returns: boolean }
+      copy_role_permissions: {
+        Args: { _source_role: string; _target_role: string }
+        Returns: number
+      }
+      equipment_transition_allowed: {
+        Args: {
+          _from: Database["public"]["Enums"]["equipment_status"]
+          _to: Database["public"]["Enums"]["equipment_status"]
+        }
+        Returns: boolean
+      }
       get_doc_extractions_status: {
         Args: never
         Returns: {
@@ -3869,6 +4284,7 @@ export type Database = {
         Returns: boolean
       }
       is_clevel: { Args: never; Returns: boolean }
+      is_profile_active: { Args: { _role: string }; Returns: boolean }
       match_chunks_fts: {
         Args: { doc_ids: string[]; match_count?: number; query_text: string }
         Returns: {
@@ -3894,6 +4310,40 @@ export type Database = {
         }
         Returns: number
       }
+      preview_copy_role_permissions: {
+        Args: { _source_role: string; _target_role: string }
+        Returns: {
+          change: string
+          current_access: boolean
+          current_flags: Json
+          module_key: string
+          new_access: boolean
+          new_flags: Json
+        }[]
+      }
+      register_equipment_movement: {
+        Args: {
+          _authorized_by?: string
+          _evidence_url?: string
+          _item_id: string
+          _justification?: string
+          _occurred_at?: string
+          _reason?: string
+          _to_company_id?: string
+          _to_holder_type: Database["public"]["Enums"]["equipment_holder_type"]
+          _to_person_id?: string
+          _to_status: Database["public"]["Enums"]["equipment_status"]
+        }
+        Returns: string
+      }
+      set_profile_active: {
+        Args: { _active: boolean; _role: string }
+        Returns: number
+      }
+      soft_delete_equipment_item: {
+        Args: { _item_id: string; _reason: string }
+        Returns: undefined
+      }
     }
     Enums: {
       alert_severity: "atencao" | "critico" | "info"
@@ -3910,9 +4360,42 @@ export type Database = {
         | "superadmin"
         | "coordenacao_suporte"
         | "projetos_produtos"
+        | "head"
       contract_segment: "govtech" | "privado" | "hibrido"
       contract_status: "implantacao" | "operacao" | "suspenso" | "encerrado"
       contract_type: "sistema" | "infraestrutura" | "hibrido"
+      equipment_holder_type:
+        | "pessoa"
+        | "empresa_grupo"
+        | "estoque"
+        | "fornecedor"
+      equipment_ownership: "proprio" | "locado"
+      equipment_status:
+        | "em_estoque"
+        | "cedido"
+        | "cedido_grupo"
+        | "em_manutencao"
+        | "extraviado"
+        | "baixado_perda"
+        | "descartado"
+        | "doado"
+        | "vendido"
+        | "transferido_grupo"
+        | "devolvido_fornecedor"
+      equipment_type:
+        | "notebook"
+        | "desktop"
+        | "mini_pc"
+        | "monitor"
+        | "headset"
+        | "teclado"
+        | "mouse"
+        | "suporte_ergonomico"
+        | "celular"
+        | "tablet"
+        | "impressora"
+        | "projetor"
+        | "outro"
       gov_sphere: "municipal" | "estadual" | "federal"
       health_status: "saudavel" | "atencao" | "critico"
       history_event_type:
@@ -4134,10 +4617,46 @@ export const Constants = {
         "superadmin",
         "coordenacao_suporte",
         "projetos_produtos",
+        "head",
       ],
       contract_segment: ["govtech", "privado", "hibrido"],
       contract_status: ["implantacao", "operacao", "suspenso", "encerrado"],
       contract_type: ["sistema", "infraestrutura", "hibrido"],
+      equipment_holder_type: [
+        "pessoa",
+        "empresa_grupo",
+        "estoque",
+        "fornecedor",
+      ],
+      equipment_ownership: ["proprio", "locado"],
+      equipment_status: [
+        "em_estoque",
+        "cedido",
+        "cedido_grupo",
+        "em_manutencao",
+        "extraviado",
+        "baixado_perda",
+        "descartado",
+        "doado",
+        "vendido",
+        "transferido_grupo",
+        "devolvido_fornecedor",
+      ],
+      equipment_type: [
+        "notebook",
+        "desktop",
+        "mini_pc",
+        "monitor",
+        "headset",
+        "teclado",
+        "mouse",
+        "suporte_ergonomico",
+        "celular",
+        "tablet",
+        "impressora",
+        "projetor",
+        "outro",
+      ],
       gov_sphere: ["municipal", "estadual", "federal"],
       health_status: ["saudavel", "atencao", "critico"],
       history_event_type: [
