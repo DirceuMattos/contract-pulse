@@ -90,6 +90,7 @@ export function SystemUsersProvider({ children }: { children: ReactNode }) {
         name: data.name,
         email: emailChanged ? data.email : undefined,
         role: data.role,
+        active: data.active,
         password: data.password || undefined,
         moduleAccess: data.moduleAccess,
       }) as { error?: string };

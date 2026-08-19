@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Check, Copy, Info, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -21,6 +22,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   profiles: ProfileOption[];
+  onCreated: () => void;
 }
 
 /** Converte "Head de Área" em "head_de_area". */
@@ -41,11 +43,16 @@ function timestamp() {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
-export function CreateProfileDialog({ open, onClose, profiles }: Props) {
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function CreateProfileDialog({ open, onClose, profiles, onCreated }: Props) {
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [copyFrom, setCopyFrom] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const role = useMemo(() => slugify(label), [label]);
   const exists = profiles.some((p) => p.role === role);
@@ -90,7 +97,7 @@ ${copyBlock}`;
   }, [role, label, description, copyFrom]);
 
   function reset() {
-    setLabel(''); setDescription(''); setCopyFrom(''); setCopied(false);
+    setLabel(''); setDescription(''); setCopyFrom(''); setCopied(false); setSaving(false);
   }
 
   async function copyToClipboard() {
@@ -104,23 +111,71 @@ ${copyBlock}`;
     }
   }
 
+  async function createProfile() {
+    if (!role) {
+      toast.error('Informe o nome do perfil');
+      return;
+    }
+    if (exists) {
+      toast.error(`Já existe um perfil com a chave "${role}"`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const rpcClient = supabase as unknown as {
+        rpc: (
+          fn: 'create_role_profile',
+          args: {
+            _role: string;
+            _label: string;
+            _description: string | null;
+            _copy_from: string | null;
+          },
+        ) => Promise<{ data: number | null; error: Error | null }>;
+      };
+
+      const { data, error } = await rpcClient.rpc('create_role_profile', {
+        _role: role,
+        _label: label.trim(),
+        _description: description.trim() || null,
+        _copy_from: copyFrom || null,
+      });
+      if (error) throw error;
+
+      const copiedModules = typeof data === 'number' ? data : 0;
+      toast.success(
+        copiedModules > 0
+          ? `Perfil criado com ${copiedModules} permissões copiadas`
+          : 'Perfil criado sem módulos habilitados',
+      );
+      reset();
+      onCreated();
+      onClose();
+    } catch (e: unknown) {
+      toast.error('Erro ao criar perfil: ' + errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo perfil</DialogTitle>
           <DialogDescription>
-            Perfis fazem parte da estrutura de segurança do banco, por isso nascem
-            por migration versionada — e não por gravação direta da tela.
+            Crie o cadastro do perfil e, se quiser, copie permissões iniciais de
+            outro perfil. Depois configure os módulos e ações na própria tela.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex items-start gap-2 rounded-md border border-blue-500/30 bg-blue-500/5 p-3 text-sm">
           <Info className="h-4 w-4 mt-0.5 text-blue-600 shrink-0" />
           <span>
-            Preencha abaixo e entregue a migration gerada a quem aplica as migrations.
-            Depois de aplicada, o perfil aparece nesta tela e já pode ser configurado
-            e atribuído a usuários.
+            A criação abaixo salva o perfil no gerenciador. A atribuição desse
+            novo perfil a usuários depende da liberação de perfis dinâmicos no
+            cadastro de usuários.
           </span>
         </div>
 
@@ -183,7 +238,13 @@ ${copyBlock}`;
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => { reset(); onClose(); }}>Fechar</Button>
+          <Button variant="outline" onClick={() => { reset(); onClose(); }} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={createProfile} disabled={!role || exists || saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Criar perfil
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

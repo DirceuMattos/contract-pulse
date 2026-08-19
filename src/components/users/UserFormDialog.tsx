@@ -219,10 +219,11 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
           description: `${data.name} foi atualizado com sucesso.`,
         });
         onClose();
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
         toast({
           title: 'Erro ao atualizar',
-          description: e?.message || 'Não foi possível atualizar o usuário.',
+          description: message || 'Não foi possível atualizar o usuário.',
           variant: 'destructive',
         });
       }
@@ -323,6 +324,7 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
                       <Input 
                         type="password" 
                         placeholder="••••••••" 
+                        autoComplete="new-password"
                         className="pl-10" 
                         {...field} 
                       />

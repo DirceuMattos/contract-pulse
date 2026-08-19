@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     case "create":
       return await handleCreate(adminClient, body);
     case "update":
-      return await handleUpdate(adminClient, body);
+      return await handleUpdate(adminClient, body, callerId);
     case "delete":
       return await handleDelete(adminClient, body, callerId);
     case "toggle-status":
@@ -233,24 +233,31 @@ async function handleCreate(admin: ReturnType<typeof createClient>, body: Record
   return json({ userId, message: "User created" }, 201);
 }
 
-async function handleUpdate(admin: ReturnType<typeof createClient>, body: Record<string, unknown>) {
-  const { userId, name, email, role, password, moduleAccess } = body as {
+async function handleUpdate(
+  admin: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+  callerId: string,
+) {
+  const { userId, name, email, role, password, active, moduleAccess } = body as {
     userId: string;
     name?: string;
     email?: string;
     role?: string;
     password?: string;
+    active?: boolean;
     moduleAccess?: Record<string, boolean>;
   };
 
   if (!userId) return err("Missing userId");
+  if (userId === callerId && active === false) return err("Cannot deactivate yourself");
 
   // Update profile
   const profileUpdates: Record<string, unknown> = {};
   if (name) profileUpdates.name = name;
   if (email) profileUpdates.email = email;
   if (Object.keys(profileUpdates).length > 0) {
-    await admin.from("profiles").update(profileUpdates).eq("id", userId);
+    const { error } = await admin.from("profiles").update(profileUpdates).eq("id", userId);
+    if (error) return err(`Failed to update profile: ${error.message}`, 500);
   }
 
   // Update auth email/password
@@ -264,7 +271,16 @@ async function handleUpdate(admin: ReturnType<typeof createClient>, body: Record
 
   // Update role
   if (role) {
-    await admin.from("user_roles").update({ role }).eq("user_id", userId);
+    const { error } = await admin.from("user_roles").update({ role }).eq("user_id", userId);
+    if (error) return err(`Failed to update role: ${error.message}`, 500);
+  }
+
+  // Update active status via Supabase Auth ban/unban.
+  if (typeof active === "boolean") {
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: active ? "none" : "876000h",
+    });
+    if (error) return err(`Failed to ${active ? "reactivate" : "deactivate"} user: ${error.message}`, 500);
   }
 
   // Update module permissions (upsert)
@@ -316,13 +332,15 @@ async function handleToggleStatus(
   if (userId === callerId) return err("Cannot ban/unban yourself");
 
   if (ban) {
-    await admin.auth.admin.updateUserById(userId, {
+    const { error } = await admin.auth.admin.updateUserById(userId, {
       ban_duration: "876000h",
     });
+    if (error) return err(`Failed to ban user: ${error.message}`, 500);
   } else {
-    await admin.auth.admin.updateUserById(userId, {
+    const { error } = await admin.auth.admin.updateUserById(userId, {
       ban_duration: "none",
     });
+    if (error) return err(`Failed to unban user: ${error.message}`, 500);
   }
 
   return json({ message: ban ? "User banned" : "User unbanned" });

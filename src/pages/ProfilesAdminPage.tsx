@@ -83,7 +83,7 @@ const roleLabels: Record<UserRole, string> = {
   'head': 'Head de Área',
 };
 
-const ROLE_ORDER: UserRole[] = [
+const PROFILE_ROLES: UserRole[] = [
   'c-level',
   'superadmin',
   'intermediario',
@@ -98,6 +98,10 @@ const ROLE_ORDER: UserRole[] = [
   'demo',
   'leitor',
 ];
+
+const ROLE_ORDER: UserRole[] = [...PROFILE_ROLES].sort((a, b) =>
+  roleLabels[a].localeCompare(roleLabels[b], 'pt-BR', { sensitivity: 'base' })
+);
 
 // Defaults espelhando ROLE_DEFAULT_MODULES de @/types/moduleAccess para "Resetar".
 // Para roles não listados aqui (c-level, intermediario, leitor) ficam habilitados todos os módulos permitidos.
@@ -126,7 +130,7 @@ function defaultModulesFor(role: UserRole): ModuleKey[] {
 
 interface RoleProfileRow extends ActionFlags {
   id?: string;
-  role: UserRole;
+  role: string;
   label: string;
   modules: ModuleKey[];
   moduleActions: ModuleActionPermissions;
@@ -142,6 +146,32 @@ const MODULE_GROUPS: { title: string; keys: ModuleKey[] }[] = [
   { title: 'Setup', keys: ['SETTINGS', 'USERS_ADMIN', 'IMPORT_EXPORT', 'PROFILES_ADMIN', 'ACCESS_LOGS'] },
   { title: 'IA', keys: ['AI', 'AI_LOGS'] },
 ];
+
+function isKnownRole(role: string): role is UserRole {
+  return Object.prototype.hasOwnProperty.call(roleLabels, role);
+}
+
+function roleLabel(role: string, row?: RoleProfileRow) {
+  return row?.label || (isKnownRole(role) ? roleLabels[role] : role);
+}
+
+function roleColor(role: string) {
+  return isKnownRole(role)
+    ? roleColors[role]
+    : 'bg-muted text-muted-foreground border-border';
+}
+
+function defaultActionFlagsFor(role: string): ActionFlags {
+  return isKnownRole(role) ? DEFAULT_ACTION_FLAGS_BY_ROLE[role] : EMPTY_ACTION_FLAGS;
+}
+
+function defaultModuleActionsFor(role: string): ModuleActionPermissions {
+  return isKnownRole(role) ? getDefaultModuleActionPermissions(role) : {};
+}
+
+function isModuleAllowedForProfile(role: string, moduleKey: ModuleKey): boolean {
+  return isKnownRole(role) ? isRoleAllowedForModule(role, moduleKey) : true;
+}
 
 export default function ProfilesAdminPage() {
   const { loading, isSuperAdmin } = useAuth();
@@ -189,13 +219,13 @@ export default function ProfilesAdminPage() {
 
         const map: Record<string, RoleProfileRow> = {};
         for (const r of data || []) {
-          const role = r.role as UserRole;
+          const role = r.role as string;
           map[r.role] = {
             id: r.id,
             role,
             label: r.label,
             modules: (r.modules || []) as ModuleKey[],
-            moduleActions: actionMap[r.role] || getDefaultModuleActionPermissions(role),
+            moduleActions: actionMap[r.role] || defaultModuleActionsFor(role),
             can_edit: !!r.can_edit,
             can_create: !!r.can_create,
             can_delete: !!r.can_delete,
@@ -222,17 +252,22 @@ export default function ProfilesAdminPage() {
   }
   if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
 
-  function buildRowFor(role: UserRole): RoleProfileRow {
+  const visibleRoles = Array.from(new Set([...ROLE_ORDER, ...Object.keys(profiles)])).sort((a, b) =>
+    roleLabel(a, profiles[a]).localeCompare(roleLabel(b, profiles[b]), 'pt-BR', { sensitivity: 'base' })
+  );
+  const profileOptions = visibleRoles.map((r) => ({ role: r, label: roleLabel(r, profiles[r]) }));
+
+  function buildRowFor(role: string): RoleProfileRow {
     return profiles[role] || {
       role,
-      label: roleLabels[role],
-      modules: defaultModulesFor(role),
-      moduleActions: getDefaultModuleActionPermissions(role),
-      ...DEFAULT_ACTION_FLAGS_BY_ROLE[role],
+      label: roleLabel(role),
+      modules: isKnownRole(role) ? defaultModulesFor(role) : [],
+      moduleActions: defaultModuleActionsFor(role),
+      ...defaultActionFlagsFor(role),
     };
   }
 
-  function openEdit(role: UserRole) {
+  function openEdit(role: string) {
     setEditing({ ...buildRowFor(role) });
   }
 
@@ -242,13 +277,13 @@ export default function ProfilesAdminPage() {
     if (checked) set.add(key);
     else set.delete(key);
     const moduleActions = { ...editing.moduleActions };
-    moduleActions[key] = checked ? (moduleActions[key] || { ...DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role] }) : { ...EMPTY_ACTION_FLAGS };
+    moduleActions[key] = checked ? (moduleActions[key] || { ...defaultActionFlagsFor(editing.role) }) : { ...EMPTY_ACTION_FLAGS };
     setEditing({ ...editing, modules: Array.from(set), moduleActions });
   }
 
   function setModuleFlag(moduleKey: ModuleKey, key: ActionFlagKey, value: boolean) {
     if (!editing || !editing.modules.includes(moduleKey)) return;
-    const current = editing.moduleActions[moduleKey] || { ...DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role] };
+    const current = editing.moduleActions[moduleKey] || { ...defaultActionFlagsFor(editing.role) };
     setEditing({
       ...editing,
       moduleActions: {
@@ -262,9 +297,9 @@ export default function ProfilesAdminPage() {
     if (!editing) return;
     setEditing({
       ...editing,
-      modules: defaultModulesFor(editing.role),
-      moduleActions: getDefaultModuleActionPermissions(editing.role),
-      ...DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role],
+      modules: isKnownRole(editing.role) ? defaultModulesFor(editing.role) : [],
+      moduleActions: defaultModuleActionsFor(editing.role),
+      ...defaultActionFlagsFor(editing.role),
     });
     toast.info('Valores padrão carregados (não salvos)');
   }
@@ -292,7 +327,7 @@ export default function ProfilesAdminPage() {
               {group.keys.map((key) => {
                 const mod = MODULE_CATALOG.find((m) => m.key === key);
                 if (!mod) return null;
-                const allowed = isRoleAllowedForModule(editing.role, key);
+                const allowed = isModuleAllowedForProfile(editing.role, key);
                 const checked = allowed && editing.modules.includes(key);
                 const flags = editing.moduleActions[key] || EMPTY_ACTION_FLAGS;
                 const row = (
@@ -336,7 +371,7 @@ export default function ProfilesAdminPage() {
     );
   }
 
-  async function propagateProfileChanges(role: UserRole, modules: ModuleKey[]): Promise<number> {
+  async function propagateProfileChanges(role: string, modules: ModuleKey[]): Promise<number> {
     const { data: usersWithRole, error: usersErr } = await supabase
       .from('user_roles')
       .select('user_id')
@@ -363,7 +398,7 @@ export default function ProfilesAdminPage() {
     return userIds.length;
   }
 
-  async function toggleProfileActive(role: UserRole, next: boolean) {
+  async function toggleProfileActive(role: string, next: boolean) {
     setTogglingRole(role);
     try {
       const { data, error } = await (supabase as any).rpc('set_profile_active', {
@@ -418,11 +453,11 @@ export default function ProfilesAdminPage() {
       if (deleteActionError) throw deleteActionError;
 
       const actionRows = MODULE_CATALOG
-        .filter((mod) => isRoleAllowedForModule(editing.role, mod.key))
+        .filter((mod) => isModuleAllowedForProfile(editing.role, mod.key))
         .map((mod) => {
           const hasAccess = editing.modules.includes(mod.key);
           const flags = hasAccess
-            ? (editing.moduleActions[mod.key] || DEFAULT_ACTION_FLAGS_BY_ROLE[editing.role])
+            ? (editing.moduleActions[mod.key] || defaultActionFlagsFor(editing.role))
             : EMPTY_ACTION_FLAGS;
           return {
             role: editing.role,
@@ -484,7 +519,7 @@ export default function ProfilesAdminPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {ROLE_ORDER.map((role) => {
+            {visibleRoles.map((role) => {
               const row = buildRowFor(role);
               return (
                 <Card
@@ -503,8 +538,8 @@ export default function ProfilesAdminPage() {
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-base">{roleLabels[role]}</CardTitle>
-                      <Badge variant="outline" className={roleColors[role]}>
+                      <CardTitle className="text-base">{roleLabel(role, row)}</CardTitle>
+                      <Badge variant="outline" className={roleColor(role)}>
                         {role}
                       </Badge>
                     </div>
@@ -529,7 +564,7 @@ export default function ProfilesAdminPage() {
                           <TooltipTrigger asChild>
                             <div>
                               <Switch
-                                aria-label={`Ativar ou inativar ${roleLabels[role]}`}
+                                aria-label={`Ativar ou inativar ${roleLabel(role, row)}`}
                                 checked={row.active !== false}
                                 disabled={!!row.is_system || togglingRole === role}
                                 onCheckedChange={(v) => toggleProfileActive(role, !!v)}
@@ -558,14 +593,15 @@ export default function ProfilesAdminPage() {
         <CopyPermissionsDialog
           open={copyOpen}
           onClose={() => setCopyOpen(false)}
-          profiles={ROLE_ORDER.map((r) => ({ role: r, label: roleLabels[r] }))}
+          profiles={profileOptions}
           onCopied={() => setReloadKey((k) => k + 1)}
         />
 
         <CreateProfileDialog
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          profiles={ROLE_ORDER.map((r) => ({ role: r, label: roleLabels[r] }))}
+          profiles={profileOptions}
+          onCreated={() => setReloadKey((k) => k + 1)}
         />
 
         <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
