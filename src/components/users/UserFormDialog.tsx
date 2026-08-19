@@ -193,6 +193,11 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
     setModuleAccess(getDefaultModuleAccess(watchedRole));
   };
 
+  const moduleAccessChanged = () => {
+    const previous = editingUser?.moduleAccess ?? getDefaultModuleAccess(editingUser?.role ?? 'leitor');
+    return MODULE_CATALOG.some((mod) => previous[mod.key] !== moduleAccess[mod.key]);
+  };
+
   const filteredModules = MODULE_CATALOG.filter(mod =>
     mod.label.toLowerCase().includes(moduleSearch.toLowerCase()) ||
     mod.description.toLowerCase().includes(moduleSearch.toLowerCase())
@@ -205,10 +210,13 @@ export function UserFormDialog({ open, onClose, editingUser }: UserFormDialogPro
         email: data.email,
         role: data.role,
         active: data.active,
-        moduleAccess,
       };
+
+      if (moduleAccessChanged()) {
+        updateData.moduleAccess = moduleAccess;
+      }
       
-      if (data.password && data.password.length > 0) {
+      if (form.formState.dirtyFields.password && data.password && data.password.length > 0) {
         updateData.password = data.password;
       }
 

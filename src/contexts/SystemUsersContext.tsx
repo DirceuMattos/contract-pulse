@@ -19,11 +19,27 @@ interface SystemUsersContextType {
 
 const SystemUsersContext = createContext<SystemUsersContextType | undefined>(undefined);
 
+type FunctionErrorWithContext = Error & {
+  context?: Response;
+};
+
 async function invokeManageUsers(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke('manage-users', {
     body: { action, ...payload },
   });
-  if (error) throw error;
+  if (error) {
+    const context = (error as FunctionErrorWithContext).context;
+    if (context) {
+      try {
+        const body = await context.clone().json();
+        if (body?.error) throw new Error(String(body.error));
+        if (body?.message) throw new Error(String(body.message));
+      } catch (parseError) {
+        if (parseError instanceof Error && parseError.message !== error.message) throw parseError;
+      }
+    }
+    throw error;
+  }
   return data;
 }
 

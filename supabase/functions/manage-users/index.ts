@@ -263,7 +263,7 @@ async function handleUpdate(
   // Update auth email/password
   const authUpdates: Record<string, unknown> = {};
   if (email) authUpdates.email = email;
-  if (password) authUpdates.password = password;
+  if (typeof password === "string" && password.trim().length > 0) authUpdates.password = password;
   if (Object.keys(authUpdates).length > 0) {
     const { error } = await admin.auth.admin.updateUserById(userId, authUpdates);
     if (error) return err(error.message, 400);
@@ -284,7 +284,7 @@ async function handleUpdate(
   }
 
   // Update module permissions (upsert)
-  if (moduleAccess) {
+  if (moduleAccess && Object.keys(moduleAccess).length > 0) {
     // Delete existing and re-insert
     const { error: delErr } = await admin.from("user_module_permissions").delete().eq("user_id", userId);
 
