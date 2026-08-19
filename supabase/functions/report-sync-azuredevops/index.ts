@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAnyRole, AuthError } from "../_shared/auth.ts";
 
-const REPORT_ROLES = ["c-level", "superadmin", "lider_tribo", "administrativo", "coordenacao_suporte", "projetos_produtos"];
+const REPORT_ROLES = ["c-level", "superadmin", "lider_tribo", "administrativo", "coordenacao_suporte", "projetos_produtos", "rh"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

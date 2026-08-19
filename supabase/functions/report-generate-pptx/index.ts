@@ -5,7 +5,7 @@ import pptxgen from "https://esm.sh/pptxgenjs@3.12.0";
 import { requireAnyRole, AuthError } from "../_shared/auth.ts";
 
 // Perfis com acesso ao módulo de Relatórios (REPORTS).
-const REPORT_ROLES = ["c-level", "superadmin", "lider_tribo", "administrativo", "coordenacao_suporte", "projetos_produtos"];
+const REPORT_ROLES = ["c-level", "superadmin", "lider_tribo", "administrativo", "coordenacao_suporte", "projetos_produtos", "rh"];
 
 const AZUL_ESCURO = "1A4F8A";
 const AZUL_MEDIO = "2D7FC1";
