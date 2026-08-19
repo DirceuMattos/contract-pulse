@@ -1051,6 +1051,77 @@ export type Database = {
           },
         ]
       }
+      equipment_return_pendings: {
+        Row: {
+          created_at: string
+          equipment_item_id: string
+          evidence_url: string | null
+          id: string
+          movement_id: string | null
+          notes: string | null
+          person_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["equipment_return_status"]
+          termination_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          equipment_item_id: string
+          evidence_url?: string | null
+          id?: string
+          movement_id?: string | null
+          notes?: string | null
+          person_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["equipment_return_status"]
+          termination_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          equipment_item_id?: string
+          evidence_url?: string | null
+          id?: string
+          movement_id?: string | null
+          notes?: string | null
+          person_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["equipment_return_status"]
+          termination_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_return_pendings_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_suppliers: {
         Row: {
           active: boolean
@@ -3073,6 +3144,7 @@ export type Database = {
         Row: {
           created_at: string
           dias_alerta_desatualizacao: number
+          dias_alerta_devolucao: number
           dias_alerta_reajuste: number
           dias_alerta_vigencia: number
           id: string
@@ -3088,6 +3160,7 @@ export type Database = {
         Insert: {
           created_at?: string
           dias_alerta_desatualizacao?: number
+          dias_alerta_devolucao?: number
           dias_alerta_reajuste?: number
           dias_alerta_vigencia?: number
           id?: string
@@ -3103,6 +3176,7 @@ export type Database = {
         Update: {
           created_at?: string
           dias_alerta_desatualizacao?: number
+          dias_alerta_devolucao?: number
           dias_alerta_reajuste?: number
           dias_alerta_vigencia?: number
           id?: string
@@ -4209,6 +4283,82 @@ export type Database = {
           },
         ]
       }
+      equipment_return_pendings_view: {
+        Row: {
+          alerta_item_movimentado_por_fora: boolean | null
+          alerta_locado: boolean | null
+          asset_tag: string | null
+          created_at: string | null
+          dias_em_aberto: number | null
+          equipment_item_id: string | null
+          equipment_type: Database["public"]["Enums"]["equipment_type"] | null
+          evidence_url: string | null
+          hostname: string | null
+          id: string | null
+          item_holder_person_id: string | null
+          item_status: Database["public"]["Enums"]["equipment_status"] | null
+          manufacturer: string | null
+          model: string | null
+          movement_id: string | null
+          notes: string | null
+          ownership: Database["public"]["Enums"]["equipment_ownership"] | null
+          person_id: string | null
+          person_name: string | null
+          person_situacao: string | null
+          rental_monthly_value: number | null
+          resolved_at: string | null
+          resolved_by: string | null
+          serial_number: string | null
+          status: Database["public"]["Enums"]["equipment_return_status"] | null
+          team_id: string | null
+          team_name: string | null
+          termination_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_items_holder_person_id_fkey"
+            columns: ["item_holder_person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_equipment_item_id_fkey"
+            columns: ["equipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_pendings_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "hr_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_people_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_act_on_contract_module: {
@@ -4345,6 +4495,17 @@ export type Database = {
         }
         Returns: string
       }
+      resolve_equipment_return_pending: {
+        Args: {
+          _evidence_url?: string
+          _identification?: string
+          _notes?: string
+          _occurred_at?: string
+          _outcome: Database["public"]["Enums"]["equipment_return_status"]
+          _pending_id: string
+        }
+        Returns: string
+      }
       set_profile_active: {
         Args: { _active: boolean; _role: string }
         Returns: number
@@ -4379,6 +4540,13 @@ export type Database = {
         | "estoque"
         | "fornecedor"
       equipment_ownership: "proprio" | "locado"
+      equipment_return_status:
+        | "pending"
+        | "returned"
+        | "returned_damaged"
+        | "lost"
+        | "not_applicable"
+        | "cancelled"
       equipment_status:
         | "em_estoque"
         | "cedido"
@@ -4638,6 +4806,14 @@ export const Constants = {
         "fornecedor",
       ],
       equipment_ownership: ["proprio", "locado"],
+      equipment_return_status: [
+        "pending",
+        "returned",
+        "returned_damaged",
+        "lost",
+        "not_applicable",
+        "cancelled",
+      ],
       equipment_status: [
         "em_estoque",
         "cedido",
