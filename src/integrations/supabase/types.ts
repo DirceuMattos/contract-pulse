@@ -4220,6 +4220,15 @@ export type Database = {
         Args: { _source_role: string; _target_role: string }
         Returns: number
       }
+      create_role_profile: {
+        Args: {
+          _copy_from?: string
+          _description?: string
+          _label: string
+          _role: string
+        }
+        Returns: number
+      }
       equipment_transition_allowed: {
         Args: {
           _from: Database["public"]["Enums"]["equipment_status"]
