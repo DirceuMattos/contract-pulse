@@ -239,8 +239,11 @@ export default function ReportEditPage() {
 
   // Grava imediatamente todos os saves com debounce pendente
   const flushPendingSaves = useCallback(async () => {
-    const ids = Object.keys(saveTimers.current);
-    if (ids.length === 0) return;
+    const ids = Array.from(new Set([
+      ...Object.keys(saveTimers.current),
+      ...Object.keys(pendingContents.current),
+    ]));
+    if (ids.length === 0) return {};
     // Cancela os timers e grava tudo de uma vez
     ids.forEach((id) => clearTimeout(saveTimers.current[id]));
     saveTimers.current = {};
@@ -255,15 +258,30 @@ export default function ReportEditPage() {
       }
     });
 
-    // Aguarda todos os PATCHes terminarem
-    await Promise.all(
-      Object.entries(toSave).map(([id, content]) =>
+    const entries = Object.entries(toSave);
+    if (entries.length === 0) return {};
+
+    // Aguarda todos os PATCHes terminarem e valida erro de banco/RLS.
+    const results = await Promise.all(
+      entries.map(([id, content]) =>
         supabase
           .from('report_sections')
           .update({ content: content as any, updated_at: new Date().toISOString() })
           .eq('id', id)
       )
     );
+    const failed = results
+      .map((result, index) => ({ result, id: entries[index][0], content: entries[index][1] }))
+      .filter(({ result }) => result.error);
+
+    if (failed.length > 0) {
+      failed.forEach(({ id, content }) => {
+        pendingContents.current[id] = content;
+      });
+      setPendingSaveCount(failed.length);
+      const message = failed[0].result.error?.message ?? 'Erro desconhecido ao salvar seção.';
+      throw new Error(`Não foi possível salvar o relatório antes de continuar: ${message}`);
+    }
 
     // Após confirmar o save no banco, atualiza o cache local com os valores salvos
     // Isso evita que qualquer re-fetch subsequente sobrescreva com dado antigo
@@ -276,6 +294,7 @@ export default function ReportEditPage() {
         ),
       };
     });
+    return toSave;
   }, [queryClient, reportId]);
 
   // Flush no unmount da página (logout, navegação para fora)
@@ -330,6 +349,8 @@ export default function ReportEditPage() {
         .update({ content: next as any, updated_at: new Date().toISOString() })
         .eq('id', section.id);
       if (error) {
+        pendingContents.current[section.id] = next;
+        setPendingSaveCount((c) => c + 1);
         toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
       }
     }, 800);
@@ -482,12 +503,16 @@ export default function ReportEditPage() {
   const handleGeneratePPTX = async () => {
     try {
       setGenerating(true);
+      // Garante que o PPT nunca seja gerado com conteúdo ainda preso no debounce.
+      await flushPendingSaves();
 
       const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
                      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
+      const latestData = queryClient.getQueryData(['monthly_report', reportId]) as { sections?: ReportSection[] } | undefined;
+      const sectionsForPptx = latestData?.sections ?? sections;
       const sectionMap: Record<string, Record<string, unknown>> = {};
-      for (const s of sections) {
+      for (const s of sectionsForPptx) {
         sectionMap[s.sectionKey] = s.content ?? {};
       }
 
