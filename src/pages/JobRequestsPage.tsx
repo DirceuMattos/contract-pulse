@@ -309,13 +309,21 @@ export default function JobRequestsPage() {
     .filter((r) => r.status === 'removed')
     .filter((r) => matchesReposicao(r, findLinkedRequest(r)));
 
-  const filtered = (filter === 'todos' ? searchedRequests : searchedRequests.filter((r) => r.status === filter))
+  // Vaga preenchida sai da visão padrão: o painel é de acompanhamento do que
+  // está em aberto. Continua acessível escolhendo "Preenchida" no filtro.
+  const filtered = (filter === 'todos'
+      ? searchedRequests.filter((r) => r.status !== 'preenchida')
+      : searchedRequests.filter((r) => r.status === filter))
     .sort((a, b) => {
       const byStatus = CARD_STATUS_ORDER[a.status] - CARD_STATUS_ORDER[b.status];
       if (byStatus !== 0) return byStatus;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  const countBy = (s: JobRequestStatus | 'todos') => s === 'todos' ? searchedRequests.length : searchedRequests.filter((r) => r.status === s).length;
+  // O contador de "todos" acompanha a visão padrão, senão o número na aba não
+  // corresponde à quantidade de cards na tela.
+  const countBy = (s: JobRequestStatus | 'todos') => s === 'todos'
+    ? searchedRequests.filter((r) => r.status !== 'preenchida').length
+    : searchedRequests.filter((r) => r.status === s).length;
 
   return (
     <div className="space-y-6">
@@ -334,7 +342,7 @@ export default function JobRequestsPage() {
         <div className="flex flex-wrap gap-2">
           {STATUS_ORDER.map((s) => {
             const active = filter === s;
-            const label = s === 'todos' ? 'Todas' : STATUS_META[s].label;
+            const label = s === 'todos' ? 'Em aberto' : STATUS_META[s].label;
             return (
               <button key={s} type="button" onClick={() => setFilter(s)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
@@ -455,10 +463,10 @@ export default function JobRequestsPage() {
           icon={Briefcase}
           title={isSearching
             ? 'Nenhuma vaga encontrada para esta busca'
-            : filter === 'todos' ? 'Nenhuma vaga cadastrada' : 'Nenhuma vaga neste status'}
+            : filter === 'todos' ? 'Nenhuma vaga em aberto' : 'Nenhuma vaga neste status'}
           description={isSearching
             ? 'Tente outro cargo, função ou nome, ou limpe a busca para ver todas as vagas.'
-            : filter === 'todos' ? 'Abra uma requisição de vaga para iniciar um processo de contratação.' : 'Ajuste o filtro para ver outras vagas.'}
+            : filter === 'todos' ? 'Abra uma requisição de vaga para iniciar um processo de contratação, ou use o filtro Preenchida para ver as vagas já fechadas.' : 'Ajuste o filtro para ver outras vagas.'}
           actionLabel={isSearching ? 'Limpar busca' : filter === 'todos' && canEdit ? 'Nova vaga' : undefined}
           onAction={isSearching ? () => setSearch('') : filter === 'todos' && canEdit ? openNew : undefined}
           actionIcon={isSearching ? X : Plus}

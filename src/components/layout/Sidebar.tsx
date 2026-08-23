@@ -82,7 +82,7 @@ const navGroups: NavGroup[] = [
     icon: Briefcase,
     items: [
       { path: '/clientes', label: 'Clientes', icon: Users, moduleKey: 'CLIENTS' },
-      { path: '/contratos', label: 'Contratos', icon: FileText, moduleKey: 'CONTRACTS' },
+      { path: '/contratos', label: 'Contratos/Projetos', icon: FileText, moduleKey: 'CONTRACTS' },
       { path: '/receivables', label: 'Recebíveis', icon: Receipt, moduleKey: 'RECEIVABLES' },
       { path: '/relatorios', label: 'Relatórios Mensais', icon: FileBarChart2, moduleKey: 'REPORTS' },
       { path: '/custos-suporte', label: 'Custo do Suporte a Sistemas - TSI', icon: CircleDollarSign, moduleKey: 'SUPPORT_COSTS' },

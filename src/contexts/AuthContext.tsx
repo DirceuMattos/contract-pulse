@@ -45,6 +45,33 @@ if (import.meta.hot) {
   import.meta.hot.accept(() => import.meta.hot?.invalidate());
 }
 
+/**
+ * Traduz o erro do GoTrue para linguagem de usuário.
+ *
+ * Usuário inativo no sistema é bloqueado com `ban_duration` pela função
+ * manage-users, e o GoTrue responde falando de "banned" — palavra que não
+ * descreve a situação para quem está do outro lado da tela. As demais falhas
+ * de acesso mantêm a mensagem correspondente.
+ */
+function mapLoginError(error: { message?: string; code?: string; status?: number }): string {
+  const msg = (error?.message ?? '').toLowerCase();
+  const code = (error?.code ?? '').toLowerCase();
+
+  if (code === 'user_banned' || msg.includes('banned')) {
+    return 'Acesso negado — sistema em manutenção. Procure o administrador.';
+  }
+  if (code === 'invalid_credentials' || msg === 'invalid login credentials') {
+    return 'Credenciais inválidas';
+  }
+  if (code === 'email_not_confirmed' || msg.includes('email not confirmed')) {
+    return 'E-mail ainda não confirmado. Procure o administrador.';
+  }
+  if (code === 'over_request_rate_limit' || msg.includes('rate limit')) {
+    return 'Muitas tentativas. Aguarde um momento e tente de novo.';
+  }
+  return error?.message ?? 'Não foi possível entrar.';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -165,9 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<void> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      throw new Error(error.message === 'Invalid login credentials'
-        ? 'Credenciais inválidas'
-        : error.message);
+      throw new Error(mapLoginError(error));
     }
   };
 

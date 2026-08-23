@@ -165,26 +165,28 @@ export default function ClientsPage() {
         <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredClients.map((client, index) => {
             const contractCount = getContractCount(client.id);
-            const handleCardEdit = () => {
-              if (canEditClients) navigate(`/clientes/${client.id}/editar`);
+            // Clique no card abre o DETALHE do cliente, para todos os perfis que
+            // enxergam a tela. A edição continua no menu de três pontos: clicar
+            // num card não deve abrir formulário de edição sem intenção.
+            const handleCardOpen = () => {
+              navigate(`/clientes/${client.id}`);
             };
             
             return (
               <motion.div key={client.id} variants={itemVariants}>
                 <Card className={cn(
                   "card-elevated hover:shadow-md transition-shadow border-l-4",
-                  canEditClients && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   cardColors[index % cardColors.length]
                 )}
-                  role={canEditClients ? 'button' : undefined}
-                  tabIndex={canEditClients ? 0 : undefined}
-                  onClick={handleCardEdit}
+                  role="button"
+                  tabIndex={0}
+                  onClick={handleCardOpen}
                   onKeyDown={(event) => {
-                    if (!canEditClients) return;
                     if (event.target !== event.currentTarget) return;
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      handleCardEdit();
+                      handleCardOpen();
                     }
                   }}
                 >
