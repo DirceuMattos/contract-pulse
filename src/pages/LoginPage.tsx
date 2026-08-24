@@ -75,7 +75,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex items-start justify-between">
-          <img src={logoBnp} alt="BNP Logo" className="w-[280px] h-auto object-contain" />
+          <img src={logoBnp} alt="BNP Logo" className="w-[340px] h-auto object-contain" />
           <div className="flex flex-col gap-3">
             <div>
               <span className="text-5xl font-bold text-white">BNP</span>
