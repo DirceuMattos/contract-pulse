@@ -83,13 +83,28 @@ export function SubstituicaoDialog({
         tipo: person.tipoVinculo === 'clt' ? 'clt' : 'pj',
         percentualDedicacao: finalPercent,
       });
-      await supabase
+      // O .select() revela quantas linhas mudaram. Sem ele, um UPDATE barrado
+      // pela RLS volta sem erro e com zero linhas — e o .update() do supabase-js
+      // não lança exceção, então o catch abaixo nunca veria o problema. Era
+      // assim que a substituição acontecia pela metade: o recurso trocava de
+      // pessoa e a pendência ficava 'pending' para sempre, mantendo o
+      // colaborador desligado marcado como "a repor" no quadro de Squads.
+      const { data: resolvidas, error: pendErr } = await supabase
         .from('pending_replacements')
         .update({ status: 'replaced', resolved_at: new Date().toISOString() })
         .eq('resource_id', resourceId)
         .eq('contract_id', contractId)
-        .eq('status', 'pending');
-      toast.success('Substituição realizada com sucesso');
+        .eq('status', 'pending')
+        .select('id');
+      if (pendErr) throw pendErr;
+      if (!resolvidas || resolvidas.length === 0) {
+        toast.warning(
+          'Recurso substituído, mas a pendência de reposição não pôde ser encerrada. ' +
+          'Avise o administrador para que ela não fique aberta no quadro.'
+        );
+      } else {
+        toast.success('Substituição realizada com sucesso');
+      }
       onCompleted?.();
       onOpenChange(false);
     } catch (err) {
@@ -107,7 +122,8 @@ export function SubstituicaoDialog({
           <DialogHeader>
             <DialogTitle>Acesso restrito</DialogTitle>
             <DialogDescription>
-              Apenas usuários C-Level e Líder de Tribo podem realizar substituições.
+              Apenas Superadmin, C-Level, Líder de Tribo e Coordenador de Suporte
+              podem realizar substituições.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
