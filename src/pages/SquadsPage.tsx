@@ -162,13 +162,21 @@ function SquadsPageInner() {
 
   const handleRemovePending = async () => {
     if (!removing) return;
-    const { error } = await supabase
+    // O .select() é o que revela quantas linhas mudaram de fato. Sem ele, um
+    // UPDATE barrado pela RLS volta sem erro e com zero linhas, e a tela
+    // anunciava "Pendência removida" sem nada ter acontecido.
+    const { data, error } = await supabase
       .from('pending_replacements')
       .update({ status: 'removed', resolved_at: new Date().toISOString() })
       .eq('resource_id', removing.resourceId)
       .eq('contract_id', removing.contractId)
-      .eq('status', 'pending');
+      .eq('status', 'pending')
+      .select('id');
     if (error) { toast.error('Erro ao remover pendência.'); return; }
+    if (!data || data.length === 0) {
+      toast.error('Seu perfil não tem permissão para resolver pendências de reposição.');
+      return;
+    }
     toast.success('Pendência removida.');
     setRemoving(null);
     refreshPending();

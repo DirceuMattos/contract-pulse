@@ -341,10 +341,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteResource = useCallback(async (id: string): Promise<void> => {
     const prev = resources.find(r => r.id === id);
     setResources(p => p.filter(r => r.id !== id));
-    // Remove pendências de substituição vinculadas antes de excluir o recurso
-    // (sem isso, a FK pending_replacements_resource_id_fkey bloqueia o delete)
-    const { error: pendingErr } = await supabase.from('pending_replacements').delete().eq('resource_id', id);
-    if (pendingErr) { setResources(p => prev ? [...p, prev] : p); handleError(pendingErr, 'Erro ao excluir recurso.'); return; }
+    // A pendência de reposição é resolvida no banco, não aqui.
+    //
+    // Antes havia um DELETE em pending_replacements neste ponto, para contornar
+    // a FK pending_replacements_resource_id_fkey. Dois problemas: (a) só
+    // c-level, rh e superadmin têm escrita nessa tabela, e para os demais
+    // perfis o DELETE afetava zero linhas sem devolver erro — o estouro
+    // aparecia no DELETE seguinte, como "Erro ao excluir recurso"; (b) apagar
+    // a linha destruía o histórico do desligamento, que o resto do sistema
+    // trata como reversível (JobRequestsPage.reverterNaoRepor).
+    //
+    // Agora a FK é ON DELETE SET NULL e o gatilho
+    // trg_close_pending_on_resource_delete fecha a pendência como 'removed',
+    // com data e autor, na mesma transação e sem depender de permissão.
     const { error } = await supabase.from('resources').delete().eq('id', id);
     if (error) { setResources(p => prev ? [...p, prev] : p); handleError(error, 'Erro ao excluir recurso.'); }
     else if (prev) await updateContract(prev.contractId, { ultimaAtualizacaoRecursos: new Date().toISOString() });
