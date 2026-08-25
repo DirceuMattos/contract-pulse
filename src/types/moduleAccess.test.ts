@@ -4,18 +4,31 @@ import { getDefaultModuleAccess, isRoleAllowedForModule, MODULE_CATALOG } from '
 describe('perfil Projetos-Produtos', () => {
   const acesso = getDefaultModuleAccess('projetos_produtos');
 
-  it('não enxerga o Dashboard de Contratos, Alertas nem Requisição de Vagas', () => {
-    expect(acesso.DASHBOARD).toBe(false);
-    expect(acesso.ALERTS).toBe(false);
-    expect(acesso.JOB_REQUESTS).toBe(false);
+  it('enxerga exatamente quatro módulos, e nenhum outro', () => {
+    const liberados = Object.entries(acesso).filter(([, v]) => v).map(([k]) => k).sort();
+    expect(liberados).toEqual(['JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SQUADS']);
   });
 
-  it('mantém o que continua sendo do escopo dele', () => {
-    expect(acesso.CLIENTS).toBe(true);
-    expect(acesso.CONTRACTS).toBe(true);
-    expect(acesso.SQUADS).toBe(true);
-    expect(acesso.REPORTS).toBe(true);
-    expect(acesso.JOB_SKILLS).toBe(true);
+  it('está fora do Dashboard de Contratos e dos Alertas', () => {
+    // As Mensagens do sino continuam: o NotificationCenter vive no Header e não
+    // depende do módulo ALERTS.
+    expect(acesso.DASHBOARD).toBe(false);
+    expect(acesso.ALERTS).toBe(false);
+  });
+
+  it('está fora de Clientes, Contratos e submódulos', () => {
+    expect(acesso.CLIENTS).toBe(false);
+    expect(acesso.CONTRACTS).toBe(false);
+    expect(acesso.CONTRACT_DETAIL).toBe(false);
+    expect(acesso.RESOURCES).toBe(false);
+    expect(acesso.HISTORY).toBe(false);
+    expect(acesso.DOCUMENTS).toBe(false);
+  });
+
+  it('está fora de RH, HEs e Deslocamentos', () => {
+    expect(acesso.HR).toBe(false);
+    expect(acesso.OVERTIME).toBe(false);
+    expect(acesso.TRANSPORT).toBe(false);
   });
 
   it('continua fora dos módulos administrativos', () => {
@@ -23,14 +36,36 @@ describe('perfil Projetos-Produtos', () => {
     expect(acesso.ACCESS_LOGS).toBe(false);
     expect(acesso.PROFILES_ADMIN).toBe(false);
     expect(acesso.SETTINGS).toBe(false);
+    expect(acesso.IMPORT_EXPORT).toBe(false);
   });
 
-  it('sobra ao menos um módulo de página inteira para servir de destino após o login', () => {
+  it('o login passa a cair em Squads', () => {
     const destino = MODULE_CATALOG.find(
       (m) => m.routes.length > 0 && !m.isSubmodule && acesso[m.key] && isRoleAllowedForModule('projetos_produtos', m.key),
     );
-    expect(destino?.routes[0]).toBe('/clientes');
+    expect(destino?.routes[0]).toBe('/squads');
   });
+});
+
+describe('nenhum outro perfil foi afetado pelo ajuste de Projetos-Produtos', () => {
+  // Rede de seguranca depois do incidente de 25/08: mexer num perfil nao pode
+  // encolher outro.
+  const casos = [
+    ['lider_tribo', ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'REPORTS', 'SUPPORT_COSTS']],
+    ['administrativo', ['DASHBOARD', 'HR_DASHBOARD', 'CLIENTS', 'CONTRACTS', 'HR', 'OVERTIME', 'TRANSPORT', 'REPORTS']],
+    ['c-level', ['DASHBOARD', 'HR_DASHBOARD', 'CLIENTS', 'CONTRACTS', 'HR', 'OVERTIME', 'TRANSPORT', 'REPORTS', 'USERS_ADMIN']],
+    ['rh', ['HR_DASHBOARD', 'HR', 'OVERTIME', 'TRANSPORT', 'REPORTS']],
+    ['coordenacao_suporte', ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'SQUADS', 'HR', 'REPORTS', 'EQUIPMENT']],
+  ] as const;
+
+  for (const [papel, modulos] of casos) {
+    it(`${papel} continua com os módulos que já tinha`, () => {
+      const acesso = getDefaultModuleAccess(papel);
+      for (const m of modulos) {
+        expect(acesso[m as keyof typeof acesso], `${papel} perdeu ${m}`).toBe(true);
+      }
+    });
+  }
 });
 
 describe('Logs de Acesso', () => {

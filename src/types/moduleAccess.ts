@@ -63,10 +63,13 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
   // Head de Área: requisição de equipamentos e leitura dos relatórios mensais.
   head: ['EQUIPMENT_REQUESTS', 'REPORTS'],
-  // Projetos-Produtos nao enxerga Dashboard de Contratos, Alertas nem
-  // Requisicao de Vagas (decisao de 25/08). As Mensagens do sino continuam,
-  // porque o NotificationCenter fica no Header e nao depende do modulo ALERTS.
-  projetos_produtos: ['CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_SKILLS', 'REPORTS'],
+  // Projetos-Produtos (decisao de 25/08, revisada no fim do dia):
+  // consulta de Squads, Requisicao de Vagas, Skills e Relatorios Mensais.
+  // FORA: Dashboard de Contratos, Alertas, Clientes, Contratos/Projetos e
+  // submodulos, RH, HEs e Deslocamentos.
+  // As Mensagens do sino continuam, porque o NotificationCenter fica no
+  // Header e nao depende do modulo ALERTS.
+  projetos_produtos: ['SQUADS', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],
   juridico: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
   rh: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'SQUADS', 'HR', 'TRANSPORT', 'OVERTIME', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
   administrativo: ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'IMPORT_EXPORT', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],

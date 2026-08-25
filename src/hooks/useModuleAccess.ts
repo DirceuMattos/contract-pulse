@@ -18,7 +18,7 @@ export function useModuleAccess() {
     const FORCED_GRANTS: Partial<Record<string, ModuleKey[]>> = {
       lider_tribo: ['DASHBOARD', 'SQUADS', 'CONTRACT_DETAIL', 'RESOURCES'],
       coordenacao_suporte: ['DASHBOARD', 'SQUADS', 'CONTRACT_DETAIL', 'RESOURCES'],
-      projetos_produtos: ['CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_SKILLS', 'REPORTS'],  // sem DASHBOARD, ALERTS e JOB_REQUESTS desde 25/08
+      projetos_produtos: ['SQUADS', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS'],  // revisado em 25/08: so consulta de Squads, Vagas, Skills e Relatorios
       rh: ['REPORTS'],
       superadmin: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
     };
