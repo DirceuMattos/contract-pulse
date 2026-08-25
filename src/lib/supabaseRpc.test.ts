@@ -43,7 +43,8 @@ describe('callRpc', () => {
   });
 
   it('demonstra o bug que este helper evita: método destacado perde o this', () => {
-    const destacado = clienteFalso.rpc;
+    // Exatamente o que o código errado fazia: guardar o método numa variável.
+    const destacado = clienteFalso.rpc as (fn: string) => unknown;
     expect(() => destacado('minha_funcao')).toThrow(/reading 'rest'/);
   });
 });
