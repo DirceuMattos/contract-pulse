@@ -67,7 +67,49 @@ export function resolveModule(pathname: string): string {
   if (pathname.startsWith('/requisicao-vagas')) return 'Requisição de Vagas';
   if (pathname.startsWith('/skills-vagas')) return 'Skills de Vagas';
   if (pathname.startsWith('/horas-extras')) return 'Adm Horas Extras';
+  if (pathname === '/trocar-senha') return 'Troca de Senha';
+  if (pathname === '/seguranca') return 'Segurança';
+  if (pathname === '/trust') return 'Central de Confiança';
   return pathname;
+}
+
+/**
+ * Nome de exibição de um valor JÁ GRAVADO em modules_accessed.
+ *
+ * O histórico anterior a 24/08 foi escrito por um mapa de 10 entradas, então
+ * a maior parte dos registros antigos guarda o caminho cru — "/relatorios",
+ * "/contratos/abc-123". Em vez de reescrever registro de auditoria para
+ * arrumar a aparência, traduzimos na hora de exibir.
+ *
+ * Funciona para os dois formatos: um valor que já seja nome de módulo não
+ * casa com nenhuma rota e volta como está.
+ */
+export function rotuloDoModuloGravado(valor: string): string {
+  return valor.startsWith('/') ? resolveModule(valor) : valor;
+}
+
+/**
+ * Agrupa os valores crus por rótulo de exibição.
+ *
+ * É isso que faz o filtro funcionar sobre o histórico: quando o usuário
+ * escolhe "Clientes", precisamos consultar por TODOS os valores que se
+ * traduzem para "Clientes" — o nome novo e cada caminho antigo.
+ */
+export function agruparModulosPorRotulo(valoresCrus: string[]): Map<string, string[]> {
+  const mapa = new Map<string, string[]>();
+  for (const cru of valoresCrus) {
+    const rotulo = rotuloDoModuloGravado(cru);
+    const grupo = mapa.get(rotulo);
+    if (grupo) grupo.push(cru);
+    else mapa.set(rotulo, [cru]);
+  }
+  return new Map([...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')));
+}
+
+/** Rótulos distintos e ordenados de uma lista de valores gravados. */
+export function rotulosDistintos(valoresCrus: string[]): string[] {
+  return [...new Set(valoresCrus.map(rotuloDoModuloGravado))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
 /** Escapa um campo para CSV separado por ponto e vírgula. */

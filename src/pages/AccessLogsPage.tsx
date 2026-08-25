@@ -26,7 +26,10 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
-import { situacaoDaSessao, formatarDuracao, paraIso, escaparCsv, ROTULO_SITUACAO } from '@/lib/accessLogs';
+import {
+  situacaoDaSessao, formatarDuracao, paraIso, escaparCsv, ROTULO_SITUACAO,
+  rotuloDoModuloGravado, agruparModulosPorRotulo,
+} from '@/lib/accessLogs';
 import { callRpc } from '@/lib/supabaseRpc';
 
 const POR_PAGINA = 25;
@@ -61,7 +64,7 @@ export default function AccessLogsPage() {
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(0);
   const [carregando, setCarregando] = useState(true);
-  const [modulosConhecidos, setModulosConhecidos] = useState<string[]>([]);
+  const [gruposDeModulo, setGruposDeModulo] = useState<Map<string, string[]>>(new Map());
   const [detalhe, setDetalhe] = useState<SessaoLog | null>(null);
   const [expurgoAberto, setExpurgoAberto] = useState(false);
   const [diasExpurgo, setDiasExpurgo] = useState(String(RETENCAO_SUGERIDA_DIAS));
@@ -82,10 +85,15 @@ export default function AccessLogsPage() {
     if (deIso) q = q.gte('started_at', deIso);
     if (ateIso) q = q.lte('started_at', ateIso);
     if (usuario !== 'todos') q = q.eq('user_id', usuario);
-    if (modulosSelecionados.length > 0) q = q.overlaps('modules_accessed', modulosSelecionados);
+    if (modulosSelecionados.length > 0) {
+      // O usuário escolhe rótulos; o banco guarda também os caminhos crus do
+      // histórico. Consultamos por todos os valores que dão naquele rótulo.
+      const crus = modulosSelecionados.flatMap((rotulo) => gruposDeModulo.get(rotulo) ?? [rotulo]);
+      q = q.overlaps('modules_accessed', crus);
+    }
     if (buscaAplicada) q = q.ilike('user_name_snapshot', `%${buscaAplicada}%`);
     return q.order('started_at', { ascending: false });
-  }, [de, ate, usuario, modulosSelecionados, buscaAplicada]);
+  }, [de, ate, usuario, modulosSelecionados, buscaAplicada, gruposDeModulo]);
 
   const mapear = (d: Record<string, unknown>): SessaoLog => ({
     id: String(d.id),
@@ -120,7 +128,7 @@ export default function AccessLogsPage() {
   useEffect(() => {
     if (!podeVer) return;
     void callRpc<{ modulo: string }[]>('list_access_log_modules').then(({ data }) => {
-      if (data) setModulosConhecidos(data.map((r) => r.modulo).filter(Boolean));
+      if (data) setGruposDeModulo(agruparModulosPorRotulo(data.map((r) => r.modulo).filter(Boolean)));
     });
   }, [podeVer]);
 
@@ -149,7 +157,7 @@ export default function AccessLogsPage() {
       s.encerradaEm ? format(parseISO(s.encerradaEm), 'dd/MM/yyyy HH:mm:ss') : '',
       formatarDuracao(s.iniciadaEm, s.encerradaEm),
       ROTULO_SITUACAO[situacaoDaSessao(s)],
-      s.modulos.join(' | '),
+      [...new Set(s.modulos.map(rotuloDoModuloGravado))].join(' | '),
       s.rotas.join(' | '),
       s.userAgent,
     ].map(escapar).join(';'));
@@ -253,10 +261,10 @@ export default function AccessLogsPage() {
                 <PopoverContent className="w-72 p-0" align="start">
                   <ScrollArea className="h-64">
                     <div className="p-2 space-y-1">
-                      {modulosConhecidos.length === 0 && (
+                      {gruposDeModulo.size === 0 && (
                         <p className="text-sm text-muted-foreground p-2">Nenhum módulo registrado ainda.</p>
                       )}
-                      {modulosConhecidos.map((m) => (
+                      {[...gruposDeModulo.keys()].map((m) => (
                         <label key={m} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer">
                           <Checkbox checked={modulosSelecionados.includes(m)} onCheckedChange={() => alternarModulo(m)} />
                           <span className="text-sm">{m}</span>
@@ -322,6 +330,7 @@ export default function AccessLogsPage() {
               <TableBody>
                 {sessoes.map((s) => {
                   const situacao = situacaoDaSessao(s);
+                  const rotulos = [...new Set(s.modulos.map(rotuloDoModuloGravado))];
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.nome}</TableCell>
@@ -339,18 +348,18 @@ export default function AccessLogsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1 max-w-md">
-                          {s.modulos.slice(0, 3).map((m) => (
+                          {rotulos.slice(0, 3).map((m) => (
                             <Badge key={m} variant="outline" className="text-[10px]">{m}</Badge>
                           ))}
-                          {s.modulos.length > 3 && (
+                          {rotulos.length > 3 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge variant="outline" className="text-[10px]">+{s.modulos.length - 3}</Badge>
+                                <Badge variant="outline" className="text-[10px]">+{rotulos.length - 3}</Badge>
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">{s.modulos.slice(3).join(', ')}</TooltipContent>
+                              <TooltipContent className="max-w-xs">{rotulos.slice(3).join(', ')}</TooltipContent>
                             </Tooltip>
                           )}
-                          {s.modulos.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                          {rotulos.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -415,11 +424,11 @@ export default function AccessLogsPage() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mb-2"><Layers className="w-3 h-3" /> Módulos acessados ({detalhe.modulos.length})</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mb-2"><Layers className="w-3 h-3" /> Módulos acessados ({[...new Set(detalhe.modulos.map(rotuloDoModuloGravado))].length})</p>
                   <div className="flex flex-wrap gap-1">
                     {detalhe.modulos.length === 0
                       ? <span className="text-muted-foreground">Nenhum</span>
-                      : detalhe.modulos.map((m) => <Badge key={m} variant="secondary">{m}</Badge>)}
+                      : [...new Set(detalhe.modulos.map(rotuloDoModuloGravado))].map((m) => <Badge key={m} variant="secondary">{m}</Badge>)}
                   </div>
                 </div>
 

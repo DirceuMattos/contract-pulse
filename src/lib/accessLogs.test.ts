@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   situacaoDaSessao, formatarDuracao, paraIso, resolveModule, escaparCsv, MINUTOS_INATIVIDADE,
+  rotuloDoModuloGravado, agruparModulosPorRotulo, rotulosDistintos,
 } from './accessLogs';
 
 const AGORA = new Date('2026-08-24T12:00:00Z');
@@ -78,5 +79,54 @@ describe('escaparCsv', () => {
   it('protege ponto e vírgula e aspas', () => {
     expect(escaparCsv('Silva; João')).toBe('"Silva; João"');
     expect(escaparCsv('diz "oi"')).toBe('"diz ""oi"""');
+  });
+});
+
+describe('tradução do que já está gravado', () => {
+  it('caminho cru do histórico vira nome de módulo', () => {
+    expect(rotuloDoModuloGravado('/clientes')).toBe('Clientes');
+    expect(rotuloDoModuloGravado('/contratos/abc-123')).toBe('Detalhe do Contrato');
+    expect(rotuloDoModuloGravado('/relatorios/xyz')).toBe('Relatórios Mensais');
+  });
+
+  it('valor que já é nome de módulo passa intacto', () => {
+    expect(rotuloDoModuloGravado('Clientes')).toBe('Clientes');
+    expect(rotuloDoModuloGravado('Custo do Suporte a Sistemas - TSI')).toBe('Custo do Suporte a Sistemas - TSI');
+  });
+
+  it('caminho desconhecido não é inventado', () => {
+    expect(rotuloDoModuloGravado('/rota-que-nao-existe')).toBe('/rota-que-nao-existe');
+  });
+});
+
+describe('agruparModulosPorRotulo', () => {
+  it('junta sob um rótulo o nome novo e os caminhos antigos', () => {
+    const grupos = agruparModulosPorRotulo(['Clientes', '/clientes', '/clientes/abc-123', 'Alertas']);
+    expect(grupos.get('Clientes')).toEqual(['Clientes', '/clientes', '/clientes/abc-123']);
+    expect(grupos.get('Alertas')).toEqual(['Alertas']);
+  });
+
+  it('é isso que permite filtrar histórico e registro novo de uma vez', () => {
+    const grupos = agruparModulosPorRotulo(['/contratos', 'Contratos']);
+    expect(grupos.get('Contratos')).toHaveLength(2);
+  });
+
+  it('ordena os rótulos em português', () => {
+    const grupos = agruparModulosPorRotulo(['Squads', 'Ajuda', 'Órgãos']);
+    expect([...grupos.keys()]).toEqual(['Ajuda', 'Órgãos', 'Squads']);
+  });
+});
+
+describe('rotulosDistintos', () => {
+  it('remove duplicata vinda de formatos diferentes do mesmo módulo', () => {
+    expect(rotulosDistintos(['/clientes', 'Clientes', '/clientes/abc'])).toEqual(['Clientes']);
+  });
+});
+
+describe('rotas de sessão que faltavam', () => {
+  it('telas de senha e segurança deixam de aparecer como caminho', () => {
+    expect(resolveModule('/trocar-senha')).toBe('Troca de Senha');
+    expect(resolveModule('/seguranca')).toBe('Segurança');
+    expect(resolveModule('/trust')).toBe('Central de Confiança');
   });
 });
