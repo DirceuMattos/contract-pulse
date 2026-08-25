@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemUsers } from '@/contexts/SystemUsersContext';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { SystemUser } from '@/types/systemUser';
 import { UserRole } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -110,6 +111,7 @@ const roleColors: Record<UserRole, string> = {
 function UsersPageInner() {
   const { user: currentUser, canEdit } = useAuth();
   const { users, deleteUser, toggleUserStatus, getMaintenanceStatus, setMaintenanceMode } = useSystemUsers();
+  const { canAccessModule } = useModuleAccess();
   const navigate = useNavigate();
   
   const [search, setSearch] = useState('');
@@ -468,11 +470,15 @@ function UsersPageInner() {
                               </>
                             )}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => navigate(`/usuarios/logs?userId=${user.id}`)}>
-                            <Activity className="w-4 h-4 mr-2" />
-                            Logs de acessos
-                          </DropdownMenuItem>
+                          {canAccessModule('ACCESS_LOGS') && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => navigate(`/usuarios/logs?userId=${user.id}`)}>
+                                <Activity className="w-4 h-4 mr-2" />
+                                Logs de acessos
+                              </DropdownMenuItem>
+                            </>
+                          )}
                           {user.id !== currentUser?.id && (
                             <>
                               <DropdownMenuSeparator />

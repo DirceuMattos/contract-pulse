@@ -36,7 +36,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'SQUADS', label: 'Squads', description: 'Distribuição de equipes por contrato', routes: ['/squads'], roleRestrictions: [] },
   { key: 'CALCULATOR', label: 'Simulador de Contratos', description: 'Simulador para precificação e viabilidade de contratos', routes: ['/calculadora', '/calculadora/nova', '/calculadora/:id'], roleRestrictions: [] },
   { key: 'USERS_ADMIN', label: 'Usuários', description: 'Administração de usuários do sistema', routes: ['/usuarios'], roleRestrictions: ['c-level', 'demo', 'superadmin'] },
-  { key: 'ACCESS_LOGS', label: 'Logs de Acesso', description: 'Registro de acessos ao sistema', routes: ['/usuarios/logs'], roleRestrictions: [] },
+  { key: 'ACCESS_LOGS', label: 'Logs de Acesso', description: 'Auditoria de sessões de acesso ao sistema', routes: ['/usuarios/logs'], roleRestrictions: ['superadmin'] },
   { key: 'SETTINGS', label: 'Configurações', description: 'Preferências e parâmetros do sistema', routes: ['/configuracoes'], roleRestrictions: ['c-level', 'demo', 'superadmin'] },
   { key: 'PROFILES_ADMIN', label: 'Gestão de Perfis', description: 'Configuração de permissões por perfil', routes: ['/usuarios/perfis'], roleRestrictions: ['superadmin'] },
   { key: 'IMPORT_EXPORT', label: 'Importar/Exportar', description: 'Importação e exportação de dados', routes: ['/importar-exportar'], roleRestrictions: ['c-level', 'superadmin'] },
@@ -55,7 +55,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 ];
 
 const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
-  'c-level': ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'ACCESS_LOGS', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
+  'c-level': ['DASHBOARD', 'HR_DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'USERS_ADMIN', 'SETTINGS', 'PROFILES_ADMIN', 'IMPORT_EXPORT', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
   leitor: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL'],
   demo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'CALCULATOR', 'SETTINGS', 'HR', 'AI', 'AI_LOGS', 'RECEIVABLES', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS'],
   comercial: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'SQUADS', 'CALCULATOR'],

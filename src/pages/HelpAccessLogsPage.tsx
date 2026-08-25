@@ -1,4 +1,8 @@
-// v2 - tutorial revisado e ampliado (agosto/2026)
+// v3 - reescrito em 24/08/2026, quando o modulo entrou em operacao de fato.
+// A versao anterior descrevia comportamentos que nao existiam: dizia que o
+// IP era registrado (ia '0.0.0.0' fixo), que "Limpar logs" apagava tudo de
+// forma permanente (nao apagava nada) e que a tela era exclusiva do C-Level
+// (o proprio Superadmin ficava de fora). Nada disso vale mais.
 import { Activity } from 'lucide-react';
 import { Callout, DataTable, HelpArticle, HelpSection, Steps } from '@/components/help/HelpArticle';
 
@@ -11,8 +15,8 @@ const sections: HelpSection[] = [
       <>
         <p className="text-sm text-muted-foreground mb-3">
           <strong>Logs de Acesso</strong> é o histórico de sessões e módulos acessados pelos usuários do BNPHub. Cada
-          vez que alguém entra no sistema, é criada uma <strong>sessão</strong>, e o sistema vai registrando por onde
-          essa pessoa passou até o encerramento.
+          vez que alguém entra no sistema é criada uma <strong>sessão</strong>, e o sistema registra por onde essa
+          pessoa passou até o encerramento.
         </p>
         <p className="text-sm text-muted-foreground mb-3">
           A tela responde perguntas de auditoria e de suporte, por exemplo:
@@ -20,12 +24,41 @@ const sections: HelpSection[] = [
         <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1 mb-3">
           <li>Quando foi a última vez que determinada pessoa usou o sistema?</li>
           <li>Alguém abriu um módulo sensível fora do horário esperado?</li>
-          <li>Há acessos partindo de um endereço de rede incomum?</li>
           <li>O usuário realmente esteve na tela em que diz ter estado?</li>
         </ul>
         <Callout type="info">
           Os logs mostram <strong>onde a pessoa navegou</strong>, e não o que ela alterou. Para saber o que mudou em um
           cadastro, use a linha do tempo da pessoa em Recursos Humanos ou o histórico do próprio módulo.
+        </Callout>
+        <Callout type="warn">
+          Esta tela contém <strong>dado pessoal de colaborador</strong>: nome, horários de uso e rotas navegadas. Use
+          apenas para auditoria, e trate o que sair daqui — inclusive o CSV exportado — como informação interna
+          restrita.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: 'quem-acessa',
+    label: 'Quem acessa',
+    title: 'Permissões',
+    content: (
+      <>
+        <p className="text-sm text-muted-foreground mb-3">
+          O módulo é <strong>exclusivo do Superadmin</strong>. Nenhum outro perfil abre a tela, e conceder o módulo em
+          Gestão de Perfis não muda isso — a restrição está no catálogo de módulos e também na regra de leitura do
+          banco.
+        </p>
+        <DataTable headers={['Ação', 'Quem pode']} rows={[
+          ['Abrir a tela Logs de Acesso', 'Somente Superadmin.'],
+          ['Ver o item no menu, em Setup', 'Somente Superadmin; para os demais o item nem aparece.'],
+          ['Abrir "Logs de acessos" pelo menu de um usuário', 'Somente Superadmin; o atalho fica oculto para os demais.'],
+          ['Exportar CSV', 'Somente Superadmin, respeitando os filtros aplicados.'],
+          ['Expurgar registros antigos', 'Somente Superadmin, com confirmação.'],
+        ]} />
+        <Callout type="info">
+          A gravação do log é diferente da leitura: <strong>todo usuário registra a própria sessão</strong>, senão não
+          haveria o que auditar. O que o Superadmin detém com exclusividade é a leitura e o expurgo.
         </Callout>
       </>
     ),
@@ -37,165 +70,108 @@ const sections: HelpSection[] = [
     content: (
       <>
         <Steps items={[
-          { title: 'Acesse pela área de Usuários', body: 'A trilha exibida no topo da tela é Admin > Usuários > Logs.' },
-          { title: 'Ou abra já filtrado por uma pessoa', body: 'Na lista de Usuários do Sistema, use o menu de três pontos da linha e escolha "Logs de acessos". A tela abre com o nome do usuário no título e o filtro dele já aplicado.' },
-          { title: 'Ajuste os filtros', body: 'Reduza o período e o usuário antes de sair lendo linha a linha. Sem filtro, a tela mostra todas as sessões, da mais recente para a mais antiga.' },
-          { title: 'Abra os Detalhes da Sessão', body: 'Clique em "Detalhes" no fim da linha para ver rotas, horários e informações técnicas completas.' },
+          { title: 'Pelo menu lateral', body: 'Bloco Setup > Logs de Acesso.' },
+          { title: 'Ou já filtrado por uma pessoa', body: 'Na lista de Usuários do Sistema, use o menu de três pontos da linha e escolha "Logs de acessos". A tela abre com o filtro daquela pessoa aplicado.' },
+          { title: 'Ou pela busca rápida', body: 'Ctrl+K e digite "Logs".' },
+          { title: 'Ajuste o período antes de ler', body: 'A tela abre com as sessões mais recentes. Reduza o intervalo em "De" e "Até" antes de sair lendo linha a linha.' },
         ]} />
-        <Callout type="warn">
-          Esta tela é restrita a usuários <strong>C-Level</strong>. Quem não tem esse perfil vê a mensagem{' '}
-          <strong>Acesso Restrito</strong> com o aviso de que apenas usuários C-Level podem visualizar logs de acesso —{' '}
-          isso vale inclusive para o Super Admin. Veja a seção Permissões.
-        </Callout>
       </>
     ),
   },
   {
     id: 'filtros',
     label: 'Filtros',
-    title: 'Filtros e busca',
+    title: 'Como filtrar',
     content: (
       <>
         <p className="text-sm text-muted-foreground mb-3">
-          A linha de filtros fica logo abaixo do título. Todos funcionam em conjunto: o resultado é a interseção do que
-          você selecionou.
+          Os filtros são aplicados <strong>no banco</strong>, não sobre o que está na tela. Isso significa que o
+          contador de sessões encontradas reflete o total real do recorte, e não apenas a página atual.
         </p>
-        <DataTable headers={['Filtro', 'Como usar']} rows={[
-          ['Usuário', 'Lista todos os usuários do sistema. A opção padrão é "Todos".'],
-          ['Status', 'Todas, "Ativa" (sessão ainda aberta) ou "Encerrada" (sessão já finalizada).'],
-          ['De', 'Data inicial. Enquanto vazio, mostra o rótulo "Início".'],
-          ['Até', 'Data final. Enquanto vazio, mostra o rótulo "Fim".'],
-          ['Busca', 'Campo livre com o texto "IP, módulo, user agent...". Procura também pelo nome do usuário registrado na sessão.'],
+        <DataTable headers={['Filtro', 'O que faz']} rows={[
+          ['De / Até', 'Data e hora de início da sessão. Aceita o horário, não só o dia — útil para apurar um intervalo específico.'],
+          ['Usuário', 'Uma pessoa por vez, pela lista de usuários do sistema.'],
+          ['Módulos acessados', 'Traz as sessões que passaram por qualquer um dos módulos marcados. A lista vem do que já foi efetivamente registrado.'],
+          ['Nome do usuário', 'Busca pelo nome gravado no momento da sessão. Espera você parar de digitar antes de consultar.'],
         ]} />
-        <p className="text-sm text-muted-foreground mb-3">
-          Quando existe qualquer filtro aplicado, aparece o botão <strong>Limpar filtros</strong>. Ele devolve tudo ao
-          estado inicial — mas, se você entrou pela opção <strong>Logs de acessos</strong> de um usuário específico, o
-          filtro daquele usuário é mantido.
+        <p className="text-sm text-muted-foreground mt-3">
+          Havendo qualquer filtro, aparece <strong>Limpar filtros</strong>, que devolve a tela ao estado inicial.
         </p>
-        <Callout type="tip">
-          Para investigar um incidente, o caminho mais rápido é: filtrar pelo usuário, restringir <strong>De</strong> e{' '}
-          <strong>Até</strong> ao dia em questão e depois usar a Busca com o nome do módulo suspeito.
-        </Callout>
       </>
     ),
   },
   {
-    id: 'tabela',
-    label: 'A tabela',
-    title: 'Como ler a lista de sessões',
+    id: 'colunas',
+    label: 'Colunas',
+    title: 'O que cada coluna mostra',
     content: (
       <>
-        <DataTable headers={['Coluna', 'O que significa']} rows={[
-          ['Usuário', 'Nome registrado no momento da sessão. Fica preservado mesmo que o cadastro mude depois.'],
-          ['IP', 'Endereço de rede de onde partiu o acesso. Útil para identificar origem incomum.'],
-          ['Início', 'Data e hora em que a sessão começou.'],
-          ['Fim', 'Data e hora do encerramento. Sessões em aberto mostram a etiqueta "Ativa".'],
-          ['Duração', 'Tempo total da sessão, em segundos, minutos ou horas. Sessões abertas mostram "Em andamento".'],
-          ['Módulos', 'Etiquetas com os módulos visitados. São exibidos três; o restante aparece como "+N", e o número mostra a lista completa ao passar o mouse.'],
+        <DataTable headers={['Coluna', 'Significado']} rows={[
+          ['Usuário', 'Nome gravado no momento da sessão. Se a pessoa for renomeada depois, o log preserva o nome da época.'],
+          ['Início', 'Data e hora de abertura da sessão.'],
+          ['Fim', 'Quando a sessão foi encerrada. Traço significa que não houve encerramento registrado.'],
+          ['Duração', 'Diferença entre início e fim. Só existe quando há fim registrado.'],
+          ['Situação', 'Em andamento, Encerrada ou Sem atividade — veja abaixo.'],
+          ['Módulos', 'Módulos distintos visitados na sessão. Acima de três, o excedente aparece ao passar o mouse.'],
         ]} />
-        <p className="text-sm text-muted-foreground mb-3">
-          A lista vem sempre ordenada da sessão mais recente para a mais antiga. Quando nenhum registro atende aos
-          filtros, aparece a mensagem <strong>Nenhum log encontrado</strong> com a orientação de ajustar os filtros ou
-          aguardar novas sessões.
-        </p>
         <Callout type="info">
-          Uma sessão marcada como <strong>Ativa</strong> nem sempre significa que a pessoa está usando o sistema agora:
-          pode ser uma sessão que ficou aberta sem encerramento formal. Para avaliar isso, veja o campo{' '}
-          <strong>Última atividade</strong> nos detalhes.
+          <strong>Sem atividade</strong> quer dizer que a sessão não foi encerrada formalmente e não registra
+          movimento há mais de 30 minutos. Acontece quando a pessoa fecha a aba direto: o navegador nem sempre dá tempo
+          de avisar o sistema. É diferente de <strong>Em andamento</strong>, que indica uso recente de verdade.
         </Callout>
       </>
     ),
   },
   {
     id: 'detalhes',
-    label: 'Detalhes da Sessão',
-    title: 'O painel Detalhes da Sessão',
+    label: 'Detalhes',
+    title: 'Painel de detalhes da sessão',
     content: (
       <>
         <p className="text-sm text-muted-foreground mb-3">
-          O botão <strong>Detalhes</strong>, no fim de cada linha, abre o painel lateral{' '}
-          <strong>Detalhes da Sessão</strong>, descrito como informações completas da sessão de acesso. É a visão que
-          realmente serve para auditoria.
+          O botão <strong>Detalhes</strong> abre o painel lateral com duração, situação, última atividade, encerramento,
+          a lista completa de módulos, todas as rotas visitadas (até 50 por sessão) e o navegador utilizado.
         </p>
-        <DataTable headers={['Informação', 'Para que serve']} rows={[
-          ['Nome e ID do usuário', 'Identifica com precisão a conta, mesmo em caso de nomes parecidos.'],
-          ['IP', 'Endereço de rede de origem do acesso.'],
-          ['Início e Fim', 'Data e hora completas, com segundos. Sessões abertas mostram "Em andamento" no fim.'],
-          ['Duração', 'Tempo total da sessão.'],
-          ['Última atividade', 'Momento da última interação registrada. Ajuda a distinguir sessão em uso de sessão esquecida aberta.'],
-          ['Módulos acessados', 'Lista completa dos módulos visitados, com a contagem total.'],
-          ['Rotas acessadas', 'Endereços internos de cada tela aberta durante a sessão. É o nível mais detalhado do rastro.'],
-          ['User Agent', 'Navegador e sistema operacional usados. Útil para identificar equipamento ou acesso atípico.'],
-        ]} />
-        <Callout type="tip">
-          Ao registrar uma apuração, copie do painel o nome, o ID do usuário, o IP e os horários de início e fim. Esses
-          quatro dados sustentam qualquer relato posterior.
+        <Callout type="warn">
+          <strong>O endereço de IP não é registrado.</strong> O navegador não conhece o próprio IP público, e capturá-lo
+          exigiria uma função no servidor, ainda não implementada. Até lá, não use origem de rede como evidência em
+          nenhuma apuração — a informação simplesmente não existe.
         </Callout>
       </>
     ),
   },
   {
-    id: 'manutencao',
-    label: 'Limpar e exportar',
-    title: 'Limpar logs e exportação',
+    id: 'exportar-expurgar',
+    label: 'Exportar e expurgar',
+    title: 'Exportação e expurgo',
     content: (
       <>
-        <p className="text-sm text-muted-foreground mb-3">
-          No topo da tela existem dois botões, e eles se comportam de forma bem diferente:
-        </p>
-        <DataTable headers={['Botão', 'Situação', 'O que acontece']} rows={[
-          ['Exportar CSV (Em breve)', 'Desabilitado', 'Funcionalidade ainda não disponível. O próprio rótulo indica isso; por enquanto, registre as informações a partir do painel Detalhes da Sessão.'],
-          ['Limpar logs', 'Disponível', 'Abre a confirmação "Limpar todos os logs?", avisando que a ação remove permanentemente todos os logs de acesso e não pode ser desfeita.'],
+        <DataTable headers={['Ação', 'O que faz']} rows={[
+          ['Exportar CSV', 'Gera um arquivo com as sessões do recorte filtrado, incluindo módulos, rotas e navegador. Limitado a 5.000 registros por vez — se atingir o teto, a tela avisa e basta estreitar o período.'],
+          ['Expurgar antigos', 'Remove definitivamente as sessões iniciadas há mais tempo que o prazo informado em dias. Ao final, informa quantos registros saíram.'],
+          ['Atualizar', 'Recarrega o recorte atual sem perder os filtros.'],
         ]} />
         <Callout type="warn">
-          <strong>Limpar logs apaga tudo, e não apenas o que está filtrado.</strong> Não existe limpeza parcial nem
-          desfazer. Só use essa ação em uma limpeza planejada de base — nunca durante uma apuração em andamento.
-        </Callout>
-        <p className="text-sm text-muted-foreground mb-3">
-          Enquanto a exportação não está disponível, o fluxo recomendado para guardar evidência é filtrar o período,
-          abrir os <strong>Detalhes da Sessão</strong> relevantes e registrar os dados em um documento próprio de
-          auditoria.
-        </p>
-      </>
-    ),
-  },
-  {
-    id: 'permissoes',
-    label: 'Permissões',
-    title: 'Quem pode o quê nos Logs de Acesso',
-    content: (
-      <>
-        <DataTable headers={['Ação', 'Quem pode']} rows={[
-          ['Abrir a tela Logs de Acesso', 'Somente o perfil C-Level. Todos os demais perfis veem "Acesso Restrito".'],
-          ['Abrir Logs de acessos pelo menu de um usuário', 'O atalho existe em Usuários, mas a tela de destino continua restrita a C-Level.'],
-          ['Usar filtros, busca e Detalhes da Sessão', 'C-Level, dentro da própria tela.'],
-          ['Limpar logs', 'C-Level, com confirmação obrigatória.'],
-          ['Exportar CSV', 'Ninguém no momento: o botão está desabilitado e marcado como "Em breve".'],
-        ]} />
-        <Callout type="warn">
-          Vale reforçar porque costuma causar dúvida: <strong>Super Admin não abre esta tela</strong>. A restrição está
-          fixada no sistema e não é uma configuração de Gestão de Perfis — habilitar o módulo Logs de Acesso em um
-          perfil não contorna essa regra.
+          O expurgo é <strong>definitivo e não tem cópia em outro lugar</strong>. Ele apaga por idade, não por filtro:
+          o que estiver na tela não influencia o que será removido. E o prazo de retenção precisa ser uma decisão
+          formal da empresa, não um número escolhido na hora do clique.
         </Callout>
       </>
     ),
   },
   {
     id: 'problemas',
-    label: 'Problemas comuns',
-    title: 'Problemas comuns',
+    label: 'Problemas',
+    title: 'Situações comuns',
     content: (
-      <DataTable headers={['Sintoma', 'Causa provável', 'Solução']} rows={[
-        ['Aparece "Acesso Restrito" ao abrir a tela', 'A tela é exclusiva do perfil C-Level.', 'Peça a consulta a um usuário C-Level; habilitar o módulo em Gestão de Perfis não resolve.'],
-        ['Super Admin não consegue ver os logs', 'Restrição fixa do sistema, que libera apenas C-Level.', 'Solicite a um C-Level ou trate a mudança dessa regra como demanda de evolução do sistema.'],
-        ['Mensagem "Nenhum log encontrado"', 'Filtros muito restritos ou período sem sessões.', 'Clique em "Limpar filtros" e amplie o intervalo em "De" e "Até".'],
-        ['O filtro de usuário volta sempre para a mesma pessoa', 'A tela foi aberta pelo atalho "Logs de acessos" de um usuário.', 'Volte pela trilha Admin > Usuários > Logs ou selecione "Todos" no filtro Usuário.'],
-        ['A sessão aparece como Ativa há muito tempo', 'A sessão não foi encerrada formalmente, por fechamento do navegador ou queda de conexão.', 'Confira o campo "Última atividade" nos Detalhes da Sessão para saber quando houve uso real.'],
-        ['A coluna Módulos mostra "+N" e não vejo a lista', 'A tabela exibe apenas três etiquetas por linha.', 'Passe o mouse sobre o "+N" ou abra "Detalhes" para ver a lista completa.'],
-        ['O botão Exportar CSV não funciona', 'A funcionalidade ainda não foi liberada e o botão está desabilitado.', 'Use o painel Detalhes da Sessão para registrar as informações manualmente.'],
-        ['Apaguei os logs por engano', '"Limpar logs" remove todos os registros de forma permanente.', 'Não há recuperação pela tela. Acione o suporte imediatamente para avaliar backup do banco.'],
-        ['O nome no log está diferente do cadastro atual', 'O nome é gravado no momento da sessão e preservado.', 'Comportamento esperado; use o ID do usuário nos Detalhes da Sessão para confirmar a identidade.'],
+      <DataTable headers={['Situação', 'Por que acontece', 'O que fazer']} rows={[
+        ['Aparece "Acesso Restrito"', 'A tela é exclusiva do Superadmin.', 'Solicite a consulta a quem tem o perfil; habilitar o módulo em Gestão de Perfis não resolve.'],
+        ['Nenhuma sessão neste recorte', 'Filtros muito estreitos ou período sem uso.', 'Clique em "Limpar filtros" e amplie o intervalo em "De" e "Até".'],
+        ['Sessão parada em "Sem atividade"', 'A pessoa fechou a aba e o encerramento não chegou ao sistema.', 'Comportamento esperado. Use a última atividade como referência de fim.'],
+        ['Várias sessões do mesmo usuário no mesmo dia', 'Cada novo login, ou uso em outra aba ou dispositivo, abre uma sessão.', 'Comportamento esperado. Recarregar a página, porém, não abre sessão nova.'],
+        ['O nome no log está diferente do cadastro atual', 'O nome é gravado no momento da sessão e preservado.', 'Comportamento esperado; é assim que o registro histórico se mantém fiel.'],
         ['Não encontro registro de uma alteração de dado', 'Os logs registram navegação, não edição de conteúdo.', 'Consulte a linha do tempo da pessoa em RH ou o histórico do módulo correspondente.'],
+        ['A exportação veio cortada', 'O teto por exportação é de 5.000 registros.', 'Estreite o período e exporte em partes.'],
       ]} />
     ),
   },

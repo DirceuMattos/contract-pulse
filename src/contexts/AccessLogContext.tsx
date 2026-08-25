@@ -1,174 +1,152 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { AccessLogSession } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveModule } from '@/lib/accessLogs';
 
+/**
+ * Registro de sessões de acesso.
+ *
+ * Este contexto SÓ ESCREVE. A leitura pertence à tela de auditoria
+ * (AccessLogsPage), que consulta o banco com filtro e paginação próprios.
+ * Antes o contexto carregava 500 registros para todo mundo no login — inútil
+ * para quem não audita e insuficiente para quem audita.
+ */
 interface AccessLogContextType {
-  accessLogs: AccessLogSession[];
   currentSessionId: string | null;
   trackNavigation: (pathname: string) => void;
-  getLogsByUser: (userId: string) => AccessLogSession[];
-  clearAllLogs: () => void;
-  getAllLogs: () => AccessLogSession[];
 }
 
 const AccessLogContext = createContext<AccessLogContextType | undefined>(undefined);
 
-const ROUTE_MODULE_MAP: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/dashboard-rh': 'Dashboard RH',
-  '/custos-suporte': 'Custo do Suporte a Sistemas - TSI',
-  '/clientes': 'Clientes',
-  '/contratos': 'Contratos',
-  '/alertas': 'Alertas',
-  '/usuarios': 'Usuarios',
-  '/configuracoes': 'Configuracoes',
-  '/importar-exportar': 'Importar/Exportar',
-  
-  '/ajuda': 'Ajuda',
-  '/usuarios/logs': 'Logs de Acesso',
-};
+/** Chave por aba: sobrevive ao F5, não vaza para outras abas. */
+const STORAGE_KEY = 'bnphub.accessLogSession';
 
-function resolveModule(pathname: string): string {
-  if (ROUTE_MODULE_MAP[pathname]) return ROUTE_MODULE_MAP[pathname];
-  if (/^\/contratos\/[^/]+\/recursos$/.test(pathname)) return 'Contrato:Recursos';
-  if (/^\/contratos\/[^/]+\/editar$/.test(pathname)) return 'Contrato:Edicao';
-  if (/^\/contratos\/[^/]+$/.test(pathname)) return 'Contrato:Detalhe';
-  if (/^\/clientes\/[^/]+\/editar$/.test(pathname)) return 'Cliente:Edicao';
-  if (/^\/clientes\/[^/]+$/.test(pathname)) return 'Cliente:Detalhe';
-  return pathname;
+function readStored(): { sessionId: string; userId: string } | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { sessionId?: string; userId?: string };
+    if (!parsed?.sessionId || !parsed?.userId) return null;
+    return { sessionId: parsed.sessionId, userId: parsed.userId };
+  } catch {
+    return null;
+  }
 }
 
 export function AccessLogProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [accessLogs, setAccessLogs] = useState<AccessLogSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const prevUserRef = useRef<string | null>(null);
+  const sessionRef = useRef<string | null>(null);
 
-  // Load logs for c-level users
-  const loadLogs = useCallback(async () => {
-    const { data } = await supabase
-      .from('access_log_sessions')
-      .select('*')
-      .order('started_at', { ascending: false })
-      .limit(500);
-
-    if (data) {
-      setAccessLogs(data.map(d => ({
-        id: d.id,
-        userId: d.user_id,
-        userNameSnapshot: d.user_name_snapshot,
-        ipAddress: d.ip_address,
-        userAgent: d.user_agent,
-        startedAt: d.started_at,
-        endedAt: d.ended_at,
-        modulesAccessed: d.modules_accessed || [],
-        routesAccessed: d.routes_accessed || [],
-        lastActivityAt: d.last_activity_at,
-      })));
+  const setSession = useCallback((id: string | null, userId?: string) => {
+    sessionRef.current = id;
+    setCurrentSessionId(id);
+    try {
+      if (id && userId) sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: id, userId }));
+      else sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* aba anônima ou storage bloqueado: seguimos sem persistir */
     }
   }, []);
 
-  // Start/end session based on user changes
   useEffect(() => {
     const prevUserId = prevUserRef.current;
     const currentUserId = user?.id ?? null;
     prevUserRef.current = currentUserId;
 
-    if (prevUserId && !currentUserId && currentSessionId) {
-      // User logged out - end session
-      supabase
-        .from('access_log_sessions')
+    // Saiu: encerra a sessão.
+    if (prevUserId && !currentUserId && sessionRef.current) {
+      const id = sessionRef.current;
+      void supabase.from('access_log_sessions')
         .update({ ended_at: new Date().toISOString() })
-        .eq('id', currentSessionId)
-        .then();
-      setCurrentSessionId(null);
+        .eq('id', id);
+      setSession(null);
+      return;
     }
 
-    if (!prevUserId && currentUserId && user) {
-      // User logged in - start session
-      const sessionId = crypto.randomUUID();
-      supabase
-        .from('access_log_sessions')
-        .insert({
-          id: sessionId,
-          user_id: currentUserId,
-          user_name_snapshot: user.name,
-          ip_address: '0.0.0.0',
-          user_agent: navigator.userAgent,
-          modules_accessed: [],
-          routes_accessed: [],
-        })
-        .then(() => {
-          setCurrentSessionId(sessionId);
-          loadLogs();
-        });
+    if (!currentUserId || !user) return;
+    if (sessionRef.current) return;
+
+    // F5 na mesma aba reaproveita a sessão em vez de abrir outra. Sem isto,
+    // cada recarga virava uma linha nova e a auditoria ficava ilegível.
+    const stored = readStored();
+    if (stored && stored.userId === currentUserId) {
+      setSession(stored.sessionId, currentUserId);
+      return;
     }
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // beforeunload - best-effort session end
-  useEffect(() => {
-    const handler = () => {
-      if (!currentSessionId) return;
-      // Use sendBeacon for reliability
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/access_log_sessions?id=eq.${currentSessionId}`;
-      const body = JSON.stringify({ ended_at: new Date().toISOString() });
-      navigator.sendBeacon?.(url);
-      // Fallback: try supabase update
-      supabase
-        .from('access_log_sessions')
-        .update({ ended_at: new Date().toISOString() })
-        .eq('id', currentSessionId)
-        .then();
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [currentSessionId]);
-
-  const trackNavigation = useCallback((pathname: string) => {
-    if (!currentSessionId) return;
-    const moduleName = resolveModule(pathname);
-
-    // Update session in DB
-    supabase
-      .from('access_log_sessions')
-      .select('modules_accessed, routes_accessed')
-      .eq('id', currentSessionId)
-      .single()
-      .then(({ data }) => {
-        if (!data) return;
-        const modules = data.modules_accessed?.includes(moduleName)
-          ? data.modules_accessed
-          : [...(data.modules_accessed || []), moduleName];
-        const routes = data.routes_accessed?.includes(pathname)
-          ? data.routes_accessed
-          : [...(data.routes_accessed || []).slice(-49), pathname];
-
-        supabase
-          .from('access_log_sessions')
-          .update({
-            modules_accessed: modules,
-            routes_accessed: routes,
-            last_activity_at: new Date().toISOString(),
-          })
-          .eq('id', currentSessionId)
-          .then();
+    const sessionId = crypto.randomUUID();
+    void supabase.from('access_log_sessions')
+      .insert({
+        id: sessionId,
+        user_id: currentUserId,
+        user_name_snapshot: user.name,
+        // IP não é gravado: o navegador não conhece o próprio IP público.
+        // Antes ia '0.0.0.0' fixo, o que dava aparência de evidência a um
+        // campo vazio. Capturar de verdade exige edge function.
+        ip_address: '',
+        user_agent: navigator.userAgent,
+        modules_accessed: [],
+        routes_accessed: [],
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.error('Falha ao abrir sessão de acesso:', error.message);
+          return;
+        }
+        setSession(sessionId, currentUserId);
       });
-  }, [currentSessionId]);
+  }, [user, setSession]);
 
-  const getLogsByUser = useCallback((userId: string) => {
-    return accessLogs.filter(l => l.userId === userId);
-  }, [accessLogs]);
-
-  const clearAllLogs = useCallback(async () => {
-    // Only c-level can clear - but we just clear local state
-    setAccessLogs([]);
+  // Fechamento da aba: melhor esforço.
+  //
+  // O sendBeacon anterior era chamado sem corpo e sem cabeçalho de
+  // autenticação, então nunca gravou nada. Aqui atualizamos last_activity_at
+  // e tentamos o ended_at; se o navegador cortar antes, a tela de auditoria
+  // trata a sessão como encerrada por inatividade, em vez de exibi-la
+  // eternamente "em andamento".
+  useEffect(() => {
+    const encerrar = () => {
+      const id = sessionRef.current;
+      if (!id) return;
+      void supabase.from('access_log_sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('id', id);
+    };
+    const aoEsconder = () => {
+      if (document.visibilityState === 'hidden') encerrar();
+    };
+    window.addEventListener('pagehide', encerrar);
+    document.addEventListener('visibilitychange', aoEsconder);
+    return () => {
+      window.removeEventListener('pagehide', encerrar);
+      document.removeEventListener('visibilitychange', aoEsconder);
+    };
   }, []);
 
-  const getAllLogs = useCallback(() => accessLogs, [accessLogs]);
+  const trackNavigation = useCallback((pathname: string) => {
+    const id = sessionRef.current;
+    if (!id) return;
+    // Uma única ida ao banco. Antes eram duas (SELECT dos arrays + UPDATE por
+    // cima), o que perdia navegação quando duas abas escreviam junto.
+    //
+    // O cast existe porque src/integrations/supabase/types.ts é gerado e ainda
+    // não conhece esta função. Mesmo padrão já usado no AuthContext para
+    // role_module_permissions. Some quando os tipos forem regerados.
+    const rpc = supabase.rpc as unknown as (
+      fn: 'record_access_navigation',
+      args: { p_session_id: string; p_module: string; p_route: string },
+    ) => Promise<{ error: unknown }>;
+    void rpc('record_access_navigation', {
+      p_session_id: id,
+      p_module: resolveModule(pathname),
+      p_route: pathname,
+    });
+  }, []);
 
   return (
-    <AccessLogContext.Provider value={{ accessLogs, currentSessionId, trackNavigation, getLogsByUser, clearAllLogs, getAllLogs }}>
+    <AccessLogContext.Provider value={{ currentSessionId, trackNavigation }}>
       {children}
     </AccessLogContext.Provider>
   );

@@ -32,6 +32,7 @@ import {
   CircleDollarSign,
   Lock,
   BookOpen,
+  Activity,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import logoBnp from '@/assets/logo-bnp.png';
@@ -114,6 +115,7 @@ const navGroups: NavGroup[] = [
       { path: '/configuracoes', label: 'Configurações', icon: Settings, moduleKey: 'SETTINGS' },
       { path: '/usuarios', label: 'Usuários', icon: UserCog, moduleKey: 'USERS_ADMIN' },
       { path: '/usuarios/perfis', label: 'Perfis', icon: ShieldCheck, moduleKey: 'PROFILES_ADMIN' },
+      { path: '/usuarios/logs', label: 'Logs de Acesso', icon: Activity, moduleKey: 'ACCESS_LOGS' },
       { path: '/importar-exportar', label: 'Importar/Exportar', icon: Upload, moduleKey: 'IMPORT_EXPORT' },
     ],
   },
