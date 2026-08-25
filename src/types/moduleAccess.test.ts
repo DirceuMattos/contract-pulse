@@ -43,9 +43,23 @@ describe('Logs de Acesso', () => {
 });
 
 describe('Head de Área', () => {
-  it('enxerga exclusivamente a requisição de equipamentos', () => {
-    const acesso = getDefaultModuleAccess('head');
-    const liberados = Object.entries(acesso).filter(([, v]) => v).map(([k]) => k);
-    expect(liberados).toEqual(['EQUIPMENT_REQUESTS']);
+  const acesso = getDefaultModuleAccess('head');
+
+  it('enxerga requisição de equipamentos e relatórios mensais, e nada além', () => {
+    const liberados = Object.entries(acesso).filter(([, v]) => v).map(([k]) => k).sort();
+    expect(liberados).toEqual(['EQUIPMENT_REQUESTS', 'REPORTS']);
+  });
+
+  it('REPORTS não é mais negado na camada de roleRestrictions', () => {
+    // Era aqui que a liberação morria: sem 'head' na lista do módulo, nenhuma
+    // configuração de banco ou de tela conseguia abrir os relatórios.
+    expect(isRoleAllowedForModule('head', 'REPORTS')).toBe(true);
+  });
+
+  it('passa a ter um módulo de página inteira, então o login tem destino', () => {
+    const destino = MODULE_CATALOG.find(
+      (m) => m.routes.length > 0 && !m.isSubmodule && acesso[m.key] && isRoleAllowedForModule('head', m.key),
+    );
+    expect(destino?.routes[0]).toBe('/relatorios');
   });
 });

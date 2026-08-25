@@ -44,7 +44,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'AI', label: 'IA / Análises', description: 'Análises inteligentes, insights e geração de minutas', routes: ['/ai', '/ai/contracts-analysis', '/ai/resources-analysis', '/ai/drafts'], roleRestrictions: [] },
   { key: 'AI_LOGS', label: 'IA Logs', description: 'Fontes e logs das análises de IA', routes: ['/ai/logs'], isSubmodule: true, parentModule: 'AI', roleRestrictions: ['superadmin', 'c-level'] },
   { key: 'RECEIVABLES', label: 'Recebíveis', description: 'Posição de pagamentos e inadimplência por contrato', routes: ['/receivables', '/receivables/reconcile'], roleRestrictions: [] },
-  { key: 'REPORTS', label: 'Relatórios Mensais', description: 'Relatórios mensais de atividades por contrato', routes: ['/relatorios', '/relatorios/:reportId', '/relatorios/config/:contractId'], roleRestrictions: ['c-level', 'superadmin', 'lider_tribo', 'administrativo', 'coordenacao_suporte', 'projetos_produtos', 'rh'] },
+  { key: 'REPORTS', label: 'Relatórios Mensais', description: 'Relatórios mensais de atividades por contrato', routes: ['/relatorios', '/relatorios/:reportId', '/relatorios/config/:contractId'], roleRestrictions: ['c-level', 'superadmin', 'lider_tribo', 'administrativo', 'coordenacao_suporte', 'projetos_produtos', 'rh', 'head'] },
   { key: 'SUPPORT_COSTS', label: 'Custo do Suporte a Sistemas - TSI', description: 'Custos de atendimento de suporte a sistemas por cliente e projeto', routes: ['/custos-suporte'], roleRestrictions: ['superadmin', 'c-level', 'rh', 'administrativo', 'lider_tribo'] },
   { key: 'OVERTIME', label: 'Adm Horas Extras', description: 'Administração de horas extras', routes: ['/horas-extras'], roleRestrictions: [] },
   { key: 'TRANSPORT', label: 'Adm Transportes', description: 'Administração de transportes', routes: ['/transportes'], roleRestrictions: [] },
@@ -61,8 +61,8 @@ const ROLE_DEFAULT_MODULES: Partial<Record<UserRole, ModuleKey[]>> = {
   comercial: ['DASHBOARD', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'SQUADS', 'CALCULATOR'],
   lider_tribo: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'SUPPORT_COSTS', 'EQUIPMENT_REQUESTS'],
   coordenacao_suporte: ['DASHBOARD', 'ALERTS', 'CLIENTS', 'CONTRACTS', 'CONTRACT_DETAIL', 'RESOURCES', 'HISTORY', 'DOCUMENTS', 'SQUADS', 'HR', 'OVERTIME', 'TRANSPORT', 'JOB_REQUESTS', 'JOB_SKILLS', 'REPORTS', 'EQUIPMENT', 'EQUIPMENT_REQUESTS'],
-  // Head de Área: enxerga exclusivamente a requisição de equipamentos.
-  head: ['EQUIPMENT_REQUESTS'],
+  // Head de Área: requisição de equipamentos e leitura dos relatórios mensais.
+  head: ['EQUIPMENT_REQUESTS', 'REPORTS'],
   // Projetos-Produtos nao enxerga Dashboard de Contratos, Alertas nem
   // Requisicao de Vagas (decisao de 25/08). As Mensagens do sino continuam,
   // porque o NotificationCenter fica no Header e nao depende do modulo ALERTS.
