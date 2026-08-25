@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveModule } from '@/lib/accessLogs';
+import { callRpc } from '@/lib/supabaseRpc';
 
 /**
  * Registro de sessões de acesso.
@@ -130,15 +131,7 @@ export function AccessLogProvider({ children }: { children: ReactNode }) {
     if (!id) return;
     // Uma única ida ao banco. Antes eram duas (SELECT dos arrays + UPDATE por
     // cima), o que perdia navegação quando duas abas escreviam junto.
-    //
-    // O cast existe porque src/integrations/supabase/types.ts é gerado e ainda
-    // não conhece esta função. Mesmo padrão já usado no AuthContext para
-    // role_module_permissions. Some quando os tipos forem regerados.
-    const rpc = supabase.rpc as unknown as (
-      fn: 'record_access_navigation',
-      args: { p_session_id: string; p_module: string; p_route: string },
-    ) => Promise<{ error: unknown }>;
-    void rpc('record_access_navigation', {
+    void callRpc('record_access_navigation', {
       p_session_id: id,
       p_module: resolveModule(pathname),
       p_route: pathname,

@@ -27,6 +27,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 import { situacaoDaSessao, formatarDuracao, paraIso, escaparCsv, ROTULO_SITUACAO } from '@/lib/accessLogs';
+import { callRpc } from '@/lib/supabaseRpc';
 
 const POR_PAGINA = 25;
 const TETO_EXPORTACAO = 5000;
@@ -118,8 +119,7 @@ export default function AccessLogsPage() {
   // Lista de módulos para o filtro: vem do banco, não da página atual.
   useEffect(() => {
     if (!podeVer) return;
-    const rpc = supabase.rpc as unknown as (fn: 'list_access_log_modules') => Promise<{ data: { modulo: string }[] | null }>;
-    void rpc('list_access_log_modules').then(({ data }) => {
+    void callRpc<{ modulo: string }[]>('list_access_log_modules').then(({ data }) => {
       if (data) setModulosConhecidos(data.map((r) => r.modulo).filter(Boolean));
     });
   }, [podeVer]);
@@ -172,8 +172,7 @@ export default function AccessLogsPage() {
     const dias = Number(diasExpurgo);
     if (!Number.isFinite(dias) || dias < 1) { toast.error('Informe um número de dias maior ou igual a 1.'); return; }
     setExpurgando(true);
-    const rpc = supabase.rpc as unknown as (fn: 'purge_access_log_sessions', args: { p_dias: number }) => Promise<{ data: number | null; error: { message: string } | null }>;
-    const { data, error } = await rpc('purge_access_log_sessions', { p_dias: dias });
+    const { data, error } = await callRpc<number>('purge_access_log_sessions', { p_dias: dias });
     setExpurgando(false);
     if (error) { toast.error(`Não foi possível expurgar: ${error.message}`); return; }
     toast.success(`${data ?? 0} registro(s) removido(s) definitivamente.`);
