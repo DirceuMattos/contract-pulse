@@ -482,12 +482,13 @@ export default function JobRequestsPage() {
                 key={r.id}
                 role="button"
                 tabIndex={0}
-                className="min-w-0 cursor-pointer border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={`min-w-0 border-2 bg-card hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${canEdit ? 'cursor-pointer' : ''}`}
                 style={{
                   ...getStatusCardStyle(r.status),
                 }}
-                onClick={() => openEdit(r)}
+                onClick={() => { if (canEdit) openEdit(r); }}
                 onKeyDown={(event) => {
+                  if (!canEdit) return;
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     openEdit(r);

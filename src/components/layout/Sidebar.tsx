@@ -105,7 +105,7 @@ const navGroups: NavGroup[] = [
       },
       { path: '/skills-vagas', label: 'Skills de Vagas', icon: Sparkles, moduleKey: 'JOB_SKILLS' },
       { path: '/horas-extras', label: 'Adm Horas Extras', icon: Clock, moduleKey: 'OVERTIME' },
-      { path: '/adm-transportes', label: 'Adm Deslocamentos (Aplicativo)', icon: Truck },
+      { path: '/adm-transportes', label: 'Adm Deslocamentos (Aplicativo)', icon: Truck, moduleKey: 'TRANSPORT' },
     ],
   },
   {

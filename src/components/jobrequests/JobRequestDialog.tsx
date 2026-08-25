@@ -42,7 +42,7 @@ const normalizar = (v: string) =>
   v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 
 export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props) {
-  const { user, userRole } = useAuth();
+  const { user, userRole, canEdit } = useAuth();
   const { jobTitles } = useData();
   const { skills: allSkills } = useJobSkills();
 
@@ -436,8 +436,15 @@ export function JobRequestDialog({ open, onOpenChange, editing, onSaved }: Props
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            {canEdit ? 'Cancelar' : 'Fechar'}
+          </Button>
+          {/* Segunda camada: mesmo que algo abra este dialogo sem permissao, nao
+              existe botao para gravar. O banco tambem barra (jr_write), mas a
+              tela nao deve oferecer o que nao pode cumprir. */}
+          {canEdit && (
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

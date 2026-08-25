@@ -47,7 +47,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   { key: 'REPORTS', label: 'Relatórios Mensais', description: 'Relatórios mensais de atividades por contrato', routes: ['/relatorios', '/relatorios/:reportId', '/relatorios/config/:contractId'], roleRestrictions: ['c-level', 'superadmin', 'lider_tribo', 'administrativo', 'coordenacao_suporte', 'projetos_produtos', 'rh', 'head'] },
   { key: 'SUPPORT_COSTS', label: 'Custo do Suporte a Sistemas - TSI', description: 'Custos de atendimento de suporte a sistemas por cliente e projeto', routes: ['/custos-suporte'], roleRestrictions: ['superadmin', 'c-level', 'rh', 'administrativo', 'lider_tribo'] },
   { key: 'OVERTIME', label: 'Adm Horas Extras', description: 'Administração de horas extras', routes: ['/horas-extras'], roleRestrictions: [] },
-  { key: 'TRANSPORT', label: 'Adm Transportes', description: 'Administração de transportes', routes: ['/transportes'], roleRestrictions: [] },
+  { key: 'TRANSPORT', label: 'Adm Deslocamentos', description: 'Administração de deslocamentos', routes: ['/adm-transportes'], roleRestrictions: [] },
   { key: 'JOB_REQUESTS', label: 'Requisição de Vagas', description: 'Abertura e acompanhamento de vagas', routes: ['/requisicao-vagas'], roleRestrictions: [] },
   { key: 'JOB_SKILLS', label: 'Skills de Vagas', description: 'Catálogo de skills para vagas', routes: ['/skills-vagas'], roleRestrictions: [] },
   { key: 'EQUIPMENT', label: 'Controle de Equipamentos', description: 'Inventário de equipamentos, cessões e devoluções', routes: ['/equipamentos'], roleRestrictions: ['superadmin', 'c-level', 'administrativo', 'coordenacao_suporte', 'rh'] },
@@ -107,12 +107,24 @@ export function getModuleKeyForRoute(pathname: string): ModuleKey | undefined {
   if (pathname === '/alertas') return 'ALERTS';
   if (pathname.startsWith('/squads')) return 'SQUADS';
   if (pathname === '/usuarios/logs') return 'ACCESS_LOGS';
+  // Gestao de Perfis: sem esta linha a tela era alcancavel por URL direta por
+  // QUALQUER usuario autenticado -- o MainLayout e a unica barreira de rota do
+  // sistema, e ele so barra o que este mapa reconhece.
+  if (pathname === '/usuarios/perfis') return 'PROFILES_ADMIN';
   if (pathname === '/usuarios') return 'USERS_ADMIN';
   if (pathname.startsWith('/configuracoes')) return 'SETTINGS';
   if (pathname === '/importar-exportar') return 'IMPORT_EXPORT';
   if (pathname.startsWith('/equipamentos/requisicoes')) return 'EQUIPMENT_REQUESTS';
   if (pathname.startsWith('/equipamentos')) return 'EQUIPMENT';
   if (pathname.startsWith('/rh')) return 'HR';
+  // Estas quatro estavam declaradas no MODULE_CATALOG e ausentes aqui. O
+  // catalogo dizia a qual modulo a rota pertence, o porteiro nao sabia, e o
+  // resultado era acesso liberado por URL a Deslocamentos, Horas Extras,
+  // Requisicao de Vagas e Skills.
+  if (pathname.startsWith('/adm-transportes')) return 'TRANSPORT';
+  if (pathname.startsWith('/horas-extras')) return 'OVERTIME';
+  if (pathname.startsWith('/requisicao-vagas')) return 'JOB_REQUESTS';
+  if (pathname.startsWith('/skills-vagas')) return 'JOB_SKILLS';
   if (pathname.startsWith('/receivables')) return 'RECEIVABLES';
   if (pathname.startsWith('/relatorios')) return 'REPORTS';
   if (pathname.startsWith('/custos-suporte')) return 'SUPPORT_COSTS';
