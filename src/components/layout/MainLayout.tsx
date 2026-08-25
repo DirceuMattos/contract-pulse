@@ -135,12 +135,20 @@ export function MainLayout() {
   const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 72 : 260);
   const routeAllowed = canAccessRoute(location.pathname);
 
-  // Redirect to first accessible module instead of showing Access Denied
+  // Rota nao permitida: manda para o primeiro modulo que o perfil enxerga, em
+  // vez de exibir "Acesso Negado".
+  //
+  // O submodulo entra como ultimo recurso, e isso importa: o perfil Head de
+  // Area so tem EQUIPMENT_REQUESTS, que e submodulo. Sem essa segunda tentativa
+  // o find nao achava nada, o destino caia no '/dashboard' fixo, e como o
+  // caminho ja era esse o codigo nao redirecionava -- resultado, o Head via o
+  // Dashboard de Contratos que nao deveria ver. Nenhuma pagina traz AccessGuard
+  // proprio, entao este ponto e a unica barreira de rota do sistema.
   if (!routeAllowed) {
-    const firstAccessible = MODULE_CATALOG.find(
-      m => m.routes.length > 0 && !m.isSubmodule && canAccessRoute(m.routes[0])
-    );
-    const fallbackRoute = firstAccessible?.routes[0] || '/dashboard';
+    const primeiroModulo =
+      MODULE_CATALOG.find(m => m.routes.length > 0 && !m.isSubmodule && canAccessRoute(m.routes[0]))
+      ?? MODULE_CATALOG.find(m => m.routes.length > 0 && canAccessRoute(m.routes[0]));
+    const fallbackRoute = primeiroModulo?.routes[0] ?? '/ajuda';
     if (location.pathname !== fallbackRoute) {
       return <Navigate to={fallbackRoute} replace />;
     }
