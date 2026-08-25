@@ -1,28 +1,13 @@
-## Exportar o banco via Lovable Cloud
+# Deploy Total
 
-Não preciso mexer em código — o próprio Lovable Cloud gera o dump completo do banco (schema + dados + policies + functions) num formato pronto para restaurar em outro projeto Supabase.
+## Objetivo
+Realizar o deploy completo do projeto: backend (edge functions) + frontend (publicação).
 
-### Passo a passo
+## Passos
 
-1. Abra a aba **Cloud** no topo do editor (ao lado de Preview/Code).
-2. Vá em **Advanced settings**.
-3. Clique em **Export data**.
-4. Aguarde a preparação — o Cloud notifica quando o arquivo estiver pronto para download.
+1. **Verificar achados de segurança** — rodar `security--get_scan_results` e confirmar que não há findings críticos abertos. Se houver críticos, parar e reportar antes de publicar.
+2. **Deploy das Edge Functions** — listar as funções em `supabase/functions/` e fazer o deploy de todas via `supabase--deploy_edge_functions`.
+3. **Publicar o frontend** — chamar `preview_ui--publish` para atualizar https://bnphub.com.
 
-### O que vem no export
-
-- Schema completo do `public` (tabelas, colunas, constraints, sequences)
-- Todos os dados das ~50 tabelas listadas
-- RLS policies, functions (`has_role`, `handle_new_user`, etc.) e triggers
-- Enums (`app_role`) e tipos customizados
-
-### Restaurando no projeto Supabase de destino
-
-- Use `psql` apontando para a connection string do projeto novo e rode o dump.
-- Buckets de storage (`contract-documents`, `ai-exports`, `hr-avatars`, `client-logos`) precisam ser recriados manualmente no destino e os arquivos re-enviados — o dump do banco não inclui os binários do Storage.
-- Secrets (Feedz, Superlogica, etc.) também precisam ser recadastrados no destino.
-- Usuários do `auth.users` só migram se você tiver acesso ao dashboard Supabase do destino para importar — no Lovable Cloud isso não é exposto.
-
-### Se o Export data falhar ou você precisar de algo específico
-
-Me avisa que eu faço fallback exportando tabela por tabela em CSV para `/mnt/documents/`.
+## Critério de parada
+Sem findings críticos → prosseguir com deploy e publicação. Caso apareça algum finding crítico, interromper e avisar o usuário.
