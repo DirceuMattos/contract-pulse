@@ -20,5 +20,10 @@ compatibility_date = "2026-08-30"
 directory = "./dist"
 
 # SPA: qualquer rota desconhecida devolve o index.html com status 200.
-# Faz o mesmo papel do public/_redirects, que continua valido no Pages.
+#
+# E ESTE o mecanismo de SPA aqui. O public/_redirects foi REMOVIDO: no Workers
+# Static Assets, a regra `/* /index.html 200` e recusada pela API como laco
+# infinito (codigo 100324), porque o proprio runtime ja resolve /index.
+# Se um dia isto virar Pages, o _redirects precisa voltar -- la ele e o
+# mecanismo, e o not_found_handling nao existe.
 not_found_handling = "single-page-application"

@@ -1,4 +1,0 @@
-# SPA fallback. Sem esta regra, qualquer rota interna acessada direto
-# (F5 em /dashboard, link colado, /clientes/<id>) devolve 404 no Cloudflare Pages.
-# O 200 e obrigatorio: 301/302 quebraria o roteamento do react-router.
-/*    /index.html   200
