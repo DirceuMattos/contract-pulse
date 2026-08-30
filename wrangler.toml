@@ -1,0 +1,24 @@
+# Configuracao para servir o BNPHub como Worker de assets estaticos.
+#
+# POR QUE ESTE ARQUIVO EXISTE
+# O painel do Cloudflare criou o projeto como Worker, e o deploy roda
+# `npx wrangler deploy`. Sem configuracao explicita, o wrangler tenta
+# auto-detectar o framework e exige Vite 6+; o projeto usa 5.4.19, e o deploy
+# falha mesmo com o build verde.
+#
+# Declarando os assets aqui, nao ha auto-deteccao: o wrangler so publica o
+# conteudo de dist/. Nao ha codigo de Worker -- e entrega de arquivo estatico,
+# igual ao Pages.
+#
+# SO E NECESSARIO se o projeto continuar como Worker. Se for recriado como
+# Pages, este arquivo pode ser apagado.
+
+name = "contract-pulse"
+compatibility_date = "2026-08-30"
+
+[assets]
+directory = "./dist"
+
+# SPA: qualquer rota desconhecida devolve o index.html com status 200.
+# Faz o mesmo papel do public/_redirects, que continua valido no Pages.
+not_found_handling = "single-page-application"
