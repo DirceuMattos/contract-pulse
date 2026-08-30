@@ -102,6 +102,15 @@ function ReportsPageInner() {
 
   const canDelete = userRole === 'c-level' || userRole === 'superadmin';
 
+  // Espelha a policy monthly_reports_insert do banco. Sem isto o botao "Novo
+  // Relatorio" e o item "Duplicar" apareciam para TODO perfil que enxerga o
+  // modulo -- inclusive o Head de Area, que e somente leitura. A acao ate
+  // aparecia, mas o banco recusava: a tela oferecia o que nao podia cumprir.
+  const PERFIS_QUE_CRIAM_RELATORIO = [
+    'c-level', 'superadmin', 'intermediario', 'lider_tribo', 'rh', 'projetos_produtos',
+  ];
+  const podeCriarRelatorio = PERFIS_QUE_CRIAM_RELATORIO.includes(userRole ?? '');
+
   // Ids de relatórios que têm arquivo externo importado (para sinalizar no card).
   const { data: importedIds = new Set<string>() } = useQuery({
     queryKey: ['report_external_ids'],
@@ -290,7 +299,7 @@ function ReportsPageInner() {
             <h1 className="text-2xl font-bold">Relatórios Mensais</h1>
             <p className="text-sm text-muted-foreground">Acompanhamento e elaboração colaborativa por contrato.</p>
           </div>
-          <ReportCreateDialog triggerLabel="Novo Relatório" />
+          {podeCriarRelatorio && <ReportCreateDialog triggerLabel="Novo Relatório" />}
         </div>
 
         <Card>
@@ -334,7 +343,9 @@ function ReportsPageInner() {
           <div className="text-sm text-muted-foreground">Carregando...</div>
         ) : groups.length === 0 ? (
           <Card><CardContent className="p-12 text-center text-muted-foreground">
-            Nenhum relatório encontrado. Clique em "Novo Relatório" para criar o primeiro.
+            {podeCriarRelatorio
+              ? 'Nenhum relatório encontrado. Clique em "Novo Relatório" para criar o primeiro.'
+              : 'Nenhum relatório encontrado.'}
           </CardContent></Card>
         ) : (
           <div className="space-y-3">
@@ -466,9 +477,11 @@ function ReportsPageInner() {
                                         <DropdownMenuItem onClick={() => navigate(`/relatorios/${report.id}`)}>
                                           <Eye className="w-4 h-4 mr-2" />Abrir
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleDuplicate(report)}>
-                                          <Copy className="w-4 h-4 mr-2" />Duplicar
-                                        </DropdownMenuItem>
+                                        {podeCriarRelatorio && (
+                                          <DropdownMenuItem onClick={() => handleDuplicate(report)}>
+                                            <Copy className="w-4 h-4 mr-2" />Duplicar
+                                          </DropdownMenuItem>
+                                        )}
                                         {canDelete && report.status === 'draft' && (
                                           <>
                                             <DropdownMenuSeparator />
