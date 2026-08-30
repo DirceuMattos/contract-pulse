@@ -1,0 +1,14 @@
+# Cabecalhos servidos pelo Cloudflare Pages.
+# Deliberadamente conservador: sem CSP e sem X-Frame-Options nesta etapa,
+# para nao arriscar bloquear chamadas ao Supabase nem o preview em iframe.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Assets com hash no nome: podem ser cacheados para sempre.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# O HTML nunca: e ele que aponta para o bundle novo a cada deploy.
+/index.html
+  Cache-Control: no-cache
