@@ -2,9 +2,27 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
+import { resolverCredenciais, REF_ESPERADO } from './projetoEsperado';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// ─────────────────────────────────────────────────────────────────────────
+// ATENCAO: as tres linhas abaixo NAO sao geradas. Se o Lovable regenerar este
+// arquivo e apagar esta parte, a aplicacao volta a confiar cegamente no .env,
+// e o .env volta a apontar para o banco abandonado a cada Publish. O teste
+// src/integrations/supabase/projetoEsperado.test.ts falha se isto sumir.
+// Ver projetoEsperado.ts para o historico.
+// ─────────────────────────────────────────────────────────────────────────
+const credenciais = resolverCredenciais(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+);
+if (!credenciais.veioDoAmbiente) {
+  console.error(
+    `[BNPHub] O .env foi IGNORADO: ${credenciais.motivo}. ` +
+    `Usando o projeto correto (${REF_ESPERADO}). Isto e uma protecao, nao o estado normal.`,
+  );
+}
+const SUPABASE_URL = credenciais.url;
+const SUPABASE_PUBLISHABLE_KEY = credenciais.chave;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
