@@ -8,9 +8,13 @@ name: Deploy Supabase Edge Functions
 # (Settings → Secrets and variables → Actions). Gere o token em:
 # Supabase → Account → Access Tokens.
 #
-# O project_id vem do supabase/config.toml (bjuxpqtsfnkaonczauxz), então não é
-# necessário passá-lo aqui. As configs por função (verify_jwt, etc.) também são
-# lidas do config.toml pela CLI.
+# O projeto de destino é shkovalhksqixbppcjnr, o mesmo que o front usa (ver
+# src/integrations/supabase/projetoEsperado.ts). Ele aparece em dois lugares que
+# precisam andar juntos: o PROJECT_REF deste arquivo e o project_id do
+# supabase/config.toml. Se divergirem, o deploy vai para o projeto errado e o
+# workflow ainda fica verde — foi o que aconteceu entre 30/08 e 02/09/2026,
+# quando ambos apontavam para bjuxpqtsfnkaonczauxz, o banco abandonado.
+# As configs por função (verify_jwt, etc.) são lidas do config.toml pela CLI.
 
 on:
   push:
@@ -31,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PROJECT_REF: bjuxpqtsfnkaonczauxz
+      PROJECT_REF: shkovalhksqixbppcjnr
     steps:
       - name: Checkout
         uses: actions/checkout@v4
