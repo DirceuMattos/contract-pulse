@@ -41,7 +41,7 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
   const { settings, updateSettings, resetToDemo, jobTitles, teams } = useData();
-  const { canEdit, user } = useAuth();
+  const { canEdit, user, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const isCLevel = user?.role === 'c-level' || user?.role === 'superadmin';
 
@@ -70,7 +70,7 @@ export default function SettingsPage() {
         title="Configurações"
         description="Parâmetros globais do sistema para cálculos e alertas."
         animated={false}
-        actions={canEdit ? (
+        actions={isSuperAdmin ? (
           <Button variant="outline" onClick={() => setResetOpen(true)}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Restaurar Demo
@@ -82,9 +82,9 @@ export default function SettingsPage() {
         open={resetOpen}
         onOpenChange={setResetOpen}
         onConfirm={handleReset}
-        title="Restaurar dados de demonstração?"
-        description="Isso restaurará todos os dados de demonstração, incluindo contratos, clientes, recursos e configurações. Esta ação não pode ser desfeita."
-        confirmLabel="Restaurar"
+        title="Apagar todos os dados e restaurar a demonstração?"
+        description="APAGA todos os contratos, clientes, recursos, equipes, cargos, histórico, anexos e snapshots existentes no banco, e os substitui por dados fictícios. Não há cópia de segurança automática. Esta ação não pode ser desfeita."
+        confirmLabel="Apagar e restaurar"
       />
 
       <Form {...form}>
