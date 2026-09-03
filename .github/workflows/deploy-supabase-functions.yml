@@ -56,7 +56,7 @@ jobs:
       - name: Deploy das edge functions P0
         run: |
           set -euo pipefail
-          functions=(manage-users feedz-test-photo)
+          functions=(manage-users feedz-test-photo ai-draft-generate)
           for fn in "${functions[@]}"; do
             echo "::group::Deploy $fn"
             supabase functions deploy "$fn" --project-ref "$PROJECT_REF"

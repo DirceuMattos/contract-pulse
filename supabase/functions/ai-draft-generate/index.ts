@@ -48,6 +48,32 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // --- Autorizacao por papel ---
+    // Gerar minuta le o conteudo de documentos contratuais. Os papeis aqui
+    // acompanham quem a RLS deixa ler doc_chunks e document_attachments.
+    // Antes desta checagem, QUALQUER usuario autenticado chamava a funcao e
+    // recebia o texto de qualquer documento, porque as leituras abaixo usavam
+    // o cliente service_role e passavam por cima da RLS.
+    // A checagem usa o cliente service_role de proposito: a RPC has_any_role e
+    // SECURITY DEFINER e o resultado nao pode depender da RLS de user_roles.
+    const { data: papelAutorizado, error: papelErr } = await supabase.rpc("has_any_role", {
+      _user_id: callerId,
+      _roles: ["c-level", "superadmin"],
+    });
+    if (papelErr) {
+      console.error("Falha ao verificar papel:", papelErr);
+      return new Response(
+        JSON.stringify({ error: "Unable to verify role" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (papelAutorizado !== true) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const {
       type,         // 'contract' | 'tr'
       variant,      // 'govtech' | 'privado'
@@ -66,13 +92,15 @@ serve(async (req) => {
 
     // Always derive identity and role from verified JWT, never from request body
     const user_id = callerId;
-    const { data: roleRow } = await authClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId)
-      .eq("role", "c-level")
-      .maybeSingle();
-    const redactionLevel = roleRow ? "full" : "aggregated";
+    // A leitura anterior consultava user_roles pelo authClient, sob RLS. Se a
+    // policy de user_roles negasse a leitura, o resultado vinha nulo e o papel
+    // era rebaixado por falta de permissao, nao por papel. A RPC has_role e
+    // SECURITY DEFINER e responde a pergunta certa.
+    const { data: ehClevel } = await supabase.rpc("has_role", {
+      _user_id: callerId,
+      _role: "c-level",
+    });
+    const redactionLevel = ehClevel === true ? "full" : "aggregated";
 
     // Retrieve relevant chunks from selected documents
     let contextChunks: { chunk_text: string; document_id: string; chunk_index: number; page_start: number | null; file_name?: string }[] = [];
@@ -87,7 +115,10 @@ serve(async (req) => {
 
       if (searchTerms?.trim()) {
         // Use full-text search
-        const { data: ftsResults } = await supabase.rpc("match_chunks_fts", {
+        // authClient (anon + JWT do chamador): a RLS de doc_chunks decide quais
+        // documentos ele pode ler. match_chunks_fts NAO e SECURITY DEFINER,
+        // entao respeita a RLS do chamador.
+        const { data: ftsResults } = await authClient.rpc("match_chunks_fts", {
           query_text: searchTerms,
           doc_ids: doc_ids,
           match_count: 15,
@@ -105,7 +136,7 @@ serve(async (req) => {
 
       // If FTS returned nothing, get first chunks from each document
       if (contextChunks.length === 0) {
-        const { data: fallbackChunks } = await supabase
+        const { data: fallbackChunks } = await authClient
           .from("doc_chunks")
           .select("chunk_text, document_id, chunk_index, page_start")
           .in("document_id", doc_ids)
@@ -118,7 +149,7 @@ serve(async (req) => {
       }
 
       // Get document names for evidence
-      const { data: docMeta } = await supabase
+      const { data: docMeta } = await authClient
         .from("document_attachments")
         .select("id, file_name")
         .in("id", doc_ids);
