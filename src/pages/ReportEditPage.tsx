@@ -653,6 +653,10 @@ export default function ReportEditPage() {
   // reabrindo um relatorio ja liberado (decisao do PO em 08/2026).
   const allowedStatusTransitions = (() => {
     if (isSuperAdmin || isCLevel || isLiderTribo) return [...STATUS_ORDER];
+    // Projetos-Produtos monta o relatorio no rascunho (ver canEditContent acima)
+    // e pode envia-lo para revisao. Nao libera e nao reabre: depois que entra em
+    // revisao, a movimentacao volta a ser dos perfis do fluxo completo.
+    if (isProjProd && report.status === 'draft') return ['draft', 'review'] as ReportStatus[];
     return [report.status]; // demais perfis: acompanham, nao movimentam
   })();
 
